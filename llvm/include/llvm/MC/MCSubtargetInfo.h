@@ -234,6 +234,11 @@ public:
     return ProcDesc;
   }
 
+
+  ArrayRef<SubtargetFeatureKV> getFeatureTable() const {
+    return ProcFeatures;
+  }
+
   virtual unsigned getHwMode() const { return 0; }
 
   /// Return the cache size in bytes for the given level of cache.
