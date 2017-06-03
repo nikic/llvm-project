@@ -74,6 +74,7 @@ enum class MallocFamily {
   MSVCArrayNew,       // new[](unsigned int)
   VecMalloc,
   KmpcAllocShared,
+  Rust,
 };
 
 StringRef mangledNameForMallocFamily(const MallocFamily &Family) {
@@ -96,6 +97,8 @@ StringRef mangledNameForMallocFamily(const MallocFamily &Family) {
     return "vec_malloc";
   case MallocFamily::KmpcAllocShared:
     return "__kmpc_alloc_shared";
+  case MallocFamily::Rust:
+    return "__rust_alloc";
   }
   llvm_unreachable("missing an alloc family");
 }
@@ -154,6 +157,9 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
     {LibFunc_strndup,                           {StrDupLike,       2,  1, -1, -1, MallocFamily::Malloc}},
     {LibFunc_dunder_strndup,                    {StrDupLike,       2,  1, -1, -1, MallocFamily::Malloc}},
     {LibFunc___kmpc_alloc_shared,               {MallocLike,       1,  0, -1, -1, MallocFamily::KmpcAllocShared}},
+    {LibFunc_rust_alloc,                        {MallocLike,       2,  0, -1,  1, MallocFamily::Rust}},
+    {LibFunc_rust_alloc_zeroed,                 {CallocLike,       2,  0, -1,  1, MallocFamily::Rust}},
+    {LibFunc_rust_realloc,                      {ReallocLike,      4,  3, -1,  2, MallocFamily::Rust}},
 };
 // clang-format on
 
@@ -474,6 +480,7 @@ static const std::pair<LibFunc, FreeFnsTy> FreeFnData[] = {
     {LibFunc_ZdlPvmSt11align_val_t,              {3, MallocFamily::CPPNewAligned}},      // delete(void*, unsigned long, align_val_t)
     {LibFunc_ZdaPvjSt11align_val_t,              {3, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, unsigned int, align_val_t)
     {LibFunc_ZdaPvmSt11align_val_t,              {3, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, unsigned long, align_val_t)
+	{LibFunc_rust_dealloc,                       {3, MallocFamily::Rust}},
 };
 // clang-format on
 
