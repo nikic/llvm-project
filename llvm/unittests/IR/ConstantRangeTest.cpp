@@ -28,8 +28,8 @@ protected:
 ConstantRange ConstantRangeTest::Full(16, true);
 ConstantRange ConstantRangeTest::Empty(16, false);
 ConstantRange ConstantRangeTest::One(APInt(16, 0xa));
-ConstantRange ConstantRangeTest::Some(APInt(16, 0xa), APInt(16, 0xaaa));
-ConstantRange ConstantRangeTest::Wrap(APInt(16, 0xaaa), APInt(16, 0xa));
+ConstantRange ConstantRangeTest::Some(APInt(16, 0xa), APInt(16, 0xaa9));
+ConstantRange ConstantRangeTest::Wrap(APInt(16, 0xaaa), APInt(16, 0x9));
 
 TEST_F(ConstantRangeTest, Basics) {
   EXPECT_TRUE(Full.isFullSet());
@@ -102,18 +102,19 @@ TEST_F(ConstantRangeTest, Equality) {
 TEST_F(ConstantRangeTest, SingleElement) {
   EXPECT_EQ(Full.getSingleElement(), static_cast<APInt *>(nullptr));
   EXPECT_EQ(Empty.getSingleElement(), static_cast<APInt *>(nullptr));
-  EXPECT_EQ(Full.getSingleMissingElement(), static_cast<APInt *>(nullptr));
-  EXPECT_EQ(Empty.getSingleMissingElement(), static_cast<APInt *>(nullptr));
 
   EXPECT_EQ(*One.getSingleElement(), APInt(16, 0xa));
   EXPECT_EQ(Some.getSingleElement(), static_cast<APInt *>(nullptr));
   EXPECT_EQ(Wrap.getSingleElement(), static_cast<APInt *>(nullptr));
 
-  EXPECT_EQ(One.getSingleMissingElement(), static_cast<APInt *>(nullptr));
-  EXPECT_EQ(Some.getSingleMissingElement(), static_cast<APInt *>(nullptr));
+  EXPECT_FALSE(Full.isSingleMissingElement());
+  EXPECT_FALSE(Empty.isSingleMissingElement());
+  EXPECT_FALSE(One.isSingleMissingElement());
+  EXPECT_FALSE(Some.isSingleMissingElement());
 
   ConstantRange OneInverse = One.inverse();
-  EXPECT_EQ(*OneInverse.getSingleMissingElement(), *One.getSingleElement());
+  EXPECT_TRUE(OneInverse.isSingleMissingElement());
+  EXPECT_EQ(OneInverse.getSingleMissingElement(), *One.getSingleElement());
 
   EXPECT_FALSE(Full.isSingleElement());
   EXPECT_FALSE(Empty.isSingleElement());
@@ -128,8 +129,8 @@ TEST_F(ConstantRangeTest, GetSetSize) {
   EXPECT_EQ(One.getSetSize(), APInt(17, 1));
   EXPECT_EQ(Some.getSetSize(), APInt(17, 0xaa0));
 
-  ConstantRange Wrap(APInt(4, 7), APInt(4, 3));
-  ConstantRange Wrap2(APInt(4, 8), APInt(4, 7));
+  ConstantRange Wrap(APInt(4, 7), APInt(4, 2));
+  ConstantRange Wrap2(APInt(4, 8), APInt(4, 6));
   EXPECT_EQ(Wrap.getSetSize(), APInt(5, 12));
   EXPECT_EQ(Wrap2.getSetSize(), APInt(5, 15));
 }
@@ -161,19 +162,19 @@ TEST_F(ConstantRangeTest, GetMinsAndMaxes) {
 }
 
 TEST_F(ConstantRangeTest, SignWrapped) {
-  EXPECT_TRUE(Full.isSignWrappedSet());
+  EXPECT_FALSE(Full.isSignWrappedSet());
   EXPECT_FALSE(Empty.isSignWrappedSet());
   EXPECT_FALSE(One.isSignWrappedSet());
   EXPECT_FALSE(Some.isSignWrappedSet());
   EXPECT_TRUE(Wrap.isSignWrappedSet());
 
-  EXPECT_FALSE(ConstantRange(APInt(8, 127), APInt(8, 128)).isSignWrappedSet());
-  EXPECT_TRUE(ConstantRange(APInt(8, 127), APInt(8, 129)).isSignWrappedSet());
-  EXPECT_FALSE(ConstantRange(APInt(8, 128), APInt(8, 129)).isSignWrappedSet());
-  EXPECT_TRUE(ConstantRange(APInt(8, 10), APInt(8, 9)).isSignWrappedSet());
-  EXPECT_TRUE(ConstantRange(APInt(8, 10), APInt(8, 250)).isSignWrappedSet());
-  EXPECT_FALSE(ConstantRange(APInt(8, 250), APInt(8, 10)).isSignWrappedSet());
-  EXPECT_FALSE(ConstantRange(APInt(8, 250), APInt(8, 251)).isSignWrappedSet());
+  EXPECT_FALSE(ConstantRange(APInt(8, 127), APInt(8, 127)).isSignWrappedSet());
+  EXPECT_TRUE(ConstantRange(APInt(8, 127), APInt(8, 128)).isSignWrappedSet());
+  EXPECT_FALSE(ConstantRange(APInt(8, 128), APInt(8, 128)).isSignWrappedSet());
+  EXPECT_TRUE(ConstantRange(APInt(8, 10), APInt(8, 8)).isSignWrappedSet());
+  EXPECT_TRUE(ConstantRange(APInt(8, 10), APInt(8, 249)).isSignWrappedSet());
+  EXPECT_FALSE(ConstantRange(APInt(8, 250), APInt(8, 9)).isSignWrappedSet());
+  EXPECT_FALSE(ConstantRange(APInt(8, 250), APInt(8, 250)).isSignWrappedSet());
 }
 
 TEST_F(ConstantRangeTest, Trunc) {
@@ -189,21 +190,21 @@ TEST_F(ConstantRangeTest, Trunc) {
   EXPECT_TRUE(TSome.isFullSet());
   EXPECT_TRUE(TWrap.isFullSet());
 
-  // trunc([2, 5), 3->2) = [2, 1)
+  // trunc([2, 4], 3->2) = [2, 0]
+  ConstantRange TwoFour(APInt(3, 2), APInt(3, 4));
+  EXPECT_EQ(TwoFour.truncate(2), ConstantRange(APInt(2, 2), APInt(2, 0)));
+
+  // trunc([2, 5], 3->2) = full
   ConstantRange TwoFive(APInt(3, 2), APInt(3, 5));
-  EXPECT_EQ(TwoFive.truncate(2), ConstantRange(APInt(2, 2), APInt(2, 1)));
+  EXPECT_TRUE(TwoFive.truncate(2).isFullSet());
 
-  // trunc([2, 6), 3->2) = full
-  ConstantRange TwoSix(APInt(3, 2), APInt(3, 6));
-  EXPECT_TRUE(TwoSix.truncate(2).isFullSet());
+  // trunc([5, 6], 3->2) = [1, 2]
+  ConstantRange FiveSix(APInt(3, 5), APInt(3, 6));
+  EXPECT_EQ(FiveSix.truncate(2), ConstantRange(APInt(2, 1), APInt(2, 2)));
 
-  // trunc([5, 7), 3->2) = [1, 3)
-  ConstantRange FiveSeven(APInt(3, 5), APInt(3, 7));
-  EXPECT_EQ(FiveSeven.truncate(2), ConstantRange(APInt(2, 1), APInt(2, 3)));
-
-  // trunc([7, 1), 3->2) = [3, 1)
-  ConstantRange SevenOne(APInt(3, 7), APInt(3, 1));
-  EXPECT_EQ(SevenOne.truncate(2), ConstantRange(APInt(2, 3), APInt(2, 1)));
+  // trunc([7, 0], 3->2) = [3, 0]
+  ConstantRange SevenZero(APInt(3, 7), APInt(3, 0));
+  EXPECT_EQ(SevenZero.truncate(2), ConstantRange(APInt(2, 3), APInt(2, 0)));
 }
 
 TEST_F(ConstantRangeTest, ZExt) {
@@ -212,17 +213,17 @@ TEST_F(ConstantRangeTest, ZExt) {
   ConstantRange ZOne = One.zeroExtend(20);
   ConstantRange ZSome = Some.zeroExtend(20);
   ConstantRange ZWrap = Wrap.zeroExtend(20);
-  EXPECT_EQ(ZFull, ConstantRange(APInt(20, 0), APInt(20, 0x10000)));
+  EXPECT_EQ(ZFull, ConstantRange(APInt(20, 0), APInt(20, 0xffff)));
   EXPECT_TRUE(ZEmpty.isEmptySet());
   EXPECT_EQ(ZOne, ConstantRange(One.getLower().zext(20),
                                 One.getUpper().zext(20)));
   EXPECT_EQ(ZSome, ConstantRange(Some.getLower().zext(20),
                                  Some.getUpper().zext(20)));
-  EXPECT_EQ(ZWrap, ConstantRange(APInt(20, 0), APInt(20, 0x10000)));
+  EXPECT_EQ(ZWrap, ConstantRange(APInt(20, 0), APInt(20, 0xffff)));
 
-  // zext([5, 0), 3->7) = [5, 8)
-  ConstantRange FiveZero(APInt(3, 5), APInt(3, 0));
-  EXPECT_EQ(FiveZero.zeroExtend(7), ConstantRange(APInt(7, 5), APInt(7, 8)));
+  // zext([5, -1], 3->7) = [5, 7]
+  ConstantRange FiveZero(APInt(3, 5), APInt(3, -1));
+  EXPECT_EQ(FiveZero.zeroExtend(7), ConstantRange(APInt(7, 5), APInt(7, 7)));
 }
 
 TEST_F(ConstantRangeTest, SExt) {
@@ -232,20 +233,20 @@ TEST_F(ConstantRangeTest, SExt) {
   ConstantRange SSome = Some.signExtend(20);
   ConstantRange SWrap = Wrap.signExtend(20);
   EXPECT_EQ(SFull, ConstantRange(APInt(20, (uint64_t)INT16_MIN, true),
-                                 APInt(20, INT16_MAX + 1, true)));
+                                 APInt(20, INT16_MAX, true)));
   EXPECT_TRUE(SEmpty.isEmptySet());
   EXPECT_EQ(SOne, ConstantRange(One.getLower().sext(20),
                                 One.getUpper().sext(20)));
   EXPECT_EQ(SSome, ConstantRange(Some.getLower().sext(20),
                                  Some.getUpper().sext(20)));
   EXPECT_EQ(SWrap, ConstantRange(APInt(20, (uint64_t)INT16_MIN, true),
-                                 APInt(20, INT16_MAX + 1, true)));
+                                 APInt(20, INT16_MAX, true)));
 
-  EXPECT_EQ(ConstantRange(APInt(8, 120), APInt(8, 140)).signExtend(16),
-            ConstantRange(APInt(16, -128), APInt(16, 128)));
+  EXPECT_EQ(ConstantRange(APInt(8, 120), APInt(8, 139)).signExtend(16),
+            ConstantRange(APInt(16, -128), APInt(16, 127)));
 
-  EXPECT_EQ(ConstantRange(APInt(16, 0x0200), APInt(16, 0x8000)).signExtend(19),
-            ConstantRange(APInt(19, 0x0200), APInt(19, 0x8000)));
+  EXPECT_EQ(ConstantRange(APInt(16, 0x0200), APInt(16, 0x7fff)).signExtend(19),
+            ConstantRange(APInt(19, 0x0200), APInt(19, 0x7fff)));
 }
 
 TEST_F(ConstantRangeTest, IntersectWith) {
@@ -264,65 +265,65 @@ TEST_F(ConstantRangeTest, IntersectWith) {
   EXPECT_EQ(One.intersectWith(Wrap), Wrap.intersectWith(One));
 
   // Klee generated testcase from PR4545.
-  // The intersection of i16 [4, 2) and [6, 5) is disjoint, looking like
+  // The intersection of i16 [4, 1] and [6, 4] is disjoint, looking like
   // 01..4.6789ABCDEF where the dots represent values not in the intersection.
-  ConstantRange LHS(APInt(16, 4), APInt(16, 2));
-  ConstantRange RHS(APInt(16, 6), APInt(16, 5));
+  ConstantRange LHS(APInt(16, 4), APInt(16, 1));
+  ConstantRange RHS(APInt(16, 6), APInt(16, 4));
   EXPECT_TRUE(LHS.intersectWith(RHS) == LHS);
 
-  // previous bug: intersection of [min, 3) and [2, max) should be 2
-  LHS = ConstantRange(APInt(32, -2147483646), APInt(32, 3));
-  RHS = ConstantRange(APInt(32, 2), APInt(32, 2147483646));
+  // previous bug: intersection of [min+1, 2] and [2, max-2] should be 2
+  LHS = ConstantRange(APInt(32, -2147483646), APInt(32, 2));
+  RHS = ConstantRange(APInt(32, 2), APInt(32, 2147483645));
   EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 2)));
 
-  // [2, 0) /\ [4, 3) = [2, 0)
-  LHS = ConstantRange(APInt(32, 2), APInt(32, 0));
-  RHS = ConstantRange(APInt(32, 4), APInt(32, 3));
-  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 2), APInt(32, 0)));
-
-  // [2, 0) /\ [4, 2) = [4, 0)
-  LHS = ConstantRange(APInt(32, 2), APInt(32, 0));
+  // [2, -1] /\ [4, 2] = [2, -1]
+  LHS = ConstantRange(APInt(32, 2), APInt(32, -1));
   RHS = ConstantRange(APInt(32, 4), APInt(32, 2));
-  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 4), APInt(32, 0)));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 2), APInt(32, -1)));
 
-  // [4, 2) /\ [5, 1) = [5, 1)
-  LHS = ConstantRange(APInt(32, 4), APInt(32, 2));
-  RHS = ConstantRange(APInt(32, 5), APInt(32, 1));
-  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 5), APInt(32, 1)));
+  // [2, -1] /\ [4, 1] = [4, -1]
+  LHS = ConstantRange(APInt(32, 2), APInt(32, -1));
+  RHS = ConstantRange(APInt(32, 4), APInt(32, 1));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 4), APInt(32, -1)));
 
-  // [2, 0) /\ [7, 4) = [7, 4)
-  LHS = ConstantRange(APInt(32, 2), APInt(32, 0));
-  RHS = ConstantRange(APInt(32, 7), APInt(32, 4));
-  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 7), APInt(32, 4)));
+  // [4, 1] /\ [5, 0] = [5, 0]
+  LHS = ConstantRange(APInt(32, 4), APInt(32, 1));
+  RHS = ConstantRange(APInt(32, 5), APInt(32, 0));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 5), APInt(32, 0)));
 
-  // [4, 2) /\ [1, 0) = [1, 0)
-  LHS = ConstantRange(APInt(32, 4), APInt(32, 2));
-  RHS = ConstantRange(APInt(32, 1), APInt(32, 0));
-  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 4), APInt(32, 2)));
+  // [2, -1] /\ [7, 3] = [7, 3]
+  LHS = ConstantRange(APInt(32, 2), APInt(32, -1));
+  RHS = ConstantRange(APInt(32, 7), APInt(32, 3));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 7), APInt(32, 3)));
+
+  // [4, 1] /\ [1, -1] = [1, -1]
+  LHS = ConstantRange(APInt(32, 4), APInt(32, 1));
+  RHS = ConstantRange(APInt(32, 1), APInt(32, -1));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 4), APInt(32, 1)));
  
-  // [15, 0) /\ [7, 6) = [15, 0)
-  LHS = ConstantRange(APInt(32, 15), APInt(32, 0));
-  RHS = ConstantRange(APInt(32, 7), APInt(32, 6));
-  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 15), APInt(32, 0)));
+  // [15, -1] /\ [7, 5] = [15, -1]
+  LHS = ConstantRange(APInt(32, 15), APInt(32, -1));
+  RHS = ConstantRange(APInt(32, 7), APInt(32, 5));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 15), APInt(32, -1)));
 }
 
 TEST_F(ConstantRangeTest, UnionWith) {
   EXPECT_EQ(Wrap.unionWith(One),
-            ConstantRange(APInt(16, 0xaaa), APInt(16, 0xb)));
+            ConstantRange(APInt(16, 0xaaa), APInt(16, 0xa)));
   EXPECT_EQ(One.unionWith(Wrap), Wrap.unionWith(One));
   EXPECT_EQ(Empty.unionWith(Empty), Empty);
   EXPECT_EQ(Full.unionWith(Full), Full);
   EXPECT_EQ(Some.unionWith(Wrap), Full);
 
   // PR4545
-  EXPECT_EQ(ConstantRange(APInt(16, 14), APInt(16, 1)).unionWith(
-                                    ConstantRange(APInt(16, 0), APInt(16, 8))),
-            ConstantRange(APInt(16, 14), APInt(16, 8)));
-  EXPECT_EQ(ConstantRange(APInt(16, 6), APInt(16, 4)).unionWith(
-                                    ConstantRange(APInt(16, 4), APInt(16, 0))),
+  EXPECT_EQ(ConstantRange(APInt(16, 14), APInt(16, 0)).unionWith(
+                                    ConstantRange(APInt(16, 0), APInt(16, 7))),
+            ConstantRange(APInt(16, 14), APInt(16, 7)));
+  EXPECT_EQ(ConstantRange(APInt(16, 6), APInt(16, 3)).unionWith(
+                                    ConstantRange(APInt(16, 4), APInt(16, -1))),
             ConstantRange::getFull(16));
-  EXPECT_EQ(ConstantRange(APInt(16, 1), APInt(16, 0)).unionWith(
-                                    ConstantRange(APInt(16, 2), APInt(16, 1))),
+  EXPECT_EQ(ConstantRange(APInt(16, 1), APInt(16, -1)).unionWith(
+                                    ConstantRange(APInt(16, 2), APInt(16, 0))),
             ConstantRange::getFull(16));
 }
 
@@ -332,12 +333,12 @@ TEST_F(ConstantRangeTest, SetDifference) {
   EXPECT_EQ(Empty.difference(Empty), Empty);
   EXPECT_EQ(Empty.difference(Full), Empty);
 
-  ConstantRange A(APInt(16, 3), APInt(16, 7));
-  ConstantRange B(APInt(16, 5), APInt(16, 9));
-  ConstantRange C(APInt(16, 3), APInt(16, 5));
-  ConstantRange D(APInt(16, 7), APInt(16, 9));
-  ConstantRange E(APInt(16, 5), APInt(16, 4));
-  ConstantRange F(APInt(16, 7), APInt(16, 3));
+  ConstantRange A(APInt(16, 3), APInt(16, 6));
+  ConstantRange B(APInt(16, 5), APInt(16, 8));
+  ConstantRange C(APInt(16, 3), APInt(16, 4));
+  ConstantRange D(APInt(16, 7), APInt(16, 8));
+  ConstantRange E(APInt(16, 5), APInt(16, 3));
+  ConstantRange F(APInt(16, 7), APInt(16, 2));
   EXPECT_EQ(A.difference(B), C);
   EXPECT_EQ(B.difference(A), D);
   EXPECT_EQ(E.difference(A), F);
@@ -347,9 +348,9 @@ TEST_F(ConstantRangeTest, SubtractAPInt) {
   EXPECT_EQ(Full.subtract(APInt(16, 4)), Full);
   EXPECT_EQ(Empty.subtract(APInt(16, 4)), Empty);
   EXPECT_EQ(Some.subtract(APInt(16, 4)),
-            ConstantRange(APInt(16, 0x6), APInt(16, 0xaa6)));
+            ConstantRange(APInt(16, 0x6), APInt(16, 0xaa5)));
   EXPECT_EQ(Wrap.subtract(APInt(16, 4)),
-            ConstantRange(APInt(16, 0xaa6), APInt(16, 0x6)));
+            ConstantRange(APInt(16, 0xaa6), APInt(16, 0x5)));
   EXPECT_EQ(One.subtract(APInt(16, 4)),
             ConstantRange(APInt(16, 0x6)));
 }
@@ -367,9 +368,9 @@ TEST_F(ConstantRangeTest, Add) {
   EXPECT_EQ(Empty.add(Wrap), Empty);
   EXPECT_EQ(Empty.add(APInt(16, 4)), Empty);
   EXPECT_EQ(Some.add(APInt(16, 4)),
-            ConstantRange(APInt(16, 0xe), APInt(16, 0xaae)));
+            ConstantRange(APInt(16, 0xe), APInt(16, 0xaad)));
   EXPECT_EQ(Wrap.add(APInt(16, 4)),
-            ConstantRange(APInt(16, 0xaae), APInt(16, 0xe)));
+            ConstantRange(APInt(16, 0xaae), APInt(16, 0xd)));
   EXPECT_EQ(One.add(APInt(16, 4)),
             ConstantRange(APInt(16, 0xe)));
 }
@@ -377,27 +378,27 @@ TEST_F(ConstantRangeTest, Add) {
 TEST_F(ConstantRangeTest, AddWithNoSignedWrap) {
   EXPECT_EQ(Empty.addWithNoSignedWrap(APInt(16, 1)), Empty);
   EXPECT_EQ(Full.addWithNoSignedWrap(APInt(16, 1)),
-            ConstantRange(APInt(16, INT16_MIN+1), APInt(16, INT16_MIN)));
-  EXPECT_EQ(ConstantRange(APInt(8, -50), APInt(8, 50)).addWithNoSignedWrap(APInt(8, 10)),
-            ConstantRange(APInt(8, -40), APInt(8, 60)));
-  EXPECT_EQ(ConstantRange(APInt(8, -50), APInt(8, 120)).addWithNoSignedWrap(APInt(8, 10)),
-            ConstantRange(APInt(8, -40), APInt(8, INT8_MIN)));
-  EXPECT_EQ(ConstantRange(APInt(8, 120), APInt(8, -10)).addWithNoSignedWrap(APInt(8, 5)),
-            ConstantRange(APInt(8, 125), APInt(8, -5)));
-  EXPECT_EQ(ConstantRange(APInt(8, 120), APInt(8, -120)).addWithNoSignedWrap(APInt(8, 10)),
-            ConstantRange(APInt(8, INT8_MIN+10), APInt(8, -110)));
+            ConstantRange(APInt(16, INT16_MIN+1), APInt(16, INT16_MAX)));
+  EXPECT_EQ(ConstantRange(APInt(8, -50), APInt(8, 49)).addWithNoSignedWrap(APInt(8, 10)),
+            ConstantRange(APInt(8, -40), APInt(8, 59)));
+  EXPECT_EQ(ConstantRange(APInt(8, -50), APInt(8, 119)).addWithNoSignedWrap(APInt(8, 10)),
+            ConstantRange(APInt(8, -40), APInt(8, INT8_MAX)));
+  EXPECT_EQ(ConstantRange(APInt(8, 120), APInt(8, -11)).addWithNoSignedWrap(APInt(8, 5)),
+            ConstantRange(APInt(8, 125), APInt(8, -6)));
+  EXPECT_EQ(ConstantRange(APInt(8, 120), APInt(8, -121)).addWithNoSignedWrap(APInt(8, 10)),
+            ConstantRange(APInt(8, INT8_MIN+10), APInt(8, -111)));
 
   EXPECT_EQ(Empty.addWithNoSignedWrap(APInt(16, -1)), Empty);
   EXPECT_EQ(Full.addWithNoSignedWrap(APInt(16, -1)),
-            ConstantRange(APInt(16, INT16_MIN), APInt(16, INT16_MAX)));
-  EXPECT_EQ(ConstantRange(APInt(8, -50), APInt(8, 50)).addWithNoSignedWrap(APInt(8, -10)),
-            ConstantRange(APInt(8, -60), APInt(8, 40)));
-  EXPECT_EQ(ConstantRange(APInt(8, -120), APInt(8, 50)).addWithNoSignedWrap(APInt(8, -10)),
-            ConstantRange(APInt(8, INT8_MIN), APInt(8, 40)));
-  EXPECT_EQ(ConstantRange(APInt(8, 120), APInt(8, -120)).addWithNoSignedWrap(APInt(8, -5)),
-            ConstantRange(APInt(8, 115), APInt(8, -125)));
-  EXPECT_EQ(ConstantRange(APInt(8, 120), APInt(8, -120)).addWithNoSignedWrap(APInt(8, -10)),
-            ConstantRange(APInt(8, 110), APInt(8, INT8_MIN-10)));
+            ConstantRange(APInt(16, INT16_MIN), APInt(16, INT16_MAX-1)));
+  EXPECT_EQ(ConstantRange(APInt(8, -50), APInt(8, 49)).addWithNoSignedWrap(APInt(8, -10)),
+            ConstantRange(APInt(8, -60), APInt(8, 39)));
+  EXPECT_EQ(ConstantRange(APInt(8, -120), APInt(8, 49)).addWithNoSignedWrap(APInt(8, -10)),
+            ConstantRange(APInt(8, INT8_MIN), APInt(8, 39)));
+  EXPECT_EQ(ConstantRange(APInt(8, 120), APInt(8, -121)).addWithNoSignedWrap(APInt(8, -5)),
+            ConstantRange(APInt(8, 115), APInt(8, -126)));
+  EXPECT_EQ(ConstantRange(APInt(8, 120), APInt(8, -121)).addWithNoSignedWrap(APInt(8, -10)),
+            ConstantRange(APInt(8, 110), APInt(8, INT8_MIN-11)));
 }
 
 TEST_F(ConstantRangeTest, Sub) {
@@ -413,11 +414,11 @@ TEST_F(ConstantRangeTest, Sub) {
   EXPECT_EQ(Empty.sub(Wrap), Empty);
   EXPECT_EQ(Empty.sub(APInt(16, 4)), Empty);
   EXPECT_EQ(Some.sub(APInt(16, 4)),
-            ConstantRange(APInt(16, 0x6), APInt(16, 0xaa6)));
+            ConstantRange(APInt(16, 0x6), APInt(16, 0xaa5)));
   EXPECT_EQ(Some.sub(Some),
-            ConstantRange(APInt(16, 0xf561), APInt(16, 0xaa0)));
+            ConstantRange(APInt(16, 0xf561), APInt(16, 0xa9f)));
   EXPECT_EQ(Wrap.sub(APInt(16, 4)),
-            ConstantRange(APInt(16, 0xaa6), APInt(16, 0x6)));
+            ConstantRange(APInt(16, 0xaa6), APInt(16, 0x5)));
   EXPECT_EQ(One.sub(APInt(16, 4)),
             ConstantRange(APInt(16, 0x6)));
 }
@@ -433,9 +434,9 @@ TEST_F(ConstantRangeTest, Multiply) {
   EXPECT_EQ(Empty.multiply(Some), Empty);
   EXPECT_EQ(Empty.multiply(Wrap), Empty);
   EXPECT_EQ(One.multiply(One), ConstantRange(APInt(16, 0xa*0xa),
-                                             APInt(16, 0xa*0xa + 1)));
+                                             APInt(16, 0xa*0xa)));
   EXPECT_EQ(One.multiply(Some), ConstantRange(APInt(16, 0xa*0xa),
-                                              APInt(16, 0xa*0xaa9 + 1)));
+                                              APInt(16, 0xa*0xaa9)));
   EXPECT_EQ(One.multiply(Wrap), Full);
   EXPECT_EQ(Some.multiply(Some), Full);
   EXPECT_EQ(Some.multiply(Wrap), Full);
@@ -450,39 +451,39 @@ TEST_F(ConstantRangeTest, Multiply) {
   EXPECT_EQ(Wrap.multiply(Zero), Zero);
 
   // http://llvm.org/PR4545
-  EXPECT_EQ(ConstantRange(APInt(4, 1), APInt(4, 6)).multiply(
-                ConstantRange(APInt(4, 6), APInt(4, 2))),
+  EXPECT_EQ(ConstantRange(APInt(4, 1), APInt(4, 5)).multiply(
+                ConstantRange(APInt(4, 6), APInt(4, 1))),
             ConstantRange(4, /*isFullSet=*/true));
 
-  EXPECT_EQ(ConstantRange(APInt(8, 254), APInt(8, 0)).multiply(
-              ConstantRange(APInt(8, 252), APInt(8, 4))),
-            ConstantRange(APInt(8, 250), APInt(8, 9)));
   EXPECT_EQ(ConstantRange(APInt(8, 254), APInt(8, 255)).multiply(
-              ConstantRange(APInt(8, 2), APInt(8, 4))),
-            ConstantRange(APInt(8, 250), APInt(8, 253)));
+              ConstantRange(APInt(8, 252), APInt(8, 3))),
+            ConstantRange(APInt(8, 250), APInt(8, 8)));
+  EXPECT_EQ(ConstantRange(APInt(8, 254), APInt(8, 254)).multiply(
+              ConstantRange(APInt(8, 2), APInt(8, 3))),
+            ConstantRange(APInt(8, 250), APInt(8, 252)));
 
   // TODO: This should be return [-2, 0]
   EXPECT_EQ(ConstantRange(APInt(8, -2)).multiply(
-              ConstantRange(APInt(8, 0), APInt(8, 2))),
-            ConstantRange(APInt(8, -2), APInt(8, 1)));
+              ConstantRange(APInt(8, 0), APInt(8, 1))),
+            ConstantRange(APInt(8, -2), APInt(8, 0)));
 }
 
 TEST_F(ConstantRangeTest, UMax) {
   EXPECT_EQ(Full.umax(Full), Full);
   EXPECT_EQ(Full.umax(Empty), Empty);
-  EXPECT_EQ(Full.umax(Some), ConstantRange(APInt(16, 0xa), APInt(16, 0)));
+  EXPECT_EQ(Full.umax(Some), ConstantRange(APInt(16, 0xa), APInt(16, -1)));
   EXPECT_EQ(Full.umax(Wrap), Full);
-  EXPECT_EQ(Full.umax(Some), ConstantRange(APInt(16, 0xa), APInt(16, 0)));
+  EXPECT_EQ(Full.umax(Some), ConstantRange(APInt(16, 0xa), APInt(16, -1)));
   EXPECT_EQ(Empty.umax(Empty), Empty);
   EXPECT_EQ(Empty.umax(Some), Empty);
   EXPECT_EQ(Empty.umax(Wrap), Empty);
   EXPECT_EQ(Empty.umax(One), Empty);
   EXPECT_EQ(Some.umax(Some), Some);
-  EXPECT_EQ(Some.umax(Wrap), ConstantRange(APInt(16, 0xa), APInt(16, 0)));
+  EXPECT_EQ(Some.umax(Wrap), ConstantRange(APInt(16, 0xa), APInt(16, -1)));
   EXPECT_EQ(Some.umax(One), Some);
   // TODO: ConstantRange is currently over-conservative here.
   EXPECT_EQ(Wrap.umax(Wrap), Full);
-  EXPECT_EQ(Wrap.umax(One), ConstantRange(APInt(16, 0xa), APInt(16, 0)));
+  EXPECT_EQ(Wrap.umax(One), ConstantRange(APInt(16, 0xa), APInt(16, -1)));
   EXPECT_EQ(One.umax(One), One);
 }
 
@@ -490,38 +491,38 @@ TEST_F(ConstantRangeTest, SMax) {
   EXPECT_EQ(Full.smax(Full), Full);
   EXPECT_EQ(Full.smax(Empty), Empty);
   EXPECT_EQ(Full.smax(Some), ConstantRange(APInt(16, 0xa),
-                                           APInt::getSignedMinValue(16)));
+                                           APInt::getSignedMaxValue(16)));
   EXPECT_EQ(Full.smax(Wrap), Full);
   EXPECT_EQ(Full.smax(One), ConstantRange(APInt(16, 0xa),
-                                          APInt::getSignedMinValue(16)));
+                                          APInt::getSignedMaxValue(16)));
   EXPECT_EQ(Empty.smax(Empty), Empty);
   EXPECT_EQ(Empty.smax(Some), Empty);
   EXPECT_EQ(Empty.smax(Wrap), Empty);
   EXPECT_EQ(Empty.smax(One), Empty);
   EXPECT_EQ(Some.smax(Some), Some);
   EXPECT_EQ(Some.smax(Wrap), ConstantRange(APInt(16, 0xa),
-                                           APInt(16, (uint64_t)INT16_MIN)));
+                                           APInt(16, (uint64_t)INT16_MAX)));
   EXPECT_EQ(Some.smax(One), Some);
   EXPECT_EQ(Wrap.smax(One), ConstantRange(APInt(16, 0xa),
-                                          APInt(16, (uint64_t)INT16_MIN)));
+                                          APInt(16, (uint64_t)INT16_MAX)));
   EXPECT_EQ(One.smax(One), One);
 }
 
 TEST_F(ConstantRangeTest, UMin) {
   EXPECT_EQ(Full.umin(Full), Full);
   EXPECT_EQ(Full.umin(Empty), Empty);
-  EXPECT_EQ(Full.umin(Some), ConstantRange(APInt(16, 0), APInt(16, 0xaaa)));
+  EXPECT_EQ(Full.umin(Some), ConstantRange(APInt(16, 0), APInt(16, 0xaa9)));
   EXPECT_EQ(Full.umin(Wrap), Full);
   EXPECT_EQ(Empty.umin(Empty), Empty);
   EXPECT_EQ(Empty.umin(Some), Empty);
   EXPECT_EQ(Empty.umin(Wrap), Empty);
   EXPECT_EQ(Empty.umin(One), Empty);
   EXPECT_EQ(Some.umin(Some), Some);
-  EXPECT_EQ(Some.umin(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xaaa)));
+  EXPECT_EQ(Some.umin(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xaa9)));
   EXPECT_EQ(Some.umin(One), One);
   // TODO: ConstantRange is currently over-conservative here.
   EXPECT_EQ(Wrap.umin(Wrap), Full);
-  EXPECT_EQ(Wrap.umin(One), ConstantRange(APInt(16, 0), APInt(16, 0xb)));
+  EXPECT_EQ(Wrap.umin(One), ConstantRange(APInt(16, 0), APInt(16, 0xa)));
   EXPECT_EQ(One.umin(One), One);
 }
 
@@ -529,7 +530,7 @@ TEST_F(ConstantRangeTest, SMin) {
   EXPECT_EQ(Full.smin(Full), Full);
   EXPECT_EQ(Full.smin(Empty), Empty);
   EXPECT_EQ(Full.smin(Some), ConstantRange(APInt(16, (uint64_t)INT16_MIN),
-                                           APInt(16, 0xaaa)));
+                                           APInt(16, 0xaa9)));
   EXPECT_EQ(Full.smin(Wrap), Full);
   EXPECT_EQ(Empty.smin(Empty), Empty);
   EXPECT_EQ(Empty.smin(Some), Empty);
@@ -537,12 +538,12 @@ TEST_F(ConstantRangeTest, SMin) {
   EXPECT_EQ(Empty.smin(One), Empty);
   EXPECT_EQ(Some.smin(Some), Some);
   EXPECT_EQ(Some.smin(Wrap), ConstantRange(APInt(16, (uint64_t)INT16_MIN),
-                                           APInt(16, 0xaaa)));
+                                           APInt(16, 0xaa9)));
   EXPECT_EQ(Some.smin(One), One);
   // TODO: ConstantRange is currently over-conservative here.
   EXPECT_EQ(Wrap.smin(Wrap), Full);
   EXPECT_EQ(Wrap.smin(One), ConstantRange(APInt(16, (uint64_t)INT16_MIN),
-                                          APInt(16, 0xb)));
+                                          APInt(16, 0xa)));
   EXPECT_EQ(One.smin(One), One);
 }
 
@@ -550,19 +551,19 @@ TEST_F(ConstantRangeTest, UDiv) {
   EXPECT_EQ(Full.udiv(Full), Full);
   EXPECT_EQ(Full.udiv(Empty), Empty);
   EXPECT_EQ(Full.udiv(One), ConstantRange(APInt(16, 0),
-                                          APInt(16, 0xffff / 0xa + 1)));
+                                          APInt(16, 0xffff / 0xa)));
   EXPECT_EQ(Full.udiv(Some), ConstantRange(APInt(16, 0),
-                                           APInt(16, 0xffff / 0xa + 1)));
+                                           APInt(16, 0xffff / 0xa)));
   EXPECT_EQ(Full.udiv(Wrap), Full);
   EXPECT_EQ(Empty.udiv(Empty), Empty);
   EXPECT_EQ(Empty.udiv(One), Empty);
   EXPECT_EQ(Empty.udiv(Some), Empty);
   EXPECT_EQ(Empty.udiv(Wrap), Empty);
   EXPECT_EQ(One.udiv(One), ConstantRange(APInt(16, 1)));
-  EXPECT_EQ(One.udiv(Some), ConstantRange(APInt(16, 0), APInt(16, 2)));
-  EXPECT_EQ(One.udiv(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xb)));
-  EXPECT_EQ(Some.udiv(Some), ConstantRange(APInt(16, 0), APInt(16, 0x111)));
-  EXPECT_EQ(Some.udiv(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xaaa)));
+  EXPECT_EQ(One.udiv(Some), ConstantRange(APInt(16, 0), APInt(16, 1)));
+  EXPECT_EQ(One.udiv(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xa)));
+  EXPECT_EQ(Some.udiv(Some), ConstantRange(APInt(16, 0), APInt(16, 0x110)));
+  EXPECT_EQ(Some.udiv(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xaa9)));
   EXPECT_EQ(Wrap.udiv(Wrap), Full);
 }
 
@@ -577,7 +578,7 @@ TEST_F(ConstantRangeTest, Shl) {
   EXPECT_EQ(Empty.shl(Some), Empty);
   EXPECT_EQ(Empty.shl(Wrap), Empty);
   EXPECT_EQ(One.shl(One), ConstantRange(APInt(16, 0xa << 0xa),
-                                        APInt(16, (0xa << 0xa) + 1)));
+                                        APInt(16, 0xa << 0xa)));
   EXPECT_EQ(One.shl(Some), Full);    // TODO: [0xa << 0xa, 0)
   EXPECT_EQ(One.shl(Wrap), Full);    // TODO: [0xa, 0xa << 14 + 1)
   EXPECT_EQ(Some.shl(Some), Full);   // TODO: [0xa << 0xa, 0xfc01)
@@ -589,9 +590,9 @@ TEST_F(ConstantRangeTest, Lshr) {
   EXPECT_EQ(Full.lshr(Full), Full);
   EXPECT_EQ(Full.lshr(Empty), Empty);
   EXPECT_EQ(Full.lshr(One), ConstantRange(APInt(16, 0),
-                                          APInt(16, (0xffff >> 0xa) + 1)));
+                                          APInt(16, 0xffff >> 0xa)));
   EXPECT_EQ(Full.lshr(Some), ConstantRange(APInt(16, 0),
-                                           APInt(16, (0xffff >> 0xa) + 1)));
+                                           APInt(16, 0xffff >> 0xa)));
   EXPECT_EQ(Full.lshr(Wrap), Full);
   EXPECT_EQ(Empty.lshr(Empty), Empty);
   EXPECT_EQ(Empty.lshr(One), Empty);
@@ -599,10 +600,10 @@ TEST_F(ConstantRangeTest, Lshr) {
   EXPECT_EQ(Empty.lshr(Wrap), Empty);
   EXPECT_EQ(One.lshr(One), ConstantRange(APInt(16, 0)));
   EXPECT_EQ(One.lshr(Some), ConstantRange(APInt(16, 0)));
-  EXPECT_EQ(One.lshr(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xb)));
+  EXPECT_EQ(One.lshr(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xa)));
   EXPECT_EQ(Some.lshr(Some), ConstantRange(APInt(16, 0),
-                                           APInt(16, (0xaaa >> 0xa) + 1)));
-  EXPECT_EQ(Some.lshr(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xaaa)));
+                                           APInt(16, 0xaaa >> 0xa)));
+  EXPECT_EQ(Some.lshr(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xaa9)));
   EXPECT_EQ(Wrap.lshr(Wrap), Full);
 }
 
@@ -610,12 +611,12 @@ TEST_F(ConstantRangeTest, Ashr) {
   EXPECT_EQ(Full.ashr(Full), Full);
   EXPECT_EQ(Full.ashr(Empty), Empty);
   EXPECT_EQ(Full.ashr(One), ConstantRange(APInt(16, 0xffe0),
-                                          APInt(16, (0x7fff >> 0xa) + 1 )));
-  ConstantRange Small(APInt(16, 0xa), APInt(16, 0xb));
+                                          APInt(16, 0x7fff >> 0xa)));
+  ConstantRange Small(APInt(16, 0xa), APInt(16, 0xa));
   EXPECT_EQ(Full.ashr(Small), ConstantRange(APInt(16, 0xffe0),
-                                           APInt(16, (0x7fff >> 0xa) + 1 )));
+                                           APInt(16, 0x7fff >> 0xa)));
   EXPECT_EQ(Full.ashr(Some), ConstantRange(APInt(16, 0xffe0),
-                                           APInt(16, (0x7fff >> 0xa) + 1 )));
+                                           APInt(16, 0x7fff >> 0xa)));
   EXPECT_EQ(Full.ashr(Wrap), Full);
   EXPECT_EQ(Empty.ashr(Empty), Empty);
   EXPECT_EQ(Empty.ashr(One), Empty);
@@ -623,14 +624,14 @@ TEST_F(ConstantRangeTest, Ashr) {
   EXPECT_EQ(Empty.ashr(Wrap), Empty);
   EXPECT_EQ(One.ashr(One), ConstantRange(APInt(16, 0)));
   EXPECT_EQ(One.ashr(Some), ConstantRange(APInt(16, 0)));
-  EXPECT_EQ(One.ashr(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xb)));
+  EXPECT_EQ(One.ashr(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xa)));
   EXPECT_EQ(Some.ashr(Some), ConstantRange(APInt(16, 0),
-                                           APInt(16, (0xaaa >> 0xa) + 1)));
-  EXPECT_EQ(Some.ashr(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xaaa)));
+                                           APInt(16, 0xaaa >> 0xa)));
+  EXPECT_EQ(Some.ashr(Wrap), ConstantRange(APInt(16, 0), APInt(16, 0xaa9)));
   EXPECT_EQ(Wrap.ashr(Wrap), Full);
-  ConstantRange Neg(APInt(16, 0xf3f0, true), APInt(16, 0xf7f8, true));
-  EXPECT_EQ(Neg.ashr(Small), ConstantRange(APInt(16, 0xfffc, true),
-                                           APInt(16, 0xfffe, true)));
+  ConstantRange Neg(APInt(16, 0xf3f0, true), APInt(16, 0xf7f7, true));
+  EXPECT_EQ(Neg.ashr(Small), ConstantRange(APInt(16, 0xfffb, true),
+                                           APInt(16, 0xfffd, true)));
 }
 
 TEST(ConstantRange, MakeAllowedICmpRegion) {

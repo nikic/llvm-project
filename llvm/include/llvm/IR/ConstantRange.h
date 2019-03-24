@@ -9,19 +9,18 @@
 // Represent a range of possible values that may occur when the program is run
 // for an integral value.  This keeps track of a lower and upper bound for the
 // constant, which MAY wrap around the end of the numeric range.  To do this, it
-// keeps track of a [lower, upper) bound, which specifies an interval just like
-// STL iterators.  When used with boolean values, the following are important
-// ranges: :
+// keeps track of an inclusive [lower, upper] bound. When used with boolean
+// values, the following are important ranges: :
 //
-//  [F, F) = {}     = Empty set
-//  [T, F) = {T}
-//  [F, T) = {F}
-//  [T, T) = {F, T} = Full set
+//  [T, F) = {}     = Empty set
+//  [T, T] = {T}
+//  [F, F] = {F}
+//  [F, T] = {F, T} = Full set
 //
-// The other integral ranges use min/max values for special range values. For
-// example, for 8-bit types, it uses:
-// [0, 0)     = {}       = Empty set
-// [255, 255) = {0..255} = Full Set
+// The other integral ranges use unsigned min/max for the full range and 1/0 for
+// the empty range. For example, for 8-bit types, it uses:
+// [1, 0]   = {}       = Empty set
+// [0, 255] = {0..255} = Full Set
 //
 // Note that ConstantRange can be used to represent either signed or
 // unsigned ranges.
@@ -55,6 +54,21 @@ class LLVM_NODISCARD ConstantRange {
   /// Create full constant range with same bitwidth.
   ConstantRange getFull() const {
     return ConstantRange(getBitWidth(), true);
+  }
+
+  /// Create an unsigned non-wrapping non-empty but potentially full range.
+  static ConstantRange getUnsigned(APInt Lower, APInt Upper) {
+    // Nothing to do here, as [0, Max] is already the canonical full set
+    // representation.
+    return ConstantRange(std::move(Lower), std::move(Upper));
+  }
+
+  /// Create a signed non-wrapping non-empty but potentially full range.
+  static ConstantRange getSigned(APInt Lower, APInt Upper) {
+    // Convert [SignedMin, SignedMax] to [0, Max].
+    if (Lower.isMinSignedValue() && Upper.isMaxSignedValue())
+      return ConstantRange::getFull(Lower.getBitWidth());
+    return ConstantRange(std::move(Lower), std::move(Upper));
   }
 
 public:
@@ -91,7 +105,7 @@ public:
   /// answer is not representable as a ConstantRange, the return value will be a
   /// proper superset of the above.
   ///
-  /// Example: Pred = ult and Other = i8 [2, 5) returns Result = [0, 4)
+  /// Example: Pred = ult and Other = i8 [2, 4] returns Result = [0, 3]
   static ConstantRange makeAllowedICmpRegion(CmpInst::Predicate Pred,
                                              const ConstantRange &Other);
 
@@ -102,7 +116,7 @@ public:
   /// exact answer is not representable as a ConstantRange, the return value
   /// will be a proper subset of the above.
   ///
-  /// Example: Pred = ult and Other = i8 [2, 5) returns [0, 2)
+  /// Example: Pred = ult and Other = i8 [2, 4] returns [0, 1]
   static ConstantRange makeSatisfyingICmpRegion(CmpInst::Predicate Pred,
                                                 const ConstantRange &Other);
 
@@ -112,7 +126,7 @@ public:
   /// is exactly same as the subset of intersection over all y in Other.
   /// { x : icmp op x y is true}'.
   ///
-  /// Example: Pred = ult and Other = i8 3 returns [0, 3)
+  /// Example: Pred = ult and Other = i8 3 returns [0, 2]
   static ConstantRange makeExactICmpRegion(CmpInst::Predicate Pred,
                                            const APInt &Other);
 
@@ -128,16 +142,14 @@ public:
   /// Examples:
   ///  typedef OverflowingBinaryOperator OBO;
   ///  #define MGNR makeGuaranteedNoWrapRegion
-  ///  MGNR(Add, [i8 1, 2), OBO::NoSignedWrap) == [-128, 127)
-  ///  MGNR(Add, [i8 1, 2), OBO::NoUnsignedWrap) == [0, -1)
-  ///  MGNR(Add, [i8 0, 1), OBO::NoUnsignedWrap) == Full Set
-  ///  MGNR(Add, [i8 1, 2), OBO::NoUnsignedWrap | OBO::NoSignedWrap)
-  ///    == [0,INT_MAX)
-  ///  MGNR(Add, [i8 -1, 6), OBO::NoSignedWrap) == [INT_MIN+1, INT_MAX-4)
-  ///  MGNR(Sub, [i8 1, 2), OBO::NoSignedWrap) == [-127, 128)
-  ///  MGNR(Sub, [i8 1, 2), OBO::NoUnsignedWrap) == [1, 0)
-  ///  MGNR(Sub, [i8 1, 2), OBO::NoUnsignedWrap | OBO::NoSignedWrap)
-  ///    == [1,INT_MAX)
+  ///  MGNR(Add, [i8 1, 1], OBO::NoSignedWrap) == [-128, 126]
+  ///  MGNR(Add, [i8 1, 1], OBO::NoUnsignedWrap) == [0, -2]
+  ///  MGNR(Add, [i8 0, 0], OBO::NoUnsignedWrap) == Full Set
+  ///  MGNR(Add, [i8 1, 1], OBO::NoUnsignedWrap | OBO::NoSignedWrap) == [0, 126]
+  ///  MGNR(Add, [i8 -1, 5], OBO::NoSignedWrap) == [INT_MIN+1, INT_MAX-5]
+  ///  MGNR(Sub, [i8 1, 1], OBO::NoSignedWrap) == [-127, 127]
+  ///  MGNR(Sub, [i8 1, 1], OBO::NoUnsignedWrap) == [1, -1]
+  ///  MGNR(Sub, [i8 1, 1], OBO::NoUnsignedWrap | OBO::NoSignedWrap) == [1, 127]
   static ConstantRange makeGuaranteedNoWrapRegion(Instruction::BinaryOps BinOp,
                                                   const ConstantRange &Other,
                                                   unsigned NoWrapKind);
@@ -163,13 +175,22 @@ public:
   /// Return true if this set contains no members.
   bool isEmptySet() const;
 
+  /// Return true if this set is either full or empty.
+  bool isFullOrEmptySet() const;
+
   /// Return true if this set wraps around the top of the range.
-  /// For example: [100, 8).
+  /// For example: [100, 8].
   bool isWrappedSet() const;
 
+  /// Return true if this set is full or wraps the unsigned domain.
+  bool isFullOrWrappedSet() const;
+
   /// Return true if this set wraps around the INT_MIN of
-  /// its bitwidth. For example: i8 [120, 140).
+  /// its bitwidth. For example: i8 [120, 140].
   bool isSignWrappedSet() const;
+
+  /// Return true if this set is full or wraps the signed domain.
+  bool isFullOrSignWrappedSet() const;
 
   /// Return true if the specified value is in the set.
   bool contains(const APInt &Val) const;
@@ -179,21 +200,23 @@ public:
 
   /// If this set contains a single element, return it, otherwise return null.
   const APInt *getSingleElement() const {
-    if (Upper == Lower + 1)
+    if (Upper == Lower)
       return &Lower;
     return nullptr;
   }
 
-  /// If this set contains all but a single element, return it, otherwise return
-  /// null.
-  const APInt *getSingleMissingElement() const {
-    if (Lower == Upper + 1)
-      return &Upper;
-    return nullptr;
+  /// Return the single missing element. isSingleMissingElement() must be true
+  /// for this method to be called.
+  APInt getSingleMissingElement() const {
+    assert(isSingleMissingElement() && "Must have single missing element");
+    return Upper + 1;
   }
 
   /// Return true if this set contains exactly one member.
   bool isSingleElement() const { return getSingleElement() != nullptr; }
+
+  /// Return true if this set contains all but a single element.
+  bool isSingleMissingElement() const { return Lower == Upper + 2; }
 
   /// Return the number of elements in this set.
   APInt getSetSize() const;
@@ -241,8 +264,8 @@ public:
 
   /// Return the range that results from the union of this range
   /// with another range.  The resultant range is guaranteed to include the
-  /// elements of both sets, but may contain more.  For example, [3, 9) union
-  /// [12,15) is [3, 15), which includes 9, 10, and 11, which were not included
+  /// elements of both sets, but may contain more.  For example, [3, 8] union
+  /// [12,14] is [3, 14], which includes 9, 10, and 11, which were not included
   /// in either set before.
   ConstantRange unionWith(const ConstantRange &CR) const;
 
@@ -379,7 +402,7 @@ inline raw_ostream &operator<<(raw_ostream &OS, const ConstantRange &CR) {
 
 /// Parse out a conservative ConstantRange from !range metadata.
 ///
-/// E.g. if RangeMD is !{i32 0, i32 10, i32 15, i32 20} then return [0, 20).
+/// E.g. if RangeMD is !{i32 0, i32 10, i32 15, i32 20} then return [0, 19].
 ConstantRange getConstantRangeFromMetadata(const MDNode &RangeMD);
 
 } // end namespace llvm
