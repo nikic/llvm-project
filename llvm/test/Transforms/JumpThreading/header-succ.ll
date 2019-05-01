@@ -103,12 +103,13 @@ define void @jump_threading_loopheader3() {
 ; CHECK-NEXT:    [[IND:%.*]] = phi i32 [ 0, [[TOP:%.*]] ], [ [[NEXTIND:%.*]], [[LATCH:%.*]] ]
 ; CHECK-NEXT:    [[NEXTIND]] = add i32 [[IND]], 1
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ule i32 [[IND]], 10
-; CHECK-NEXT:    br i1 [[CMP]], label [[LATCH]], label [[EXIT:%.*]]
-; CHECK:       latch:
+; CHECK-NEXT:    br i1 [[CMP]], label [[BODY:%.*]], label [[LATCH]]
+; CHECK:       body:
 ; CHECK-NEXT:    call void @opaque_body()
+; CHECK-NEXT:    br label [[LATCH]]
+; CHECK:       latch:
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ undef, [[ENTRY]] ], [ 0, [[BODY]] ]
 ; CHECK-NEXT:    br label [[ENTRY]]
-; CHECK:       exit:
-; CHECK-NEXT:    ret void
 ;
 top:
   br label %entry

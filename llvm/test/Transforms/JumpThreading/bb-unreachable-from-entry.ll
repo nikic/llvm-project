@@ -3,7 +3,12 @@
 
 define void @foo() {
 ; CHECK-LABEL: @foo(
-; CHECK-NEXT:  exit2:
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br label [[EXIT2:%.*]]
+; CHECK:       entry2:
+; CHECK-NEXT:    br label [[EXIT2]]
+; CHECK:       exit2:
+; CHECK-NEXT:    [[A0:%.*]] = phi i32 [ undef, [[ENTRY2:%.*]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret void
 ;
 entry:

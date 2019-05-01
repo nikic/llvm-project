@@ -441,11 +441,6 @@ public:
                                       Instruction *CxtI = nullptr);
 
   /// This is the query interface to determine the lattice
-  /// value for the specified Value* at the specified instruction (generally
-  /// from an assume intrinsic).
-  ValueLatticeElement getValueAt(Value *V, Instruction *CxtI);
-
-  /// This is the query interface to determine the lattice
   /// value for the specified Value* that is true on the specified edge.
   ValueLatticeElement getValueOnEdge(Value *V, BasicBlock *FromBB,
                                      BasicBlock *ToBB,
@@ -1462,22 +1457,6 @@ ValueLatticeElement LazyValueInfoImpl::getValueInBlock(Value *V, BasicBlock *BB,
   return Result;
 }
 
-ValueLatticeElement LazyValueInfoImpl::getValueAt(Value *V, Instruction *CxtI) {
-  LLVM_DEBUG(dbgs() << "LVI Getting value " << *V << " at '" << CxtI->getName()
-                    << "'\n");
-
-  if (auto *C = dyn_cast<Constant>(V))
-    return ValueLatticeElement::get(C);
-
-  ValueLatticeElement Result = ValueLatticeElement::getOverdefined();
-  if (auto *I = dyn_cast<Instruction>(V))
-    Result = getFromRangeMetadata(I);
-  intersectAssumeOrGuardBlockValueConstantRange(V, Result, CxtI);
-
-  LLVM_DEBUG(dbgs() << "  Result = " << Result << "\n");
-  return Result;
-}
-
 ValueLatticeElement LazyValueInfoImpl::
 getValueOnEdge(Value *V, BasicBlock *FromBB, BasicBlock *ToBB,
                Instruction *CxtI) {
@@ -1752,7 +1731,9 @@ LazyValueInfo::getPredicateAt(unsigned Pred, Value *V, Constant *C,
     else if (Pred == ICmpInst::ICMP_NE)
       return LazyValueInfo::True;
   }
-  ValueLatticeElement Result = getImpl(PImpl, AC, M).getValueAt(V, CxtI);
+
+  ValueLatticeElement Result =
+      getImpl(PImpl, AC, M).getValueInBlock(V, CxtI->getParent(), CxtI);
   Tristate Ret = getPredicateResult(Pred, C, Result, DL, TLI);
   if (Ret != Unknown)
     return Ret;
