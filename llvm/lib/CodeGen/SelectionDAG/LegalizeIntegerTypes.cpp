@@ -119,6 +119,10 @@ void DAGTypeLegalizer::PromoteIntegerResult(SDNode *N, unsigned ResNo) {
   case ISD::FP_TO_SINT:
   case ISD::FP_TO_UINT:  Res = PromoteIntRes_FP_TO_XINT(N); break;
 
+  case ISD::FP_TO_SINT_SAT:
+  case ISD::FP_TO_UINT_SAT:
+                         Res = PromoteIntRes_FP_TO_XINT_SAT(N); break;
+
   case ISD::FP_TO_FP16:  Res = PromoteIntRes_FP_TO_FP16(N); break;
 
   case ISD::FLT_ROUNDS_: Res = PromoteIntRes_FLT_ROUNDS(N); break;
@@ -527,6 +531,14 @@ SDValue DAGTypeLegalizer::PromoteIntRes_FP_TO_XINT(SDNode *N) {
                       N->getOpcode() == ISD::STRICT_FP_TO_UINT) ?
                      ISD::AssertZext : ISD::AssertSext, dl, NVT, Res,
                      DAG.getValueType(N->getValueType(0).getScalarType()));
+}
+
+SDValue DAGTypeLegalizer::PromoteIntRes_FP_TO_XINT_SAT(SDNode *N) {
+  // Promote the result type, while keeping the original type in Op1.
+  EVT NVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
+  SDLoc dl(N);
+  return DAG.getNode(
+      N->getOpcode(), dl, NVT, N->getOperand(0), N->getOperand(1));
 }
 
 SDValue DAGTypeLegalizer::PromoteIntRes_FP_TO_FP16(SDNode *N) {

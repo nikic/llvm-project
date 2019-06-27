@@ -1087,6 +1087,13 @@ def int_convert_to_fp16   : Intrinsic<[llvm_i16_ty], [llvm_anyfloat_ty]>;
 def int_convert_from_fp16 : Intrinsic<[llvm_anyfloat_ty], [llvm_i16_ty]>;
 }
 
+// Saturating floating point to integer intrinsics
+def int_fptoui_sat : Intrinsic<[llvm_anyint_ty], [llvm_anyfloat_ty],
+                               [IntrNoMem, IntrSpeculatable]>;
+
+def int_fptosi_sat : Intrinsic<[llvm_anyint_ty], [llvm_anyfloat_ty],
+                               [IntrNoMem, IntrSpeculatable]>;
+
 // Clear cache intrinsic, default to ignore (ie. emit nothing)
 // maps to void __clear_cache() on supporting platforms
 def int_clear_cache : Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty],
