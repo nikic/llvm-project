@@ -2027,17 +2027,33 @@ static PHINode *getLoopPhiForCounter(Value *IncV, Loop *L) {
   return nullptr;
 }
 
-/// Whether the current loop exit test is based on this value.  Currently this
-/// is limited to a direct use in the loop condition.
+static bool isValueIndirectlyUsedBy(
+    Value *V, Instruction *I, SmallSet<Instruction *, 16> &Visited,
+    unsigned Depth) {
+  if (Depth >= 6)
+    return false;
+  for (Value *Op : I->operands()) {
+    if (Op == V)
+      return true;
+    Instruction *OpI = dyn_cast<Instruction>(Op);
+    if (!OpI)
+      return false;
+    // Don't bother following through phis.
+    if (isa<PHINode>(OpI))
+      continue;
+    if (!Visited.insert(OpI).second)
+      continue;
+    if (isValueIndirectlyUsedBy(V, OpI, Visited, Depth + 1))
+      return true;
+  }
+  return false;
+}
+
+/// Whether the current loop exit test is based on this value.
 static bool isLoopExitTestBasedOn(Value *V, BasicBlock *ExitingBB) {
   BranchInst *BI = cast<BranchInst>(ExitingBB->getTerminator());
-  ICmpInst *ICmp = dyn_cast<ICmpInst>(BI->getCondition());
-  // TODO: Allow non-icmp loop test.
-  if (!ICmp)
-    return false;
-
-  // TODO: Allow indirect use.
-  return ICmp->getOperand(0) == V || ICmp->getOperand(1) == V;
+  SmallSet<Instruction *, 16> Visited;
+  return isValueIndirectlyUsedBy(V, BI, Visited, 0);
 }
 
 /// linearFunctionTestReplace policy. Return true unless we can show that the
@@ -2409,9 +2425,7 @@ linearFunctionTestReplace(Loop *L, BasicBlock *ExitingBB,
   Value *CmpIndVar = UsePostInc ? IncVar : IndVar;
 
   // It may be necessary to drop nowrap flags on the incrementing instruction
-  // if either LFTR moves from a pre-inc check to a post-inc check (in which
-  // case the increment might have previously been poison on the last iteration
-  // only) or if LFTR switches to a different IV that was previously dynamically
+  // if LFTR switches to a different IV that was previously dynamically
   // dead (and as such may be arbitrarily poison). We remove any nowrap flags
   // that SCEV didn't infer for the post-inc addrec (even if we use a pre-inc
   // check), because the pre-inc addrec flags may be adopted from the original

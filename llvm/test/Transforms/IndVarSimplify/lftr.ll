@@ -367,11 +367,10 @@ attributes #1 = { nounwind }
 define void @wide_trip_count_test1(float* %autoc,
 ; CHECK-LABEL: @wide_trip_count_test1(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[CMP4:%.*]] = icmp eq i32 [[DATA_LEN:%.*]], [[SAMPLE:%.*]]
+; CHECK-NEXT:    [[SUB:%.*]] = sub i32 [[DATA_LEN:%.*]], [[SAMPLE:%.*]]
+; CHECK-NEXT:    [[CMP4:%.*]] = icmp eq i32 [[DATA_LEN]], [[SAMPLE]]
 ; CHECK-NEXT:    br i1 [[CMP4]], label [[FOR_END:%.*]], label [[FOR_BODY_PREHEADER:%.*]]
 ; CHECK:       for.body.preheader:
-; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[DATA_LEN]], -1
-; CHECK-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[SAMPLE]]
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ], [ 68719476736, [[FOR_BODY_PREHEADER]] ]
@@ -386,8 +385,8 @@ define void @wide_trip_count_test1(float* %autoc,
 ; CHECK-NEXT:    [[ADD3:%.*]] = fadd float [[TEMP2]], [[MUL]]
 ; CHECK-NEXT:    store float [[ADD3]], float* [[ARRAYIDX2]], align 4
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; CHECK-NEXT:    [[LFTR_WIDEIV:%.*]] = trunc i64 [[INDVARS_IV]] to i32
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[LFTR_WIDEIV]], [[TMP1]]
+; CHECK-NEXT:    [[LFTR_WIDEIV:%.*]] = trunc i64 [[INDVARS_IV_NEXT]] to i32
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[LFTR_WIDEIV]], [[SUB]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_BODY]], label [[FOR_END_LOOPEXIT:%.*]]
 ; CHECK:       for.end.loopexit:
 ; CHECK-NEXT:    br label [[FOR_END]]
@@ -608,7 +607,7 @@ define void @ptr_non_cmp_exit_test() {
 ; CHECK-NEXT:    [[IV:%.*]] = phi i8* [ null, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[FOR_BODY29]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = load volatile i8, i8* [[IV]], align 1
 ; CHECK-NEXT:    [[IV_NEXT]] = getelementptr inbounds i8, i8* [[IV]], i64 1
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i8* [[IV]], inttoptr (i64 10 to i8*)
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i8* [[IV_NEXT]], inttoptr (i64 11 to i8*)
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_BODY29]], label [[EXIT:%.*]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
