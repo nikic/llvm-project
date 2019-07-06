@@ -141,7 +141,7 @@ define void @dom_store_postinc() #0 {
 ; CHECK-NEXT:    [[P_0:%.*]] = phi i8* [ getelementptr inbounds ([240 x i8], [240 x i8]* @data, i64 0, i64 0), [[ENTRY:%.*]] ], [ [[TMP3:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[TMP3]] = getelementptr inbounds i8, i8* [[P_0]], i64 1
 ; CHECK-NEXT:    store volatile i8 0, i8* [[TMP3]]
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i8* [[TMP3]], getelementptr ([240 x i8], [240 x i8]* @data, i64 1, i64 6)
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i8* [[P_0]], getelementptr ([240 x i8], [240 x i8]* @data, i64 1, i64 5)
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[LOOP]], label [[EXIT:%.*]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
@@ -170,7 +170,7 @@ define i8 @dom_load() #0 {
 ; CHECK-NEXT:    [[P_0:%.*]] = phi i8* [ getelementptr inbounds ([240 x i8], [240 x i8]* @data, i64 0, i64 0), [[ENTRY:%.*]] ], [ [[TMP3:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[TMP3]] = getelementptr inbounds i8, i8* [[P_0]], i64 1
 ; CHECK-NEXT:    [[V:%.*]] = load i8, i8* [[TMP3]]
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i8* [[TMP3]], getelementptr ([240 x i8], [240 x i8]* @data, i64 1, i64 6)
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i8* [[P_0]], getelementptr ([240 x i8], [240 x i8]* @data, i64 1, i64 5)
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[LOOP]], label [[EXIT:%.*]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    [[V_LCSSA:%.*]] = phi i8 [ [[V]], [[LOOP]] ]
@@ -233,7 +233,7 @@ define void @neg_dead_int_iv() #0 {
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[I_1:%.*]] = phi i64 [ -2, [[ENTRY:%.*]] ], [ [[TMP3:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[TMP3]] = add nsw i64 [[I_1]], 1
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[TMP3]], 244
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[I_1]], 243
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[LOOP]], label [[EXIT:%.*]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void

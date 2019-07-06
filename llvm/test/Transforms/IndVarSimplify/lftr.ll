@@ -15,7 +15,7 @@ define i32 @pre_to_post_add() {
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[I_NEXT:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i32 [[I]], 1
 ; CHECK-NEXT:    store i32 [[I]], i32* @A
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[I_NEXT]], 1001
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[I]], 1000
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[LOOP]], label [[LOOPEXIT:%.*]]
 ; CHECK:       loopexit:
 ; CHECK-NEXT:    ret i32 1000
@@ -74,7 +74,7 @@ define i32 @quadratic_slt() {
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 7, [[ENTRY:%.*]] ], [ [[I_NEXT:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i32 [[I]], 1
 ; CHECK-NEXT:    store i32 [[I]], i32* @A
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[I_NEXT]], 33
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[I]], 32
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[LOOP]], label [[LOOPEXIT:%.*]]
 ; CHECK:       loopexit:
 ; CHECK-NEXT:    ret i32 32
@@ -104,7 +104,7 @@ define i32 @quadratic_sle() {
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 7, [[ENTRY:%.*]] ], [ [[I_NEXT:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i32 [[I]], 1
 ; CHECK-NEXT:    store i32 [[I]], i32* @A
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[I_NEXT]], 33
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[I]], 32
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[LOOP]], label [[LOOPEXIT:%.*]]
 ; CHECK:       loopexit:
 ; CHECK-NEXT:    ret i32 32
@@ -133,7 +133,7 @@ define i32 @quadratic_ule() {
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 7, [[ENTRY:%.*]] ], [ [[I_NEXT:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i32 [[I]], 1
 ; CHECK-NEXT:    store i32 [[I]], i32* @A
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[I_NEXT]], 33
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[I]], 32
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[LOOP]], label [[LOOPEXIT:%.*]]
 ; CHECK:       loopexit:
 ; CHECK-NEXT:    ret i32 32
@@ -202,13 +202,12 @@ define void @test_udiv_as_shift(i8* %a, i8 %n) nounwind uwtable ssp {
 ; CHECK:       loop.preheader:
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i8 [[N]], 3
 ; CHECK-NEXT:    [[TMP1:%.*]] = lshr i8 [[TMP0]], 2
-; CHECK-NEXT:    [[TMP2:%.*]] = add nuw nsw i8 [[TMP1]], 1
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[I1:%.*]] = phi i8 [ [[I1_INC:%.*]], [[LOOP]] ], [ 0, [[LOOP_PREHEADER]] ]
 ; CHECK-NEXT:    [[I1_INC]] = add nuw nsw i8 [[I1]], 1
 ; CHECK-NEXT:    store volatile i8 0, i8* [[A:%.*]]
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i8 [[I1_INC]], [[TMP2]]
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i8 [[I1]], [[TMP1]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[LOOP]], label [[EXIT_LOOPEXIT:%.*]]
 ; CHECK:       exit.loopexit:
 ; CHECK-NEXT:    br label [[EXIT]]
@@ -368,10 +367,11 @@ attributes #1 = { nounwind }
 define void @wide_trip_count_test1(float* %autoc,
 ; CHECK-LABEL: @wide_trip_count_test1(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[SUB:%.*]] = sub i32 [[DATA_LEN:%.*]], [[SAMPLE:%.*]]
-; CHECK-NEXT:    [[CMP4:%.*]] = icmp eq i32 [[DATA_LEN]], [[SAMPLE]]
+; CHECK-NEXT:    [[CMP4:%.*]] = icmp eq i32 [[DATA_LEN:%.*]], [[SAMPLE:%.*]]
 ; CHECK-NEXT:    br i1 [[CMP4]], label [[FOR_END:%.*]], label [[FOR_BODY_PREHEADER:%.*]]
 ; CHECK:       for.body.preheader:
+; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[DATA_LEN]], -1
+; CHECK-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[SAMPLE]]
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ], [ 68719476736, [[FOR_BODY_PREHEADER]] ]
@@ -386,8 +386,8 @@ define void @wide_trip_count_test1(float* %autoc,
 ; CHECK-NEXT:    [[ADD3:%.*]] = fadd float [[TEMP2]], [[MUL]]
 ; CHECK-NEXT:    store float [[ADD3]], float* [[ARRAYIDX2]], align 4
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; CHECK-NEXT:    [[LFTR_WIDEIV:%.*]] = trunc i64 [[INDVARS_IV_NEXT]] to i32
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[LFTR_WIDEIV]], [[SUB]]
+; CHECK-NEXT:    [[LFTR_WIDEIV:%.*]] = trunc i64 [[INDVARS_IV]] to i32
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[LFTR_WIDEIV]], [[TMP1]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_BODY]], label [[FOR_END_LOOPEXIT:%.*]]
 ; CHECK:       for.end.loopexit:
 ; CHECK-NEXT:    br label [[FOR_END]]

@@ -24,7 +24,7 @@ define void @drop_exact(i32* %p, i64* %p1) {
 ; CHECK-NEXT:    [[TMP26:%.*]] = zext i32 [[TMP20]] to i64
 ; CHECK-NEXT:    store i64 [[TMP26]], i64* [[P1:%.*]], align 4
 ; CHECK-NEXT:    [[TMP42]] = add nuw nsw i32 [[TMP14]], 1
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i32 [[TMP42]], 719
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i32 [[TMP14]], 718
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[BB7:%.*]], label [[BB12]]
 ;
 bb:
@@ -71,7 +71,7 @@ define void @dont_drop_exact(i32* %p, i64* %p1) {
 ; CHECK-NEXT:    [[TMP26:%.*]] = zext i32 [[TMP20]] to i64
 ; CHECK-NEXT:    store i64 [[TMP26]], i64* [[P1:%.*]], align 4
 ; CHECK-NEXT:    [[TMP42]] = add nuw nsw i32 [[TMP14]], 1
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i32 [[TMP42]], 719
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i32 [[TMP14]], 718
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[BB7:%.*]], label [[BB12]]
 ;
 bb:

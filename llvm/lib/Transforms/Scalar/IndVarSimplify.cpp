@@ -2401,27 +2401,12 @@ linearFunctionTestReplace(Loop *L, BasicBlock *ExitingBB,
   Instruction * const IncVar =
     cast<Instruction>(IndVar->getIncomingValueForBlock(L->getLoopLatch()));
 
-  // Initialize CmpIndVar to the preincremented IV.
-  Value *CmpIndVar = IndVar;
-  bool UsePostInc = false;
-
-  // If the exiting block is the same as the backedge block, we prefer to
-  // compare against the post-incremented value, otherwise we must compare
-  // against the preincremented value.
-  if (ExitingBB == L->getLoopLatch()) {
-    // For pointer IVs, we chose to not strip inbounds which requires us not
-    // to add a potentially UB introducing use.  We need to either a) show
-    // the loop test we're modifying is already in post-inc form, or b) show
-    // that adding a use must not introduce UB.
-    bool SafeToPostInc =
-        IndVar->getType()->isIntegerTy() ||
-        isLoopExitTestBasedOn(IncVar, ExitingBB) ||
-        mustExecuteUBIfPoisonOnPathTo(IncVar, ExitingBB->getTerminator(), DT);
-    if (SafeToPostInc) {
-      UsePostInc = true;
-      CmpIndVar = IncVar;
-    }
-  }
+  // If the old loop exit test was based on the post-inc IV, use it, otherwise
+  // stick with the pre-inc form and leave the conversion to post-inc form to
+  // LSR. Converting to post-inc now may require dropping poison flags.
+  bool UsePostInc = ExitingBB == L->getLoopLatch() &&
+                    isLoopExitTestBasedOn(IncVar, ExitingBB);
+  Value *CmpIndVar = UsePostInc ? IncVar : IndVar;
 
   // It may be necessary to drop nowrap flags on the incrementing instruction
   // if either LFTR moves from a pre-inc check to a post-inc check (in which
