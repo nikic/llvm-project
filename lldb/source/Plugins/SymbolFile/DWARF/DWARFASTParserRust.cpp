@@ -754,7 +754,7 @@ TypeSP DWARFASTParserRust::ParseStructureType(const DWARFDIE &die) {
   bool has_discriminant = fields.size() > 0 && fields[0].is_discriminant;
 
   // See the comment by m_discriminant to understand this.
-  DIERef save_discr = m_discriminant;
+  llvm::Optional<DIERef> save_discr = m_discriminant;
   if (has_discriminant)
     m_discriminant = DIERef(fields[0].type);
 

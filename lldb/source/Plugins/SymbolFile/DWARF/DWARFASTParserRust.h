@@ -114,7 +114,7 @@ private:
   // same name as the enum type itself.  So, when we expect to read
   // the enumeration type, we set this member, and ParseCLikeEnum
   // avoids giving the name to the enumeration type.
-  DIERef m_discriminant;
+  llvm::Optional<DIERef> m_discriminant;
 
   // When reading a Rust enum, we set this temporarily when reading
   // the field types, so that they can get the correct scoping.
