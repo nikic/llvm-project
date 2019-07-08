@@ -44,7 +44,7 @@ public:
 
   dw_offset_t die_offset() const { return m_die_offset; }
 
-  bool operator==(const DIERef &ref) const { return die_offset == ref.die_offset; }
+  bool operator==(const DIERef &ref) const { return m_die_offset == ref.m_die_offset; }
 
 private:
   uint32_t m_dwo_num : 30;
