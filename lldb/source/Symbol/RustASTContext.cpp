@@ -2051,7 +2051,8 @@ DWARFASTParser *RustASTContext::GetDWARFParser() {
 UserExpression *RustASTContextForExpr::GetUserExpression(
     llvm::StringRef expr, llvm::StringRef prefix, lldb::LanguageType language,
     Expression::ResultType desired_type,
-    const EvaluateExpressionOptions &options) {
+    const EvaluateExpressionOptions &options, ValueObject *ctx_obj) {
+  // TODO: Handle ctx_obj.
   TargetSP target = m_target_wp.lock();
   if (target)
     return new RustUserExpression(*target, expr, prefix, language, desired_type,
