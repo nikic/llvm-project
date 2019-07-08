@@ -37,7 +37,6 @@ if (NOT LLDB_DISABLE_PYTHON)
      OUTPUT_VARIABLE LLDB_PY_LIB_SUFFIX)
 endif ()
 
-add_subdirectory(docs)
 if (NOT LLDB_DISABLE_PYTHON)
   add_subdirectory(scripts)
 endif ()
