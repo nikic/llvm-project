@@ -1367,10 +1367,11 @@ RustASTContext::GetBuiltinTypeForEncodingAndBitSize(lldb::Encoding encoding,
 // Exploring the type
 //----------------------------------------------------------------------
 
-uint64_t RustASTContext::GetBitSize(lldb::opaque_compiler_type_t type,
-                                    ExecutionContextScope *exe_scope) {
+llvm::Optional<uint64_t>
+RustASTContext::GetBitSize(lldb::opaque_compiler_type_t type,
+                           ExecutionContextScope *exe_scope) {
   if (!type)
-    return 0;
+    return {};
   RustType *t = static_cast<RustType *>(type);
   return t->ByteSize() * 8;
 }

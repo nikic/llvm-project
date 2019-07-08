@@ -259,8 +259,9 @@ public:
   // Exploring the type
   //----------------------------------------------------------------------
 
-  uint64_t GetBitSize(lldb::opaque_compiler_type_t type,
-                      ExecutionContextScope *exe_scope) override;
+  llvm::Optional<uint64_t> GetBitSize(
+      lldb::opaque_compiler_type_t type,
+      ExecutionContextScope *exe_scope) override;
 
   lldb::Encoding GetEncoding(lldb::opaque_compiler_type_t type,
                              uint64_t &count) override;
