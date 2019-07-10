@@ -3647,65 +3647,43 @@ int BoUpSLP::getSpillCost() const {
   // live. When we see a call instruction that is not part of our tree,
   // query TTI to see if there is a cost to keeping values live over it
   // (for example, if spills and fills are required).
-  unsigned BundleWidth = VectorizableTree.front()->Scalars.size();
+  TreeEntry *Root = &*VectorizableTree.front();
+  unsigned BundleWidth = Root->Scalars.size();
   int Cost = 0;
 
-  SmallPtrSet<Instruction*, 4> LiveValues;
-  Instruction *PrevInst = nullptr;
+  Instruction *RootInst = cast<Instruction>(Root->Scalars[0]);
+  BasicBlock *BB = RootInst->getParent();
 
-  for (const auto &TEPtr : VectorizableTree) {
-    Instruction *Inst = dyn_cast<Instruction>(TEPtr->Scalars[0]);
-    if (!Inst)
+  SmallPtrSet<Instruction*, 8> LiveValues;
+  LiveValues.insert(RootInst);
+
+  // We only check the basic block that contains the root instruction.
+  BasicBlock::reverse_iterator It = RootInst->getIterator().getReverse();
+  for (; It != BB->rend() && !LiveValues.empty(); ++It) {
+    Instruction *I = &*It;
+
+    if (LiveValues.erase(I)) {
+      for (Value *Op : I->operands())
+        if (isa<Instruction>(Op) && getTreeEntry(Op))
+          LiveValues.insert(cast<Instruction>(Op));
       continue;
-
-    if (!PrevInst) {
-      PrevInst = Inst;
-      continue;
     }
 
-    // Update LiveValues.
-    LiveValues.erase(PrevInst);
-    for (auto &J : PrevInst->operands()) {
-      if (isa<Instruction>(&*J) && getTreeEntry(&*J))
-        LiveValues.insert(cast<Instruction>(&*J));
-    }
+    // Debug informations doesn't impact spill cost.
+    if (isa<CallInst>(I) && !isa<DbgInfoIntrinsic>(I)) {
+      LLVM_DEBUG({
+        dbgs() << "SLP: #LV: " << LiveValues.size();
+        for (auto *X : LiveValues)
+          dbgs() << " " << X->getName();
+        dbgs() << ", Looking at ";
+        I->dump();
+      });
 
-    LLVM_DEBUG({
-      dbgs() << "SLP: #LV: " << LiveValues.size();
-      for (auto *X : LiveValues)
-        dbgs() << " " << X->getName();
-      dbgs() << ", Looking at ";
-      Inst->dump();
-    });
-
-    // Now find the sequence of instructions between PrevInst and Inst.
-    unsigned NumCalls = 0;
-    BasicBlock::reverse_iterator InstIt = ++Inst->getIterator().getReverse(),
-                                 PrevInstIt =
-                                     PrevInst->getIterator().getReverse();
-    while (InstIt != PrevInstIt) {
-      if (PrevInstIt == PrevInst->getParent()->rend()) {
-        PrevInstIt = Inst->getParent()->rbegin();
-        continue;
-      }
-
-      // Debug information does not impact spill cost.
-      if ((isa<CallInst>(&*PrevInstIt) &&
-           !isa<DbgInfoIntrinsic>(&*PrevInstIt)) &&
-          &*PrevInstIt != PrevInst)
-        NumCalls++;
-
-      ++PrevInstIt;
-    }
-
-    if (NumCalls) {
       SmallVector<Type*, 4> V;
       for (auto *II : LiveValues)
         V.push_back(VectorType::get(II->getType(), BundleWidth));
-      Cost += NumCalls * TTI->getCostOfKeepingLiveOverCall(V);
+      Cost += TTI->getCostOfKeepingLiveOverCall(V);
     }
-
-    PrevInst = Inst;
   }
 
   return Cost;
