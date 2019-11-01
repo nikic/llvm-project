@@ -301,16 +301,9 @@ static bool processCmp(CmpInst *Cmp, LazyValueInfo *LVI) {
   if (!C)
     return false;
 
-  // As a policy choice, we choose not to waste compile time on anything where
-  // the comparison is testing local values.  While LVI can sometimes reason
-  // about such cases, it's not its primary purpose.  We do make sure to do
-  // the block local query for uses from terminator instructions, but that's
-  // handled in the code for each terminator. As an exception, we allow phi
-  // nodes, for which LVI can thread the condition into predecessors.
-  auto *I = dyn_cast<Instruction>(Op0);
-  if (I && I->getParent() == Cmp->getParent() && !isa<PHINode>(I))
-    return false;
-
+  // We also query LVI for comparisons against values originating in the same
+  // basic block, as the comparison result may be determined based on local
+  // range information.
   LazyValueInfo::Tristate Result =
       LVI->getPredicateAt(Cmp->getPredicate(), Op0, C, Cmp);
   if (Result == LazyValueInfo::Unknown)
@@ -802,7 +795,6 @@ static bool processAnd(BinaryOperator *BinOp, LazyValueInfo *LVI) {
   return true;
 }
 
-
 static Constant *getConstantAt(Value *V, Instruction *At, LazyValueInfo *LVI) {
   if (Constant *C = LVI->getConstant(V, At->getParent(), At))
     return C;
@@ -825,6 +817,7 @@ static Constant *getConstantAt(Value *V, Instruction *At, LazyValueInfo *LVI) {
     ConstantInt::getTrue(C->getContext()) :
     ConstantInt::getFalse(C->getContext());
 }
+
 
 static bool runImpl(Function &F, LazyValueInfo *LVI, DominatorTree *DT,
                     const SimplifyQuery &SQ) {
