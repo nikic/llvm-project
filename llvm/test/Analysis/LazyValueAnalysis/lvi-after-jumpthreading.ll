@@ -53,9 +53,9 @@ entry:
 
 ; CHECK-LABEL: loop:
 ; CHECK-NEXT:    ; LatticeVal for: 'i32 %n' is: overdefined
-; CHECK-NEXT:    ; LatticeVal for: '  %iv = phi i32 [ 0, %entry ], [ %iv.next, %backedge ]' in BB: '%loop' is: constantrange<0, 400>
-; CHECK-DAG:     ; LatticeVal for: '  %iv = phi i32 [ 0, %entry ], [ %iv.next, %backedge ]' in BB: '%backedge' is: constantrange<0, -2147483648>
-; CHECK-DAG:     ; LatticeVal for: '  %iv = phi i32 [ 0, %entry ], [ %iv.next, %backedge ]' in BB: '%exit' is: constantrange<0, -2147483648>
+; CHECK-NEXT:    ; LatticeVal for: '  %iv = phi i32 [ 0, %entry ], [ %iv.next, %backedge ]' in BB: '%loop' is: constantrange<-2147483648, 400>
+; CHECK-DAG:     ; LatticeVal for: '  %iv = phi i32 [ 0, %entry ], [ %iv.next, %backedge ]' in BB: '%backedge' is: constantrange<0, 400>
+; CHECK-DAG:     ; LatticeVal for: '  %iv = phi i32 [ 0, %entry ], [ %iv.next, %backedge ]' in BB: '%exit' is: constantrange<-2147483648, 400>
 ; CHECK-NEXT:  %iv = phi i32 [ 0, %entry ], [ %iv.next, %backedge ]
 loop:
   %iv = phi i32 [0, %entry], [%iv.next, %backedge]
@@ -81,7 +81,7 @@ loop:
 
 ; CHECK-LABEL: backedge:
 ; CHECK-NEXT:    ; LatticeVal for: 'i32 %n' is: overdefined
-; CHECK-NEXT:    ; LatticeVal for: '  %iv.next = add nsw i32 %iv, 1' in BB: '%backedge' is: constantrange<1, -2147483648>
+; CHECK-NEXT:    ; LatticeVal for: '  %iv.next = add nsw i32 %iv, 1' in BB: '%backedge' is: constantrange<1, 401>
 ; CHECK-NEXT:  %iv.next = add nsw i32 %iv, 1
 backedge:
   %iv.next = add nsw i32 %iv, 1

@@ -16,6 +16,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -168,6 +169,9 @@ namespace {
     DenseMap<PoisoningVH<BasicBlock>, BlockCacheEntryTy> BlockCache;
     /// Set of value handles used to erase values from the cache on deletion.
     DenseSet<LVIValueHandle, DenseMapInfo<Value *>> ValueHandles;
+    /// Cache of back edges in function, used to break cycles.
+    Optional<DenseSet<std::pair<const BasicBlock *, const BasicBlock *>>>
+        BackEdges;
 
   public:
     void insertResult(Value *Val, BasicBlock *BB,
@@ -225,10 +229,13 @@ namespace {
       return CacheEntry.DereferencedPointers->count(V);
     }
 
+    bool isBackEdge(const BasicBlock *From, const BasicBlock *To);
+
     /// clear - Empty the cache.
     void clear() {
       BlockCache.clear();
       ValueHandles.clear();
+      BackEdges.reset();
     }
 
     /// Inform the cache that a given value has been deleted.
@@ -266,6 +273,9 @@ void LVIValueHandle::deleted() {
 
 void LazyValueInfoCache::eraseBlock(BasicBlock *BB) {
   BlockCache.erase(BB);
+
+  // TODO: Clear BackEdges less aggressively.
+  BackEdges.reset();
 }
 
 void LazyValueInfoCache::threadEdgeImpl(BasicBlock *OldSucc,
@@ -320,8 +330,23 @@ void LazyValueInfoCache::threadEdgeImpl(BasicBlock *OldSucc,
 
     worklist.insert(worklist.end(), succ_begin(ToUpdate), succ_end(ToUpdate));
   }
+
+  // TODO: Clear BackEdges less aggressively.
+  BackEdges.reset();
 }
 
+bool LazyValueInfoCache::isBackEdge(const BasicBlock *From,
+                                    const BasicBlock *To) {
+  if (!BackEdges) {
+    SmallVector<std::pair<const BasicBlock *, const BasicBlock *>, 32> Edges;
+    FindFunctionBackedges(*To->getParent(), Edges);
+    BackEdges.emplace();
+    for (const auto &Edge : Edges)
+      BackEdges->insert(Edge);
+  }
+
+  return BackEdges->count(std::make_pair(From, To));
+}
 
 namespace {
 /// An assembly annotator class to print LazyValueCache information in
@@ -366,8 +391,13 @@ namespace {
     /// Push BV onto BlockValueStack unless it's already in there.
     /// Returns true on success.
     bool pushBlockValue(const std::pair<BasicBlock *, Value *> &BV) {
-      if (!BlockValueSet.insert(BV).second)
+      if (!BlockValueSet.insert(BV).second) {
+        // TODO: Can we avoid computing block values for unreachable blocks
+        // in a more principled manner?
+        assert((!DT || !DT->isReachableFromEntry(BV.first)) &&
+            "Cycles may only occur in unreachable blocks");
         return false;  // It's already in the stack.
+      }
 
       LLVM_DEBUG(dbgs() << "PUSH: " << *BV.second << " in "
                         << BV.first->getName() << "\n");
@@ -382,7 +412,8 @@ namespace {
 
   ValueLatticeElement getBlockValue(Value *Val, BasicBlock *BB);
   bool getEdgeValue(Value *V, BasicBlock *F, BasicBlock *T,
-                    ValueLatticeElement &Result, Instruction *CxtI = nullptr);
+                    ValueLatticeElement &Result, Instruction *CxtI = nullptr,
+                    bool AllowBackEdges = false);
   bool hasBlockValue(Value *Val, BasicBlock *BB);
 
   // These methods process one work item and may add more. A false value
@@ -1467,7 +1498,8 @@ static bool getEdgeValueLocal(Value *Val, BasicBlock *BBFrom,
 bool LazyValueInfoImpl::getEdgeValue(Value *Val, BasicBlock *BBFrom,
                                      BasicBlock *BBTo,
                                      ValueLatticeElement &Result,
-                                     Instruction *CxtI) {
+                                     Instruction *CxtI,
+                                     bool AllowBackEdges) {
   // If already a constant, there is nothing to compute.
   if (Constant *VC = dyn_cast<Constant>(Val)) {
     Result = ValueLatticeElement::get(VC);
@@ -1487,10 +1519,17 @@ bool LazyValueInfoImpl::getEdgeValue(Value *Val, BasicBlock *BBFrom,
   }
 
   if (!hasBlockValue(Val, BBFrom)) {
-    if (pushBlockValue(std::make_pair(BBFrom, Val)))
-      return false;
+    // Don't take block values from back-edges in order to break cyclic
+    // references.
+    if (AllowBackEdges || !TheCache.isBackEdge(BBFrom, BBTo))
+      if (pushBlockValue(std::make_pair(BBFrom, Val)))
+        return false;
+
     // No new information.
     Result = LocalResult;
+    // TODO: Why are the following intersections not performed if we don't
+    // have a block value? Wouldn't they also make sense if we only have the
+    // local edge value?
     return true;
   }
 
@@ -1553,9 +1592,10 @@ getValueOnEdge(Value *V, BasicBlock *FromBB, BasicBlock *ToBB,
                     << "'\n");
 
   ValueLatticeElement Result;
-  if (!getEdgeValue(V, FromBB, ToBB, Result, CxtI)) {
+  if (!getEdgeValue(V, FromBB, ToBB, Result, CxtI, /* AllowBackEdges */ true)) {
     solve();
-    bool WasFastQuery = getEdgeValue(V, FromBB, ToBB, Result, CxtI);
+    bool WasFastQuery =
+        getEdgeValue(V, FromBB, ToBB, Result, CxtI, /* AllowBackEdges */ true);
     (void)WasFastQuery;
     assert(WasFastQuery && "More work to do after problem solved?");
   }
