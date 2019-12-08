@@ -1246,6 +1246,34 @@ ConstantRange::lshr(const ConstantRange &Other) const {
   return getNonEmpty(std::move(min), std::move(max));
 }
 
+static ConstantRange shlNoWrapHelper(
+    const ConstantRange &ShAmt,
+    const APInt &Min, const APInt &Max, unsigned EffectiveBitWidth,
+    unsigned MinLeadingZeros, unsigned MaxLeadingZeros) {
+  unsigned BitWidth = ShAmt.getBitWidth();
+  unsigned ShAmtMax = ShAmt.getUnsignedMax().getLimitedValue();
+  unsigned ShAmtMin = ShAmt.getUnsignedMin().getLimitedValue();
+  if (ShAmtMin > MaxLeadingZeros)
+    // All possible shifts will overflow.
+    return ConstantRange::getEmpty(BitWidth);
+
+  APInt ResMin = Min.shl(ShAmtMin);
+  // We'll pick the larger of two possible upper bounds, initialize to zero.
+  APInt ResMax = APInt::getNullValue(BitWidth);
+  // Shift the maximum as far as possible without overflowing.
+  if (ShAmtMin <= MinLeadingZeros)
+    ResMax = Max.shl(std::min(ShAmtMax, MinLeadingZeros));
+  // Pick the largest number with all low bits sets that is both in the LHS
+  // range and can be shifted without overflowing.
+  if (MinLeadingZeros != MaxLeadingZeros && ShAmtMax >= MinLeadingZeros + 1) {
+    unsigned Shift = std::max(ShAmtMin, MinLeadingZeros + 1);
+    ResMax = APIntOps::umax(ResMax,
+        APInt::getLowBitsSet(BitWidth, EffectiveBitWidth - Shift).shl(Shift));
+  }
+  return ConstantRange::getNonEmpty(ResMin, ResMax + 1);
+}
+
+// TODO: Drop PreferredRangeType, it's not relevant for the shl case.
 ConstantRange ConstantRange::shlWithNoWrap(const ConstantRange &Other,
                                            unsigned NoWrapKind,
                                            PreferredRangeType RangeType) const {
@@ -1275,28 +1303,17 @@ ConstantRange ConstantRange::shlWithNoWrap(const ConstantRange &Other,
       if (MaxLeadingZeros != 0) --MaxLeadingZeros;
     }
 
-    unsigned ShAmtMax = ShAmt.getUnsignedMax().getLimitedValue();
-    unsigned ShAmtMin = ShAmt.getUnsignedMin().getLimitedValue();
-    if (ShAmtMin > MaxLeadingZeros)
-      // All possible shifts will overflow.
-      return getEmpty();
-
-    APInt ResMin = Min.shl(ShAmtMin);
-    // We'll pick the larger of two possible upper bounds, initialize to zero.
-    APInt ResMax = APInt::getNullValue(BitWidth);
-    // Shift the maximum as far as possible without overflowing.
-    if (ShAmtMin <= MinLeadingZeros)
-      ResMax = Max.shl(std::min(ShAmtMax, MinLeadingZeros));
-    // Pick the largest number with all low bits sets that is both in the LHS
-    // range and can be shifted without overflowing.
-    if (MinLeadingZeros != MaxLeadingZeros && ShAmtMax >= MinLeadingZeros + 1) {
-      unsigned Shift = std::max(ShAmtMin, MinLeadingZeros + 1);
-      ResMax = APIntOps::umax(ResMax,
-          APInt::getLowBitsSet(BitWidth, EffectiveBitWidth - Shift).shl(Shift));
-    }
-    return getNonEmpty(ResMin, ResMax + 1);
+    return shlNoWrapHelper(
+        ShAmt, Min, Max, EffectiveBitWidth, MinLeadingZeros, MaxLeadingZeros);
   }
   if (NoWrapKind & OBO::NoSignedWrap) {
+    APInt Min = getSignedMin(), Max = getSignedMax();
+    if (isAllNonNegative()) {
+      unsigned MinLeadingZeros = Max.countLeadingZeros() - 1;
+      unsigned MaxLeadingZeros = Min.countLeadingZeros() - 1;
+      return shlNoWrapHelper(
+          ShAmt, Min, Max, BitWidth - 1, MinLeadingZeros, MaxLeadingZeros);
+    }
     // TODO
   }
   return shl(ShAmt);

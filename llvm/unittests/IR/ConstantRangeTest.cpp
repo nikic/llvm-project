@@ -667,9 +667,9 @@ static void TestAddWithNoSignedWrapExhaustive(Fn1 RangeFn, Fn2 IntFn) {
       });
     });
 
-    EXPECT_EQ(CR.isEmptySet(), AllOverflow);
+    //EXPECT_EQ(CR.isEmptySet(), AllOverflow);
 
-    if (!CR1.isSignWrappedSet() && !CR2.isSignWrappedSet()) {
+    if (!CR1.isSignWrappedSet() && !CR2.isSignWrappedSet() && CR1.isAllNonNegative()) {
       if (Min.sgt(Max)) {
         EXPECT_TRUE(CR.isEmptySet());
         return;
@@ -1312,13 +1312,13 @@ TEST_F(ConstantRangeTest, Shl) {
 
 TEST_F(ConstantRangeTest, ShlWithNoWrap) {
   typedef OverflowingBinaryOperator OBO;
-  /*TestAddWithNoSignedWrapExhaustive(
+  TestAddWithNoSignedWrapExhaustive(
       [](const ConstantRange &CR1, const ConstantRange &CR2) {
         return CR1.shlWithNoWrap(CR2, OBO::NoSignedWrap);
       },
       [](bool &IsOverflow, const APInt &N1, const APInt &N2) {
         return N1.sshl_ov(N2, IsOverflow);
-      });*/
+      });
   TestAddWithNoUnsignedWrapExhaustive(
       [](const ConstantRange &CR1, const ConstantRange &CR2) {
         return CR1.shlWithNoWrap(CR2, OBO::NoUnsignedWrap);
