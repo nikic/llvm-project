@@ -669,7 +669,7 @@ static void TestAddWithNoSignedWrapExhaustive(Fn1 RangeFn, Fn2 IntFn) {
 
     //EXPECT_EQ(CR.isEmptySet(), AllOverflow);
 
-    if (!CR1.isSignWrappedSet() && !CR2.isSignWrappedSet() && CR1.isAllNonNegative()) {
+    if (!CR1.isSignWrappedSet() && !CR2.isSignWrappedSet() && CR1.isAllNegative()) {
       if (Min.sgt(Max)) {
         EXPECT_TRUE(CR.isEmptySet());
         return;

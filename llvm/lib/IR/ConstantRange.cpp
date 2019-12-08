@@ -1314,6 +1314,15 @@ ConstantRange ConstantRange::shlWithNoWrap(const ConstantRange &Other,
       return shlNoWrapHelper(
           ShAmt, Min, Max, BitWidth - 1, MinLeadingZeros, MaxLeadingZeros);
     }
+    if (isAllNegative()) {
+      APInt InvMin = -Min, InvMax = -Max;
+      unsigned MinLeadingZeros = InvMax.countLeadingZeros() - 1;
+      unsigned MaxLeadingZeros = InvMin.countLeadingZeros() - 1;
+      ConstantRange Res = shlNoWrapHelper(
+          ShAmt, InvMax, InvMin, BitWidth - 1,
+          MinLeadingZeros, MaxLeadingZeros);
+      return getNonEmpty(-(Res.Upper - 1), -Res.Lower + 1);
+    }
     // TODO
   }
   return shl(ShAmt);
