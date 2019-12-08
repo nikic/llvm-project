@@ -675,6 +675,9 @@ static void TestAddWithNoSignedWrapExhaustive(Fn1 RangeFn, Fn2 IntFn) {
         return;
       }
 
+      /*llvm::errs() << "CR1: " << CR1 << '\n';
+      llvm::errs() << "CR2: " << CR2 << '\n';
+      llvm::errs().flush();*/
       ConstantRange Exact = ConstantRange::getNonEmpty(Min, Max + 1);
       EXPECT_EQ(Exact, CR);
     }
@@ -1305,6 +1308,34 @@ TEST_F(ConstantRangeTest, Shl) {
       Some2.shl(ConstantRange(APInt(16, 0x1))),
       ConstantRange(APInt(16, 0xfff << 0x1), APInt(16, 0x7fff << 0x1) + 1));
   EXPECT_EQ(One.shl(WrapNullMax), Full);
+}
+
+TEST_F(ConstantRangeTest, ShlWithNoWrap) {
+  typedef OverflowingBinaryOperator OBO;
+  /*TestAddWithNoSignedWrapExhaustive(
+      [](const ConstantRange &CR1, const ConstantRange &CR2) {
+        return CR1.shlWithNoWrap(CR2, OBO::NoSignedWrap);
+      },
+      [](bool &IsOverflow, const APInt &N1, const APInt &N2) {
+        return N1.sshl_ov(N2, IsOverflow);
+      });*/
+  TestAddWithNoUnsignedWrapExhaustive(
+      [](const ConstantRange &CR1, const ConstantRange &CR2) {
+        return CR1.shlWithNoWrap(CR2, OBO::NoUnsignedWrap);
+      },
+      [](bool &IsOverflow, const APInt &N1, const APInt &N2) {
+        return N1.ushl_ov(N2, IsOverflow);
+      });
+  TestAddWithNoSignedUnsignedWrapExhaustive(
+      [](const ConstantRange &CR1, const ConstantRange &CR2) {
+        return CR1.shlWithNoWrap(CR2, OBO::NoUnsignedWrap | OBO::NoSignedWrap);
+      },
+      [](bool &IsOverflow, const APInt &N1, const APInt &N2) {
+        return N1.sshl_ov(N2, IsOverflow);
+      },
+      [](bool &IsOverflow, const APInt &N1, const APInt &N2) {
+        return N1.ushl_ov(N2, IsOverflow);
+      });
 }
 
 TEST_F(ConstantRangeTest, Lshr) {

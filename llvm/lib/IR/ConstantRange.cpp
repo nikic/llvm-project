@@ -1246,6 +1246,62 @@ ConstantRange::lshr(const ConstantRange &Other) const {
   return getNonEmpty(std::move(min), std::move(max));
 }
 
+ConstantRange ConstantRange::shlWithNoWrap(const ConstantRange &Other,
+                                           unsigned NoWrapKind,
+                                           PreferredRangeType RangeType) const {
+  if (isFullSet() && Other.isFullSet())
+    return getFull();
+
+  // For given range of shift amounts, if we ignore all illegal shift amounts
+  // (that always produce poison), what shift amount range is left?
+  unsigned BitWidth = getBitWidth();
+  ConstantRange ShAmt = Other.intersectWith(
+      ConstantRange(APInt(BitWidth, 0), APInt(BitWidth, (BitWidth - 1) + 1)));
+  if (isEmptySet() || ShAmt.isEmptySet())
+    return getEmpty();
+
+  using OBO = OverflowingBinaryOperator;
+  if (NoWrapKind & OBO::NoUnsignedWrap) {
+    APInt Min = getUnsignedMin(), Max = getUnsignedMax();
+    unsigned MinLeadingZeros = Max.countLeadingZeros();
+    unsigned MaxLeadingZeros = Min.countLeadingZeros();
+
+    // If additionally the nsw flag is set, we can treat this the same way as
+    // nuw, but with one less bit available.
+    unsigned EffectiveBitWidth = BitWidth;
+    if (NoWrapKind & OBO::NoSignedWrap) {
+      --EffectiveBitWidth;
+      if (MinLeadingZeros != 0) --MinLeadingZeros;
+      if (MaxLeadingZeros != 0) --MaxLeadingZeros;
+    }
+
+    unsigned ShAmtMax = ShAmt.getUnsignedMax().getLimitedValue();
+    unsigned ShAmtMin = ShAmt.getUnsignedMin().getLimitedValue();
+    if (ShAmtMin > MaxLeadingZeros)
+      // All possible shifts will overflow.
+      return getEmpty();
+
+    APInt ResMin = Min.shl(ShAmtMin);
+    // We'll pick the larger of two possible upper bounds, initialize to zero.
+    APInt ResMax = APInt::getNullValue(BitWidth);
+    // Shift the maximum as far as possible without overflowing.
+    if (ShAmtMin <= MinLeadingZeros)
+      ResMax = Max.shl(std::min(ShAmtMax, MinLeadingZeros));
+    // Pick the largest number with all low bits sets that is both in the LHS
+    // range and can be shifted without overflowing.
+    if (MinLeadingZeros != MaxLeadingZeros && ShAmtMax >= MinLeadingZeros + 1) {
+      unsigned Shift = std::max(ShAmtMin, MinLeadingZeros + 1);
+      ResMax = APIntOps::umax(ResMax,
+          APInt::getLowBitsSet(BitWidth, EffectiveBitWidth - Shift).shl(Shift));
+    }
+    return getNonEmpty(ResMin, ResMax + 1);
+  }
+  if (NoWrapKind & OBO::NoSignedWrap) {
+    // TODO
+  }
+  return shl(ShAmt);
+}
+
 ConstantRange
 ConstantRange::ashr(const ConstantRange &Other) const {
   if (isEmptySet() || Other.isEmptySet())
