@@ -1246,7 +1246,7 @@ ConstantRange::lshr(const ConstantRange &Other) const {
   return getNonEmpty(std::move(min), std::move(max));
 }
 
-static ConstantRange shlNoWrapHelper(
+static ConstantRange shlNoWrapNonNeg(
     const ConstantRange &ShAmt,
     const APInt &Min, const APInt &Max, unsigned EffectiveBitWidth,
     unsigned MinLeadingZeros, unsigned MaxLeadingZeros) {
@@ -1263,12 +1263,40 @@ static ConstantRange shlNoWrapHelper(
   // Shift the maximum as far as possible without overflowing.
   if (ShAmtMin <= MinLeadingZeros)
     ResMax = Max.shl(std::min(ShAmtMax, MinLeadingZeros));
-  // Pick the largest number with all low bits sets that is both in the LHS
+  // Pick the largest number with all low bits set that is both in the LHS
   // range and can be shifted without overflowing.
   if (MinLeadingZeros != MaxLeadingZeros && ShAmtMax >= MinLeadingZeros + 1) {
     unsigned Shift = std::max(ShAmtMin, MinLeadingZeros + 1);
     ResMax = APIntOps::umax(ResMax,
         APInt::getLowBitsSet(BitWidth, EffectiveBitWidth - Shift).shl(Shift));
+  }
+  return ConstantRange::getNonEmpty(ResMin, ResMax + 1);
+}
+
+static ConstantRange shlNoWrapNeg(
+    const ConstantRange &ShAmt,
+    const APInt &Min, const APInt &Max, unsigned EffectiveBitWidth,
+    unsigned MinLeadingOnes, unsigned MaxLeadingOnes) {
+  unsigned BitWidth = ShAmt.getBitWidth();
+  unsigned ShAmtMax = ShAmt.getUnsignedMax().getLimitedValue();
+  unsigned ShAmtMin = ShAmt.getUnsignedMin().getLimitedValue();
+  if (ShAmtMin > MaxLeadingOnes)
+    // All possible shifts will overflow.
+    return ConstantRange::getEmpty(BitWidth);
+
+  APInt ResMax = Max.shl(ShAmtMin);
+  // We'll pick the smaller of two possible lower bounds, initialize to -1.
+  APInt ResMin = APInt::getAllOnesValue(BitWidth);
+  // Shift the minimum as far as possible without overflowing.
+  if (ShAmtMin <= MinLeadingOnes)
+    ResMin = Min.shl(std::min(ShAmtMax, MinLeadingOnes));
+  // Pick the smallest number with all low bits unset that is both in the LHS
+  // range and can be shifted without overflowing.
+  if (MinLeadingOnes != MaxLeadingOnes && ShAmtMax >= MinLeadingOnes + 1) {
+    unsigned Shift = std::max(ShAmtMin, MinLeadingOnes + 1);
+    // TODO: Simplify?
+    ResMin = APIntOps::umin(ResMin,
+        APInt::getBitsSetFrom(BitWidth, EffectiveBitWidth - Shift).shl(Shift));
   }
   return ConstantRange::getNonEmpty(ResMin, ResMax + 1);
 }
@@ -1303,25 +1331,24 @@ ConstantRange ConstantRange::shlWithNoWrap(const ConstantRange &Other,
       if (MaxLeadingZeros != 0) --MaxLeadingZeros;
     }
 
-    return shlNoWrapHelper(
+    return shlNoWrapNonNeg(
         ShAmt, Min, Max, EffectiveBitWidth, MinLeadingZeros, MaxLeadingZeros);
   }
   if (NoWrapKind & OBO::NoSignedWrap) {
     APInt Min = getSignedMin(), Max = getSignedMax();
     if (isAllNonNegative()) {
-      unsigned MinLeadingZeros = Max.countLeadingZeros() - 1;
-      unsigned MaxLeadingZeros = Min.countLeadingZeros() - 1;
-      return shlNoWrapHelper(
-          ShAmt, Min, Max, BitWidth - 1, MinLeadingZeros, MaxLeadingZeros);
+      unsigned MinLeadingZeros = Max.countLeadingZeros();
+      unsigned MaxLeadingZeros = Min.countLeadingZeros();
+      return shlNoWrapNonNeg(
+          ShAmt, Min, Max,
+          BitWidth - 1, MinLeadingZeros - 1, MaxLeadingZeros - 1);
     }
     if (isAllNegative()) {
-      APInt InvMin = -Min, InvMax = -Max;
-      unsigned MinLeadingZeros = InvMax.countLeadingZeros() - 1;
-      unsigned MaxLeadingZeros = InvMin.countLeadingZeros() - 1;
-      ConstantRange Res = shlNoWrapHelper(
-          ShAmt, InvMax, InvMin, BitWidth - 1,
-          MinLeadingZeros, MaxLeadingZeros);
-      return getNonEmpty(-(Res.Upper - 1), -Res.Lower + 1);
+      unsigned MinLeadingOnes = Max.countLeadingOnes();
+      unsigned MaxLeadingOnes = Min.countLeadingOnes();
+      return shlNoWrapNeg(
+          ShAmt, Min, Max,
+          BitWidth - 1, MinLeadingOnes - 1, MaxLeadingOnes - 1);
     }
     // TODO
   }

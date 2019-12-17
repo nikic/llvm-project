@@ -669,15 +669,15 @@ static void TestAddWithNoSignedWrapExhaustive(Fn1 RangeFn, Fn2 IntFn) {
 
     //EXPECT_EQ(CR.isEmptySet(), AllOverflow);
 
-    if (!CR1.isSignWrappedSet() && !CR2.isSignWrappedSet() && CR1.isAllNegative()) {
+    if (!CR1.isSignWrappedSet() && !CR2.isSignWrappedSet() && CR1.isAllNonNegative()) {
       if (Min.sgt(Max)) {
         EXPECT_TRUE(CR.isEmptySet());
         return;
       }
 
-      /*llvm::errs() << "CR1: " << CR1 << '\n';
+      llvm::errs() << "CR1: " << CR1 << '\n';
       llvm::errs() << "CR2: " << CR2 << '\n';
-      llvm::errs().flush();*/
+      llvm::errs().flush();
       ConstantRange Exact = ConstantRange::getNonEmpty(Min, Max + 1);
       EXPECT_EQ(Exact, CR);
     }
