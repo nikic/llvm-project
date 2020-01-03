@@ -16,7 +16,7 @@ define i64 @test_inbounds([0 x i32]* %base, i64 %idx) {
 
 define i64 @test_inbounds_nuw([0 x i32]* %base, i64 %idx) {
 ; CHECK-LABEL: @test_inbounds_nuw(
-; CHECK-NEXT:    [[P2_IDX:%.*]] = shl nsw i64 [[IDX:%.*]], 2
+; CHECK-NEXT:    [[P2_IDX:%.*]] = shl nuw nsw i64 [[IDX:%.*]], 2
 ; CHECK-NEXT:    ret i64 [[P2_IDX]]
 ;
   %p1 = getelementptr inbounds [0 x i32], [0 x i32]* %base, i64 0, i64 0
@@ -79,6 +79,21 @@ define i64 @test_inbounds_nuw_two_gep([0 x i32]* %base, i64 %idx, i64 %idx2) {
 ;
   %p1 = getelementptr inbounds [0 x i32], [0 x i32]* %base, i64 0, i64 %idx
   %p2 = getelementptr inbounds [0 x i32], [0 x i32]* %base, i64 0, i64 %idx2
+  %i1 = ptrtoint i32* %p1 to i64
+  %i2 = ptrtoint i32* %p2 to i64
+  %d = sub nuw i64 %i2, %i1
+  ret i64 %d
+}
+
+define i64 @test_inbounds_nuw_multi_index([0 x [2 x i32]]* %base, i64 %idx, i64 %idx2) {
+; CHECK-LABEL: @test_inbounds_nuw_multi_index(
+; CHECK-NEXT:    [[P2_IDX:%.*]] = shl nsw i64 [[IDX:%.*]], 3
+; CHECK-NEXT:    [[P2_IDX1:%.*]] = shl nsw i64 [[IDX2:%.*]], 2
+; CHECK-NEXT:    [[P2_OFFS2:%.*]] = add i64 [[P2_IDX]], [[P2_IDX1]]
+; CHECK-NEXT:    ret i64 [[P2_OFFS2]]
+;
+  %p1 = getelementptr inbounds [0 x [2 x i32]], [0 x [2 x i32]]* %base, i64 0, i64 0, i64 0
+  %p2 = getelementptr inbounds [0 x [2 x i32]], [0 x [2 x i32]]* %base, i64 0, i64 %idx, i64 %idx2
   %i1 = ptrtoint i32* %p1 to i64
   %i2 = ptrtoint i32* %p2 to i64
   %d = sub nuw i64 %i2, %i1
