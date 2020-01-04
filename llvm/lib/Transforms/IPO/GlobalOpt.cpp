@@ -106,6 +106,44 @@ static cl::opt<int> ColdCCRelFreq(
         "entry frequency, for a call site to be considered cold for enabling"
         "coldcc"));
 
+namespace {
+struct AnalysisLookup {
+  function_ref<TargetLibraryInfo &(Function &)> GetTLI;
+  function_ref<TargetTransformInfo &(Function &)> GetTTI;
+  function_ref<BlockFrequencyInfo &(Function &)> GetBFI;
+  function_ref<DominatorTree &(Function &)> GetDT_;
+  function_ref<DominatorTree *(Function &)> GetDTIfAvailable_;
+
+  bool NewPM;
+
+  AnalysisLookup(function_ref<TargetLibraryInfo &(Function &)> GetTLI,
+                 function_ref<TargetTransformInfo &(Function &)> GetTTI,
+                 function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+                 function_ref<DominatorTree &(Function &)> GetDT_,
+                 function_ref<DominatorTree *(Function &)> GetDTIfAvailable_,
+                 bool NewPM)
+      : GetTLI(GetTLI), GetTTI(GetTTI), GetBFI(GetBFI), GetDT_(GetDT_),
+        GetDTIfAvailable_(GetDTIfAvailable_), NewPM(NewPM) {}
+
+  DominatorTree &GetDT(Function &F) {
+    if (!NewPM)
+      DTRequested.insert(&F);
+    return GetDT_(F);
+  }
+
+  DominatorTree *GetDTIfAvailable(Function &F) {
+    if (NewPM)
+      return GetDTIfAvailable_(F);
+
+    if (DTRequested.find(&F) == DTRequested.end())
+      return nullptr;
+    return &GetDT_(F);
+  }
+
+  SmallPtrSet<Function *, 16> DTRequested;
+};
+
+} // namespace
 /// Is this global variable possibly used by a leak checker as a root?  If so,
 /// we might not really want to eliminate the stores to it.
 static bool isLeakCheckerRoot(GlobalVariable *GV) {
@@ -1783,9 +1821,9 @@ static bool deleteIfDead(
   return true;
 }
 
-static bool isPointerValueDeadOnEntryToFunction(
-    const Function *F, GlobalValue *GV,
-    function_ref<DominatorTree &(Function &)> LookupDomTree) {
+static bool isPointerValueDeadOnEntryToFunction(const Function *F,
+                                                GlobalValue *GV,
+                                                AnalysisLookup &Lookup) {
   // Find all uses of GV. We expect them all to be in F, and if we can't
   // identify any of the uses we bail out.
   //
@@ -1829,7 +1867,7 @@ static bool isPointerValueDeadOnEntryToFunction(
   // of them are known not to depend on the value of the global at the function
   // entry point. We do this by ensuring that every load is dominated by at
   // least one store.
-  auto &DT = LookupDomTree(*const_cast<Function *>(F));
+  auto &DT = Lookup.GetDT(*const_cast<Function *>(F));
 
   // The below check is quadratic. Check we're not going to do too many tests.
   // FIXME: Even though this will always have worst-case quadratic time, we
@@ -1920,10 +1958,8 @@ static void makeAllConstantUsesInstructions(Constant *C) {
 
 /// Analyze the specified global variable and optimize
 /// it if possible.  If we make a change, return true.
-static bool
-processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
-                      function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-                      function_ref<DominatorTree &(Function &)> LookupDomTree) {
+static bool processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
+                                  AnalysisLookup &Lookup) {
   auto &DL = GV->getParent()->getDataLayout();
   // If this is a first class global and has only one accessing function and
   // this function is non-recursive, we replace the global with a local alloca
@@ -1933,15 +1969,12 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
   // are just replacing static memory to stack memory.
   //
   // If the global is in different address space, don't bring it to stack.
-  if (!GS.HasMultipleAccessingFunctions &&
-      GS.AccessingFunction &&
+  if (!GS.HasMultipleAccessingFunctions && GS.AccessingFunction &&
       GV->getValueType()->isSingleValueType() &&
-      GV->getType()->getAddressSpace() == 0 &&
-      !GV->isExternallyInitialized() &&
+      GV->getType()->getAddressSpace() == 0 && !GV->isExternallyInitialized() &&
       allNonInstructionUsersCanBeMadeInstructions(GV) &&
       GS.AccessingFunction->doesNotRecurse() &&
-      isPointerValueDeadOnEntryToFunction(GS.AccessingFunction, GV,
-                                          LookupDomTree)) {
+      isPointerValueDeadOnEntryToFunction(GS.AccessingFunction, GV, Lookup)) {
     const DataLayout &DL = GV->getParent()->getDataLayout();
 
     LLVM_DEBUG(dbgs() << "LOCALIZING GLOBAL: " << *GV << "\n");
@@ -1970,12 +2003,12 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
     bool Changed;
     if (isLeakCheckerRoot(GV)) {
       // Delete any constant stores to the global.
-      Changed = CleanupPointerRootUsers(GV, GetTLI);
+      Changed = CleanupPointerRootUsers(GV, Lookup.GetTLI);
     } else {
       // Delete any stores we can find to the global.  We may not be able to
       // make it completely dead though.
-      Changed =
-          CleanupConstantGlobalUsers(GV, GV->getInitializer(), DL, GetTLI);
+      Changed = CleanupConstantGlobalUsers(GV, GV->getInitializer(), DL,
+                                           Lookup.GetTLI);
     }
 
     // If the global is dead now, delete it.
@@ -1997,7 +2030,7 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
       GV->setConstant(true);
 
     // Clean up any obviously simplifiable users now.
-    CleanupConstantGlobalUsers(GV, GV->getInitializer(), DL, GetTLI);
+    CleanupConstantGlobalUsers(GV, GV->getInitializer(), DL, Lookup.GetTLI);
 
     // If the global is dead now, just nuke it.
     if (GV->use_empty()) {
@@ -2027,7 +2060,7 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
         GV->setInitializer(SOVConstant);
 
         // Clean up any obviously simplifiable users now.
-        CleanupConstantGlobalUsers(GV, GV->getInitializer(), DL, GetTLI);
+        CleanupConstantGlobalUsers(GV, GV->getInitializer(), DL, Lookup.GetTLI);
 
         if (GV->use_empty()) {
           LLVM_DEBUG(dbgs() << "   *** Substituting initializer allowed us to "
@@ -2042,7 +2075,7 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
     // Try to optimize globals based on the knowledge that only one value
     // (besides its initializer) is ever stored to the global.
     if (optimizeOnceStoredGlobal(GV, GS.StoredOnceValue, GS.Ordering, DL,
-                                 GetTLI))
+                                 Lookup.GetTLI))
       return true;
 
     // Otherwise, if the global was not a boolean, we can shrink it to be a
@@ -2062,10 +2095,7 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
 
 /// Analyze the specified global variable and optimize it if possible.  If we
 /// make a change, return true.
-static bool
-processGlobal(GlobalValue &GV,
-              function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-              function_ref<DominatorTree &(Function &)> LookupDomTree) {
+static bool processGlobal(GlobalValue &GV, AnalysisLookup &Lookup) {
   if (GV.getName().startswith("llvm."))
     return false;
 
@@ -2096,7 +2126,7 @@ processGlobal(GlobalValue &GV,
   if (GVar->isConstant() || !GVar->hasInitializer())
     return Changed;
 
-  return processInternalGlobal(GVar, GS, GetTLI, LookupDomTree) || Changed;
+  return processInternalGlobal(GVar, GS, Lookup) || Changed;
 }
 
 /// Walk all of the direct calls of the specified function, changing them to
@@ -2244,11 +2274,7 @@ hasOnlyColdCalls(Function &F,
 }
 
 static bool
-OptimizeFunctions(Module &M,
-                  function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-                  function_ref<TargetTransformInfo &(Function &)> GetTTI,
-                  function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
-                  function_ref<DominatorTree &(Function &)> LookupDomTree,
+OptimizeFunctions(Module &M, AnalysisLookup &Lookup,
                   SmallPtrSetImpl<const Comdat *> &NotDiscardableComdats) {
 
   bool Changed = false;
@@ -2256,7 +2282,7 @@ OptimizeFunctions(Module &M,
   std::vector<Function *> AllCallsCold;
   for (Module::iterator FI = M.begin(), E = M.end(); FI != E;) {
     Function *F = &*FI++;
-    if (hasOnlyColdCalls(*F, GetBFI))
+    if (hasOnlyColdCalls(*F, Lookup.GetBFI))
       AllCallsCold.push_back(F);
   }
 
@@ -2287,12 +2313,12 @@ OptimizeFunctions(Module &M,
     // no point in analyzing them and b) GlobalOpt should otherwise grow
     // some more complicated logic to break these cycles.
     if (!F->isDeclaration()) {
-      auto &DT = LookupDomTree(*F);
+      auto *DT = Lookup.GetDTIfAvailable(*F);
       DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
       Changed |= removeUnreachableBlocks(*F, &DTU);
     }
 
-    Changed |= processGlobal(*F, GetTLI, LookupDomTree);
+    Changed |= processGlobal(*F, Lookup);
 
     if (!F->hasLocalLinkage())
       continue;
@@ -2310,14 +2336,14 @@ OptimizeFunctions(Module &M,
 
     if (hasChangeableCC(F) && !F->isVarArg() && !F->hasAddressTaken()) {
       NumInternalFunc++;
-      TargetTransformInfo &TTI = GetTTI(*F);
+      TargetTransformInfo &TTI = Lookup.GetTTI(*F);
       // Change the calling convention to coldcc if either stress testing is
       // enabled or the target would like to use coldcc on functions which are
       // cold at all call sites and the callers contain no other non coldcc
       // calls.
       if (EnableColdCCStressTest ||
           (TTI.useColdCCForColdCall(*F) &&
-           isValidCandidateForColdCC(*F, GetBFI, AllCallsCold))) {
+           isValidCandidateForColdCC(*F, Lookup.GetBFI, AllCallsCold))) {
         F->setCallingConv(CallingConv::Cold);
         changeCallSitesToColdCC(F);
         Changed = true;
@@ -2349,9 +2375,7 @@ OptimizeFunctions(Module &M,
 }
 
 static bool
-OptimizeGlobalVars(Module &M,
-                   function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-                   function_ref<DominatorTree &(Function &)> LookupDomTree,
+OptimizeGlobalVars(Module &M, AnalysisLookup &Lookup,
                    SmallPtrSetImpl<const Comdat *> &NotDiscardableComdats) {
   bool Changed = false;
 
@@ -2378,7 +2402,7 @@ OptimizeGlobalVars(Module &M,
       continue;
     }
 
-    Changed |= processGlobal(*GV, GetTLI, LookupDomTree);
+    Changed |= processGlobal(*GV, Lookup);
   }
   return Changed;
 }
@@ -2909,12 +2933,8 @@ static bool OptimizeEmptyGlobalCXXDtors(Function *CXAAtExitFn) {
   return Changed;
 }
 
-static bool optimizeGlobalsInModule(
-    Module &M, const DataLayout &DL,
-    function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-    function_ref<TargetTransformInfo &(Function &)> GetTTI,
-    function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
-    function_ref<DominatorTree &(Function &)> LookupDomTree) {
+static bool optimizeGlobalsInModule(Module &M, const DataLayout &DL,
+                                    AnalysisLookup &Lookup) {
   SmallPtrSet<const Comdat *, 8> NotDiscardableComdats;
   bool Changed = false;
   bool LocalChange = true;
@@ -2936,24 +2956,22 @@ static bool optimizeGlobalsInModule(
           NotDiscardableComdats.insert(C);
 
     // Delete functions that are trivially dead, ccc -> fastcc
-    LocalChange |= OptimizeFunctions(M, GetTLI, GetTTI, GetBFI, LookupDomTree,
-                                     NotDiscardableComdats);
+    LocalChange |= OptimizeFunctions(M, Lookup, NotDiscardableComdats);
 
     // Optimize global_ctors list.
     LocalChange |= optimizeGlobalCtorsList(M, [&](Function *F) {
-      return EvaluateStaticConstructor(F, DL, &GetTLI(*F));
+      return EvaluateStaticConstructor(F, DL, &Lookup.GetTLI(*F));
     });
 
     // Optimize non-address-taken globals.
-    LocalChange |=
-        OptimizeGlobalVars(M, GetTLI, LookupDomTree, NotDiscardableComdats);
+    LocalChange |= OptimizeGlobalVars(M, Lookup, NotDiscardableComdats);
 
     // Resolve aliases, when possible.
     LocalChange |= OptimizeGlobalAliases(M, NotDiscardableComdats);
 
     // Try to remove trivial global destructors if they are not removed
     // already.
-    Function *CXAAtExitFn = FindCXAAtExit(M, GetTLI);
+    Function *CXAAtExitFn = FindCXAAtExit(M, Lookup.GetTLI);
     if (CXAAtExitFn)
       LocalChange |= OptimizeEmptyGlobalCXXDtors(CXAAtExitFn);
 
@@ -2970,8 +2988,11 @@ PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     auto &DL = M.getDataLayout();
     auto &FAM =
         AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-    auto LookupDomTree = [&FAM](Function &F) -> DominatorTree &{
+    auto LookupDomTree = [&FAM](Function &F) -> DominatorTree & {
       return FAM.getResult<DominatorTreeAnalysis>(F);
+    };
+    auto LookupDomTreeIfAvailable = [&FAM](Function &F) -> DominatorTree * {
+      return FAM.getCachedResult<DominatorTreeAnalysis>(F);
     };
     auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
       return FAM.getResult<TargetLibraryAnalysis>(F);
@@ -2984,7 +3005,9 @@ PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
       return FAM.getResult<BlockFrequencyAnalysis>(F);
     };
 
-    if (!optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, LookupDomTree))
+    AnalysisLookup Lookup(GetTLI, GetTTI, GetBFI, LookupDomTree,
+                          LookupDomTreeIfAvailable, true);
+    if (!optimizeGlobalsInModule(M, DL, Lookup))
       return PreservedAnalyses::all();
     return PreservedAnalyses::none();
 }
@@ -3006,6 +3029,9 @@ struct GlobalOptLegacyPass : public ModulePass {
     auto LookupDomTree = [this](Function &F) -> DominatorTree & {
       return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
+    auto LookupDomTreeIfAvailable = [](Function &F) -> DominatorTree * {
+      return nullptr;
+    };
     auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
@@ -3017,8 +3043,9 @@ struct GlobalOptLegacyPass : public ModulePass {
       return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
     };
 
-    return optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI,
-                                   LookupDomTree);
+    AnalysisLookup Lookup(GetTLI, GetTTI, GetBFI, LookupDomTree,
+                          LookupDomTreeIfAvailable, false);
+    return optimizeGlobalsInModule(M, DL, Lookup);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
