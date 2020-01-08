@@ -216,8 +216,8 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
   BasicBlock *OrigHeader = L->getHeader();
   BasicBlock *OrigLatch = L->getLoopLatch();
 
-  BranchInst *BI = dyn_cast<BranchInst>(OrigHeader->getTerminator());
-  if (!BI || BI->isUnconditional())
+  Instruction *Term = OrigHeader->getTerminator();
+  if (!isa<BranchInst>(Term) && !isa<SwitchInst>(Term))
     return false;
 
   // If the loop header is not one of the loop exiting blocks then
@@ -236,6 +236,25 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
   if (L->isLoopExiting(OrigLatch) && !SimplifiedLatch && IsUtilMode == false &&
       !shouldRotateLoopExitingLatch(L))
     return false;
+
+  // Find new Loop header. NewHeader is a Header's one and only successor
+  // that is inside loop.  Header's other successor is outside the
+  // loop.  Otherwise loop is not suitable for rotation.
+  BasicBlock *Exit = nullptr;
+  BasicBlock *NewHeader = nullptr;
+  for (BasicBlock *SuccBB : successors(OrigHeader)) {
+    if (L->contains(SuccBB)) {
+      // We don't have a new unique header.
+      if (NewHeader && NewHeader != SuccBB)
+        return false;
+      NewHeader = SuccBB;
+    } else {
+      // TODO: In principle, we could also support multiple exits here.
+      if (Exit && Exit != SuccBB)
+        return false;
+      Exit = SuccBB;
+    }
+  }
 
   // Check size of original header and reject loop if it is very big or we can't
   // duplicate blocks inside it.
@@ -282,20 +301,9 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
   if (MSSAU && VerifyMemorySSA)
     MSSAU->getMemorySSA()->verifyMemorySSA();
 
-  // Find new Loop header. NewHeader is a Header's one and only successor
-  // that is inside loop.  Header's other successor is outside the
-  // loop.  Otherwise loop is not suitable for rotation.
-  BasicBlock *Exit = BI->getSuccessor(0);
-  BasicBlock *NewHeader = BI->getSuccessor(1);
-  if (L->contains(Exit))
-    std::swap(Exit, NewHeader);
-  assert(NewHeader && "Unable to determine new loop header");
-  assert(L->contains(NewHeader) && !L->contains(Exit) &&
-         "Unable to determine loop header and exit blocks");
-
   // This code assumes that the new header has exactly one predecessor.
   // Remove any single-entry PHI nodes in it.
-  assert(NewHeader->getSinglePredecessor() &&
+  assert(NewHeader->getUniquePredecessor() &&
          "New header doesn't have one pred!");
   FoldSingleEntryPHINodes(NewHeader);
 
@@ -450,11 +458,18 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
   // then we fold away the cond branch to an uncond branch.  This simplifies the
   // loop in cases important for nested loops, and it also means we don't have
   // to split as many edges.
-  BranchInst *PHBI = cast<BranchInst>(OrigPreheader->getTerminator());
-  assert(PHBI->isConditional() && "Should be clone of BI condbr!");
-  if (!isa<ConstantInt>(PHBI->getCondition()) ||
-      PHBI->getSuccessor(cast<ConstantInt>(PHBI->getCondition())->isZero()) !=
-          NewHeader) {
+  bool AlwaysBranchesIntoLoop = false;
+  Instruction *PHTerm = OrigPreheader->getTerminator();
+  if (auto *PHBI = dyn_cast<BranchInst>(PHTerm)) {
+    if (auto *Cond = dyn_cast<ConstantInt>(PHBI->getCondition()))
+      AlwaysBranchesIntoLoop = PHBI->getSuccessor(Cond->isZero()) == NewHeader;
+  } else if (auto *PHSI = dyn_cast<SwitchInst>(PHTerm)) {
+    if (auto *Cond = dyn_cast<ConstantInt>(PHSI->getCondition()))
+      AlwaysBranchesIntoLoop =
+          PHSI->findCaseValue(Cond)->getCaseSuccessor() == NewHeader;
+  }
+
+  if (!AlwaysBranchesIntoLoop) {
     // The conditional branch can't be folded, handle the general case.
     // Split edges as necessary to preserve LoopSimplify form.
 
@@ -463,14 +478,15 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
     // Split the edge to form a real preheader.
     BasicBlock *NewPH = SplitCriticalEdge(
         OrigPreheader, NewHeader,
-        CriticalEdgeSplittingOptions(DT, LI, MSSAU).setPreserveLCSSA());
+        CriticalEdgeSplittingOptions(DT, LI, MSSAU)
+            .setPreserveLCSSA().setMergeIdenticalEdges());
     NewPH->setName(NewHeader->getName() + ".lr.ph");
 
     // Preserve canonical loop form, which means that 'Exit' should have only
     // one predecessor. Note that Exit could be an exit block for multiple
     // nested loops, causing both of the edges to now be critical and need to
     // be split.
-    SmallVector<BasicBlock *, 4> ExitPreds(pred_begin(Exit), pred_end(Exit));
+    SmallSetVector<BasicBlock *, 4> ExitPreds(pred_begin(Exit), pred_end(Exit));
     bool SplitLatchEdge = false;
     for (BasicBlock *ExitPred : ExitPreds) {
       // We only need to split loop exit edges.
@@ -481,18 +497,28 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
       SplitLatchEdge |= L->getLoopLatch() == ExitPred;
       BasicBlock *ExitSplit = SplitCriticalEdge(
           ExitPred, Exit,
-          CriticalEdgeSplittingOptions(DT, LI, MSSAU).setPreserveLCSSA());
+          CriticalEdgeSplittingOptions(DT, LI, MSSAU)
+              .setPreserveLCSSA().setMergeIdenticalEdges());
       ExitSplit->moveBefore(Exit);
     }
     assert(SplitLatchEdge &&
            "Despite splitting all preds, failed to split latch exit?");
   } else {
     // We can fold the conditional branch in the preheader, this makes things
-    // simpler. The first step is to remove the extra edge to the Exit block.
-    Exit->removePredecessor(OrigPreheader, true /*preserve LCSSA*/);
-    BranchInst *NewBI = BranchInst::Create(NewHeader, PHBI);
-    NewBI->setDebugLoc(PHBI->getDebugLoc());
-    PHBI->eraseFromParent();
+    // simpler. The first step is to remove extra edges to the Exit and
+    // NewHeader blocks. Only keep one NewHeader edge.
+    bool SeenNewHeader = false;
+    for (BasicBlock *SuccBB : successors(OrigPreheader)) {
+      if (SuccBB == NewHeader && !SeenNewHeader) {
+        SeenNewHeader = true;
+        continue;
+      }
+      SuccBB->removePredecessor(OrigPreheader, true /*preserve LCSSA*/);
+    }
+
+    BranchInst *NewBI = BranchInst::Create(NewHeader, PHTerm);
+    NewBI->setDebugLoc(PHTerm->getDebugLoc());
+    PHTerm->eraseFromParent();
 
     // With our CFG finalized, update DomTree if it is available.
     if (DT) DT->deleteEdge(OrigPreheader, Exit);

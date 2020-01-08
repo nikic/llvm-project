@@ -4,21 +4,19 @@
 define i64 @switch_multi_entry_known_entry() {
 ; CHECK-LABEL: @switch_multi_entry_known_entry(
 ; CHECK-NEXT:  start:
-; CHECK-NEXT:    br label [[HEADER:%.*]]
-; CHECK:       header:
-; CHECK-NEXT:    [[STATE:%.*]] = phi i8 [ 2, [[START:%.*]] ], [ [[NEXT_STATE:%.*]], [[LATCH:%.*]] ]
-; CHECK-NEXT:    [[COUNT:%.*]] = phi i64 [ 0, [[START]] ], [ [[INC:%.*]], [[LATCH]] ]
-; CHECK-NEXT:    switch i8 [[STATE]], label [[EXIT:%.*]] [
+; CHECK-NEXT:    br label [[LATCH:%.*]]
+; CHECK:       latch:
+; CHECK-NEXT:    [[COUNT2:%.*]] = phi i64 [ 0, [[START:%.*]] ], [ [[INC:%.*]], [[LATCH]] ], [ [[INC]], [[LATCH]] ]
+; CHECK-NEXT:    [[COUNT1:%.*]] = phi i64 [ 0, [[START]] ], [ [[INC]], [[LATCH]] ], [ [[INC]], [[LATCH]] ]
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[COUNT2]], 999
+; CHECK-NEXT:    [[NEXT_STATE:%.*]] = zext i1 [[CMP]] to i8
+; CHECK-NEXT:    [[INC]] = add i64 [[COUNT1]], 1
+; CHECK-NEXT:    switch i8 [[NEXT_STATE]], label [[EXIT:%.*]] [
 ; CHECK-NEXT:    i8 0, label [[LATCH]]
 ; CHECK-NEXT:    i8 2, label [[LATCH]]
 ; CHECK-NEXT:    ]
-; CHECK:       latch:
-; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[COUNT]], 999
-; CHECK-NEXT:    [[NEXT_STATE]] = zext i1 [[CMP]] to i8
-; CHECK-NEXT:    [[INC]] = add i64 [[COUNT]], 1
-; CHECK-NEXT:    br label [[HEADER]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[COUNT_LCSSA:%.*]] = phi i64 [ [[COUNT]], [[HEADER]] ]
+; CHECK-NEXT:    [[COUNT_LCSSA:%.*]] = phi i64 [ [[INC]], [[LATCH]] ]
 ; CHECK-NEXT:    ret i64 [[COUNT_LCSSA]]
 ;
 start:
@@ -45,21 +43,27 @@ exit:                                             ; preds = %header
 define i64 @switch_multi_entry_unknown_entry(i8 %start_state) {
 ; CHECK-LABEL: @switch_multi_entry_unknown_entry(
 ; CHECK-NEXT:  start:
-; CHECK-NEXT:    br label [[HEADER:%.*]]
-; CHECK:       header:
-; CHECK-NEXT:    [[STATE:%.*]] = phi i8 [ [[START_STATE:%.*]], [[START:%.*]] ], [ [[NEXT_STATE:%.*]], [[LATCH:%.*]] ]
-; CHECK-NEXT:    [[COUNT:%.*]] = phi i64 [ 0, [[START]] ], [ [[INC:%.*]], [[LATCH]] ]
-; CHECK-NEXT:    switch i8 [[STATE]], label [[EXIT:%.*]] [
+; CHECK-NEXT:    switch i8 [[START_STATE:%.*]], label [[EXIT:%.*]] [
+; CHECK-NEXT:    i8 0, label [[LATCH_LR_PH:%.*]]
+; CHECK-NEXT:    i8 2, label [[LATCH_LR_PH]]
+; CHECK-NEXT:    ]
+; CHECK:       latch.lr.ph:
+; CHECK-NEXT:    br label [[LATCH:%.*]]
+; CHECK:       latch:
+; CHECK-NEXT:    [[COUNT2:%.*]] = phi i64 [ 0, [[LATCH_LR_PH]] ], [ [[INC:%.*]], [[LATCH]] ], [ [[INC]], [[LATCH]] ]
+; CHECK-NEXT:    [[COUNT1:%.*]] = phi i64 [ 0, [[LATCH_LR_PH]] ], [ [[INC]], [[LATCH]] ], [ [[INC]], [[LATCH]] ]
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[COUNT2]], 999
+; CHECK-NEXT:    [[NEXT_STATE:%.*]] = zext i1 [[CMP]] to i8
+; CHECK-NEXT:    [[INC]] = add i64 [[COUNT1]], 1
+; CHECK-NEXT:    switch i8 [[NEXT_STATE]], label [[HEADER_EXIT_CRIT_EDGE:%.*]] [
 ; CHECK-NEXT:    i8 0, label [[LATCH]]
 ; CHECK-NEXT:    i8 2, label [[LATCH]]
 ; CHECK-NEXT:    ]
-; CHECK:       latch:
-; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[COUNT]], 999
-; CHECK-NEXT:    [[NEXT_STATE]] = zext i1 [[CMP]] to i8
-; CHECK-NEXT:    [[INC]] = add i64 [[COUNT]], 1
-; CHECK-NEXT:    br label [[HEADER]]
+; CHECK:       header.exit_crit_edge:
+; CHECK-NEXT:    [[SPLIT:%.*]] = phi i64 [ [[INC]], [[LATCH]] ]
+; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[COUNT_LCSSA:%.*]] = phi i64 [ [[COUNT]], [[HEADER]] ]
+; CHECK-NEXT:    [[COUNT_LCSSA:%.*]] = phi i64 [ [[SPLIT]], [[HEADER_EXIT_CRIT_EDGE]] ], [ 0, [[START:%.*]] ]
 ; CHECK-NEXT:    ret i64 [[COUNT_LCSSA]]
 ;
 start:
@@ -86,21 +90,18 @@ exit:                                             ; preds = %header
 define i64 @switch_multi_exit_known_entry() {
 ; CHECK-LABEL: @switch_multi_exit_known_entry(
 ; CHECK-NEXT:  start:
-; CHECK-NEXT:    br label [[HEADER:%.*]]
-; CHECK:       header:
-; CHECK-NEXT:    [[STATE:%.*]] = phi i8 [ 0, [[START:%.*]] ], [ [[NEXT_STATE:%.*]], [[LATCH:%.*]] ]
-; CHECK-NEXT:    [[COUNT:%.*]] = phi i64 [ 0, [[START]] ], [ [[INC:%.*]], [[LATCH]] ]
-; CHECK-NEXT:    switch i8 [[STATE]], label [[LATCH]] [
+; CHECK-NEXT:    br label [[LATCH:%.*]]
+; CHECK:       latch:
+; CHECK-NEXT:    [[COUNT1:%.*]] = phi i64 [ 0, [[START:%.*]] ], [ [[INC:%.*]], [[LATCH]] ]
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[COUNT1]], 999
+; CHECK-NEXT:    [[NEXT_STATE:%.*]] = zext i1 [[CMP]] to i8
+; CHECK-NEXT:    [[INC]] = add i64 [[COUNT1]], 1
+; CHECK-NEXT:    switch i8 [[NEXT_STATE]], label [[LATCH]] [
 ; CHECK-NEXT:    i8 1, label [[EXIT:%.*]]
 ; CHECK-NEXT:    i8 2, label [[EXIT]]
 ; CHECK-NEXT:    ]
-; CHECK:       latch:
-; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[COUNT]], 999
-; CHECK-NEXT:    [[NEXT_STATE]] = zext i1 [[CMP]] to i8
-; CHECK-NEXT:    [[INC]] = add i64 [[COUNT]], 1
-; CHECK-NEXT:    br label [[HEADER]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[COUNT_LCSSA:%.*]] = phi i64 [ [[COUNT]], [[HEADER]] ], [ [[COUNT]], [[HEADER]] ]
+; CHECK-NEXT:    [[COUNT_LCSSA:%.*]] = phi i64 [ [[INC]], [[LATCH]] ], [ [[INC]], [[LATCH]] ]
 ; CHECK-NEXT:    ret i64 [[COUNT_LCSSA]]
 ;
 start:
@@ -127,21 +128,26 @@ exit:                                             ; preds = %header
 define i64 @switch_multi_exit_unknown_entry(i8 %start_state) {
 ; CHECK-LABEL: @switch_multi_exit_unknown_entry(
 ; CHECK-NEXT:  start:
-; CHECK-NEXT:    br label [[HEADER:%.*]]
-; CHECK:       header:
-; CHECK-NEXT:    [[STATE:%.*]] = phi i8 [ [[START_STATE:%.*]], [[START:%.*]] ], [ [[NEXT_STATE:%.*]], [[LATCH:%.*]] ]
-; CHECK-NEXT:    [[COUNT:%.*]] = phi i64 [ 0, [[START]] ], [ [[INC:%.*]], [[LATCH]] ]
-; CHECK-NEXT:    switch i8 [[STATE]], label [[LATCH]] [
+; CHECK-NEXT:    switch i8 [[START_STATE:%.*]], label [[LATCH_LR_PH:%.*]] [
 ; CHECK-NEXT:    i8 1, label [[EXIT:%.*]]
 ; CHECK-NEXT:    i8 2, label [[EXIT]]
 ; CHECK-NEXT:    ]
+; CHECK:       latch.lr.ph:
+; CHECK-NEXT:    br label [[LATCH:%.*]]
 ; CHECK:       latch:
-; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[COUNT]], 999
-; CHECK-NEXT:    [[NEXT_STATE]] = zext i1 [[CMP]] to i8
-; CHECK-NEXT:    [[INC]] = add i64 [[COUNT]], 1
-; CHECK-NEXT:    br label [[HEADER]]
+; CHECK-NEXT:    [[COUNT1:%.*]] = phi i64 [ 0, [[LATCH_LR_PH]] ], [ [[INC:%.*]], [[LATCH]] ]
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[COUNT1]], 999
+; CHECK-NEXT:    [[NEXT_STATE:%.*]] = zext i1 [[CMP]] to i8
+; CHECK-NEXT:    [[INC]] = add i64 [[COUNT1]], 1
+; CHECK-NEXT:    switch i8 [[NEXT_STATE]], label [[LATCH]] [
+; CHECK-NEXT:    i8 1, label [[HEADER_EXIT_CRIT_EDGE:%.*]]
+; CHECK-NEXT:    i8 2, label [[HEADER_EXIT_CRIT_EDGE]]
+; CHECK-NEXT:    ]
+; CHECK:       header.exit_crit_edge:
+; CHECK-NEXT:    [[SPLIT:%.*]] = phi i64 [ [[INC]], [[LATCH]] ], [ [[INC]], [[LATCH]] ]
+; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[COUNT_LCSSA:%.*]] = phi i64 [ [[COUNT]], [[HEADER]] ], [ [[COUNT]], [[HEADER]] ]
+; CHECK-NEXT:    [[COUNT_LCSSA:%.*]] = phi i64 [ [[SPLIT]], [[HEADER_EXIT_CRIT_EDGE]] ], [ 0, [[START:%.*]] ], [ 0, [[START]] ]
 ; CHECK-NEXT:    ret i64 [[COUNT_LCSSA]]
 ;
 start:

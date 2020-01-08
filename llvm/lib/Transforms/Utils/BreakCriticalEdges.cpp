@@ -197,6 +197,7 @@ llvm::SplitCriticalEdge(Instruction *TI, unsigned SuccNum,
   // If there are any other edges from TIBB to DestBB, update those to go
   // through the split block, making those edges non-critical as well (and
   // reducing the number of phi entries in the DestBB if relevant).
+  unsigned NumEdges = 1;
   if (Options.MergeIdenticalEdges) {
     for (unsigned i = SuccNum+1, e = TI->getNumSuccessors(); i != e; ++i) {
       if (TI->getSuccessor(i) != DestBB) continue;
@@ -206,6 +207,7 @@ llvm::SplitCriticalEdge(Instruction *TI, unsigned SuccNum,
 
       // We found another edge to DestBB, go to NewBB instead.
       TI->setSuccessor(i, NewBB);
+      ++NumEdges;
     }
   }
 
@@ -278,7 +280,8 @@ llvm::SplitCriticalEdge(Instruction *TI, unsigned SuccNum,
 
         // Update LCSSA form in the newly created exit block.
         if (Options.PreserveLCSSA) {
-          createPHIsForSplitLoopExit(TIBB, NewBB, DestBB);
+          SmallVector<BasicBlock *, 1> Preds(NumEdges, TIBB);
+          createPHIsForSplitLoopExit(Preds, NewBB, DestBB);
         }
 
         // The only that we can break LoopSimplify form by splitting a critical
