@@ -166,10 +166,27 @@ namespace {
 
     /// Cached information per basic block.
     DenseMap<PoisoningVH<BasicBlock>, BlockCacheEntryTy> BlockCache;
-    /// Set of value handles used to erase values from the cache on deletion.
-    DenseSet<LVIValueHandle, DenseMapInfo<Value *>> ValueHandles;
+    /// Map of value handles used to erase values from the cache on deletion.
+    /// The map value is how often the value is referenced in the block cache.
+    DenseMap<LVIValueHandle, unsigned, DenseMapInfo<Value *>> ValueHandles;
 
   public:
+    void registerValueHandle(Value *Val) {
+      auto HandleIt = ValueHandles.find_as(Val);
+      if (HandleIt == ValueHandles.end())
+        ValueHandles.insert({ { Val, this }, 1 });
+      else
+        ++HandleIt->second;
+    }
+
+    void unregisterValueHandle(Value *Val) {
+      auto HandleIt = ValueHandles.find_as(Val);
+      assert(HandleIt != ValueHandles.end() && "Handle not found");
+      assert(HandleIt->second > 0 && "Handle count underflow");
+      if (--HandleIt->second == 0)
+        ValueHandles.erase(HandleIt);
+    }
+
     void insertResult(Value *Val, BasicBlock *BB,
                       const ValueLatticeElement &Result) {
       auto &CacheEntry = BlockCache.try_emplace(BB).first->second;
@@ -180,9 +197,7 @@ namespace {
       else
         CacheEntry.LatticeElements.insert({ Val, Result });
 
-      auto HandleIt = ValueHandles.find_as(Val);
-      if (HandleIt == ValueHandles.end())
-        ValueHandles.insert({ Val, this });
+      registerValueHandle(Val);
     }
 
     bool hasCachedValueInfo(Value *V, BasicBlock *BB) const {
@@ -215,11 +230,8 @@ namespace {
       auto &CacheEntry = BlockCache.try_emplace(BB).first->second;
       if (!CacheEntry.DereferencedPointers) {
         CacheEntry.DereferencedPointers = InitFn(BB);
-        for (Value *V : *CacheEntry.DereferencedPointers) {
-          auto HandleIt = ValueHandles.find_as(V);
-          if (HandleIt == ValueHandles.end())
-            ValueHandles.insert({ V, this });
-        }
+        for (Value *V : *CacheEntry.DereferencedPointers)
+          registerValueHandle(V);
       }
 
       return CacheEntry.DereferencedPointers->count(V);
@@ -246,16 +258,26 @@ namespace {
 }
 
 void LazyValueInfoCache::eraseValue(Value *V) {
+  unsigned NumErased = 0;
   for (auto &Pair : BlockCache) {
-    Pair.second.LatticeElements.erase(V);
-    Pair.second.OverDefined.erase(V);
+    if (Pair.second.LatticeElements.erase(V))
+      NumErased++;
+
+    if (Pair.second.OverDefined.erase(V))
+      NumErased++;
+
     if (Pair.second.DereferencedPointers)
-      Pair.second.DereferencedPointers->erase(V);
+      if (Pair.second.DereferencedPointers->erase(V))
+        NumErased++;
   }
 
-  auto HandleIt = ValueHandles.find_as(V);
-  if (HandleIt != ValueHandles.end())
-    ValueHandles.erase(HandleIt);
+  if (NumErased != 0) {
+    auto HandleIt = ValueHandles.find_as(V);
+    if (HandleIt != ValueHandles.end()) {
+      assert(HandleIt->second == NumErased && "Value handle count mismatch?");
+      ValueHandles.erase(HandleIt);
+    }
+  }
 }
 
 void LVIValueHandle::deleted() {
@@ -265,7 +287,21 @@ void LVIValueHandle::deleted() {
 }
 
 void LazyValueInfoCache::eraseBlock(BasicBlock *BB) {
-  BlockCache.erase(BB);
+  auto It = BlockCache.find(BB);
+  if (It == BlockCache.end())
+    return;
+
+  for (auto &Pair : It->second.LatticeElements)
+    unregisterValueHandle(Pair.first);
+
+  for (Value *V : It->second.OverDefined)
+    unregisterValueHandle(V);
+
+  if (It->second.DereferencedPointers)
+    for (Value *V : *It->second.DereferencedPointers)
+      unregisterValueHandle(V);
+
+  BlockCache.erase(It);
 }
 
 void LazyValueInfoCache::threadEdgeImpl(BasicBlock *OldSucc,
@@ -310,6 +346,7 @@ void LazyValueInfoCache::threadEdgeImpl(BasicBlock *OldSucc,
     for (Value *V : ValsToClear) {
       if (!ValueSet.erase(V))
         continue;
+      unregisterValueHandle(V);
 
       // If we removed anything, then we potentially need to update
       // blocks successors too.
