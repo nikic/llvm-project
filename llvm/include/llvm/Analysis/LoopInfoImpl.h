@@ -211,7 +211,7 @@ BlockT *LoopBase<BlockT, LoopT>::getLoopLatch() const {
   BlockT *Header = getHeader();
   BlockT *Latch = nullptr;
   for (const auto Pred : children<Inverse<BlockT *>>(Header)) {
-    if (contains(Pred)) {
+    if (Latch != Pred && contains(Pred)) {
       if (Latch)
         return nullptr;
       Latch = Pred;

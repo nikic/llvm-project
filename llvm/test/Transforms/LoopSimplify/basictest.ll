@@ -44,17 +44,15 @@ define void @test_multiple_exits_from_single_block(i8 %a, i8* %b.ptr) {
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[B:%.*]] = load volatile i8, i8* [[B_PTR:%.*]]
-; CHECK-NEXT:    switch i8 [[B]], label [[LOOP_BACKEDGE:%.*]] [
+; CHECK-NEXT:    switch i8 [[B]], label [[LOOP]] [
 ; CHECK-NEXT:    i8 0, label [[EXIT_A_LOOPEXIT:%.*]]
 ; CHECK-NEXT:    i8 1, label [[EXIT_B_LOOPEXIT:%.*]]
-; CHECK-NEXT:    i8 2, label [[LOOP_BACKEDGE]]
+; CHECK-NEXT:    i8 2, label [[LOOP]]
 ; CHECK-NEXT:    i8 3, label [[EXIT_A_LOOPEXIT]]
-; CHECK-NEXT:    i8 4, label [[LOOP_BACKEDGE]]
+; CHECK-NEXT:    i8 4, label [[LOOP]]
 ; CHECK-NEXT:    i8 5, label [[EXIT_A_LOOPEXIT]]
-; CHECK-NEXT:    i8 6, label [[LOOP_BACKEDGE]]
+; CHECK-NEXT:    i8 6, label [[LOOP]]
 ; CHECK-NEXT:    ]
-; CHECK:       loop.backedge:
-; CHECK-NEXT:    br label [[LOOP]]
 ; CHECK:       exit.a.loopexit:
 ; CHECK-NEXT:    br label [[EXIT_A]]
 ; CHECK:       exit.a:
