@@ -12415,6 +12415,8 @@ Semantics:
 This function returns the same values as the libm ``fabs`` functions
 would, and handles error conditions in the same way.
 
+.. _int_minnum
+
 '``llvm.minnum.*``' Intrinsic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -12465,6 +12467,7 @@ NaN, the intrinsic lowering is responsible for quieting the inputs to
 correctly return the non-NaN input (e.g. by using the equivalent of
 ``llvm.canonicalize``).
 
+.. _int_maxnum
 
 '``llvm.maxnum.*``' Intrinsic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -14673,6 +14676,7 @@ The '``llvm.experimental.vector.reduce.fmax.*``' intrinsics do a floating-point
 ``MAX`` reduction of a vector, returning the result as a scalar. The return type
 matches the element-type of the vector input.
 
+The NaN semantics match that of the :ref:`llvm.maxnum <int_maxnum>` intrinsic.
 If the intrinsic call has the ``nnan`` fast-math flag then the operation can
 assume that NaNs are not present in the input vector.
 
@@ -14698,6 +14702,7 @@ The '``llvm.experimental.vector.reduce.fmin.*``' intrinsics do a floating-point
 ``MIN`` reduction of a vector, returning the result as a scalar. The return type
 matches the element-type of the vector input.
 
+The NaN semantics match that of the :ref:`llvm.minnum <int_minnum>` intrinsic.
 If the intrinsic call has the ``nnan`` fast-math flag then the operation can
 assume that NaNs are not present in the input vector.
 

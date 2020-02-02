@@ -2056,7 +2056,6 @@ SDValue DAGTypeLegalizer::SplitVecOp_VECREDUCE(SDNode *N, unsigned OpNo) {
   EVT LoOpVT, HiOpVT;
   std::tie(LoOpVT, HiOpVT) = DAG.GetSplitDestVTs(VecVT);
 
-  bool NoNaN = N->getFlags().hasNoNaNs();
   unsigned CombineOpc = 0;
   switch (N->getOpcode()) {
   case ISD::VECREDUCE_FADD: CombineOpc = ISD::FADD; break;
@@ -2070,12 +2069,8 @@ SDValue DAGTypeLegalizer::SplitVecOp_VECREDUCE(SDNode *N, unsigned OpNo) {
   case ISD::VECREDUCE_SMIN: CombineOpc = ISD::SMIN; break;
   case ISD::VECREDUCE_UMAX: CombineOpc = ISD::UMAX; break;
   case ISD::VECREDUCE_UMIN: CombineOpc = ISD::UMIN; break;
-  case ISD::VECREDUCE_FMAX:
-    CombineOpc = NoNaN ? ISD::FMAXNUM : ISD::FMAXIMUM;
-    break;
-  case ISD::VECREDUCE_FMIN:
-    CombineOpc = NoNaN ? ISD::FMINNUM : ISD::FMINIMUM;
-    break;
+  case ISD::VECREDUCE_FMAX: CombineOpc = ISD::FMAXNUM; break;
+  case ISD::VECREDUCE_FMIN: CombineOpc = ISD::FMINNUM; break;
   default:
     llvm_unreachable("Unexpected reduce ISD node");
   }

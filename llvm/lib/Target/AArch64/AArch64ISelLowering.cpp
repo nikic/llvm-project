@@ -8599,20 +8599,16 @@ SDValue AArch64TargetLowering::LowerVECREDUCE(SDValue Op,
     return getReductionSDNode(AArch64ISD::UMAXV, dl, Op, DAG);
   case ISD::VECREDUCE_UMIN:
     return getReductionSDNode(AArch64ISD::UMINV, dl, Op, DAG);
-  case ISD::VECREDUCE_FMAX: {
-    assert(Op->getFlags().hasNoNaNs() && "fmax vector reduction needs NoNaN flag");
+  case ISD::VECREDUCE_FMAX:
     return DAG.getNode(
         ISD::INTRINSIC_WO_CHAIN, dl, Op.getValueType(),
         DAG.getConstant(Intrinsic::aarch64_neon_fmaxnmv, dl, MVT::i32),
         Op.getOperand(0));
-  }
-  case ISD::VECREDUCE_FMIN: {
-    assert(Op->getFlags().hasNoNaNs() && "fmin vector reduction needs NoNaN flag");
+  case ISD::VECREDUCE_FMIN:
     return DAG.getNode(
         ISD::INTRINSIC_WO_CHAIN, dl, Op.getValueType(),
         DAG.getConstant(Intrinsic::aarch64_neon_fminnmv, dl, MVT::i32),
         Op.getOperand(0));
-  }
   default:
     llvm_unreachable("Unhandled reduction");
   }
