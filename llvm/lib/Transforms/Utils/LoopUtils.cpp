@@ -851,13 +851,7 @@ Value *llvm::createMinMaxOp(IRBuilder<> &Builder,
     break;
   }
 
-  // We only match FP sequences that are 'fast', so we can unconditionally
-  // set it on any generated instructions.
-  IRBuilder<>::FastMathFlagGuard FMFG(Builder);
-  FastMathFlags FMF;
-  FMF.setFast();
-  Builder.setFastMathFlags(FMF);
-
+  // Use fast math flags set on the builder.
   Value *Cmp;
   if (RK == RecurrenceDescriptor::MRK_FloatMin ||
       RK == RecurrenceDescriptor::MRK_FloatMax)
