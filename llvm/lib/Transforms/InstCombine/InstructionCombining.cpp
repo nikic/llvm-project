@@ -3604,7 +3604,7 @@ bool InstCombiner::run() {
   return MadeIRChange;
 }
 
-/// Walk the function in depth-first order, adding all reachable code to the
+/// Walk the function in reverse post-order, adding all reachable code to the
 /// worklist.
 ///
 /// This has a couple of tricks to make the code faster and more powerful.  In
@@ -3612,22 +3612,20 @@ bool InstCombiner::run() {
 /// them to the worklist (this significantly speeds up instcombine on code where
 /// many instructions are dead or constant).  Additionally, if we find a branch
 /// whose condition is a known constant, we only visit the reachable successors.
-static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
-                                       SmallPtrSetImpl<BasicBlock *> &Visited,
-                                       InstCombineWorklist &ICWorklist,
-                                       const TargetLibraryInfo *TLI) {
+static bool AddReachableCodeToWorklist(
+    BasicBlock *BB, const DataLayout &DL,
+    SmallPtrSetImpl<BasicBlock *> &LiveBlocks, InstCombineWorklist &ICWorklist,
+    const TargetLibraryInfo *TLI) {
   bool MadeIRChange = false;
-  SmallVector<BasicBlock*, 256> Worklist;
-  Worklist.push_back(BB);
 
   SmallVector<Instruction*, 128> InstrsForInstCombineWorklist;
   DenseMap<Constant *, Constant *> FoldedConstants;
 
-  do {
-    BB = Worklist.pop_back_val();
+  ReversePostOrderTraversal<BasicBlock *> RPOT(BB);
+  LiveBlocks.insert(BB);
 
-    // We have now visited this block!  If we've already been here, ignore it.
-    if (!Visited.insert(BB).second)
+  for (BasicBlock *BB : RPOT) {
+    if (!LiveBlocks.count(BB))
       continue;
 
     for (BasicBlock::iterator BBI = BB->begin(), E = BB->end(); BBI != E; ) {
@@ -3672,26 +3670,26 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
         InstrsForInstCombineWorklist.push_back(Inst);
     }
 
-    // Recursively visit successors.  If this is a branch or switch on a
-    // constant, only visit the reachable successor.
+    // If this is a branch or switch on a constant, mark only the single
+    // live successor. Otherwise assume all successors are live.
     Instruction *TI = BB->getTerminator();
     if (BranchInst *BI = dyn_cast<BranchInst>(TI)) {
       if (BI->isConditional() && isa<ConstantInt>(BI->getCondition())) {
         bool CondVal = cast<ConstantInt>(BI->getCondition())->getZExtValue();
         BasicBlock *ReachableBB = BI->getSuccessor(!CondVal);
-        Worklist.push_back(ReachableBB);
+        LiveBlocks.insert(ReachableBB);
         continue;
       }
     } else if (SwitchInst *SI = dyn_cast<SwitchInst>(TI)) {
       if (ConstantInt *Cond = dyn_cast<ConstantInt>(SI->getCondition())) {
-        Worklist.push_back(SI->findCaseValue(Cond)->getCaseSuccessor());
+        LiveBlocks.insert(SI->findCaseValue(Cond)->getCaseSuccessor());
         continue;
       }
     }
 
     for (BasicBlock *SuccBB : successors(TI))
-      Worklist.push_back(SuccBB);
-  } while (!Worklist.empty());
+      LiveBlocks.insert(SuccBB);
+  }
 
   // Once we've found all of the instructions to add to instcombine's worklist,
   // add them in reverse order.  This way instcombine will visit from the top
@@ -3730,15 +3728,15 @@ static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
   // Do a depth-first traversal of the function, populate the worklist with
   // the reachable instructions.  Ignore blocks that are not reachable.  Keep
   // track of which blocks we visit.
-  SmallPtrSet<BasicBlock *, 32> Visited;
+  SmallPtrSet<BasicBlock *, 32> LiveBlocks;
   MadeIRChange |=
-      AddReachableCodeToWorklist(&F.front(), DL, Visited, ICWorklist, TLI);
+      AddReachableCodeToWorklist(&F.front(), DL, LiveBlocks, ICWorklist, TLI);
 
   // Do a quick scan over the function.  If we find any blocks that are
   // unreachable, remove any instructions inside of them.  This prevents
   // the instcombine code from having to deal with some bad special cases.
   for (BasicBlock &BB : F) {
-    if (Visited.count(&BB))
+    if (LiveBlocks.count(&BB))
       continue;
 
     unsigned NumDeadInstInBB = removeAllNonTerminatorAndEHPadInstructions(&BB);
