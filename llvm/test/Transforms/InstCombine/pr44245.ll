@@ -157,6 +157,7 @@ define void @test_2(i1 %c) local_unnamed_addr {
 ; CHECK:       for.cond:
 ; CHECK-NEXT:    br i1 [[C:%.*]], label [[COND_TRUE133:%.*]], label [[COND_FALSE138:%.*]]
 ; CHECK:       cond.true133:
+; CHECK-NEXT:    store %type_2* undef, %type_2** null, align 536870912
 ; CHECK-NEXT:    br label [[COND_END144:%.*]]
 ; CHECK:       cond.false138:
 ; CHECK-NEXT:    store %type_2* undef, %type_2** null, align 536870912
