@@ -149,8 +149,7 @@ define i32 @icmp_div2(i16 %a, i16 %c) {
 ; CHECK:       then:
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ -1, [[ENTRY:%.*]] ], [ 0, [[THEN]] ]
-; CHECK-NEXT:    ret i32 [[PHI]]
+; CHECK-NEXT:    ret i32 -1
 ;
 entry:
   %tobool = icmp eq i16 %a, 0
