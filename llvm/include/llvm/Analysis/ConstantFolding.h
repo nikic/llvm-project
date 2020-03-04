@@ -19,6 +19,8 @@
 #ifndef LLVM_ANALYSIS_CONSTANTFOLDING_H
 #define LLVM_ANALYSIS_CONSTANTFOLDING_H
 
+#include "llvm/ADT/DenseMap.h"
+
 namespace llvm {
 class APInt;
 template <typename T> class ArrayRef;
@@ -46,11 +48,25 @@ bool IsConstantOffsetFromGlobal(Constant *C, GlobalValue *&GV, APInt &Offset,
 Constant *ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
                                   const TargetLibraryInfo *TLI = nullptr);
 
+/// ConstantFoldInstruction overload that allows persisting the folded
+/// expression cache across calls.
+Constant *
+ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
+                        const TargetLibraryInfo *TLI,
+                        SmallDenseMap<Constant *, Constant *> &FoldedOps);
+
 /// ConstantFoldConstant - Fold the constant using the specified DataLayout.
 /// This function always returns a non-null constant: Either the folding result,
 /// or the original constant if further folding is not possible.
 Constant *ConstantFoldConstant(const Constant *C, const DataLayout &DL,
                                const TargetLibraryInfo *TLI = nullptr);
+
+/// ConstantFoldConstant overload that allows persisting the folded expression
+/// cache across calls.
+Constant *
+ConstantFoldConstant(const Constant *C, const DataLayout &DL,
+                     const TargetLibraryInfo *TLI,
+                     SmallDenseMap<Constant *, Constant *> &FoldedOps);
 
 /// ConstantFoldInstOperands - Attempt to constant fold an instruction with the
 /// specified operands.  If successful, the constant result is returned, if not,

@@ -3621,7 +3621,7 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
   Worklist.push_back(BB);
 
   SmallVector<Instruction*, 128> InstrsForInstCombineWorklist;
-  DenseMap<Constant *, Constant *> FoldedConstants;
+  SmallDenseMap<Constant *, Constant *> FoldedConstants;
 
   do {
     BB = Worklist.pop_back_val();
@@ -3636,7 +3636,8 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
       // ConstantProp instruction if trivially constant.
       if (!Inst->use_empty() &&
           (Inst->getNumOperands() == 0 || isa<Constant>(Inst->getOperand(0))))
-        if (Constant *C = ConstantFoldInstruction(Inst, DL, TLI)) {
+        if (Constant *C = ConstantFoldInstruction(Inst, DL, TLI,
+                                                  FoldedConstants)) {
           LLVM_DEBUG(dbgs() << "IC: ConstFold to: " << *C << " from: " << *Inst
                             << '\n');
           Inst->replaceAllUsesWith(C);
@@ -3652,11 +3653,8 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
         if (!isa<ConstantVector>(U) && !isa<ConstantExpr>(U))
           continue;
 
-        auto *C = cast<Constant>(U);
-        Constant *&FoldRes = FoldedConstants[C];
-        if (!FoldRes)
-          FoldRes = ConstantFoldConstant(C, DL, TLI);
-
+        Constant *C = cast<Constant>(U);
+        Constant *FoldRes = ConstantFoldConstant(C, DL, TLI, FoldedConstants);
         if (FoldRes != C) {
           LLVM_DEBUG(dbgs() << "IC: ConstFold operand of: " << *Inst
                             << "\n    Old = " << *C

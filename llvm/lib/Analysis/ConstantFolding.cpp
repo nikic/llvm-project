@@ -1078,28 +1078,15 @@ Constant *ConstantFoldInstOperandsImpl(const Value *InstOrCE, unsigned Opcode,
 namespace {
 
 Constant *
-ConstantFoldConstantImpl(const Constant *C, const DataLayout &DL,
-                         const TargetLibraryInfo *TLI,
-                         SmallDenseMap<Constant *, Constant *> &FoldedOps) {
-  if (!isa<ConstantVector>(C) && !isa<ConstantExpr>(C))
-    return const_cast<Constant *>(C);
+ConstantFoldConstantUncached(const Constant *C, const DataLayout &DL,
+                             const TargetLibraryInfo *TLI,
+                             SmallDenseMap<Constant *, Constant *> &FoldedOps) {
+  assert(isa<ConstantVector>(C) || isa<ConstantExpr>(C));
 
   SmallVector<Constant *, 8> Ops;
   for (const Use &OldU : C->operands()) {
-    Constant *OldC = cast<Constant>(&OldU);
-    Constant *NewC = OldC;
-    // Recursively fold the ConstantExpr's operands. If we have already folded
-    // a ConstantExpr, we don't have to process it again.
-    if (isa<ConstantVector>(OldC) || isa<ConstantExpr>(OldC)) {
-      auto It = FoldedOps.find(OldC);
-      if (It == FoldedOps.end()) {
-        NewC = ConstantFoldConstantImpl(OldC, DL, TLI, FoldedOps);
-        FoldedOps.insert({OldC, NewC});
-      } else {
-        NewC = It->second;
-      }
-    }
-    Ops.push_back(NewC);
+    Constant *C = cast<Constant>(&OldU);
+    Ops.push_back(ConstantFoldConstant(C, DL, TLI, FoldedOps));
   }
 
   if (auto *CE = dyn_cast<ConstantExpr>(C)) {
@@ -1118,11 +1105,17 @@ ConstantFoldConstantImpl(const Constant *C, const DataLayout &DL,
 
 Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
                                         const TargetLibraryInfo *TLI) {
+  SmallDenseMap<Constant *, Constant *> FoldedOps;
+  return ConstantFoldInstruction(I, DL, TLI, FoldedOps);
+}
+
+Constant *llvm::ConstantFoldInstruction(
+    Instruction *I, const DataLayout &DL, const TargetLibraryInfo *TLI,
+    SmallDenseMap<Constant *, Constant *> &FoldedOps) {
   // Handle PHI nodes quickly here...
   if (auto *PN = dyn_cast<PHINode>(I)) {
     Constant *CommonValue = nullptr;
 
-    SmallDenseMap<Constant *, Constant *> FoldedOps;
     for (Value *Incoming : PN->incoming_values()) {
       // If the incoming value is undef then skip it.  Note that while we could
       // skip the value if it is equal to the phi node itself we choose not to
@@ -1135,7 +1128,7 @@ Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
       if (!C)
         return nullptr;
       // Fold the PHI's operands.
-      C = ConstantFoldConstantImpl(C, DL, TLI, FoldedOps);
+      C = ConstantFoldConstant(C, DL, TLI, FoldedOps);
       // If the incoming value is a different constant to
       // the one we saw previously, then give up.
       if (CommonValue && C != CommonValue)
@@ -1152,12 +1145,11 @@ Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
   if (!all_of(I->operands(), [](Use &U) { return isa<Constant>(U); }))
     return nullptr;
 
-  SmallDenseMap<Constant *, Constant *> FoldedOps;
   SmallVector<Constant *, 8> Ops;
   for (const Use &OpU : I->operands()) {
     auto *Op = cast<Constant>(&OpU);
     // Fold the Instruction's operands.
-    Op = ConstantFoldConstantImpl(Op, DL, TLI, FoldedOps);
+    Op = ConstantFoldConstant(Op, DL, TLI, FoldedOps);
     Ops.push_back(Op);
   }
 
@@ -1186,8 +1178,27 @@ Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
 
 Constant *llvm::ConstantFoldConstant(const Constant *C, const DataLayout &DL,
                                      const TargetLibraryInfo *TLI) {
+  if (!isa<ConstantVector>(C) && !isa<ConstantExpr>(C))
+    return const_cast<Constant *>(C);
+
   SmallDenseMap<Constant *, Constant *> FoldedOps;
-  return ConstantFoldConstantImpl(C, DL, TLI, FoldedOps);
+  return ConstantFoldConstantUncached(C, DL, TLI, FoldedOps);
+}
+
+Constant *
+llvm::ConstantFoldConstant(const Constant *C, const DataLayout &DL,
+                           const TargetLibraryInfo *TLI,
+                           SmallDenseMap<Constant *, Constant *> &FoldedOps) {
+  if (!isa<ConstantVector>(C) && !isa<ConstantExpr>(C))
+    return const_cast<Constant *>(C);
+
+  auto It = FoldedOps.find(C);
+  if (It != FoldedOps.end())
+    return It->second;
+
+  Constant *NewC = ConstantFoldConstantUncached(C, DL, TLI, FoldedOps);
+  FoldedOps.insert({ const_cast<Constant *>(C), NewC });
+  return NewC;
 }
 
 Constant *llvm::ConstantFoldInstOperands(Instruction *I,
