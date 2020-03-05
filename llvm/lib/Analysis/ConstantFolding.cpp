@@ -1107,11 +1107,17 @@ ConstantFoldConstantImpl(const Constant *C, const DataLayout &DL,
   }
 
   if (auto *CE = dyn_cast<ConstantExpr>(C)) {
+    Constant *Res;
     if (CE->isCompare())
-      return ConstantFoldCompareInstOperands(CE->getPredicate(), Ops[0], Ops[1],
-                                             DL, TLI);
+      Res = ConstantFoldCompareInstOperands(CE->getPredicate(), Ops[0], Ops[1],
+                                            DL, TLI);
+    else
+      Res = ConstantFoldInstOperandsImpl(CE, CE->getOpcode(), Ops, DL, TLI);
 
-    return ConstantFoldInstOperandsImpl(CE, CE->getOpcode(), Ops, DL, TLI);
+    // Ensure the constant is fully folded.
+    if (Res != C)
+      Res = ConstantFoldConstantImpl(Res, DL, TLI, FoldedOps);
+    return Res;
   }
 
   assert(isa<ConstantVector>(C));
@@ -1165,27 +1171,27 @@ Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
     Ops.push_back(Op);
   }
 
+  Constant *Res;
   if (const auto *CI = dyn_cast<CmpInst>(I))
-    return ConstantFoldCompareInstOperands(CI->getPredicate(), Ops[0], Ops[1],
-                                           DL, TLI);
+    Res = ConstantFoldCompareInstOperands(CI->getPredicate(), Ops[0], Ops[1],
+                                          DL, TLI);
+  else if (const auto *LI = dyn_cast<LoadInst>(I))
+    Res = ConstantFoldLoadInst(LI, DL);
+  else if (auto *IVI = dyn_cast<InsertValueInst>(I))
+    Res = ConstantExpr::getInsertValue(
+        cast<Constant>(IVI->getAggregateOperand()),
+        cast<Constant>(IVI->getInsertedValueOperand()),
+        IVI->getIndices());
+  else if (auto *EVI = dyn_cast<ExtractValueInst>(I))
+    Res = ConstantExpr::getExtractValue(
+        cast<Constant>(EVI->getAggregateOperand()), EVI->getIndices());
+  else
+    Res = ConstantFoldInstOperands(I, Ops, DL, TLI);
 
-  if (const auto *LI = dyn_cast<LoadInst>(I))
-    return ConstantFoldLoadInst(LI, DL);
-
-  if (auto *IVI = dyn_cast<InsertValueInst>(I)) {
-    return ConstantExpr::getInsertValue(
-                                cast<Constant>(IVI->getAggregateOperand()),
-                                cast<Constant>(IVI->getInsertedValueOperand()),
-                                IVI->getIndices());
-  }
-
-  if (auto *EVI = dyn_cast<ExtractValueInst>(I)) {
-    return ConstantExpr::getExtractValue(
-                                    cast<Constant>(EVI->getAggregateOperand()),
-                                    EVI->getIndices());
-  }
-
-  return ConstantFoldInstOperands(I, Ops, DL, TLI);
+  // Ensure the constant is fully folded.
+  if (Res)
+    return ConstantFoldConstantImpl(Res, DL, TLI, FoldedOps);
+  return nullptr;
 }
 
 Constant *llvm::ConstantFoldConstant(const Constant *C, const DataLayout &DL,
