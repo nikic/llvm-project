@@ -30,7 +30,8 @@ define i1 @test_shift_negative(i32 %a, i32 %b) {
 ; This test should not crash opt. The shift produces poison.
 define i32 @test_no_sign_bit_conflict1(i1 %b) {
 ; CHECK-LABEL: @test_no_sign_bit_conflict1(
-; CHECK-NEXT:    ret i32 0
+; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[B:%.*]], i32 -2147221504, i32 -2147483648
+; CHECK-NEXT:    ret i32 [[SEL]]
 ;
   %sel = select i1 %b, i32 8193, i32 8192
   %mul = shl nsw i32 %sel, 18
@@ -41,7 +42,8 @@ define i32 @test_no_sign_bit_conflict1(i1 %b) {
 ; This test should not crash opt. The shift produces poison.
 define i32 @test_no_sign_bit_conflict2(i1 %b) {
 ; CHECK-LABEL: @test_no_sign_bit_conflict2(
-; CHECK-NEXT:    ret i32 0
+; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[B:%.*]], i32 2147221504, i32 2146959360
+; CHECK-NEXT:    ret i32 [[SEL]]
 ;
   %sel = select i1 %b, i32 -8193, i32 -8194
   %mul = shl nsw i32 %sel, 18
