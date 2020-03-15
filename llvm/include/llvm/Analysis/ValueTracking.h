@@ -506,7 +506,9 @@ class Value;
 
   /// Determine the possible constant range of an integer or vector of integer
   /// value. This is intended as a cheap, non-recursive check.
-  ConstantRange computeConstantRange(const Value *V, bool UseInstrInfo = true);
+  ConstantRange computeConstantRange(const Value *V, bool UseInstrInfo = true,
+                                     AssumptionCache *AC = nullptr,
+                                     const Instruction *CtxI = nullptr);
 
   /// Return true if this function can prove that the instruction I will
   /// always transfer execution to one of its successors (including the next
