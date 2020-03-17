@@ -600,14 +600,8 @@ bool llvm::isValidAssumeForContext(const Instruction *Inv,
   // If we have a dom tree, then we now know that the assume doesn't dominate
   // the other instruction.  If we don't have a dom tree then we can check if
   // the assume is first in the BB.
-  if (!DT) {
-    // Search forward from the assume until we reach the context (or the end
-    // of the block); the common case is that the assume will come first.
-    for (auto I = std::next(BasicBlock::const_iterator(Inv)),
-         IE = Inv->getParent()->end(); I != IE; ++I)
-      if (&*I == CxtI)
-        return true;
-  }
+  if (!DT && Inv->comesBefore(CxtI))
+    return true;
 
   // Don't let an assume affect itself - this would cause the problems
   // `isEphemeralValueOf` is trying to prevent, and it would also make
