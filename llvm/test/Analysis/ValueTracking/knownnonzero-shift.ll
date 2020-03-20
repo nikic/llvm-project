@@ -3,7 +3,11 @@
 
 define i1 @test(i8 %p, i8* %pq) {
 ; CHECK-LABEL: @test(
-; CHECK-NEXT:    ret i1 true
+; CHECK-NEXT:    [[Q:%.*]] = load i8, i8* [[PQ:%.*]], !range !0
+; CHECK-NEXT:    [[TMP1:%.*]] = shl i8 [[P:%.*]], [[Q]]
+; CHECK-NEXT:    [[TMP2:%.*]] = and i8 [[TMP1]], 1
+; CHECK-NEXT:    [[X:%.*]] = icmp eq i8 [[TMP2]], 0
+; CHECK-NEXT:    ret i1 [[X]]
 ;
   %q = load i8, i8* %pq, !range !0 ; %q is known nonzero; no known bits
   %1 = shl i8 %p, %q              ; because %q is nonzero, %1[0] is known to be zero.

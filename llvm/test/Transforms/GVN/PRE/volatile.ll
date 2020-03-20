@@ -201,7 +201,7 @@ define i32 @test9(i32* %V) {
 ; CHECK-LABEL: @test9(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[LOAD:%.*]] = load volatile i32, i32* [[V:%.*]], !range !0
-; CHECK-NEXT:    ret i32 0
+; CHECK-NEXT:    ret i32 [[LOAD]]
 ;
 entry:
   %load = load volatile i32, i32* %V, !range !0
