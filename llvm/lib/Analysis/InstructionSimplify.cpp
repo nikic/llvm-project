@@ -5550,14 +5550,6 @@ Value *llvm::SimplifyInstruction(Instruction *I, const SimplifyQuery &SQ,
     break;
   }
 
-  // In general, it is possible for computeKnownBits to determine all bits in a
-  // value even when the operands are not all constants.
-  if (!Result && I->getType()->isIntOrIntVectorTy()) {
-    KnownBits Known = computeKnownBits(I, Q.DL, /*Depth*/ 0, Q.AC, I, Q.DT, ORE);
-    if (Known.isConstant())
-      Result = ConstantInt::get(I->getType(), Known.getConstant());
-  }
-
   /// If called on unreachable code, the above logic may report that the
   /// instruction simplified to itself.  Make life easier for users by
   /// detecting that case here, returning a safe value instead.
