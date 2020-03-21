@@ -3797,6 +3797,7 @@ static bool combineInstructionsOverFunction(
       break;
 
     MadeIRChange = true;
+    break;
   }
 
   return MadeIRChange;
