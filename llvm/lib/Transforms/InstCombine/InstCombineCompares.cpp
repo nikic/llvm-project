@@ -4922,54 +4922,32 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
   if (InverseSatisfyingCR.contains(Op0Range))
     return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
 
-#if 0
-  // Check whether there is only a single element in the intersection, in which
-  // case we can convert into an equality comparison. 
   if (!I.isEquality()) {
-    ConstantRange AllowedCR =
-        ConstantRange::makeAllowedICmpRegion(Pred, Op1Range);
-    if (const APInt *C = AllowedCR.intersectWith(Op0Range).getSingleElement())
-      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, ConstantExpr::getIntegerValue(Ty, *C));
-
-    ConstantRange InverseAllowedCR =
-        ConstantRange::makeAllowedICmpRegion(I.getInversePredicate(), Op1Range);
-    if (const APInt *C =
-            InverseAllowedCR.intersectWith(Op0Range).getSingleElement())
-      return new ICmpInst(ICmpInst::ICMP_NE, Op0, ConstantExpr::getIntegerValue(Ty, *C));
-  }
-#endif
-
-#if 0
-  if (!I.isEquality()) {
-    // TODO: This is all ugly!
-    if (I.isTrueWhenEqual())
-      if (const APInt *C = Op0Range.intersectWith(Op1Range).getSingleElement())
-        return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
-
+    // Try to convert to an equality comparison, if there's only a single
+    // value that can make the comparison true.
     ConstantRange AllowedCR =
         ConstantRange::makeAllowedICmpRegion(Pred, Op1Range);
     if (const APInt *C = AllowedCR.intersectWith(Op0Range).getSingleElement()) {
-      /*if (I.isTrueWhenEqual())
-        return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);*/
+      // We can always convert >= and friends to ==.
+      if (I.isTrueWhenEqual()) {
+        assert(Op0Range.contains(*C) && Op1Range.contains(*C) &&
+               "Single element must be part of the operand ranges");
+        return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
+      }
+      // We can only convert > and friends if we can change the constant.
       if (isa<Constant>(Op1))
         return new ICmpInst(ICmpInst::ICMP_EQ, Op0,
                             ConstantExpr::getIntegerValue(Ty, *C));
     }
 
-    ConstantRange InverseAllowedCR =
+    /*ConstantRange InverseAllowedCR =
         ConstantRange::makeAllowedICmpRegion(I.getInversePredicate(), Op1Range);
     if (const APInt *C =
             InverseAllowedCR.intersectWith(Op0Range).getSingleElement()) {
       if (I.isFalseWhenEqual())
         return new ICmpInst(ICmpInst::ICMP_NE, Op0, Op1);
-    }
+    }*/
   }
-#endif
-
-  // Relax >= and friends to == if there is only one overlapping value.
-  if (!I.isEquality() && I.isTrueWhenEqual())
-    if (const APInt *C = Op0Range.intersectWith(Op1Range).getSingleElement())
-      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
 
   // Based on the range information we know about the LHS, see if we can
   // simplify this comparison.  For example, (x&4) < 8 is always true.
@@ -5024,15 +5002,12 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
     break;
   }
   case ICmpInst::ICMP_ULT: {
-    if (Op1Min == Op0Max) // A <u B -> A != B if max(A) == min(B)
+    // A <u B -> A != B if max(A) == min(B)
+    if (Op1Range.getUnsignedMin() == Op0Range.getUnsignedMax())
       return new ICmpInst(ICmpInst::ICMP_NE, Op0, Op1);
 
     const APInt *CmpC;
     if (match(Op1, m_APInt(CmpC))) {
-      // A <u C -> A == C-1 if min(A)+1 == C
-      if (*CmpC == Op0Min + 1)
-        return new ICmpInst(ICmpInst::ICMP_EQ, Op0,
-                            ConstantInt::get(Op1->getType(), *CmpC - 1));
       // X <u C --> X == 0, if the number of zero bits in the bottom of X
       // exceeds the log2 of C.
       if (Op0Known.countMinTrailingZeros() >= CmpC->ceilLogBase2())
@@ -5042,15 +5017,12 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
     break;
   }
   case ICmpInst::ICMP_UGT: {
-    if (Op1Max == Op0Min) // A >u B -> A != B if min(A) == max(B)
+    // A >u B -> A != B if min(A) == max(B)
+    if (Op1Range.getUnsignedMax() == Op0Range.getUnsignedMin())
       return new ICmpInst(ICmpInst::ICMP_NE, Op0, Op1);
 
     const APInt *CmpC;
     if (match(Op1, m_APInt(CmpC))) {
-      // A >u C -> A == C+1 if max(a)-1 == C
-      if (*CmpC == Op0Max - 1)
-        return new ICmpInst(ICmpInst::ICMP_EQ, Op0,
-                            ConstantInt::get(Op1->getType(), *CmpC + 1));
       // X >u C --> X != 0, if the number of zero bits in the bottom of X
       // exceeds the log2 of C.
       if (Op0Known.countMinTrailingZeros() >= CmpC->getActiveBits())
@@ -5059,28 +5031,15 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
     }
     break;
   }
-  case ICmpInst::ICMP_SLT: {
-    if (Op1Min == Op0Max) // A <s B -> A != B if max(A) == min(B)
+  case ICmpInst::ICMP_SLT:
+    // A <s B -> A != B if max(A) == min(B)
+    if (Op1Range.getSignedMin() == Op0Range.getSignedMax())
       return new ICmpInst(ICmpInst::ICMP_NE, Op0, Op1);
-    const APInt *CmpC;
-    if (match(Op1, m_APInt(CmpC))) {
-      if (*CmpC == Op0Min + 1) // A <s C -> A == C-1 if min(A)+1 == C
-        return new ICmpInst(ICmpInst::ICMP_EQ, Op0,
-                            ConstantInt::get(Op1->getType(), *CmpC - 1));
-    }
     break;
-  }
-  case ICmpInst::ICMP_SGT: {
-    if (Op1Max == Op0Min) // A >s B -> A != B if min(A) == max(B)
+  case ICmpInst::ICMP_SGT:
+    // A >s B -> A != B if min(A) == max(B)
+    if (Op1Range.getSignedMax() == Op0Range.getSignedMin())
       return new ICmpInst(ICmpInst::ICMP_NE, Op0, Op1);
-    const APInt *CmpC;
-    if (match(Op1, m_APInt(CmpC))) {
-      if (*CmpC == Op0Max - 1) // A >s C -> A == C+1 if max(A)-1 == C
-        return new ICmpInst(ICmpInst::ICMP_EQ, Op0,
-                            ConstantInt::get(Op1->getType(), *CmpC + 1));
-    }
-    break;
-  }
   }
 
   // Turn a signed comparison into an unsigned one if both operands are known to
