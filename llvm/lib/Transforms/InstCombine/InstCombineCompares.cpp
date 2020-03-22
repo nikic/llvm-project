@@ -95,45 +95,6 @@ static bool isSignTest(ICmpInst::Predicate &Pred, const APInt &C) {
   return false;
 }
 
-/// Given a signed integer type and a set of known zero and one bits, compute
-/// the maximum and minimum values that could have the specified known zero and
-/// known one bits, returning them in Min/Max.
-/// TODO: Move to method on KnownBits struct?
-static void computeSignedMinMaxValuesFromKnownBits(const KnownBits &Known,
-                                                   APInt &Min, APInt &Max) {
-  assert(Known.getBitWidth() == Min.getBitWidth() &&
-         Known.getBitWidth() == Max.getBitWidth() &&
-         "KnownZero, KnownOne and Min, Max must have equal bitwidth.");
-  APInt UnknownBits = ~(Known.Zero|Known.One);
-
-  // The minimum value is when all unknown bits are zeros, EXCEPT for the sign
-  // bit if it is unknown.
-  Min = Known.One;
-  Max = Known.One|UnknownBits;
-
-  if (UnknownBits.isNegative()) { // Sign bit is unknown
-    Min.setSignBit();
-    Max.clearSignBit();
-  }
-}
-
-/// Given an unsigned integer type and a set of known zero and one bits, compute
-/// the maximum and minimum values that could have the specified known zero and
-/// known one bits, returning them in Min/Max.
-/// TODO: Move to method on KnownBits struct?
-static void computeUnsignedMinMaxValuesFromKnownBits(const KnownBits &Known,
-                                                     APInt &Min, APInt &Max) {
-  assert(Known.getBitWidth() == Min.getBitWidth() &&
-         Known.getBitWidth() == Max.getBitWidth() &&
-         "Ty, KnownZero, KnownOne and Min, Max must have equal bitwidth.");
-  APInt UnknownBits = ~(Known.Zero|Known.One);
-
-  // The minimum value is when the unknown bits are all zeros.
-  Min = Known.One;
-  // The maximum value is when the unknown bits are all ones.
-  Max = Known.One|UnknownBits;
-}
-
 /// This is called when we see this pattern:
 ///   cmp pred (load (gep GV, ...)), cmpcst
 /// where GV is a global variable with a constant initializer. Try to simplify
@@ -4935,23 +4896,48 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
   // Given the known and unknown bits, compute a range that the LHS could be
   // in.  Compute the Min, Max and RHS values based on the known bits. For the
   // EQ and NE we use unsigned values.
-  APInt Op0Min(BitWidth, 0), Op0Max(BitWidth, 0);
-  APInt Op1Min(BitWidth, 0), Op1Max(BitWidth, 0);
-  if (I.isSigned()) {
-    computeSignedMinMaxValuesFromKnownBits(Op0Known, Op0Min, Op0Max);
-    computeSignedMinMaxValuesFromKnownBits(Op1Known, Op1Min, Op1Max);
-  } else {
-    computeUnsignedMinMaxValuesFromKnownBits(Op0Known, Op0Min, Op0Max);
-    computeUnsignedMinMaxValuesFromKnownBits(Op1Known, Op1Min, Op1Max);
-  }
+  ConstantRange Op0Range = ConstantRange::fromKnownBits(Op0Known, I.isSigned());
+  ConstantRange Op1Range = ConstantRange::fromKnownBits(Op1Known, I.isSigned());
 
   // If Min and Max are known to be the same, then SimplifyDemandedBits figured
   // out that the LHS or RHS is a constant. Constant fold this now, so that
   // code below can assume that Min != Max.
-  if (!isa<Constant>(Op0) && Op0Min == Op0Max)
-    return new ICmpInst(Pred, ConstantExpr::getIntegerValue(Ty, Op0Min), Op1);
-  if (!isa<Constant>(Op1) && Op1Min == Op1Max)
-    return new ICmpInst(Pred, Op0, ConstantExpr::getIntegerValue(Ty, Op1Min));
+  if (!isa<Constant>(Op0))
+    if (const APInt *C0 = Op0Range.getSingleElement())
+      return new ICmpInst(Pred, ConstantExpr::getIntegerValue(Ty, *C0), Op1);
+  if (!isa<Constant>(Op1))
+    if (const APInt *C1 = Op0Range.getSingleElement())
+      return new ICmpInst(Pred, Op0, ConstantExpr::getIntegerValue(Ty, *C1));
+
+  // Check whether the constant ranges imply that the comparison is always
+  // true or false.
+  ConstantRange SatisfyingCR =
+      ConstantRange::makeSatisfyingICmpRegion(Pred, Op1Range);
+  if (SatisfyingCR.contains(Op0Range))
+    return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
+
+  ConstantRange InverseSatisfyingCR =
+      ConstantRange::makeSatisfyingICmpRegion(
+          I.getInversePredicate(), Op1Range);
+  if (InverseSatisfyingCR.contains(Op0Range))
+    return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
+
+#if 0
+  // Check whether there is only a single element in the intersection, in which
+  // case we can convert into an equality comparison. 
+  if (!I.isEquality()) {
+    ConstantRange AllowedCR =
+        ConstantRange::makeAllowedICmpRegion(Pred, Op1Range);
+    if (const APInt *C = AllowedCR.intersectWith(Op0Range).getSingleElement())
+      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, ConstantExpr::getIntegerValue(Ty, *C));
+
+    ConstantRange InverseAllowedCR =
+        ConstantRange::makeAllowedICmpRegion(I.getInversePredicate(), Op1Range);
+    if (const APInt *C =
+            InverseAllowedCR.intersectWith(Op0Range).getSingleElement())
+      return new ICmpInst(ICmpInst::ICMP_NE, Op0, ConstantExpr::getIntegerValue(Ty, *C));
+  }
+#endif
 
   // Based on the range information we know about the LHS, see if we can
   // simplify this comparison.  For example, (x&4) < 8 is always true.
@@ -4960,12 +4946,6 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
     llvm_unreachable("Unknown icmp opcode!");
   case ICmpInst::ICMP_EQ:
   case ICmpInst::ICMP_NE: {
-    if (Op0Max.ult(Op1Min) || Op0Min.ugt(Op1Max)) {
-      return Pred == CmpInst::ICMP_EQ
-                 ? replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()))
-                 : replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
-    }
-
     // If all bits are known zero except for one, then we know at most one bit
     // is set. If the comparison is against zero, then this is a check to see if
     // *that* bit is set.
@@ -5012,13 +4992,6 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
     break;
   }
   case ICmpInst::ICMP_ULT: {
-    if (Op0Max.ult(Op1Min)) // A <u B -> true if max(A) < min(B)
-      return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
-    if (Op0Min.uge(Op1Max)) // A <u B -> false if min(A) >= max(B)
-      return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
-    if (Op1Min == Op0Max) // A <u B -> A != B if max(A) == min(B)
-      return new ICmpInst(ICmpInst::ICMP_NE, Op0, Op1);
-
     const APInt *CmpC;
     if (match(Op1, m_APInt(CmpC))) {
       // A <u C -> A == C-1 if min(A)+1 == C
@@ -5034,10 +5007,6 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
     break;
   }
   case ICmpInst::ICMP_UGT: {
-    if (Op0Min.ugt(Op1Max)) // A >u B -> true if min(A) > max(B)
-      return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
-    if (Op0Max.ule(Op1Min)) // A >u B -> false if max(A) <= max(B)
-      return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
     if (Op1Max == Op0Min) // A >u B -> A != B if min(A) == max(B)
       return new ICmpInst(ICmpInst::ICMP_NE, Op0, Op1);
 
@@ -5056,10 +5025,6 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
     break;
   }
   case ICmpInst::ICMP_SLT: {
-    if (Op0Max.slt(Op1Min)) // A <s B -> true if max(A) < min(C)
-      return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
-    if (Op0Min.sge(Op1Max)) // A <s B -> false if min(A) >= max(C)
-      return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
     if (Op1Min == Op0Max) // A <s B -> A != B if max(A) == min(B)
       return new ICmpInst(ICmpInst::ICMP_NE, Op0, Op1);
     const APInt *CmpC;
@@ -5071,10 +5036,6 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
     break;
   }
   case ICmpInst::ICMP_SGT: {
-    if (Op0Min.sgt(Op1Max)) // A >s B -> true if min(A) > max(B)
-      return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
-    if (Op0Max.sle(Op1Min)) // A >s B -> false if max(A) <= min(B)
-      return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
     if (Op1Max == Op0Min) // A >s B -> A != B if min(A) == max(B)
       return new ICmpInst(ICmpInst::ICMP_NE, Op0, Op1);
     const APInt *CmpC;
@@ -5087,37 +5048,21 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
   }
   case ICmpInst::ICMP_SGE:
     assert(!isa<ConstantInt>(Op1) && "ICMP_SGE with ConstantInt not folded!");
-    if (Op0Min.sge(Op1Max)) // A >=s B -> true if min(A) >= max(B)
-      return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
-    if (Op0Max.slt(Op1Min)) // A >=s B -> false if max(A) < min(B)
-      return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
     if (Op1Min == Op0Max) // A >=s B -> A == B if max(A) == min(B)
       return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
     break;
   case ICmpInst::ICMP_SLE:
     assert(!isa<ConstantInt>(Op1) && "ICMP_SLE with ConstantInt not folded!");
-    if (Op0Max.sle(Op1Min)) // A <=s B -> true if max(A) <= min(B)
-      return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
-    if (Op0Min.sgt(Op1Max)) // A <=s B -> false if min(A) > max(B)
-      return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
     if (Op1Max == Op0Min) // A <=s B -> A == B if min(A) == max(B)
       return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
     break;
   case ICmpInst::ICMP_UGE:
     assert(!isa<ConstantInt>(Op1) && "ICMP_UGE with ConstantInt not folded!");
-    if (Op0Min.uge(Op1Max)) // A >=u B -> true if min(A) >= max(B)
-      return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
-    if (Op0Max.ult(Op1Min)) // A >=u B -> false if max(A) < min(B)
-      return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
     if (Op1Min == Op0Max) // A >=u B -> A == B if max(A) == min(B)
       return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
     break;
   case ICmpInst::ICMP_ULE:
     assert(!isa<ConstantInt>(Op1) && "ICMP_ULE with ConstantInt not folded!");
-    if (Op0Max.ule(Op1Min)) // A <=u B -> true if max(A) <= min(B)
-      return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
-    if (Op0Min.ugt(Op1Max)) // A <=u B -> false if min(A) > max(B)
-      return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
     if (Op1Max == Op0Min) // A <=u B -> A == B if min(A) == max(B)
       return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
     break;
