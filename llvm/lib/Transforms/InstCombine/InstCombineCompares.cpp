@@ -4939,11 +4939,43 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
   }
 #endif
 
+#if 0
+  if (!I.isEquality()) {
+    // TODO: This is all ugly!
+    if (I.isTrueWhenEqual())
+      if (const APInt *C = Op0Range.intersectWith(Op1Range).getSingleElement())
+        return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
+
+    ConstantRange AllowedCR =
+        ConstantRange::makeAllowedICmpRegion(Pred, Op1Range);
+    if (const APInt *C = AllowedCR.intersectWith(Op0Range).getSingleElement()) {
+      /*if (I.isTrueWhenEqual())
+        return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);*/
+      if (isa<Constant>(Op1))
+        return new ICmpInst(ICmpInst::ICMP_EQ, Op0,
+                            ConstantExpr::getIntegerValue(Ty, *C));
+    }
+
+    ConstantRange InverseAllowedCR =
+        ConstantRange::makeAllowedICmpRegion(I.getInversePredicate(), Op1Range);
+    if (const APInt *C =
+            InverseAllowedCR.intersectWith(Op0Range).getSingleElement()) {
+      if (I.isFalseWhenEqual())
+        return new ICmpInst(ICmpInst::ICMP_NE, Op0, Op1);
+    }
+  }
+#endif
+
+  // Relax >= and friends to == if there is only one overlapping value.
+  if (!I.isEquality() && I.isTrueWhenEqual())
+    if (const APInt *C = Op0Range.intersectWith(Op1Range).getSingleElement())
+      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
+
   // Based on the range information we know about the LHS, see if we can
   // simplify this comparison.  For example, (x&4) < 8 is always true.
   switch (Pred) {
   default:
-    llvm_unreachable("Unknown icmp opcode!");
+    break;
   case ICmpInst::ICMP_EQ:
   case ICmpInst::ICMP_NE: {
     // If all bits are known zero except for one, then we know at most one bit
@@ -4992,6 +5024,9 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
     break;
   }
   case ICmpInst::ICMP_ULT: {
+    if (Op1Min == Op0Max) // A <u B -> A != B if max(A) == min(B)
+      return new ICmpInst(ICmpInst::ICMP_NE, Op0, Op1);
+
     const APInt *CmpC;
     if (match(Op1, m_APInt(CmpC))) {
       // A <u C -> A == C-1 if min(A)+1 == C
@@ -5046,26 +5081,6 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
     }
     break;
   }
-  case ICmpInst::ICMP_SGE:
-    assert(!isa<ConstantInt>(Op1) && "ICMP_SGE with ConstantInt not folded!");
-    if (Op1Min == Op0Max) // A >=s B -> A == B if max(A) == min(B)
-      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
-    break;
-  case ICmpInst::ICMP_SLE:
-    assert(!isa<ConstantInt>(Op1) && "ICMP_SLE with ConstantInt not folded!");
-    if (Op1Max == Op0Min) // A <=s B -> A == B if min(A) == max(B)
-      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
-    break;
-  case ICmpInst::ICMP_UGE:
-    assert(!isa<ConstantInt>(Op1) && "ICMP_UGE with ConstantInt not folded!");
-    if (Op1Min == Op0Max) // A >=u B -> A == B if max(A) == min(B)
-      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
-    break;
-  case ICmpInst::ICMP_ULE:
-    assert(!isa<ConstantInt>(Op1) && "ICMP_ULE with ConstantInt not folded!");
-    if (Op1Max == Op0Min) // A <=u B -> A == B if min(A) == max(B)
-      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
-    break;
   }
 
   // Turn a signed comparison into an unsigned one if both operands are known to
