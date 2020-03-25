@@ -82,7 +82,7 @@ EnableNoAliasConversion("enable-noalias-to-md-conversion", cl::init(true),
 
 static cl::opt<bool>
 PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
-  cl::init(true), cl::Hidden,
+  cl::init(false), cl::Hidden,
   cl::desc("Convert align attributes to assumptions during inlining."));
 
 llvm::InlineResult llvm::InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
