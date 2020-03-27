@@ -17,23 +17,23 @@ void Use::swap(Use &RHS) {
   if (Val == RHS.Val)
     return;
 
-  if (Val)
+  if (Val.getPointer())
     removeFromList();
 
-  Value *OldVal = Val;
-  if (RHS.Val) {
+  Value *OldVal = Val.getPointer();
+  if (RHS.Val.getPointer()) {
     RHS.removeFromList();
-    Val = RHS.Val;
-    Val->addUse(*this);
+    Val.setPointer(RHS.Val.getPointer());
+    Val.getPointer()->addUse(*this);
   } else {
-    Val = nullptr;
+    Val.setPointer(nullptr);
   }
 
   if (OldVal) {
-    RHS.Val = OldVal;
-    RHS.Val->addUse(RHS);
+    RHS.Val.setPointer(OldVal);
+    RHS.Val.getPointer()->addUse(RHS);
   } else {
-    RHS.Val = nullptr;
+    RHS.Val.setPointer(nullptr);
   }
 }
 
@@ -47,6 +47,12 @@ User *Use::getUser() const {
 unsigned Use::getOperandNo() const {
   return this - getUser()->op_begin();
 }
+
+#ifndef NDEBUG
+bool Use::checkDroppable() const {
+  return Val.getInt() == getUser()->isDroppable();
+}
+#endif
 
 // Sets up the waymarking algorithm's tags for a series of Uses. See the
 // algorithm details here:

@@ -91,7 +91,7 @@ public:
 private:
   /// Destructor - Only for zap()
   ~Use() {
-    if (Val)
+    if (Val.getPointer())
       removeFromList();
   }
 
@@ -100,11 +100,22 @@ private:
   /// Constructor
   Use(PrevPtrTag tag) { Prev.setInt(tag); }
 
+#ifndef NDEBUG
+  bool checkDroppable() const;
+#endif
+  void setDroppable(bool NewVal = true) { Val.setInt(NewVal); }
+
 public:
   friend class Value;
+  friend class User;
 
-  operator Value *() const { return Val; }
-  Value *get() const { return Val; }
+  bool isDroppable() const {
+    assert(checkDroppable() && "the use should be marked droppable");
+    return Val.getInt();
+  }
+
+  operator Value *() const { return Val.getPointer(); }
+  Value *get() const { return Val.getPointer(); }
 
   /// Returns the User that contains this Use.
   ///
@@ -117,8 +128,8 @@ public:
   inline Value *operator=(Value *RHS);
   inline const Use &operator=(const Use &RHS);
 
-  Value *operator->() { return Val; }
-  const Value *operator->() const { return Val; }
+  Value *operator->() { return Val.getPointer(); }
+  const Value *operator->() const { return Val.getPointer(); }
 
   Use *getNext() const { return Next; }
 
@@ -138,7 +149,7 @@ public:
 private:
   const Use *getImpliedUser() const LLVM_READONLY;
 
-  Value *Val = nullptr;
+  PointerIntPair<Value *, 1> Val = {nullptr, 0};
   Use *Next = nullptr;
   PointerIntPair<Use **, 2, PrevPtrTag, PrevPointerTraits> Prev;
 

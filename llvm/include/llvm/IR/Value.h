@@ -449,7 +449,17 @@ public:
   ///
   /// This is specialized because it is a common request and does not require
   /// traversing the whole use list.
-  Use *getSingleUndroppableUse();
+  Use *getSingleUndroppableUse() {
+    Use *Result = nullptr;
+    for (Use &U : uses()) {
+      if (!U.isDroppable()) {
+        if (Result)
+          return nullptr;
+        Result = &U;
+      }
+    }
+    return Result;
+  }
 
   /// Return true if there this value.
   ///
@@ -756,8 +766,9 @@ inline raw_ostream &operator<<(raw_ostream &OS, const Value &V) {
 }
 
 void Use::set(Value *V) {
-  if (Val) removeFromList();
-  Val = V;
+  if (Val.getPointer())
+    removeFromList();
+  Val.setPointer(V);
   if (V) V->addUse(*this);
 }
 
@@ -767,7 +778,7 @@ Value *Use::operator=(Value *RHS) {
 }
 
 const Use &Use::operator=(const Use &RHS) {
-  set(RHS.Val);
+  set(RHS.Val.getPointer());
   return *this;
 }
 
