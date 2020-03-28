@@ -48,6 +48,13 @@ unsigned Use::getOperandNo() const {
   return this - getUser()->op_begin();
 }
 
+#ifndef NDEBUG
+bool Use::checkDroppable() const {
+  return static_cast<bool>(Prev.getInt() & isDroppableMask) ==
+         getUser()->isDroppable();
+}
+#endif
+
 // Sets up the waymarking algorithm's tags for a series of Uses. See the
 // algorithm details here:
 //
@@ -94,7 +101,7 @@ const Use *Use::getImpliedUser() const {
   const Use *Current = this;
 
   while (true) {
-    unsigned Tag = (Current++)->Prev.getInt();
+    unsigned Tag = (Current++)->getTag();
     switch (Tag) {
     case zeroDigitTag:
     case oneDigitTag:
@@ -104,7 +111,7 @@ const Use *Use::getImpliedUser() const {
       ++Current;
       ptrdiff_t Offset = 1;
       while (true) {
-        unsigned Tag = Current->Prev.getInt();
+        unsigned Tag = Current->getTag();
         switch (Tag) {
         case zeroDigitTag:
         case oneDigitTag:

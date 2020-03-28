@@ -449,7 +449,17 @@ public:
   ///
   /// This is specialized because it is a common request and does not require
   /// traversing the whole use list.
-  Use *getSingleUndroppableUse();
+  Use *getSingleUndroppableUse() {
+    Use *Result = nullptr;
+    for (Use &U : uses()) {
+      if (!U.isDroppable()) {
+        if (Result)
+          return nullptr;
+        Result = &U;
+      }
+    }
+    return Result;
+  }
 
   /// Return true if there this value.
   ///

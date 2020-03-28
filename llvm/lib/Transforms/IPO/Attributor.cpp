@@ -4428,8 +4428,7 @@ struct AACaptureUseTracker final : public CaptureTracker {
   /// See CaptureTracker::shouldExplore(...).
   bool shouldExplore(const Use *U) override {
     // Check liveness and ignore droppable users.
-    return !U->getUser()->isDroppable() &&
-           !A.isAssumedDead(*U, &NoCaptureAA, &IsDeadAA);
+    return !U->isDroppable() && !A.isAssumedDead(*U, &NoCaptureAA, &IsDeadAA);
   }
 
   /// Update the state according to \p CapturedInMem, \p CapturedInInt, and
@@ -7452,7 +7451,7 @@ bool Attributor::checkForAllUses(function_ref<bool(const Use &, bool &)> Pred,
       LLVM_DEBUG(dbgs() << "[Attributor] Dead use, skip!\n");
       continue;
     }
-    if (U->getUser()->isDroppable()) {
+    if (U->isDroppable()) {
       LLVM_DEBUG(dbgs() << "[Attributor] Droppable user, skip!\n");
       continue;
     }

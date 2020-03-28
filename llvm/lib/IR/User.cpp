@@ -109,7 +109,16 @@ MutableArrayRef<uint8_t> User::getDescriptor() {
 bool User::isDroppable() const {
   if (const auto *Intr = dyn_cast<IntrinsicInst>(this))
     return Intr->getIntrinsicID() == Intrinsic::assume;
+  /// If you are changing this definition you may need to add calls to
+  /// maybeMarkUsesAsDroppable in some subclasses
   return false;
+}
+
+void User::maybeMarkUsesAsDroppable() {
+  if (!isDroppable())
+    return;
+  for (unsigned i = 0; i < getNumOperands(); i++)
+    getOperandUse(i).setDroppable();
 }
 
 //===----------------------------------------------------------------------===//

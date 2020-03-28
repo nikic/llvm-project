@@ -141,33 +141,21 @@ bool Value::hasNUsesOrMore(unsigned N) const {
   return hasNItemsOrMore(use_begin(), use_end(), N);
 }
 
-static bool isUnDroppableUser(const User *U) { return !U->isDroppable(); }
-
-Use *Value::getSingleUndroppableUse() {
-  Use *Result = nullptr;
-  for (Use &U : uses()) {
-    if (!U.getUser()->isDroppable()) {
-      if (Result)
-        return nullptr;
-      Result = &U;
-    }
-  }
-  return Result;
-}
+static bool isUnDroppableUse(const Use& U) { return !U.isDroppable(); }
 
 bool Value::hasNUndroppableUses(unsigned int N) const {
-  return hasNItems(user_begin(), user_end(), N, isUnDroppableUser);
+  return hasNItems(use_begin(), use_end(), N, isUnDroppableUse);
 }
 
 bool Value::hasNUndroppableUsesOrMore(unsigned int N) const {
-  return hasNItemsOrMore(user_begin(), user_end(), N, isUnDroppableUser);
+  return hasNItemsOrMore(use_begin(), use_end(), N, isUnDroppableUse);
 }
 
 void Value::dropDroppableUses(
     llvm::function_ref<bool(const Use *)> ShouldDrop) {
   SmallVector<Use *, 8> ToBeEdited;
   for (Use &U : uses())
-    if (U.getUser()->isDroppable() && ShouldDrop(&U))
+    if (U.isDroppable() && ShouldDrop(&U))
       ToBeEdited.push_back(&U);
   for (Use *U : ToBeEdited) {
     U->removeFromList();

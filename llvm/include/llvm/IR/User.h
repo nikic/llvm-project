@@ -223,6 +223,10 @@ public:
   /// from happening.
   bool isDroppable() const;
 
+  /// This will mark every use as droppable if the user is droppable.
+  /// This should be called from 
+  void maybeMarkUsesAsDroppable();
+
   // ---------------------------------------------------------------------------
   // Operand Iterator interface...
   //

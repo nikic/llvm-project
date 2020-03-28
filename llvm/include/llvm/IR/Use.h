@@ -76,18 +76,6 @@ public:
   // a pointer back to their User with the bottom bit set.
   using UserRef = PointerIntPair<User *, 1, unsigned, UserRefPointerTraits>;
 
-  /// Pointer traits for the Prev PointerIntPair. This ensures we always use
-  /// the two LSBs regardless of pointer alignment on different targets.
-  struct PrevPointerTraits {
-    static inline void *getAsVoidPointer(Use **P) { return P; }
-
-    static inline Use **getFromVoidPointer(void *P) {
-      return (Use **)P;
-    }
-
-    static constexpr int NumLowBitsAvailable = 2;
-  };
-
 private:
   /// Destructor - Only for zap()
   ~Use() {
@@ -100,8 +88,23 @@ private:
   /// Constructor
   Use(PrevPtrTag tag) { Prev.setInt(tag); }
 
+  static constexpr unsigned isDroppableMask = 1 << 2;
+
+#ifndef NDEBUG
+  bool checkDroppable() const;
+#endif
+  void setDroppable() {
+    Prev.setInt(Prev.getInt() | isDroppableMask);
+  }
+
 public:
   friend class Value;
+  friend class User;
+
+  bool isDroppable() const {
+    assert(checkDroppable() && "the use should be marked droppable");
+    return Prev.getInt() & isDroppableMask;
+  }
 
   operator Value *() const { return Val; }
   Value *get() const { return Val; }
@@ -140,9 +143,18 @@ private:
 
   Value *Val = nullptr;
   Use *Next = nullptr;
-  PointerIntPair<Use **, 2, PrevPtrTag, PrevPointerTraits> Prev;
+
+  /// The pointer point to the Use::Next of the previous node or the
+  /// Value::UseList of the associated value. *Prev.getPointer() is always the
+  /// a pointer to the use itself.
+  /// In the Int the 2 lowest bits are the Tag used for waymarking.
+  /// The third lowest bit is wether the use is droppable or not.
+  PointerIntPair<Use **, 3> Prev;
 
   void setPrev(Use **NewPrev) { Prev.setPointer(NewPrev); }
+  PrevPtrTag getTag() const LLVM_READONLY {
+    return static_cast<PrevPtrTag>(Prev.getInt() & ~isDroppableMask);
+  }
 
   void addToList(Use **List) {
     Next = *List;

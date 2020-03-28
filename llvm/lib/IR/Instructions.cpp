@@ -460,6 +460,7 @@ void CallInst::init(FunctionType *FTy, Value *Func, ArrayRef<Value *> Args,
   assert(It + 1 == op_end() && "Should add up!");
 
   setName(NameStr);
+  maybeMarkUsesAsDroppable();
 }
 
 void CallInst::init(FunctionType *FTy, Value *Func, const Twine &NameStr) {
@@ -470,6 +471,7 @@ void CallInst::init(FunctionType *FTy, Value *Func, const Twine &NameStr) {
   assert(FTy->getNumParams() == 0 && "Calling a function with bad signature");
 
   setName(NameStr);
+  maybeMarkUsesAsDroppable();
 }
 
 CallInst::CallInst(FunctionType *Ty, Value *Func, const Twine &Name,
