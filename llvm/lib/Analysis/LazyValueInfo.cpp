@@ -396,7 +396,7 @@ namespace {
 
   Optional<ValueLatticeElement> getBlockValue(Value *Val, BasicBlock *BB);
   Optional<ValueLatticeElement> getEdgeValue(Value *V, BasicBlock *F,
-                                BasicBlock *T, Instruction *CxtI = nullptr);
+                                             BasicBlock *T);
 
   // These methods process one work item and may add more. A false value
   // returned means that the work item was not completely processed and must
@@ -743,11 +743,7 @@ Optional<ValueLatticeElement> LazyValueInfoImpl::solveBlockValuePHINode(
   for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
     BasicBlock *PhiBB = PN->getIncomingBlock(i);
     Value *PhiVal = PN->getIncomingValue(i);
-    // Note that we can provide PN as the context value to getEdgeValue, even
-    // though the results will be cached, because PN is the value being used as
-    // the cache key in the caller.
-    Optional<ValueLatticeElement> EdgeResult =
-        getEdgeValue(PhiVal, PhiBB, BB, PN);
+    Optional<ValueLatticeElement> EdgeResult = getEdgeValue(PhiVal, PhiBB, BB);
     if (!EdgeResult)
       // Explore that input, then return here
       return None;
@@ -1428,7 +1424,7 @@ static Optional<ValueLatticeElement> getEdgeValueLocal(Value *Val,
 /// Compute the value of Val on the edge BBFrom -> BBTo or the value at
 /// the basic block if the edge does not constrain Val.
 Optional<ValueLatticeElement> LazyValueInfoImpl::getEdgeValue(
-    Value *Val, BasicBlock *BBFrom, BasicBlock *BBTo, Instruction *CxtI) {
+    Value *Val, BasicBlock *BBFrom, BasicBlock *BBTo) {
   // If already a constant, there is nothing to compute.
   if (Constant *VC = dyn_cast<Constant>(Val))
     return ValueLatticeElement::get(VC);
@@ -1447,15 +1443,6 @@ Optional<ValueLatticeElement> LazyValueInfoImpl::getEdgeValue(
   // Try to intersect ranges of the BB and the constraint on the edge.
   intersectAssumeOrGuardBlockValueConstantRange(Val, InBlock,
                                                 BBFrom->getTerminator());
-  // We can use the context instruction (generically the ultimate instruction
-  // the calling pass is trying to simplify) here, even though the result of
-  // this function is generally cached when called from the solve* functions
-  // (and that cached result might be used with queries using a different
-  // context instruction), because when this function is called from the solve*
-  // functions, the context instruction is not provided. When called from
-  // LazyValueInfoImpl::getValueOnEdge, the context instruction is provided,
-  // but then the result is not cached.
-  intersectAssumeOrGuardBlockValueConstantRange(Val, InBlock, CxtI);
 
   return intersect(LocalResult, InBlock);
 }
@@ -1502,12 +1489,13 @@ getValueOnEdge(Value *V, BasicBlock *FromBB, BasicBlock *ToBB,
                     << FromBB->getName() << "' to '" << ToBB->getName()
                     << "'\n");
 
-  Optional<ValueLatticeElement> Result = getEdgeValue(V, FromBB, ToBB, CxtI);
+  Optional<ValueLatticeElement> Result = getEdgeValue(V, FromBB, ToBB);
   if (!Result) {
     solve();
-    Result = getEdgeValue(V, FromBB, ToBB, CxtI);
+    Result = getEdgeValue(V, FromBB, ToBB);
     assert(Result && "More work to do after problem solved?");
   }
+  intersectAssumeOrGuardBlockValueConstantRange(V, *Result, CxtI);
 
   LLVM_DEBUG(dbgs() << "  Result = " << *Result << "\n");
   return *Result;
