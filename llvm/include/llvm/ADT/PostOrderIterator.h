@@ -23,7 +23,6 @@
 #include <iterator>
 #include <set>
 #include <utility>
-#include <vector>
 
 namespace llvm {
 
@@ -288,23 +287,24 @@ template<class GraphT, class GT = GraphTraits<GraphT>>
 class ReversePostOrderTraversal {
   using NodeRef = typename GT::NodeRef;
 
-  std::vector<NodeRef> Blocks; // Block list in normal PO order
+  SmallVector<NodeRef, 8> Blocks; // Block list in normal PO order
 
   void Initialize(NodeRef BB) {
     std::copy(po_begin(BB), po_end(BB), std::back_inserter(Blocks));
   }
 
 public:
-  using rpo_iterator = typename std::vector<NodeRef>::reverse_iterator;
-  using const_rpo_iterator = typename std::vector<NodeRef>::const_reverse_iterator;
+  using rpo_iterator = typename SmallVectorImpl<NodeRef>::reverse_iterator;
+  using const_rpo_iterator =
+      typename SmallVectorImpl<NodeRef>::const_reverse_iterator;
 
   ReversePostOrderTraversal(GraphT G) { Initialize(GT::getEntryNode(G)); }
 
   // Because we want a reverse post order, use reverse iterators from the vector
   rpo_iterator begin() { return Blocks.rbegin(); }
-  const_rpo_iterator begin() const { return Blocks.crbegin(); }
+  const_rpo_iterator begin() const { return Blocks.rbegin(); }
   rpo_iterator end() { return Blocks.rend(); }
-  const_rpo_iterator end() const { return Blocks.crend(); }
+  const_rpo_iterator end() const { return Blocks.rend(); }
 };
 
 } // end namespace llvm
