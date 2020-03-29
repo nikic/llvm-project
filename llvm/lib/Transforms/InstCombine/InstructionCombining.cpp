@@ -3548,7 +3548,7 @@ bool InstCombiner::run() {
 static bool prepareICWorklistFromFunction(
     Function &F, const DataLayout &DL, const TargetLibraryInfo *TLI,
     InstCombineWorklist &ICWorklist,
-    ReversePostOrderTraversal<BasicBlock *> &RPOT) {
+    ReversePostOrderTraversal<BasicBlock *> &RPOT, int Iteration) {
   bool MadeIRChange = false;
   SmallPtrSet<BasicBlock *, 32> LiveBlocks;
   LiveBlocks.insert(&F.front());
@@ -3648,6 +3648,7 @@ static bool prepareICWorklistFromFunction(
     if (isInstructionTriviallyDead(Inst, TLI)) {
       ++NumDeadInst;
       LLVM_DEBUG(dbgs() << "IC: DCE: " << *Inst << '\n');
+      assert(Iteration == 1 && "Garbage was not pushed to worklist");
       salvageDebugInfoOrMarkUndef(*Inst);
       Inst->eraseFromParent();
       MadeIRChange = true;
@@ -3707,7 +3708,8 @@ static bool combineInstructionsOverFunction(
     LLVM_DEBUG(dbgs() << "\n\nINSTCOMBINE ITERATION #" << Iteration << " on "
                       << F.getName() << "\n");
 
-    MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist, RPOT);
+    MadeIRChange |= prepareICWorklistFromFunction(
+        F, DL, &TLI, Worklist, RPOT, Iteration);
 
     InstCombiner IC(Worklist, Builder, F.hasMinSize(), AA,
                     AC, TLI, DT, ORE, BFI, PSI, DL, LI);
