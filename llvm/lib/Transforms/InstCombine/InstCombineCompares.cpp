@@ -642,7 +642,8 @@ static void setInsertionPoint(IRBuilder<> &Builder, Value *V,
 /// pointer.
 static Value *rewriteGEPAsOffset(Value *Start, Value *Base,
                                  const DataLayout &DL,
-                                 SetVector<Value *> &Explored) {
+                                 SetVector<Value *> &Explored,
+                                 InstCombiner &IC) {
   // Perform all the substitutions. This is a bit tricky because we can
   // have cycles in our use-def chains.
   // 1. Create the PHI nodes without any incoming values.
@@ -750,8 +751,15 @@ static Value *rewriteGEPAsOffset(Value *Start, Value *Base,
                                               Val->getName() + ".conv");
       GEP = Cast;
     }
+
     Val->replaceAllUsesWith(GEP);
   }
+
+  // Remove the old instructions.
+  for (Value *Val : Explored)
+    if (Val != Base)
+      if (auto *I = dyn_cast<Instruction>(Val))
+        IC.eraseInstFromFunction(*I);
 
   return NewInsts[Start];
 }
@@ -803,7 +811,8 @@ getAsConstantIndexedAddress(Value *V, const DataLayout &DL) {
 /// between GEPLHS and RHS.
 static Instruction *transformToIndexedCompare(GEPOperator *GEPLHS, Value *RHS,
                                               ICmpInst::Predicate Cond,
-                                              const DataLayout &DL) {
+                                              const DataLayout &DL,
+                                              InstCombiner &IC) {
   // FIXME: Support vector of pointers.
   if (GEPLHS->getType()->isVectorTy())
     return nullptr;
@@ -830,7 +839,7 @@ static Instruction *transformToIndexedCompare(GEPOperator *GEPLHS, Value *RHS,
   // can't have overflow on either side. We can therefore re-write
   // this as:
   //   OFFSET1 cmp OFFSET2
-  Value *NewRHS = rewriteGEPAsOffset(RHS, PtrBase, DL, Nodes);
+  Value *NewRHS = rewriteGEPAsOffset(RHS, PtrBase, DL, Nodes, IC);
 
   // RewriteGEPAsOffset has replaced RHS and all of its uses with a re-written
   // GEP having PtrBase as the pointer base, and has returned in NewRHS the
@@ -956,7 +965,7 @@ Instruction *InstCombiner::foldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
       // Otherwise, the base pointers are different and the indices are
       // different. Try convert this to an indexed compare by looking through
       // PHIs/casts.
-      return transformToIndexedCompare(GEPLHS, RHS, Cond, DL);
+      return transformToIndexedCompare(GEPLHS, RHS, Cond, DL, *this);
     }
 
     // If one of the GEPs has all zero indices, recurse.
@@ -1018,7 +1027,7 @@ Instruction *InstCombiner::foldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
 
   // Try convert this to an indexed compare by looking through PHIs/casts as a
   // last resort.
-  return transformToIndexedCompare(GEPLHS, RHS, Cond, DL);
+  return transformToIndexedCompare(GEPLHS, RHS, Cond, DL, *this);
 }
 
 Instruction *InstCombiner::foldAllocaCmp(ICmpInst &ICI,
