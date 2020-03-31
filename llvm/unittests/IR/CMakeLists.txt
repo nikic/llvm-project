@@ -42,7 +42,6 @@ add_llvm_unittest(IRTests
   VectorTypesTest.cpp
   VerifierTest.cpp
   VPIntrinsicTest.cpp
-  WaymarkTest.cpp
   )
 
 target_link_libraries(IRTests PRIVATE LLVMTestingSupport)
