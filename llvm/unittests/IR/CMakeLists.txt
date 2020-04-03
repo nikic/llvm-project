@@ -17,6 +17,7 @@ add_llvm_unittest(IRTests
   DataLayoutTest.cpp
   DebugInfoTest.cpp
   DebugTypeODRUniquingTest.cpp
+  DemandedBitsTest.cpp
   DominatorTreeTest.cpp
   DominatorTreeBatchUpdatesTest.cpp
   FunctionTest.cpp
