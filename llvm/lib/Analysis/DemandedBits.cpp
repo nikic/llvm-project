@@ -85,32 +85,8 @@ static bool isAlwaysLive(Instruction *I) {
 
 void DemandedBits::determineLiveOperandBits(
     const Instruction *UserI, const Value *Val, unsigned OperandNo,
-    const APInt &AOut, APInt &AB, KnownBits &Known, KnownBits &Known2,
-    bool &KnownBitsComputed) {
+    const APInt &AOut, APInt &AB) {
   unsigned BitWidth = AB.getBitWidth();
-
-  // We're called once per operand, but for some instructions, we need to
-  // compute known bits of both operands in order to determine the live bits of
-  // either (when both operands are instructions themselves). We don't,
-  // however, want to do this twice, so we cache the result in APInts that live
-  // in the caller. For the two-relevant-operands case, both operand values are
-  // provided here.
-  auto ComputeKnownBits =
-      [&](unsigned BitWidth, const Value *V1, const Value *V2) {
-        if (KnownBitsComputed)
-          return;
-        KnownBitsComputed = true;
-
-        const DataLayout &DL = UserI->getModule()->getDataLayout();
-        Known = KnownBits(BitWidth);
-        computeKnownBits(V1, Known, DL, 0, &AC, UserI, &DT);
-
-        if (V2) {
-          Known2 = KnownBits(BitWidth);
-          computeKnownBits(V2, Known2, DL, 0, &AC, UserI, &DT);
-        }
-      };
-
   switch (UserI->getOpcode()) {
   default: break;
   case Instruction::Call:
@@ -133,7 +109,7 @@ void DemandedBits::determineLiveOperandBits(
           // We need some output bits, so we need all bits of the
           // input to the left of, and including, the leftmost bit
           // known to be one.
-          ComputeKnownBits(BitWidth, Val, nullptr);
+          KnownBits Known = computeKnownBits(Val, UserI);
           AB = APInt::getHighBitsSet(BitWidth,
                  std::min(BitWidth, Known.countMaxLeadingZeros()+1));
         }
@@ -143,7 +119,7 @@ void DemandedBits::determineLiveOperandBits(
           // We need some output bits, so we need all bits of the
           // input to the right of, and including, the rightmost bit
           // known to be one.
-          ComputeKnownBits(BitWidth, Val, nullptr);
+          KnownBits Known = computeKnownBits(Val, UserI);
           AB = APInt::getLowBitsSet(BitWidth,
                  std::min(BitWidth, Known.countMaxTrailingZeros()+1));
         }
@@ -172,14 +148,18 @@ void DemandedBits::determineLiveOperandBits(
       }
       }
     break;
-  case Instruction::Add:
-    ComputeKnownBits(BitWidth, UserI->getOperand(0), UserI->getOperand(1));
+  case Instruction::Add: {
+    KnownBits Known = computeKnownBits(UserI->getOperand(0), UserI);
+    KnownBits Known2 = computeKnownBits(UserI->getOperand(1), UserI);
     AB = determineLiveOperandBitsAdd(OperandNo, AOut, Known, Known2);
     break;
-  case Instruction::Sub:
-    ComputeKnownBits(BitWidth, UserI->getOperand(0), UserI->getOperand(1));
+  }
+  case Instruction::Sub: {
+    KnownBits Known = computeKnownBits(UserI->getOperand(0), UserI);
+    KnownBits Known2 = computeKnownBits(UserI->getOperand(1), UserI);
     AB = determineLiveOperandBitsSub(OperandNo, AOut, Known, Known2);
     break;
+  }
   case Instruction::Mul:
     // Find the highest live output bit. We don't need any more input
     // bits than that (adds, and thus subtracts, ripple only to the
@@ -237,32 +217,36 @@ void DemandedBits::determineLiveOperandBits(
       }
     }
     break;
-  case Instruction::And:
+  case Instruction::And: {
     AB = AOut;
 
     // For bits that are known zero, the corresponding bits in the
     // other operand are dead (unless they're both zero, in which
     // case they can't both be dead, so just mark the LHS bits as
     // dead).
-    ComputeKnownBits(BitWidth, UserI->getOperand(0), UserI->getOperand(1));
+    KnownBits Known = computeKnownBits(UserI->getOperand(0), UserI);
+    KnownBits Known2 = computeKnownBits(UserI->getOperand(1), UserI);
     if (OperandNo == 0)
       AB &= ~Known2.Zero;
     else
       AB &= ~(Known.Zero & ~Known2.Zero);
     break;
-  case Instruction::Or:
+  }
+  case Instruction::Or: {
     AB = AOut;
 
     // For bits that are known one, the corresponding bits in the
     // other operand are dead (unless they're both one, in which
     // case they can't both be dead, so just mark the LHS bits as
     // dead).
-    ComputeKnownBits(BitWidth, UserI->getOperand(0), UserI->getOperand(1));
+    KnownBits Known = computeKnownBits(UserI->getOperand(0), UserI);
+    KnownBits Known2 = computeKnownBits(UserI->getOperand(1), UserI);
     if (OperandNo == 0)
       AB &= ~Known2.One;
     else
       AB &= ~(Known.One & ~Known2.One);
     break;
+  }
   case Instruction::Xor:
   case Instruction::PHI:
     AB = AOut;
@@ -299,10 +283,26 @@ void DemandedBits::determineLiveOperandBits(
   }
 }
 
+KnownBits DemandedBits::computeKnownBits(const Value *V,
+                                         const Instruction *CxtI) {
+  if (auto *I = dyn_cast<Instruction>(V)) {
+  auto It = KnownBitsCache.find({ I, CxtI });
+    if (It != KnownBitsCache.end())
+      return It->second;
+
+    KnownBits Known = llvm::computeKnownBits(V, DL, /* Depth */ 0, &AC, CxtI,
+                                             &DT);
+    KnownBitsCache.insert({ { I, CxtI }, Known });
+    return Known;
+  }
+
+  return llvm::computeKnownBits(V, DL);
+}
+
 bool DemandedBitsWrapperPass::runOnFunction(Function &F) {
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  DB.emplace(F, AC, DT);
+  DB.emplace(F, AC, DT, F.getParent()->getDataLayout());
   return false;
 }
 
@@ -318,6 +318,7 @@ void DemandedBits::performAnalysis() {
 
   Visited.clear();
   AliveBits.clear();
+  KnownBitsCache.clear();
   DeadUses.clear();
 
   SmallSetVector<Instruction*, 16> Worklist;
@@ -375,8 +376,6 @@ void DemandedBits::performAnalysis() {
     }
     LLVM_DEBUG(dbgs() << "\n");
 
-    KnownBits Known, Known2;
-    bool KnownBitsComputed = false;
     // Compute the set of alive bits for each operand. These are anded into the
     // existing set, if any, and if that changes the set of alive bits, the
     // operand is added to the work-list.
@@ -396,8 +395,7 @@ void DemandedBits::performAnalysis() {
         } else {
           // Bits of each operand that are used to compute alive bits of the
           // output are alive, all others are dead.
-          determineLiveOperandBits(UserI, OI, OI.getOperandNo(), AOut, AB,
-                                   Known, Known2, KnownBitsComputed);
+          determineLiveOperandBits(UserI, OI, OI.getOperandNo(), AOut, AB);
 
           // Keep track of uses which have no demanded bits.
           if (AB.isNullValue())
@@ -556,7 +554,7 @@ DemandedBits DemandedBitsAnalysis::run(Function &F,
                                              FunctionAnalysisManager &AM) {
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
-  return DemandedBits(F, AC, DT);
+  return DemandedBits(F, AC, DT, F.getParent()->getDataLayout());
 }
 
 PreservedAnalyses DemandedBitsPrinterPass::run(Function &F,

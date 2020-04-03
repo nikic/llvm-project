@@ -27,6 +27,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/KnownBits.h"
 
 namespace llvm {
 
@@ -34,13 +35,13 @@ class AssumptionCache;
 class DominatorTree;
 class Function;
 class Instruction;
-struct KnownBits;
 class raw_ostream;
 
 class DemandedBits {
 public:
-  DemandedBits(Function &F, AssumptionCache &AC, DominatorTree &DT) :
-    F(F), AC(AC), DT(DT) {}
+  DemandedBits(Function &F, AssumptionCache &AC, DominatorTree &DT,
+               const DataLayout &DL)
+    : F(F), AC(AC), DT(DT), DL(DL) {}
 
   /// Return the bits demanded from instruction I.
   ///
@@ -79,18 +80,23 @@ private:
   void performAnalysis();
   void determineLiveOperandBits(const Instruction *UserI,
     const Value *Val, unsigned OperandNo,
-    const APInt &AOut, APInt &AB,
-    KnownBits &Known, KnownBits &Known2, bool &KnownBitsComputed);
+    const APInt &AOut, APInt &AB);
+  KnownBits computeKnownBits(const Value *I, const Instruction *CxtI);
 
   Function &F;
   AssumptionCache &AC;
   DominatorTree &DT;
+  const DataLayout &DL;
 
   bool Analyzed = false;
 
   // The set of visited instructions (non-integer-typed only).
   SmallPtrSet<Instruction*, 32> Visited;
   DenseMap<Instruction *, APInt> AliveBits;
+  // Cache of computed known bits used during the demanded bits calculation.
+  // The second instruction in the pair is the context instruction.
+  DenseMap<std::pair<const Instruction *, const Instruction *>, KnownBits>
+      KnownBitsCache;
   // Uses with no demanded bits. If the user also has no demanded bits, the use
   // might not be stored explicitly in this map, to save memory during analysis.
   SmallPtrSet<Use *, 16> DeadUses;
