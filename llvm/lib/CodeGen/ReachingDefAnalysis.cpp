@@ -126,6 +126,37 @@ void ReachingDefAnalysis::processDefs(MachineInstr *MI,
   ++CurInstr;
 }
 
+void ReachingDefAnalysis::reprocessBasicBlock(MachineBasicBlock *MBB,
+                                              MBBDefsInfo &ReachingDefs) {
+  unsigned MBBNumber = MBB->getNumber();
+  for (MachineBasicBlock *pred : MBB->predecessors()) {
+    assert(unsigned(pred->getNumber()) < MBBOutRegsInfos.size() &&
+           "Should have pre-allocated MBBInfos for all MBBs");
+    const LiveRegsDefInfo &Incoming = MBBOutRegsInfos[pred->getNumber()];
+    // Incoming may be empty for dead predecessors.
+    if (Incoming.empty())
+      continue;
+
+    for (unsigned Unit = 0; Unit != NumRegUnits; ++Unit) {
+      // Use the most recent predecessor def for each register.
+      int Def = Incoming[Unit];
+      if (Def != ReachingDefDefaultVal) {
+        if (!ReachingDefs[Unit].empty() && ReachingDefs[Unit][0] < 0) {
+          // Update existing reaching def from predecessor to a more recent one.
+          if (ReachingDefs[Unit][0] < Def)
+            ReachingDefs[Unit][0] = Def;
+        } else {
+          // Insert new reaching def from predecessor.
+          ReachingDefs[Unit].insert(ReachingDefs[Unit].begin(), Def);
+        }
+
+        if (Def > MBBOutRegsInfos[MBBNumber][Unit])
+          MBBOutRegsInfos[MBBNumber][Unit] = Def;
+      }
+    }
+  }
+}
+
 void ReachingDefAnalysis::processBasicBlock(
     const LoopTraversal::TraversedMBBInfo &TraversedMBB) {
   MachineBasicBlock *MBB = TraversedMBB.MBB;
@@ -134,11 +165,17 @@ void ReachingDefAnalysis::processBasicBlock(
          "Unexpected basic block number.");
   MBBDefsInfo &ReachingDefs = MBBReachingDefs[MBBNumber];
 
-  enterBasicBlock(MBB, ReachingDefs);
   LLVM_DEBUG(dbgs() << printMBBReference(*MBB)
                     << (!TraversedMBB.IsDone ? ": incomplete\n"
                                              : ": all preds known\n"));
 
+  if (!TraversedMBB.PrimaryPass) {
+    // Reprocess MBB that is part of a loop.
+    reprocessBasicBlock(MBB, ReachingDefs);
+    return;
+  }
+
+  enterBasicBlock(MBB, ReachingDefs);
   for (MachineInstr &MI : *MBB) {
     if (!MI.isDebugInstr())
       processDefs(&MI, ReachingDefs);
