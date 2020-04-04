@@ -109,7 +109,7 @@ void DemandedBits::determineLiveOperandBits(
           // We need some output bits, so we need all bits of the
           // input to the left of, and including, the leftmost bit
           // known to be one.
-          KnownBits Known = computeKnownBits(Val, UserI);
+          KnownBits Known = computeKnownBits(Val);
           AB = APInt::getHighBitsSet(BitWidth,
                  std::min(BitWidth, Known.countMaxLeadingZeros()+1));
         }
@@ -119,7 +119,7 @@ void DemandedBits::determineLiveOperandBits(
           // We need some output bits, so we need all bits of the
           // input to the right of, and including, the rightmost bit
           // known to be one.
-          KnownBits Known = computeKnownBits(Val, UserI);
+          KnownBits Known = computeKnownBits(Val);
           AB = APInt::getLowBitsSet(BitWidth,
                  std::min(BitWidth, Known.countMaxTrailingZeros()+1));
         }
@@ -149,14 +149,14 @@ void DemandedBits::determineLiveOperandBits(
       }
     break;
   case Instruction::Add: {
-    KnownBits Known = computeKnownBits(UserI->getOperand(0), UserI);
-    KnownBits Known2 = computeKnownBits(UserI->getOperand(1), UserI);
+    KnownBits Known = computeKnownBits(UserI->getOperand(0));
+    KnownBits Known2 = computeKnownBits(UserI->getOperand(1));
     AB = determineLiveOperandBitsAdd(OperandNo, AOut, Known, Known2);
     break;
   }
   case Instruction::Sub: {
-    KnownBits Known = computeKnownBits(UserI->getOperand(0), UserI);
-    KnownBits Known2 = computeKnownBits(UserI->getOperand(1), UserI);
+    KnownBits Known = computeKnownBits(UserI->getOperand(0));
+    KnownBits Known2 = computeKnownBits(UserI->getOperand(1));
     AB = determineLiveOperandBitsSub(OperandNo, AOut, Known, Known2);
     break;
   }
@@ -224,8 +224,8 @@ void DemandedBits::determineLiveOperandBits(
     // other operand are dead (unless they're both zero, in which
     // case they can't both be dead, so just mark the LHS bits as
     // dead).
-    KnownBits Known = computeKnownBits(UserI->getOperand(0), UserI);
-    KnownBits Known2 = computeKnownBits(UserI->getOperand(1), UserI);
+    KnownBits Known = computeKnownBits(UserI->getOperand(0));
+    KnownBits Known2 = computeKnownBits(UserI->getOperand(1));
     if (OperandNo == 0)
       AB &= ~Known2.Zero;
     else
@@ -239,8 +239,8 @@ void DemandedBits::determineLiveOperandBits(
     // other operand are dead (unless they're both one, in which
     // case they can't both be dead, so just mark the LHS bits as
     // dead).
-    KnownBits Known = computeKnownBits(UserI->getOperand(0), UserI);
-    KnownBits Known2 = computeKnownBits(UserI->getOperand(1), UserI);
+    KnownBits Known = computeKnownBits(UserI->getOperand(0));
+    KnownBits Known2 = computeKnownBits(UserI->getOperand(1));
     if (OperandNo == 0)
       AB &= ~Known2.One;
     else
@@ -283,16 +283,15 @@ void DemandedBits::determineLiveOperandBits(
   }
 }
 
-KnownBits DemandedBits::computeKnownBits(const Value *V,
-                                         const Instruction *CxtI) {
+KnownBits DemandedBits::computeKnownBits(const Value *V) {
   if (auto *I = dyn_cast<Instruction>(V)) {
-  auto It = KnownBitsCache.find({ I, CxtI });
+  auto It = KnownBitsCache.find(I);
     if (It != KnownBitsCache.end())
       return It->second;
 
-    KnownBits Known = llvm::computeKnownBits(V, DL, /* Depth */ 0, &AC, CxtI,
-                                             &DT);
-    KnownBitsCache.insert({ { I, CxtI }, Known });
+    KnownBits Known = llvm::computeKnownBits(V, DL, /* Depth */ 0, &AC,
+                                             /* CxtI */ nullptr, &DT);
+    KnownBitsCache.insert({ I, Known });
     return Known;
   }
 

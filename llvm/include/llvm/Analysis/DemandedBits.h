@@ -81,7 +81,7 @@ private:
   void determineLiveOperandBits(const Instruction *UserI,
     const Value *Val, unsigned OperandNo,
     const APInt &AOut, APInt &AB);
-  KnownBits computeKnownBits(const Value *I, const Instruction *CxtI);
+  KnownBits computeKnownBits(const Value *I);
 
   Function &F;
   AssumptionCache &AC;
@@ -94,9 +94,7 @@ private:
   SmallPtrSet<Instruction*, 32> Visited;
   DenseMap<Instruction *, APInt> AliveBits;
   // Cache of computed known bits used during the demanded bits calculation.
-  // The second instruction in the pair is the context instruction.
-  DenseMap<std::pair<const Instruction *, const Instruction *>, KnownBits>
-      KnownBitsCache;
+  DenseMap<const Instruction *, KnownBits> KnownBitsCache;
   // Uses with no demanded bits. If the user also has no demanded bits, the use
   // might not be stored explicitly in this map, to save memory during analysis.
   SmallPtrSet<Use *, 16> DeadUses;
