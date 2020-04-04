@@ -78,13 +78,14 @@ void ReachingDefAnalysis::enterBasicBlock(MachineBasicBlock *MBB,
     if (Incoming.empty())
       continue;
 
-    for (unsigned Unit = 0; Unit != NumRegUnits; ++Unit) {
-      // Use the most recent predecessor def for each register.
+    // Use the most recent predecessor def for each register.
+    for (unsigned Unit = 0; Unit != NumRegUnits; ++Unit)
       LiveRegs[Unit] = std::max(LiveRegs[Unit], Incoming[Unit]);
-      if ((LiveRegs[Unit] != ReachingDefDefaultVal))
-        ReachingDefs[Unit].push_back(LiveRegs[Unit]);
-    }
   }
+
+  for (unsigned Unit = 0; Unit != NumRegUnits; ++Unit)
+    if (LiveRegs[Unit] != ReachingDefDefaultVal)
+      ReachingDefs[Unit].push_back(LiveRegs[Unit]);
 }
 
 void ReachingDefAnalysis::leaveBasicBlock(MachineBasicBlock *MBB) {
