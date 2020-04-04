@@ -199,7 +199,8 @@ public:
 
 private:
   /// Set up LiveRegs by merging predecessor live-out values.
-  void enterBasicBlock(const LoopTraversal::TraversedMBBInfo &TraversedMBB);
+  void enterBasicBlock(const LoopTraversal::TraversedMBBInfo &TraversedMBB,
+                       MBBDefsInfo &ReachingDefs);
 
   /// Update live-out values.
   void leaveBasicBlock(const LoopTraversal::TraversedMBBInfo &TraversedMBB);
@@ -209,7 +210,7 @@ private:
 
   /// Update def-ages for registers defined by MI.
   /// Also break dependencies on partial defs and undef uses.
-  void processDefs(MachineInstr *);
+  void processDefs(MachineInstr *, MBBDefsInfo &ReachingDefs);
 
   /// Utility function for isSafeToMoveForwards/Backwards.
   template<typename Iterator>

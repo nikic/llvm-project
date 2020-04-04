@@ -42,13 +42,11 @@ static bool isValidRegDefOf(const MachineOperand &MO, int PhysReg) {
 }
 
 void ReachingDefAnalysis::enterBasicBlock(
-    const LoopTraversal::TraversedMBBInfo &TraversedMBB) {
+    const LoopTraversal::TraversedMBBInfo &TraversedMBB,
+    MBBDefsInfo &ReachingDefs) {
 
   MachineBasicBlock *MBB = TraversedMBB.MBB;
-  unsigned MBBNumber = MBB->getNumber();
-  assert(MBBNumber < MBBReachingDefs.size() &&
-         "Unexpected basic block number.");
-  MBBReachingDefs[MBBNumber].resize(NumRegUnits);
+  ReachingDefs.resize(NumRegUnits);
 
   // Reset instruction counter in each basic block.
   CurInstr = 0;
@@ -66,7 +64,7 @@ void ReachingDefAnalysis::enterBasicBlock(
         // instruction.  Usually, function arguments are set up immediately
         // before the call.
         LiveRegs[*Unit] = -1;
-        MBBReachingDefs[MBBNumber][*Unit].push_back(LiveRegs[*Unit]);
+        ReachingDefs[*Unit].push_back(LiveRegs[*Unit]);
       }
     }
     LLVM_DEBUG(dbgs() << printMBBReference(*MBB) << ": entry\n");
@@ -87,7 +85,7 @@ void ReachingDefAnalysis::enterBasicBlock(
       // Use the most recent predecessor def for each register.
       LiveRegs[Unit] = std::max(LiveRegs[Unit], Incoming[Unit]);
       if ((LiveRegs[Unit] != ReachingDefDefaultVal))
-        MBBReachingDefs[MBBNumber][Unit].push_back(LiveRegs[Unit]);
+        ReachingDefs[Unit].push_back(LiveRegs[Unit]);
     }
   }
 
@@ -114,12 +112,9 @@ void ReachingDefAnalysis::leaveBasicBlock(
   LiveRegs.clear();
 }
 
-void ReachingDefAnalysis::processDefs(MachineInstr *MI) {
+void ReachingDefAnalysis::processDefs(MachineInstr *MI,
+                                      MBBDefsInfo &ReachingDefs) {
   assert(!MI->isDebugInstr() && "Won't process debug instructions");
-
-  unsigned MBBNumber = MI->getParent()->getNumber();
-  assert(MBBNumber < MBBReachingDefs.size() &&
-         "Unexpected basic block number.");
 
   for (auto &MO : MI->operands()) {
     if (!isValidRegDef(MO))
@@ -131,7 +126,7 @@ void ReachingDefAnalysis::processDefs(MachineInstr *MI) {
 
       // How many instructions since this reg unit was last written?
       LiveRegs[*Unit] = CurInstr;
-      MBBReachingDefs[MBBNumber][*Unit].push_back(CurInstr);
+      ReachingDefs[*Unit].push_back(CurInstr);
     }
   }
   InstIds[MI] = CurInstr;
@@ -140,10 +135,15 @@ void ReachingDefAnalysis::processDefs(MachineInstr *MI) {
 
 void ReachingDefAnalysis::processBasicBlock(
     const LoopTraversal::TraversedMBBInfo &TraversedMBB) {
-  enterBasicBlock(TraversedMBB);
+  unsigned MBBNumber = TraversedMBB.MBB->getNumber();
+  assert(MBBNumber < MBBReachingDefs.size() &&
+         "Unexpected basic block number.");
+  MBBDefsInfo &ReachingDefs = MBBReachingDefs[MBBNumber];
+
+  enterBasicBlock(TraversedMBB, ReachingDefs);
   for (MachineInstr &MI : *TraversedMBB.MBB) {
     if (!MI.isDebugInstr())
-      processDefs(&MI);
+      processDefs(&MI, ReachingDefs);
   }
   leaveBasicBlock(TraversedMBB);
 }
