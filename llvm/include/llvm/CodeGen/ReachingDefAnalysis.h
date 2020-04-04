@@ -199,11 +199,10 @@ public:
 
 private:
   /// Set up LiveRegs by merging predecessor live-out values.
-  void enterBasicBlock(const LoopTraversal::TraversedMBBInfo &TraversedMBB,
-                       MBBDefsInfo &ReachingDefs);
+  void enterBasicBlock(MachineBasicBlock *MBB, MBBDefsInfo &ReachingDefs);
 
   /// Update live-out values.
-  void leaveBasicBlock(const LoopTraversal::TraversedMBBInfo &TraversedMBB);
+  void leaveBasicBlock(MachineBasicBlock *MBB);
 
   /// Process he given basic block.
   void processBasicBlock(const LoopTraversal::TraversedMBBInfo &TraversedMBB);

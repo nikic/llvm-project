@@ -41,11 +41,8 @@ static bool isValidRegDefOf(const MachineOperand &MO, int PhysReg) {
   return isValidRegDef(MO) && MO.getReg() == PhysReg;
 }
 
-void ReachingDefAnalysis::enterBasicBlock(
-    const LoopTraversal::TraversedMBBInfo &TraversedMBB,
-    MBBDefsInfo &ReachingDefs) {
-
-  MachineBasicBlock *MBB = TraversedMBB.MBB;
+void ReachingDefAnalysis::enterBasicBlock(MachineBasicBlock *MBB,
+                                          MBBDefsInfo &ReachingDefs) {
   ReachingDefs.resize(NumRegUnits);
 
   // Reset instruction counter in each basic block.
@@ -88,16 +85,11 @@ void ReachingDefAnalysis::enterBasicBlock(
         ReachingDefs[Unit].push_back(LiveRegs[Unit]);
     }
   }
-
-  LLVM_DEBUG(dbgs() << printMBBReference(*MBB)
-                    << (!TraversedMBB.IsDone ? ": incomplete\n"
-                                             : ": all preds known\n"));
 }
 
-void ReachingDefAnalysis::leaveBasicBlock(
-    const LoopTraversal::TraversedMBBInfo &TraversedMBB) {
+void ReachingDefAnalysis::leaveBasicBlock(MachineBasicBlock *MBB) {
   assert(!LiveRegs.empty() && "Must enter basic block first.");
-  unsigned MBBNumber = TraversedMBB.MBB->getNumber();
+  unsigned MBBNumber = MBB->getNumber();
   assert(MBBNumber < MBBOutRegsInfos.size() &&
          "Unexpected basic block number.");
   // Save register clearances at end of MBB - used by enterBasicBlock().
@@ -135,17 +127,22 @@ void ReachingDefAnalysis::processDefs(MachineInstr *MI,
 
 void ReachingDefAnalysis::processBasicBlock(
     const LoopTraversal::TraversedMBBInfo &TraversedMBB) {
-  unsigned MBBNumber = TraversedMBB.MBB->getNumber();
+  MachineBasicBlock *MBB = TraversedMBB.MBB;
+  unsigned MBBNumber = MBB->getNumber();
   assert(MBBNumber < MBBReachingDefs.size() &&
          "Unexpected basic block number.");
   MBBDefsInfo &ReachingDefs = MBBReachingDefs[MBBNumber];
 
-  enterBasicBlock(TraversedMBB, ReachingDefs);
-  for (MachineInstr &MI : *TraversedMBB.MBB) {
+  enterBasicBlock(MBB, ReachingDefs);
+  LLVM_DEBUG(dbgs() << printMBBReference(*MBB)
+                    << (!TraversedMBB.IsDone ? ": incomplete\n"
+                                             : ": all preds known\n"));
+
+  for (MachineInstr &MI : *MBB) {
     if (!MI.isDebugInstr())
       processDefs(&MI, ReachingDefs);
   }
-  leaveBasicBlock(TraversedMBB);
+  leaveBasicBlock(MBB);
 }
 
 bool ReachingDefAnalysis::runOnMachineFunction(MachineFunction &mf) {
