@@ -65,8 +65,10 @@ void ReachingDefAnalysis::enterBasicBlock(
         // Treat function live-ins as if they were defined just before the first
         // instruction.  Usually, function arguments are set up immediately
         // before the call.
-        LiveRegs[*Unit] = -1;
-        MBBReachingDefs[MBBNumber][*Unit].push_back(LiveRegs[*Unit]);
+        if (LiveRegs[*Unit] != -1) {
+          LiveRegs[*Unit] = -1;
+          MBBReachingDefs[MBBNumber][*Unit].push_back(-1);
+        }
       }
     }
     LLVM_DEBUG(dbgs() << printMBBReference(*MBB) << ": entry\n");
@@ -133,8 +135,10 @@ void ReachingDefAnalysis::processDefs(MachineInstr *MI) {
                         << '\t' << *MI);
 
       // How many instructions since this reg unit was last written?
-      LiveRegs[*Unit] = CurInstr;
-      MBBReachingDefs[MBBNumber][*Unit].push_back(CurInstr);
+      if (LiveRegs[*Unit] != CurInstr) {
+        LiveRegs[*Unit] = CurInstr;
+        MBBReachingDefs[MBBNumber][*Unit].push_back(CurInstr);
+      }
     }
   }
   InstIds[MI] = CurInstr;
