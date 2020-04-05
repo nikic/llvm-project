@@ -118,7 +118,7 @@ void ReachingDefAnalysis::processDefs(MachineInstr *MI,
       continue;
     for (MCRegUnitIterator Unit(MO.getReg(), TRI); Unit.isValid(); ++Unit) {
       // This instruction explicitly defines the current reg unit.
-      LLVM_DEBUG(dbgs() << printReg(MO.getReg(), TRI) << ":\t" << CurInstr
+      LLVM_DEBUG(dbgs() << printReg(*Unit, TRI) << ":\t" << CurInstr
                         << '\t' << *MI);
 
       // How many instructions since this reg unit was last written?
