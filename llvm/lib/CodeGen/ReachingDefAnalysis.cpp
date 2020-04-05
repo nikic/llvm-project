@@ -100,8 +100,10 @@ void ReachingDefAnalysis::leaveBasicBlock(MachineBasicBlock *MBB) {
   // of the basic block for convenience. However, future use of this information
   // only cares about the clearance from the end of the block, so adjust
   // everything to be relative to the end of the basic block.
-  for (int &OutLiveReg : MBBOutRegsInfos[MBBNumber])
-    OutLiveReg -= CurInstr;
+  for (int &OutLiveReg : MBBOutRegsInfos[MBBNumber]) {
+    if (OutLiveReg != ReachingDefDefaultVal)
+      OutLiveReg -= CurInstr;
+  }
   LiveRegs.clear();
 }
 
@@ -219,11 +221,19 @@ void ReachingDefAnalysis::traverse() {
   // Traverse the basic blocks.
   for (LoopTraversal::TraversedMBBInfo TraversedMBB : TraversedMBBOrder)
     processBasicBlock(TraversedMBB);
-  // Sorting all reaching defs found for a ceartin reg unit in a given BB.
+#ifndef NDEBUG
+  // Make sure reaching defs are sorted.
+  // TODO: Should we also guarantee that they are unique?
   for (MBBDefsInfo &MBBDefs : MBBReachingDefs) {
-    for (MBBRegUnitDefs &RegUnitDefs : MBBDefs)
-      llvm::sort(RegUnitDefs);
+    for (MBBRegUnitDefs &RegUnitDefs : MBBDefs) {
+      int LastDef = ReachingDefDefaultVal;
+      for (int Def : RegUnitDefs) {
+        assert(Def >= LastDef && "Defs must be sorted");
+        LastDef = Def;
+      }
+    }
   }
+#endif
 }
 
 int ReachingDefAnalysis::getReachingDef(MachineInstr *MI, int PhysReg) const {
