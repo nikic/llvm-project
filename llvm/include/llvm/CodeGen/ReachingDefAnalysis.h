@@ -63,7 +63,7 @@ private:
   /// All reaching defs of a given RegUnit for a given MBB.
   using MBBRegUnitDefs = SmallVector<int, 1>;
   /// All reaching defs of all reg units for a given MBB
-  using MBBDefsInfo = std::vector<MBBRegUnitDefs>;
+  using MBBDefsInfo = DenseMap<unsigned, MBBRegUnitDefs>;
   /// All reaching defs of all reg units for a all MBBs
   using MBBReachingDefsInfo = SmallVector<MBBDefsInfo, 4>;
   MBBReachingDefsInfo MBBReachingDefs;

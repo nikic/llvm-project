@@ -43,8 +43,6 @@ static bool isValidRegDefOf(const MachineOperand &MO, int PhysReg) {
 
 void ReachingDefAnalysis::enterBasicBlock(MachineBasicBlock *MBB,
                                           MBBDefsInfo &ReachingDefs) {
-  ReachingDefs.resize(NumRegUnits);
-
   // Reset instruction counter in each basic block.
   CurInstr = 0;
 
@@ -228,9 +226,9 @@ void ReachingDefAnalysis::traverse() {
 #ifndef NDEBUG
   // Make sure reaching defs are sorted and unique.
   for (MBBDefsInfo &MBBDefs : MBBReachingDefs) {
-    for (MBBRegUnitDefs &RegUnitDefs : MBBDefs) {
+    for (auto &Pair : MBBDefs) {
       int LastDef = ReachingDefDefaultVal;
-      for (int Def : RegUnitDefs) {
+      for (int Def : Pair.second) {
         assert(Def > LastDef && "Defs must be sorted and unique");
         LastDef = Def;
       }
@@ -248,7 +246,11 @@ int ReachingDefAnalysis::getReachingDef(MachineInstr *MI, int PhysReg) const {
          "Unexpected basic block number.");
   int LatestDef = ReachingDefDefaultVal;
   for (MCRegUnitIterator Unit(PhysReg, TRI); Unit.isValid(); ++Unit) {
-    for (int Def : MBBReachingDefs[MBBNumber][*Unit]) {
+    auto It = MBBReachingDefs[MBBNumber].find(*Unit);
+    if (It == MBBReachingDefs[MBBNumber].end())
+      return ReachingDefDefaultVal;
+
+    for (int Def : It->second) {
       if (Def >= InstId)
         break;
       DefRes = Def;
