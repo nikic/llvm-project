@@ -60,8 +60,10 @@ void ReachingDefAnalysis::enterBasicBlock(MachineBasicBlock *MBB,
         // Treat function live-ins as if they were defined just before the first
         // instruction.  Usually, function arguments are set up immediately
         // before the call.
-        LiveRegs[*Unit] = -1;
-        ReachingDefs[*Unit].push_back(LiveRegs[*Unit]);
+        if (LiveRegs[*Unit] != -1) {
+          LiveRegs[*Unit] = -1;
+          ReachingDefs[*Unit].push_back(-1);
+        }
       }
     }
     LLVM_DEBUG(dbgs() << printMBBReference(*MBB) << ": entry\n");
@@ -120,8 +122,10 @@ void ReachingDefAnalysis::processDefs(MachineInstr *MI,
                         << '\t' << *MI);
 
       // How many instructions since this reg unit was last written?
-      LiveRegs[*Unit] = CurInstr;
-      ReachingDefs[*Unit].push_back(CurInstr);
+      if (LiveRegs[*Unit] != CurInstr) {
+        LiveRegs[*Unit] = CurInstr;
+        ReachingDefs[*Unit].push_back(CurInstr);
+      }
     }
   }
   InstIds[MI] = CurInstr;
@@ -222,13 +226,12 @@ void ReachingDefAnalysis::traverse() {
   for (LoopTraversal::TraversedMBBInfo TraversedMBB : TraversedMBBOrder)
     processBasicBlock(TraversedMBB);
 #ifndef NDEBUG
-  // Make sure reaching defs are sorted.
-  // TODO: Should we also guarantee that they are unique?
+  // Make sure reaching defs are sorted and unique.
   for (MBBDefsInfo &MBBDefs : MBBReachingDefs) {
     for (MBBRegUnitDefs &RegUnitDefs : MBBDefs) {
       int LastDef = ReachingDefDefaultVal;
       for (int Def : RegUnitDefs) {
-        assert(Def >= LastDef && "Defs must be sorted");
+        assert(Def > LastDef && "Defs must be sorted and unique");
         LastDef = Def;
       }
     }
