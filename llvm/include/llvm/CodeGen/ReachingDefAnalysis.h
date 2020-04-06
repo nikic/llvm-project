@@ -79,12 +79,6 @@ private:
   using LiveRegsDefInfo = std::vector<int>;
   LiveRegsDefInfo LiveRegs;
 
-  /// Keeps clearance information for all registers. Note that this
-  /// is different from the usual definition notion of liveness. The CPU
-  /// doesn't care whether or not we consider a register killed.
-  using OutRegsInfoMap = SmallVector<LiveRegsDefInfo, 4>;
-  OutRegsInfoMap MBBOutRegsInfos;
-
   /// Current instruction number.
   /// The first instruction in each basic block is 0.
   int CurInstr;
@@ -92,6 +86,9 @@ private:
   /// Maps instructions to their instruction Ids, relative to the beginning of
   /// their basic blocks.
   DenseMap<MachineInstr *, int> InstIds;
+
+  /// Number of non-debug instructions in each basic block.
+  std::vector<int> MBBNumInsts;
 
   /// All reaching defs of a given RegUnit for a given MBB.
   using MBBRegUnitDefs = TinyPtrVector<ReachingDef>;
@@ -231,6 +228,9 @@ public:
   bool isSafeToDefRegAt(MachineInstr *MI, int PhysReg, InstSet &Ignore) const;
 
 private:
+  /// Get reaching def coming from a predecessor.
+  int getIncomingReachingDef(const MBBRegUnitDefs &Defs, int NumInsts) const;
+
   /// Set up LiveRegs by merging predecessor live-out values.
   void enterBasicBlock(MachineBasicBlock *MBB);
 

@@ -41,6 +41,19 @@ static bool isValidRegDefOf(const MachineOperand &MO, int PhysReg) {
   return isValidRegDef(MO) && MO.getReg() == PhysReg;
 }
 
+int ReachingDefAnalysis::getIncomingReachingDef(const MBBRegUnitDefs &Defs,
+                                                int NumInsts) const {
+  if (Defs.empty())
+    return ReachingDefDefaultVal;
+
+  int Def = Defs.back();
+  if (Def != ReachingDefDefaultVal)
+    // Adjust def to be relative to the end of the basic block.
+    Def -= NumInsts;
+
+  return Def;
+}
+
 void ReachingDefAnalysis::enterBasicBlock(MachineBasicBlock *MBB) {
   unsigned MBBNumber = MBB->getNumber();
   assert(MBBNumber < MBBReachingDefs.size() &&
@@ -74,17 +87,22 @@ void ReachingDefAnalysis::enterBasicBlock(MachineBasicBlock *MBB) {
 
   // Try to coalesce live-out registers from predecessors.
   for (MachineBasicBlock *pred : MBB->predecessors()) {
-    assert(unsigned(pred->getNumber()) < MBBOutRegsInfos.size() &&
+    assert(unsigned(pred->getNumber()) < MBBReachingDefs.size() &&
            "Should have pre-allocated MBBInfos for all MBBs");
-    const LiveRegsDefInfo &Incoming = MBBOutRegsInfos[pred->getNumber()];
-    // Incoming is null if this is a backedge from a BB
-    // we haven't processed yet
-    if (Incoming.empty())
+    const MBBDefsInfo &Defs = MBBReachingDefs[pred->getNumber()];
+    // Defs is null if this is a backedge from a BB we haven't processed yet.
+    if (Defs.empty())
       continue;
 
     // Find the most recent reaching definition from a predecessor.
-    for (unsigned Unit = 0; Unit != NumRegUnits; ++Unit)
-      LiveRegs[Unit] = std::max(LiveRegs[Unit], Incoming[Unit]);
+    int NumInsts = MBBNumInsts[pred->getNumber()];
+    for (unsigned Unit = 0; Unit != NumRegUnits; ++Unit) {
+      int Def = getIncomingReachingDef(Defs[Unit], NumInsts);
+      if (Def == ReachingDefDefaultVal)
+        continue;
+
+      LiveRegs[Unit] = std::max(LiveRegs[Unit], Def);
+    }
   }
 
   // Insert the most recent reaching definition we found.
@@ -94,20 +112,10 @@ void ReachingDefAnalysis::enterBasicBlock(MachineBasicBlock *MBB) {
 }
 
 void ReachingDefAnalysis::leaveBasicBlock(MachineBasicBlock *MBB) {
-  assert(!LiveRegs.empty() && "Must enter basic block first.");
   unsigned MBBNumber = MBB->getNumber();
-  assert(MBBNumber < MBBOutRegsInfos.size() &&
-         "Unexpected basic block number.");
-  // Save register clearances at end of MBB - used by enterBasicBlock().
-  MBBOutRegsInfos[MBBNumber] = LiveRegs;
+  assert(MBBNumber < MBBNumInsts.size() && "Unexpected basic block number.");
 
-  // While processing the basic block, we kept `Def` relative to the start
-  // of the basic block for convenience. However, future use of this information
-  // only cares about the clearance from the end of the block, so adjust
-  // everything to be relative to the end of the basic block.
-  for (int &OutLiveReg : MBBOutRegsInfos[MBBNumber])
-    if (OutLiveReg != ReachingDefDefaultVal)
-      OutLiveReg -= CurInstr;
+  MBBNumInsts[MBBNumber] = CurInstr;
   LiveRegs.clear();
 }
 
@@ -142,24 +150,19 @@ void ReachingDefAnalysis::reprocessBasicBlock(MachineBasicBlock *MBB) {
   assert(MBBNumber < MBBReachingDefs.size() &&
          "Unexpected basic block number.");
 
-  // Count number of non-debug instructions for end of block adjustment.
-  int NumInsts = 0;
-  for (const MachineInstr &MI : *MBB)
-    if (!MI.isDebugInstr())
-      NumInsts++;
-
   // When reprocessing a block, the only thing we need to do is check whether
   // there is now a more recent incoming reaching definition from a predecessor.
   for (MachineBasicBlock *pred : MBB->predecessors()) {
-    assert(unsigned(pred->getNumber()) < MBBOutRegsInfos.size() &&
+    assert(unsigned(pred->getNumber()) < MBBReachingDefs.size() &&
            "Should have pre-allocated MBBInfos for all MBBs");
-    const LiveRegsDefInfo &Incoming = MBBOutRegsInfos[pred->getNumber()];
-    // Incoming may be empty for dead predecessors.
-    if (Incoming.empty())
+    const MBBDefsInfo &Defs = MBBReachingDefs[pred->getNumber()];
+    // Defs may be empty for dead predecessors.
+    if (Defs.empty())
       continue;
 
+    int NumInsts = MBBNumInsts[pred->getNumber()];
     for (unsigned Unit = 0; Unit != NumRegUnits; ++Unit) {
-      int Def = Incoming[Unit];
+      int Def = getIncomingReachingDef(Defs[Unit], NumInsts);
       if (Def == ReachingDefDefaultVal)
         continue;
 
@@ -174,11 +177,6 @@ void ReachingDefAnalysis::reprocessBasicBlock(MachineBasicBlock *MBB) {
         // Insert new reaching def from predecessor.
         MBBReachingDefs[MBBNumber][Unit].insert(Start, Def);
       }
-
-      // Update reaching def at end of of BB. Keep in mind that these are
-      // adjusted relative to the end of the basic block.
-      if (MBBOutRegsInfos[MBBNumber][Unit] < Def - NumInsts)
-        MBBOutRegsInfos[MBBNumber][Unit] = Def - NumInsts;
     }
   }
 }
@@ -215,7 +213,7 @@ bool ReachingDefAnalysis::runOnMachineFunction(MachineFunction &mf) {
 
 void ReachingDefAnalysis::releaseMemory() {
   // Clear the internal vectors.
-  MBBOutRegsInfos.clear();
+  MBBNumInsts.clear();
   MBBReachingDefs.clear();
   InstIds.clear();
   LiveRegs.clear();
@@ -230,8 +228,7 @@ void ReachingDefAnalysis::reset() {
 void ReachingDefAnalysis::init() {
   NumRegUnits = TRI->getNumRegUnits();
   MBBReachingDefs.resize(MF->getNumBlockIDs());
-  // Initialize the MBBOutRegsInfos
-  MBBOutRegsInfos.resize(MF->getNumBlockIDs());
+  MBBNumInsts.resize(MF->getNumBlockIDs());
   LoopTraversal Traversal;
   TraversedMBBOrder = Traversal.traverse(*MF);
 }
