@@ -3631,7 +3631,7 @@ bool InstCombiner::run() {
 static bool prepareICWorklistFromFunction(
     Function &F, const DataLayout &DL, const TargetLibraryInfo *TLI,
     InstCombineWorklist &ICWorklist,
-    ReversePostOrderTraversal<BasicBlock *> &RPOT) {
+    ReversePostOrderTraversal<Function *> &RPOT) {
   bool MadeIRChange = false;
   SmallPtrSet<BasicBlock *, 32> LiveBlocks;
   LiveBlocks.insert(&F.front());
@@ -3761,7 +3761,7 @@ static bool combineInstructionsOverFunction(
           AC.registerAssumption(cast<CallInst>(I));
       }));
 
-  ReversePostOrderTraversal<BasicBlock *> RPOT(&F.front());
+  ReversePostOrderTraversal<Function *> RPOT(&F);
 
   // Lower dbg.declare intrinsics otherwise their value may be clobbered
   // by instcombiner.

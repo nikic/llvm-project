@@ -284,11 +284,27 @@ inverse_post_order_ext(const T &G, SetType &S) {
 // }
 //
 
+
+
 template<class GraphT, class GT = GraphTraits<GraphT>>
 class ReversePostOrderTraversal {
   using NodeRef = typename GT::NodeRef;
 
   std::vector<NodeRef> Blocks; // Block list in normal PO order
+
+  // Call reserve() if the graph size is known.
+  struct General {};
+  struct Special : General {};
+  template<typename> struct Exists { typedef int type; };
+
+  template<typename GT2, typename Exists<decltype(GT2::size)>::type = 0>
+  void Reserve(GraphT G, Special) {
+    Blocks.reserve(GT2::size(G));
+  }
+
+  template<typename GT2>
+  void Reserve(GraphT G, General) {
+  }
 
   void Initialize(NodeRef BB) {
     std::copy(po_begin(BB), po_end(BB), std::back_inserter(Blocks));
@@ -298,7 +314,10 @@ public:
   using rpo_iterator = typename std::vector<NodeRef>::reverse_iterator;
   using const_rpo_iterator = typename std::vector<NodeRef>::const_reverse_iterator;
 
-  ReversePostOrderTraversal(GraphT G) { Initialize(GT::getEntryNode(G)); }
+  ReversePostOrderTraversal(GraphT G) {
+    Reserve<GT>(G, Special());
+    Initialize(GT::getEntryNode(G));
+  }
 
   // Because we want a reverse post order, use reverse iterators from the vector
   rpo_iterator begin() { return Blocks.rbegin(); }

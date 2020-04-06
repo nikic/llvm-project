@@ -468,7 +468,7 @@ bool ShrinkWrap::runOnMachineFunction(MachineFunction &MF) {
 
   init(MF);
 
-  ReversePostOrderTraversal<MachineBasicBlock *> RPOT(&*MF.begin());
+  ReversePostOrderTraversal<MachineFunction *> RPOT(&MF);
   if (containsIrreducibleCFG<MachineBasicBlock *>(RPOT, *MLI)) {
     // If MF is irreducible, a block may be in a loop without
     // MachineLoopInfo reporting it. I.e., we may use the

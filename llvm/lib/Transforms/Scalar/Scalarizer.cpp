@@ -327,7 +327,7 @@ bool ScalarizerVisitor::visit(Function &F) {
 
   // To ensure we replace gathered components correctly we need to do an ordered
   // traversal of the basic blocks in the function.
-  ReversePostOrderTraversal<BasicBlock *> RPOT(&F.getEntryBlock());
+  ReversePostOrderTraversal<Function *> RPOT(&F);
   for (BasicBlock *BB : RPOT) {
     for (BasicBlock::iterator II = BB->begin(), IE = BB->end(); II != IE;) {
       Instruction *I = &*II;

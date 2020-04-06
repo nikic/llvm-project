@@ -25,8 +25,7 @@ LoopTraversal::TraversalOrder LoopTraversal::traverse(MachineFunction &MF) {
   // Initialize the MMBInfos
   MBBInfos.assign(MF.getNumBlockIDs(), MBBInfo());
 
-  MachineBasicBlock *Entry = &*MF.begin();
-  ReversePostOrderTraversal<MachineBasicBlock *> RPOT(Entry);
+  ReversePostOrderTraversal<MachineFunction *> RPOT(&MF);
   SmallVector<MachineBasicBlock *, 4> Workqueue;
   SmallVector<TraversedMBBInfo, 4> MBBTraversalOrder;
   for (MachineBasicBlock *MBB : RPOT) {
