@@ -43,6 +43,7 @@ class ReachingDef {
   explicit ReachingDef(uintptr_t Encoded) : Encoded(Encoded) {}
 
 public:
+  ReachingDef() : Encoded(0) {}
   ReachingDef(std::nullptr_t) : Encoded(0) {}
   ReachingDef(int Instr) : Encoded(((uintptr_t) Instr << 2) | 2) {}
   operator int() const { return ((int) Encoded) >> 2; }
@@ -72,6 +73,7 @@ private:
   const TargetRegisterInfo *TRI;
   LoopTraversal::TraversalOrder TraversedMBBOrder;
   unsigned NumRegUnits;
+  unsigned NumBlocks;
   /// Instruction that defined each register, relative to the beginning of the
   /// current basic block.  When a LiveRegsDefInfo is used to represent a
   /// live-out register, this value is relative to the end of the basic block,
@@ -92,11 +94,11 @@ private:
 
   /// All reaching defs of a given RegUnit for a given MBB.
   using MBBRegUnitDefs = TinyPtrVector<ReachingDef>;
-  /// All reaching defs of all reg units for a given MBB
-  using MBBDefsInfo = std::vector<MBBRegUnitDefs>;
-  /// All reaching defs of all reg units for a all MBBs
-  using MBBReachingDefsInfo = SmallVector<MBBDefsInfo, 4>;
-  MBBReachingDefsInfo MBBReachingDefs;
+  /// All reaching defs of a given RegUnit for all MBBs
+  using MBBDefsInfo = SmallVector<MBBRegUnitDefs, 4>;
+  /// All reaching defs of all reg units for all MBBs
+  using RegUnitDefsInfo = std::vector<MBBDefsInfo>;
+  RegUnitDefsInfo RegUnitDefs;
 
   /// Default values are 'nothing happened a long time ago'.
   const int ReachingDefDefaultVal = -(1 << 20);
@@ -229,7 +231,11 @@ public:
 
 private:
   /// Get reaching def coming from a predecessor.
-  int getIncomingReachingDef(unsigned PredNum, unsigned Unit) const;
+  int getIncomingReachingDef(unsigned PredNum,
+                             const MBBDefsInfo &UnitDefs) const;
+
+  /// Add reaching definition for the given block and reg unit.
+  void addReachingDef(unsigned MBBNumber, unsigned Unit, int Def);
 
   /// Set up LiveRegs by merging predecessor live-out values.
   void enterBasicBlock(MachineBasicBlock *MBB);
