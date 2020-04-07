@@ -240,6 +240,8 @@ void ReachingDefAnalysis::traverse() {
   // Traverse the basic blocks.
   for (LoopTraversal::TraversedMBBInfo TraversedMBB : TraversedMBBOrder)
     processBasicBlock(TraversedMBB);
+  // We only need the out regs while traversing.
+  MBBOutRegsInfos.clear();
 #ifndef NDEBUG
   // Make sure reaching defs are sorted and unique.
   for (MBBDefsInfo &MBBDefs : MBBReachingDefs) {
