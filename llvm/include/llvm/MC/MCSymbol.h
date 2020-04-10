@@ -121,7 +121,7 @@ protected:
 
   /// The Flags field is used by object file implementations to store
   /// additional per symbol information which is not easily classified.
-  enum : unsigned { NumFlagsBits = 16 };
+  enum : unsigned { NumFlagsBits = 14 };
   mutable uint32_t Flags : NumFlagsBits;
 
   /// Index field, for use by the object file implementation.
