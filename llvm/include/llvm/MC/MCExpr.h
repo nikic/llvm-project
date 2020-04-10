@@ -34,7 +34,7 @@ using SectionAddrMap = DenseMap<const MCSection *, uint64_t>;
 /// needed for parsing.
 class MCExpr {
 public:
-  enum ExprKind {
+  enum ExprKind : uint8_t {
     Binary,    ///< Binary expressions.
     Constant,  ///< Constant expressions.
     SymbolRef, ///< References to labels and assigned expressions.
@@ -44,6 +44,7 @@ public:
 
 private:
   ExprKind Kind;
+  unsigned SubclassData : 24;
   SMLoc Loc;
 
   bool evaluateAsAbsolute(int64_t &Res, const MCAssembler *Asm,
@@ -51,12 +52,15 @@ private:
                           const SectionAddrMap *Addrs, bool InSet) const;
 
 protected:
-  explicit MCExpr(ExprKind Kind, SMLoc Loc) : Kind(Kind), Loc(Loc) {}
+  explicit MCExpr(ExprKind Kind, unsigned SubclassData, SMLoc Loc)
+    : Kind(Kind), SubclassData(SubclassData), Loc(Loc) {}
 
   bool evaluateAsRelocatableImpl(MCValue &Res, const MCAssembler *Asm,
                                  const MCAsmLayout *Layout,
                                  const MCFixup *Fixup,
                                  const SectionAddrMap *Addrs, bool InSet) const;
+
+  unsigned getSubclassData() const { return SubclassData; }
 
 public:
   MCExpr(const MCExpr &) = delete;
@@ -130,19 +134,17 @@ inline raw_ostream &operator<<(raw_ostream &OS, const MCExpr &E) {
 ////  Represent a constant integer expression.
 class MCConstantExpr : public MCExpr {
   int64_t Value;
-  bool PrintInHex = false;
-  unsigned SizeInBytes = 0;
 
-  explicit MCConstantExpr(int64_t Value)
-      : MCExpr(MCExpr::Constant, SMLoc()), Value(Value) {}
+  static const unsigned PrintInHexBit = 1 << 8;
 
-  MCConstantExpr(int64_t Value, bool PrintInHex)
-      : MCExpr(MCExpr::Constant, SMLoc()), Value(Value),
-        PrintInHex(PrintInHex) {}
+  static unsigned encodeSubclassData(bool PrintInHex, unsigned SizeInBytes) {
+    assert(SizeInBytes <= 8 && "Excessive size");
+    return SizeInBytes | (PrintInHex ? PrintInHexBit : 0);
+  }
 
   MCConstantExpr(int64_t Value, bool PrintInHex, unsigned SizeInBytes)
-      : MCExpr(MCExpr::Constant, SMLoc()), Value(Value), PrintInHex(PrintInHex),
-        SizeInBytes(SizeInBytes) {}
+      : MCExpr(MCExpr::Constant, encodeSubclassData(PrintInHex, SizeInBytes),
+               SMLoc()), Value(Value) {}
 
 public:
   /// \name Construction
@@ -157,9 +159,9 @@ public:
   /// @{
 
   int64_t getValue() const { return Value; }
-  unsigned getSizeInBytes() const { return SizeInBytes; }
+  unsigned getSizeInBytes() const { return getSubclassData() & 0xff; }
 
-  bool useHexFormat() const { return PrintInHex; }
+  bool useHexFormat() const { return (getSubclassData() & PrintInHexBit) != 0; }
 
   /// @}
 
@@ -315,17 +317,26 @@ public:
   };
 
 private:
-  /// The symbol reference modifier.
-  const VariantKind Kind;
-
-  /// Specifies how the variant kind should be printed.
-  const unsigned UseParensForSymbolVariant : 1;
-
-  // FIXME: Remove this bit.
-  const unsigned HasSubsectionsViaSymbols : 1;
-
   /// The symbol being referenced.
   const MCSymbol *Symbol;
+
+  /// Specifies how the variant kind should be printed.
+  static const unsigned UseParensForSymbolVariantBit = 1 << 16;
+
+  // FIXME: Remove this bit.
+  static const unsigned HasSubsectionsViaSymbolsBit = 1 << 17;
+
+  static unsigned encodeSubclassData(VariantKind Kind,
+                              bool UseParensForSymbolVariant,
+                              bool HasSubsectionsViaSymbols) {
+    return ((unsigned) Kind) |
+           (UseParensForSymbolVariant ? UseParensForSymbolVariantBit : 0) |
+           (HasSubsectionsViaSymbols ? HasSubsectionsViaSymbolsBit : 0);
+  }
+
+  bool useParensForSymbolVariant() const {
+    return (getSubclassData() & UseParensForSymbolVariantBit) != 0;
+  }
 
   explicit MCSymbolRefExpr(const MCSymbol *Symbol, VariantKind Kind,
                            const MCAsmInfo *MAI, SMLoc Loc = SMLoc());
@@ -349,11 +360,15 @@ public:
 
   const MCSymbol &getSymbol() const { return *Symbol; }
 
-  VariantKind getKind() const { return Kind; }
+  VariantKind getKind() const {
+    return (VariantKind) (getSubclassData() & 0xffff);
+  }
 
   void printVariantKind(raw_ostream &OS) const;
 
-  bool hasSubsectionsViaSymbols() const { return HasSubsectionsViaSymbols; }
+  bool hasSubsectionsViaSymbols() const {
+    return (getSubclassData() & HasSubsectionsViaSymbolsBit) != 0;
+  }
 
   /// @}
   /// \name Static Utility Functions
@@ -381,11 +396,10 @@ public:
   };
 
 private:
-  Opcode Op;
   const MCExpr *Expr;
 
   MCUnaryExpr(Opcode Op, const MCExpr *Expr, SMLoc Loc)
-      : MCExpr(MCExpr::Unary, Loc), Op(Op), Expr(Expr) {}
+      : MCExpr(MCExpr::Unary, Op, Loc), Expr(Expr) {}
 
 public:
   /// \name Construction
@@ -415,7 +429,7 @@ public:
   /// @{
 
   /// Get the kind of this unary expression.
-  Opcode getOpcode() const { return Op; }
+  Opcode getOpcode() const { return (Opcode) getSubclassData(); }
 
   /// Get the child of this unary expression.
   const MCExpr *getSubExpr() const { return Expr; }
@@ -457,12 +471,11 @@ public:
   };
 
 private:
-  Opcode Op;
   const MCExpr *LHS, *RHS;
 
   MCBinaryExpr(Opcode Op, const MCExpr *LHS, const MCExpr *RHS,
                SMLoc Loc = SMLoc())
-      : MCExpr(MCExpr::Binary, Loc), Op(Op), LHS(LHS), RHS(RHS) {}
+      : MCExpr(MCExpr::Binary, Op, Loc), LHS(LHS), RHS(RHS) {}
 
 public:
   /// \name Construction
@@ -572,7 +585,7 @@ public:
   /// @{
 
   /// Get the kind of this binary expression.
-  Opcode getOpcode() const { return Op; }
+  Opcode getOpcode() const { return (Opcode) getSubclassData(); }
 
   /// Get the left-hand side expression of the binary operator.
   const MCExpr *getLHS() const { return LHS; }
@@ -596,7 +609,7 @@ class MCTargetExpr : public MCExpr {
   virtual void anchor();
 
 protected:
-  MCTargetExpr() : MCExpr(Target, SMLoc()) {}
+  MCTargetExpr() : MCExpr(Target, 0, SMLoc()) {}
   virtual ~MCTargetExpr() = default;
 
 public:
