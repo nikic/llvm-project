@@ -583,8 +583,8 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param) {
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
-  for (unsigned i = 0; i < NumVecLibs; i++)
-    VecLibDescs[i] = TLI.VecLibDescs[i];
+  std::move(std::begin(TLI.VecLibDescs), std::end(TLI.VecLibDescs),
+            VecLibDescs);
 }
 
 TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoImpl &TLI) {
@@ -593,6 +593,8 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoI
   ShouldExtI32Return = TLI.ShouldExtI32Return;
   ShouldSignExtI32Param = TLI.ShouldSignExtI32Param;
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
+  for (unsigned i = 0; i < NumVecLibs; i++)
+    VecLibDescs[i] = TLI.VecLibDescs[i];
   return *this;
 }
 
@@ -603,6 +605,8 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(TargetLibraryInfoImpl &&
   ShouldSignExtI32Param = TLI.ShouldSignExtI32Param;
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
+  std::move(std::begin(TLI.VecLibDescs), std::end(TLI.VecLibDescs),
+            VecLibDescs);
   return *this;
 }
 
@@ -1674,6 +1678,12 @@ TargetLibraryInfoWrapperPass::TargetLibraryInfoWrapperPass(const Triple &T)
 TargetLibraryInfoWrapperPass::TargetLibraryInfoWrapperPass(
     const TargetLibraryInfoImpl &TLIImpl)
     : ImmutablePass(ID), TLA(TLIImpl) {
+  initializeTargetLibraryInfoWrapperPassPass(*PassRegistry::getPassRegistry());
+}
+
+TargetLibraryInfoWrapperPass::TargetLibraryInfoWrapperPass(
+    TargetLibraryInfoImpl &&TLIImpl)
+    : ImmutablePass(ID), TLA(std::move(TLIImpl)) {
   initializeTargetLibraryInfoWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 

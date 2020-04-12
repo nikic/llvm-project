@@ -351,10 +351,6 @@ static void addMemTagOptimizationPasses(const PassManagerBuilder &Builder,
   PM.add(createStackSafetyGlobalInfoWrapperPass(/*SetMetadata=*/true));
 }
 
-static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple) {
-  return new TargetLibraryInfoImpl(TargetTriple);
-}
-
 static void addSymbolRewriterPass(const CodeGenOptions &Opts,
                                   legacy::PassManager *MPM) {
   llvm::SymbolRewriter::RewriteDescriptorList DL;
@@ -540,12 +536,12 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   if (CodeGenOpts.DisableLLVMPasses)
     return;
 
-  // Figure out TargetLibraryInfo.  This needs to be added to MPM and FPM
+  // Figure out TargetLibraryInfo. This needs to be added to MPM and FPM
   // manually (and not via PMBuilder), since some passes (eg. InstrProfiling)
   // are inserted before PMBuilder ones - they'd get the default-constructed
   // TLI with an unknown target otherwise.
   Triple TargetTriple(TheModule->getTargetTriple());
-  std::unique_ptr<TargetLibraryInfoImpl> TLII(createTLII(TargetTriple));
+  TargetLibraryInfoImpl TLII(TargetTriple);
 
   // If we reached here with a non-empty index file name, then the index file
   // was empty and we are not performing ThinLTO backend compilation (used in
@@ -590,7 +586,7 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   PMBuilder.PrepareForLTO = CodeGenOpts.PrepareForLTO;
   PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
 
-  MPM.add(new TargetLibraryInfoWrapperPass(*TLII));
+  MPM.add(new TargetLibraryInfoWrapperPass(TLII));
 
   if (TM)
     TM->adjustPassManager(PMBuilder);
@@ -691,7 +687,7 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   }
 
   // Set up the per-function pass manager.
-  FPM.add(new TargetLibraryInfoWrapperPass(*TLII));
+  FPM.add(new TargetLibraryInfoWrapperPass(TLII));
   if (CodeGenOpts.VerifyModule)
     FPM.add(createVerifierPass());
 
@@ -787,8 +783,7 @@ bool EmitAssemblyHelper::AddEmitPasses(legacy::PassManager &CodeGenPasses,
                                        raw_pwrite_stream *DwoOS) {
   // Add LibraryInfo.
   llvm::Triple TargetTriple(TheModule->getTargetTriple());
-  std::unique_ptr<TargetLibraryInfoImpl> TLII(createTLII(TargetTriple));
-  CodeGenPasses.add(new TargetLibraryInfoWrapperPass(*TLII));
+  CodeGenPasses.add(new TargetLibraryInfoWrapperPass(TargetTriple));
 
   // Normal mode, emit a .s or .o file by running the code generator. Note,
   // this also adds codegenerator level optimization passes.
@@ -1123,8 +1118,7 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
   // Register the target library analysis directly and give it a customized
   // preset TLI.
   Triple TargetTriple(TheModule->getTargetTriple());
-  std::unique_ptr<TargetLibraryInfoImpl> TLII(createTLII(TargetTriple));
-  FAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
+  FAM.registerPass([&] { return TargetLibraryAnalysis(TargetTriple); });
 
   // Register all the basic analyses with the managers.
   PB.registerModuleAnalyses(MAM);

@@ -452,7 +452,11 @@ public:
   /// Construct a library analysis with baseline Module-level info.
   ///
   /// This will be supplemented with Function-specific info in the Result.
-  TargetLibraryAnalysis(TargetLibraryInfoImpl BaselineInfoImpl)
+  TargetLibraryAnalysis(const Triple &T)
+      : BaselineInfoImpl(TargetLibraryInfoImpl(T)) {}
+  TargetLibraryAnalysis(const TargetLibraryInfoImpl &BaselineInfoImpl)
+      : BaselineInfoImpl(BaselineInfoImpl) {}
+  TargetLibraryAnalysis(TargetLibraryInfoImpl &&BaselineInfoImpl)
       : BaselineInfoImpl(std::move(BaselineInfoImpl)) {}
 
   TargetLibraryInfo run(const Function &F, FunctionAnalysisManager &);
@@ -475,6 +479,7 @@ public:
   TargetLibraryInfoWrapperPass();
   explicit TargetLibraryInfoWrapperPass(const Triple &T);
   explicit TargetLibraryInfoWrapperPass(const TargetLibraryInfoImpl &TLI);
+  explicit TargetLibraryInfoWrapperPass(TargetLibraryInfoImpl &&TLI);
 
   TargetLibraryInfo &getTLI(const Function &F) {
     FunctionAnalysisManager DummyFAM;
