@@ -229,7 +229,7 @@ public:
 
 private:
   /// Get reaching def coming from a predecessor.
-  int getIncomingReachingDef(const MBBRegUnitDefs &Defs, int NumInsts) const;
+  int getIncomingReachingDef(unsigned PredNum, unsigned Unit) const;
 
   /// Set up LiveRegs by merging predecessor live-out values.
   void enterBasicBlock(MachineBasicBlock *MBB);

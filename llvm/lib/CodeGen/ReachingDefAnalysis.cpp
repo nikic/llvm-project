@@ -41,15 +41,22 @@ static bool isValidRegDefOf(const MachineOperand &MO, int PhysReg) {
   return isValidRegDef(MO) && MO.getReg() == PhysReg;
 }
 
-int ReachingDefAnalysis::getIncomingReachingDef(const MBBRegUnitDefs &Defs,
-                                                int NumInsts) const {
+int ReachingDefAnalysis::getIncomingReachingDef(unsigned PredNum,
+                                                unsigned Unit) const {
+  const MBBDefsInfo &PredDefs = MBBReachingDefs[PredNum];
+  if (PredDefs.empty())
+    // Predecessor not processed yet or unreachable.
+    return ReachingDefDefaultVal;
+
+  const MBBRegUnitDefs &Defs = PredDefs[Unit];
   if (Defs.empty())
+    // No reaching definitions for this register unit.
     return ReachingDefDefaultVal;
 
   int Def = Defs.back();
   if (Def != ReachingDefDefaultVal)
     // Adjust def to be relative to the end of the basic block.
-    Def -= NumInsts;
+    Def -= MBBNumInsts[PredNum];
 
   return Def;
 }
@@ -87,17 +94,9 @@ void ReachingDefAnalysis::enterBasicBlock(MachineBasicBlock *MBB) {
 
   // Try to coalesce live-out registers from predecessors.
   for (MachineBasicBlock *pred : MBB->predecessors()) {
-    assert(unsigned(pred->getNumber()) < MBBReachingDefs.size() &&
-           "Should have pre-allocated MBBInfos for all MBBs");
-    const MBBDefsInfo &Defs = MBBReachingDefs[pred->getNumber()];
-    // Defs is null if this is a backedge from a BB we haven't processed yet.
-    if (Defs.empty())
-      continue;
-
     // Find the most recent reaching definition from a predecessor.
-    int NumInsts = MBBNumInsts[pred->getNumber()];
     for (unsigned Unit = 0; Unit != NumRegUnits; ++Unit) {
-      int Def = getIncomingReachingDef(Defs[Unit], NumInsts);
+      int Def = getIncomingReachingDef(pred->getNumber(), Unit);
       if (Def == ReachingDefDefaultVal)
         continue;
 
@@ -153,16 +152,9 @@ void ReachingDefAnalysis::reprocessBasicBlock(MachineBasicBlock *MBB) {
   // When reprocessing a block, the only thing we need to do is check whether
   // there is now a more recent incoming reaching definition from a predecessor.
   for (MachineBasicBlock *pred : MBB->predecessors()) {
-    assert(unsigned(pred->getNumber()) < MBBReachingDefs.size() &&
-           "Should have pre-allocated MBBInfos for all MBBs");
-    const MBBDefsInfo &Defs = MBBReachingDefs[pred->getNumber()];
-    // Defs may be empty for dead predecessors.
-    if (Defs.empty())
-      continue;
-
-    int NumInsts = MBBNumInsts[pred->getNumber()];
+    unsigned PredNum = pred->getNumber();
     for (unsigned Unit = 0; Unit != NumRegUnits; ++Unit) {
-      int Def = getIncomingReachingDef(Defs[Unit], NumInsts);
+      int Def = getIncomingReachingDef(PredNum, Unit);
       if (Def == ReachingDefDefaultVal)
         continue;
 
