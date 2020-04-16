@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+#include <cmath>
 
 #include "llvm/ADT/BitVector.h"
 #include "llvm/IR/ConstantRange.h"
@@ -24,6 +25,15 @@ protected:
   static ConstantRange One;
   static ConstantRange Some;
   static ConstantRange Wrap;
+  static ConstantRange NaNFP;
+  static ConstantRange FullFP;
+  static ConstantRange EmptyFP;
+  static ConstantRange OneFP;
+  static ConstantRange SomeFP;
+  static ConstantRange ZeroFP;
+  static ConstantRange NegZeroFP;
+  static ConstantRange WrapFP;
+  static ConstantRange InfFP;
 };
 
 template<typename Fn>
@@ -133,11 +143,107 @@ static void TestSignedBinOpExhaustive(
   });
 }
 
+static APFloat advanceFP(const APFloat &F, unsigned ExpDiff) {
+  // Check special cases first
+  if (F.isNegZero())
+    return APFloat::getZero(F.getSemantics(), false);
+  if (F.isPosZero())
+    return APFloat::getSmallest(F.getSemantics(), false);
+  if (F.isNegative() && F.isInfinity())
+    return APFloat::getLargest(F.getSemantics(), true);
+  if (!F.isNegative() && F.isInfinity())
+    return APFloat::getInf(F.getSemantics(), true);
+
+  assert(&F.getSemantics() == &APFloat::IEEEsingle());
+  APFloat Coef(std::exp2f((127 - ExpDiff)));
+  if (F.isNegative())
+    return F / Coef;
+  else
+    return F * Coef;
+}
+
+template<typename Fn>
+static void EnumerateConstantRangesFP(unsigned ExpDiff, Fn TestFn) {
+  APFloat PosInf = APFloat::getInf(APFloat::IEEEsingle(), false);
+  APFloat NegInf = APFloat::getInf(APFloat::IEEEsingle(), true);
+  for (APFloat Lo = NegInf; Lo < PosInf; Lo = advanceFP(Lo, ExpDiff)) {
+    for (APFloat Hi = NegInf; Hi < PosInf; Hi = advanceFP(Hi, ExpDiff)) {
+      // Test with NaN
+      ConstantRange CR1(Lo, Hi, true);
+      TestFn(CR1);
+      // Test without NaN
+      ConstantRange CR2(Lo, Hi, false);
+      TestFn(CR2);
+    }
+    // Test PosInf with NaN
+    ConstantRange CR1(Lo, PosInf, true);
+    TestFn(CR1);
+    // Test PosInf without NaN
+    ConstantRange CR2(Lo, PosInf, false);
+    TestFn(CR2);
+  }
+  // Lo == PosInf is not enumerated above
+  for (APFloat Hi = NegInf; Hi < PosInf; Hi = advanceFP(Hi, ExpDiff)) {
+    // Test with NaN
+    ConstantRange CR1(PosInf, Hi, true);
+    TestFn(CR1);
+    // Test without NaN
+    ConstantRange CR2(PosInf, Hi, false);
+    TestFn(CR2);
+  }
+  // Lo == PosInf, Hi == PosInf
+  // Test with NaN
+  ConstantRange CR1(PosInf, PosInf, true);
+  TestFn(CR1);
+  // Test without NaN
+  ConstantRange CR2(PosInf, PosInf, false);
+  TestFn(CR2);
+
+  // Test only NaN
+  APFloat NaN = APFloat::getNaN(APFloat::IEEEsingle());
+  ConstantRange CR3(NaN, NaN, true);
+  TestFn(CR3);
+}
+
+template<typename Fn>
+static void EnumerateTwoConstantRangesFP(unsigned ExpDiff, Fn TestFn) {
+  EnumerateConstantRangesFP(ExpDiff, [&](const ConstantRange &CR1) {
+    EnumerateConstantRangesFP(ExpDiff, [&](const ConstantRange &CR2) {
+      TestFn(CR1, CR2);
+    });
+  });
+}
+
+template<typename Fn>
+static void ForeachNumInConstantRangeFP(const ConstantRange &CR, unsigned ExpDiff, Fn TestFn) {
+  if (!CR.isEmptySet()) {
+    APFloat N = CR.getLowerFP();
+    for (;!N.bitwiseIsEqual(CR.getUpperFP()); N = advanceFP(N, ExpDiff)) {
+      TestFn(N);
+    }
+    // Test the upper bound
+    TestFn(CR.getUpperFP());
+    // Test NaN if it's allowed in the range
+    if (CR.getCanBeNaN())
+      TestFn(APFloat::getNaN(N.getSemantics()));
+  }
+}
+
 ConstantRange ConstantRangeTest::Full(16, true);
 ConstantRange ConstantRangeTest::Empty(16, false);
 ConstantRange ConstantRangeTest::One(APInt(16, 0xa));
 ConstantRange ConstantRangeTest::Some(APInt(16, 0xa), APInt(16, 0xaaa));
 ConstantRange ConstantRangeTest::Wrap(APInt(16, 0xaaa), APInt(16, 0xa));
+
+ConstantRange ConstantRangeTest::NaNFP(APFloat::getNaN(APFloat::IEEEsingle()), APFloat::getNaN(APFloat::IEEEsingle()), true);
+ConstantRange ConstantRangeTest::EmptyFP(APFloat::getNaN(APFloat::IEEEsingle()), APFloat::getNaN(APFloat::IEEEsingle()), false);
+ConstantRange ConstantRangeTest::FullFP(APFloat::getInf(APFloat::IEEEsingle(), true), APFloat::getInf(APFloat::IEEEsingle(), false), true);
+ConstantRange ConstantRangeTest::OneFP(APFloat(10.0f));
+ConstantRange ConstantRangeTest::ZeroFP(APFloat(0.0f));
+ConstantRange ConstantRangeTest::NegZeroFP(APFloat(-0.0f));
+ConstantRange ConstantRangeTest::SomeFP(APFloat(10.0f), APFloat(100.0f), false);
+ConstantRange ConstantRangeTest::WrapFP(APFloat(100.0f), APFloat(10.0f), false);
+ConstantRange ConstantRangeTest::InfFP(APFloat::getInf(APFloat::IEEEsingle(), true), APFloat::getInf(APFloat::IEEEsingle(), false), false);
 
 TEST_F(ConstantRangeTest, Basics) {
   EXPECT_TRUE(Full.isFullSet());
@@ -189,6 +295,107 @@ TEST_F(ConstantRangeTest, Basics) {
   EXPECT_TRUE(Wrap.contains(APInt(16, 0xaaa)));
 }
 
+TEST_F(ConstantRangeTest, BasicsFP) {
+  EXPECT_TRUE(FullFP.isFullSet());
+  EXPECT_FALSE(FullFP.isEmptySet());
+  EXPECT_TRUE(FullFP.getIsFloat());
+  EXPECT_TRUE(FullFP.getCanBeNaN());
+  EXPECT_FALSE(FullFP.isWrappedSet());
+  EXPECT_TRUE(FullFP.inverse().isEmptySet());
+  EXPECT_TRUE(FullFP.contains(APFloat(0.0f)));
+  EXPECT_TRUE(FullFP.contains(APFloat(0.9f)));
+  EXPECT_TRUE(FullFP.contains(APFloat(10.0f)));
+  EXPECT_TRUE(FullFP.contains(APFloat(1000.0f)));
+  EXPECT_TRUE(FullFP.contains(APFloat(-1000.0f)));
+  EXPECT_TRUE(FullFP.contains(APFloat::getNaN(APFloat::IEEEsingle())));
+  EXPECT_TRUE(FullFP.contains(APFloat::getInf(APFloat::IEEEsingle(), true)));
+  EXPECT_TRUE(FullFP.contains(APFloat::getInf(APFloat::IEEEsingle(), false)));
+
+  EXPECT_FALSE(EmptyFP.isFullSet());
+  EXPECT_TRUE(EmptyFP.isEmptySet());
+  EXPECT_TRUE(EmptyFP.getIsFloat());
+  EXPECT_TRUE(EmptyFP.inverse().isFullSet());
+  EXPECT_FALSE(EmptyFP.getCanBeNaN());
+  EXPECT_FALSE(Empty.isWrappedSet());
+  EXPECT_FALSE(EmptyFP.contains(APFloat(0.0f)));
+  EXPECT_FALSE(EmptyFP.contains(APFloat(9.0f)));
+  EXPECT_FALSE(EmptyFP.contains(APFloat(10.0f)));
+  EXPECT_FALSE(EmptyFP.contains(APFloat(1000.0f)));
+  EXPECT_FALSE(EmptyFP.contains(APFloat(-1000.0f)));
+  EXPECT_FALSE(EmptyFP.contains(NaNFP));
+  EXPECT_FALSE(EmptyFP.contains(APFloat::getInf(APFloat::IEEEsingle(), true)));
+  EXPECT_FALSE(EmptyFP.contains(APFloat::getInf(APFloat::IEEEsingle(), false)));
+
+  EXPECT_FALSE(OneFP.isFullSet());
+  EXPECT_FALSE(OneFP.isEmptySet());
+  EXPECT_TRUE(OneFP.getIsFloat());
+  EXPECT_TRUE(OneFP.isSingleElementFP());
+  EXPECT_FALSE(OneFP.getCanBeNaN());
+  EXPECT_FALSE(OneFP.isWrappedSet());
+  EXPECT_FALSE(OneFP.contains(APFloat(0.0f)));
+  EXPECT_FALSE(OneFP.contains(APFloat(0.0f)));
+  EXPECT_TRUE(OneFP.contains(APFloat(10.0f)));
+  EXPECT_FALSE(OneFP.inverse().contains(APFloat(10.0f)));
+  EXPECT_FALSE(OneFP.contains(APFloat(1000.0f)));
+  EXPECT_FALSE(OneFP.contains(APFloat(-1000.0f)));
+  EXPECT_FALSE(OneFP.contains(NaNFP));
+  EXPECT_FALSE(OneFP.contains(APFloat::getInf(APFloat::IEEEsingle(), true)));
+  EXPECT_FALSE(OneFP.contains(APFloat::getInf(APFloat::IEEEsingle(), false)));
+
+  EXPECT_FALSE(ZeroFP.contains(APFloat(-0.0f)));
+  EXPECT_FALSE(NegZeroFP.contains(APFloat(0.0f)));
+  EXPECT_TRUE(ZeroFP.contains(APFloat(0.0f)));
+  EXPECT_TRUE(NegZeroFP.contains(APFloat(-0.0f)));
+
+  EXPECT_FALSE(SomeFP.isFullSet());
+  EXPECT_FALSE(SomeFP.isEmptySet());
+  EXPECT_TRUE(SomeFP.getIsFloat());
+  EXPECT_FALSE(SomeFP.getCanBeNaN());
+  EXPECT_FALSE(SomeFP.isWrappedSet());
+  EXPECT_FALSE(SomeFP.contains(APFloat(0.0f)));
+  EXPECT_FALSE(SomeFP.contains(APFloat(9.0f)));
+  EXPECT_TRUE(SomeFP.contains(APFloat(10.0f)));
+  EXPECT_TRUE(SomeFP.contains(APFloat(100.0f)));
+  EXPECT_FALSE(SomeFP.contains(APFloat(10000.0f)));
+  EXPECT_FALSE(SomeFP.contains(NaNFP));
+  EXPECT_FALSE(SomeFP.contains(APFloat::getInf(APFloat::IEEEsingle(), true)));
+  EXPECT_FALSE(SomeFP.contains(APFloat::getInf(APFloat::IEEEsingle(), false)));
+
+  EXPECT_FALSE(WrapFP.isFullSet());
+  EXPECT_FALSE(WrapFP.isEmptySet());
+  EXPECT_TRUE(WrapFP.getIsFloat());
+  EXPECT_FALSE(WrapFP.getCanBeNaN());
+  EXPECT_TRUE(WrapFP.isWrappedSet());
+  EXPECT_TRUE(WrapFP.contains(APFloat(0.0f)));
+  EXPECT_TRUE(WrapFP.contains(APFloat(9.0f)));
+  EXPECT_FALSE(WrapFP.contains(APFloat(10.1f)));
+  EXPECT_FALSE(WrapFP.contains(APFloat(99.9f)));
+  EXPECT_TRUE(WrapFP.contains(APFloat(1000.0f)));
+  EXPECT_FALSE(WrapFP.contains(NaNFP));
+  EXPECT_TRUE(WrapFP.contains(APFloat::getInf(APFloat::IEEEsingle(), true)));
+  EXPECT_TRUE(WrapFP.contains(APFloat::getInf(APFloat::IEEEsingle(), false)));
+
+  EXPECT_FALSE(NaNFP.isFullSet());
+  EXPECT_FALSE(NaNFP.isEmptySet());
+  EXPECT_TRUE(NaNFP.getCanBeNaN());
+  EXPECT_TRUE(NaNFP.getIsFloat());
+  EXPECT_TRUE(NaNFP.isSingleElementFP());
+  EXPECT_TRUE(NaNFP.getSingleElementFP()->isNaN());
+  EXPECT_FALSE(NaNFP.inverse().getCanBeNaN());
+  EXPECT_TRUE(NaNFP.inverse().contains(APFloat::getInf(APFloat::IEEEsingle(), false)));
+  EXPECT_TRUE(NaNFP.inverse().contains(APFloat::getInf(APFloat::IEEEsingle(), true)));
+  EXPECT_TRUE(NaNFP.inverse().contains(APFloat(0.0f)));
+  EXPECT_FALSE(NaNFP.isWrappedSet());
+  EXPECT_FALSE(NaNFP.contains(APFloat(0.0f)));
+  EXPECT_FALSE(NaNFP.contains(APFloat(9.0f)));
+  EXPECT_FALSE(NaNFP.contains(APFloat(10.0f)));
+  EXPECT_FALSE(NaNFP.contains(APFloat(100.0f)));
+  EXPECT_FALSE(NaNFP.contains(APFloat(1000.0f)));
+  EXPECT_TRUE(NaNFP.contains(APFloat::getNaN(APFloat::IEEEsingle())));
+  EXPECT_FALSE(NaNFP.contains(APFloat::getInf(APFloat::IEEEsingle(), true)));
+  EXPECT_FALSE(NaNFP.contains(APFloat::getInf(APFloat::IEEEsingle(), false)));
+}
+
 TEST_F(ConstantRangeTest, Equality) {
   EXPECT_EQ(Full, Full);
   EXPECT_EQ(Empty, Empty);
@@ -205,6 +412,29 @@ TEST_F(ConstantRangeTest, Equality) {
   EXPECT_NE(One, Some);
   EXPECT_NE(One, Wrap);
   EXPECT_NE(Some, Wrap);
+}
+
+TEST_F(ConstantRangeTest, EqualityFP) {
+  EXPECT_EQ(FullFP, FullFP);
+  EXPECT_EQ(EmptyFP, EmptyFP);
+  EXPECT_EQ(OneFP, OneFP);
+  EXPECT_EQ(SomeFP, SomeFP);
+  EXPECT_EQ(WrapFP, WrapFP);
+  EXPECT_EQ(NaNFP, NaNFP);
+  EXPECT_NE(FullFP, EmptyFP);
+  EXPECT_NE(FullFP, OneFP);
+  EXPECT_NE(FullFP, SomeFP);
+  EXPECT_NE(FullFP, WrapFP);
+  EXPECT_NE(FullFP, NaNFP);
+  EXPECT_NE(EmptyFP, OneFP);
+  EXPECT_NE(EmptyFP, SomeFP);
+  EXPECT_NE(EmptyFP, WrapFP);
+  EXPECT_NE(EmptyFP, NaNFP);
+  EXPECT_NE(OneFP, SomeFP);
+  EXPECT_NE(OneFP, WrapFP);
+  EXPECT_NE(OneFP, NaNFP);
+  EXPECT_NE(SomeFP, WrapFP);
+  EXPECT_NE(SomeFP, NaNFP);
 }
 
 TEST_F(ConstantRangeTest, SingleElement) {
@@ -228,6 +458,15 @@ TEST_F(ConstantRangeTest, SingleElement) {
   EXPECT_TRUE(One.isSingleElement());
   EXPECT_FALSE(Some.isSingleElement());
   EXPECT_FALSE(Wrap.isSingleElement());
+}
+
+TEST_F(ConstantRangeTest, SingleElementFP) {
+  EXPECT_EQ(FullFP.getSingleElementFP(), static_cast<APFloat *>(nullptr));
+  EXPECT_EQ(EmptyFP.getSingleElementFP(), static_cast<APFloat *>(nullptr));
+
+  EXPECT_EQ(*OneFP.getSingleElementFP(), APFloat(10.0f));
+  EXPECT_EQ(SomeFP.getSingleElementFP(), static_cast<APFloat *>(nullptr));
+  EXPECT_EQ(WrapFP.getSingleElementFP(), static_cast<APFloat *>(nullptr));
 }
 
 TEST_F(ConstantRangeTest, GetMinsAndMaxes) {
@@ -293,6 +532,16 @@ TEST_F(ConstantRangeTest, UpperWrapped) {
   ConstantRange CR2(APInt(8, 42), APInt::getSignedMinValue(8));
   EXPECT_FALSE(CR2.isSignWrappedSet());
   EXPECT_TRUE(CR2.isUpperSignWrapped());
+}
+
+TEST_F(ConstantRangeTest, UpperWrappedFP) {
+  // The behavior here is the same as for isWrappedSet() / isSignWrappedSet().
+  EXPECT_FALSE(FullFP.isUpperWrapped());
+  EXPECT_FALSE(EmptyFP.isUpperWrapped());
+  EXPECT_FALSE(OneFP.isUpperWrapped());
+  EXPECT_FALSE(SomeFP.isUpperWrapped());
+  EXPECT_TRUE(WrapFP.isUpperWrapped());
+  EXPECT_FALSE(NaNFP.isUpperWrapped());
 }
 
 TEST_F(ConstantRangeTest, Trunc) {
@@ -423,6 +672,74 @@ TEST_F(ConstantRangeTest, IntersectWith) {
   LHS = ConstantRange(APInt(32, 15), APInt(32, 0));
   RHS = ConstantRange(APInt(32, 7), APInt(32, 6));
   EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APInt(32, 15), APInt(32, 0)));
+}
+
+TEST_F(ConstantRangeTest, IntersectWithFP) {
+  EXPECT_EQ(EmptyFP.intersectWith(FullFP), EmptyFP);
+  EXPECT_EQ(EmptyFP.intersectWith(EmptyFP), EmptyFP);
+  EXPECT_EQ(EmptyFP.intersectWith(OneFP), EmptyFP);
+  EXPECT_EQ(EmptyFP.intersectWith(SomeFP), EmptyFP);
+  EXPECT_EQ(EmptyFP.intersectWith(WrapFP), EmptyFP);
+  EXPECT_EQ(EmptyFP.intersectWith(NaNFP), EmptyFP);
+  EXPECT_EQ(FullFP.intersectWith(FullFP), FullFP);
+  EXPECT_EQ(FullFP.intersectWith(OneFP), OneFP);
+  EXPECT_EQ(FullFP.intersectWith(SomeFP), SomeFP);
+  EXPECT_EQ(FullFP.intersectWith(NaNFP), NaNFP);
+  EXPECT_EQ(SomeFP.intersectWith(SomeFP), SomeFP);
+  EXPECT_EQ(SomeFP.intersectWith(OneFP), OneFP);
+  EXPECT_EQ(SomeFP.intersectWith(WrapFP), SomeFP);
+  EXPECT_EQ(SomeFP.intersectWith(NaNFP), EmptyFP);
+  EXPECT_EQ(OneFP.intersectWith(WrapFP), OneFP);
+  EXPECT_EQ(OneFP.intersectWith(WrapFP), WrapFP.intersectWith(OneFP));
+  EXPECT_EQ(OneFP.intersectWith(NaNFP), EmptyFP);
+  EXPECT_EQ(NaNFP.intersectWith(NaNFP), NaNFP);
+
+  // Klee generated testcase from PR4545, float version.
+  // The intersection of [4, 2] and [6, 5] is disjoint, looking like
+  // [-Inf, 2] \/ [4, 5] \/ [6, Inf].
+  ConstantRange LHS(APFloat(4.0f), APFloat(2.0f));
+  ConstantRange RHS(APFloat(6.0f), APFloat(5.0f));
+  EXPECT_TRUE(LHS.intersectWith(RHS) == LHS);
+
+  // Intersection of [-Inf, 3] and [2, Inf] should be [2, 3]
+  LHS = ConstantRange(APFloat::getInf(APFloat::IEEEsingle(), true), APFloat(3.0f));
+  RHS = ConstantRange(APFloat(2.0f), APFloat::getInf(APFloat::IEEEsingle()));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APFloat(2.0f), APFloat(3.0f)));
+
+  // Intersection of [-Inf, -0.0] and [0.0, Inf] should be empty
+  LHS = ConstantRange(APFloat::getInf(APFloat::IEEEsingle(), true), APFloat(-0.0f));
+  RHS = ConstantRange(APFloat(0.0f), APFloat::getInf(APFloat::IEEEsingle()));
+  EXPECT_EQ(LHS.intersectWith(RHS), EmptyFP);
+
+  // [2, 0] /\ [4, 3] = [2, 0]
+  LHS = ConstantRange(APFloat(2.0f), APFloat(0.0f));
+  RHS = ConstantRange(APFloat(4.0f), APFloat(3.0f));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APFloat(2.0f), APFloat(0.0f)));
+
+  // [3, 0] /\ [4, 2] = [4, 0]
+  LHS = ConstantRange(APFloat(3.0f), APFloat(0.0f));
+  RHS = ConstantRange(APFloat(4.0f), APFloat(2.0f));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APFloat(4.0f), APFloat(0.0f)));
+
+  // [4, 2] /\ [5, 1] = [5, 1]
+  LHS = ConstantRange(APFloat(4.0f), APFloat(2.0f));
+  RHS = ConstantRange(APFloat(5.0f), APFloat(1.0f));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APFloat(5.0f), APFloat(1.0f)));
+
+  // [2, 0] /\ [7, 4] = [7, 4]
+  LHS = ConstantRange(APFloat(2.0f), APFloat(0.0f));
+  RHS = ConstantRange(APFloat(7.0f), APFloat(4.0f));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APFloat(7.0f), APFloat(4.0f)));
+
+  // [4, 2] /\ [1, 0] = [1, 0]
+  LHS = ConstantRange(APFloat(4.0f), APFloat(2.0f));
+  RHS = ConstantRange(APFloat(1.0f), APFloat(0.0f));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APFloat(4.0f), APFloat(2.0f)));
+
+  // [15, 0] /\ [7, 6] = [15, 0]
+  LHS = ConstantRange(APFloat(15.0f), APFloat(0.0f));
+  RHS = ConstantRange(APFloat(7.0f), APFloat(6.0f));
+  EXPECT_EQ(LHS.intersectWith(RHS), ConstantRange(APFloat(15.0f), APFloat(0.0f)));
 }
 
 template<typename Fn1, typename Fn2>
@@ -564,6 +881,28 @@ TEST_F(ConstantRangeTest, IntersectWithExhaustive) {
       });
 }
 
+TEST_F(ConstantRangeTest, IntersectWithExhaustiveFP) {
+  unsigned ExpDiff = 2;
+  ConstantRange Full(APFloat::getInf(APFloat::IEEEsingle(), true),
+                     APFloat::getInf(APFloat::IEEEsingle(), false), true);
+  EnumerateTwoConstantRangesFP(ExpDiff,
+      [=](const ConstantRange &CR1, const ConstantRange &CR2) {
+         ConstantRange Res = CR1.intersectWith(CR2);
+
+         ForeachNumInConstantRangeFP(Full, ExpDiff, [&](const APFloat &N) {
+           // UpperWrapped operands lead to disjoint ranges check that result
+           // is a super-set.
+           if (CR1.isUpperWrapped() || CR2.isUpperWrapped()) {
+             if (CR1.contains(N) && CR2.contains(N) && !Res.contains(N))
+               ADD_FAILURE() << "FAILURE AT: " << N.convertToFloat() << "\n";
+           } else {
+             if (Res.contains(N) != (CR1.contains(N) && CR2.contains(N)))
+               ADD_FAILURE() << "FAILURE AT: " << N.convertToFloat() << "\n";
+           }
+         });
+      });
+}
+
 TEST_F(ConstantRangeTest, UnionWithExhaustive) {
   testBinarySetOperationExhaustive(
       [](const ConstantRange &CR1, const ConstantRange &CR2,
@@ -572,6 +911,30 @@ TEST_F(ConstantRangeTest, UnionWithExhaustive) {
       },
       [](const ConstantRange &CR1, const ConstantRange &CR2, const APInt &N) {
         return CR1.contains(N) || CR2.contains(N);
+      });
+}
+
+TEST_F(ConstantRangeTest, UnionWithExhaustiveFP) {
+  unsigned ExpDiff = 2;
+  ConstantRange Full(APFloat::getInf(APFloat::IEEEsingle(), true),
+                     APFloat::getInf(APFloat::IEEEsingle(), false), true);
+  EnumerateTwoConstantRangesFP(ExpDiff,
+      [=](const ConstantRange &CR1, const ConstantRange &CR2) {
+         ConstantRange Res = CR1.unionWith(CR2);
+
+         ForeachNumInConstantRangeFP(Full, ExpDiff, [&](const APFloat &N) {
+           // Non-upperWrapped operands lead to disjoint ranges check that
+           // result is a super-set.
+           bool InSources = CR1.contains(N) || CR2.contains(N);
+           bool InResult = Res.contains(N);
+           if (!CR1.isUpperWrapped() || !CR2.isUpperWrapped()) {
+             if (InSources && !InResult)
+               ADD_FAILURE() << "FAILURE AT: " << N.convertToFloat() << "\n";
+           } else {
+             if (InResult != InSources)
+               ADD_FAILURE() << "FAILURE AT: " << N.convertToFloat() << "\n";
+           }
+         });
       });
 }
 
@@ -595,6 +958,47 @@ TEST_F(ConstantRangeTest, UnionWith) {
             ConstantRange::getFull(16));
 }
 
+TEST_F(ConstantRangeTest, UnionWithFP) {
+  EXPECT_EQ(WrapFP.unionWith(OneFP), WrapFP);
+  EXPECT_EQ(OneFP.unionWith(WrapFP), WrapFP.unionWith(OneFP));
+  EXPECT_EQ(EmptyFP.unionWith(EmptyFP), EmptyFP);
+  EXPECT_EQ(FullFP.unionWith(FullFP), FullFP);
+  EXPECT_EQ(SomeFP.unionWith(WrapFP), ConstantRange::getFull(APFloat::IEEEsingle(), false));
+  EXPECT_EQ(OneFP.unionWith(NaNFP), NaNFP.unionWith(OneFP));
+  EXPECT_EQ(SomeFP.unionWith(NaNFP), NaNFP.unionWith(SomeFP));
+  EXPECT_EQ(WrapFP.unionWith(NaNFP), NaNFP.unionWith(WrapFP));
+  EXPECT_TRUE(OneFP.unionWith(NaNFP).getCanBeNaN());
+  EXPECT_FALSE(OneFP.unionWith(NaNFP).isSingleElementFP());
+  EXPECT_TRUE(SomeFP.unionWith(NaNFP).getCanBeNaN());
+  EXPECT_TRUE(WrapFP.unionWith(NaNFP).getCanBeNaN());
+  EXPECT_TRUE(OneFP.unionWith(NaNFP).contains(APFloat::getNaN(APFloat::IEEEsingle())));
+  EXPECT_TRUE(SomeFP.unionWith(NaNFP).contains(APFloat::getNaN(APFloat::IEEEsingle())));
+  EXPECT_TRUE(WrapFP.unionWith(NaNFP).contains(APFloat::getNaN(APFloat::IEEEsingle())));
+
+  EXPECT_EQ(ConstantRange(APFloat(14.0f), APFloat(1.0f)).unionWith(
+                                    ConstantRange(APFloat(1.0f), APFloat(8.0f))),
+            ConstantRange(APFloat(14.0f), APFloat(8.0f)));
+  EXPECT_EQ(ConstantRange(APFloat(6.0f), APFloat(4.0f)).unionWith(
+                                    ConstantRange(APFloat(4.0f), APFloat(0.0f))),
+            ConstantRange::getFull(APFloat::IEEEsingle(), false));
+  EXPECT_EQ(ConstantRange(APFloat(1.0f), APFloat(0.0f)).unionWith(
+                                    ConstantRange(APFloat(2.0f), APFloat(1.0f))),
+            ConstantRange::getFull(APFloat::IEEEsingle(), false));
+}
+
+TEST_F(ConstantRangeTest, InverseExhaustiveFP) {
+  unsigned ExpDiff = 2;
+  ConstantRange Full(APFloat::getInf(APFloat::IEEEsingle(), true),
+                     APFloat::getInf(APFloat::IEEEsingle(), false), true);
+  EnumerateConstantRangesFP(ExpDiff, [&](const ConstantRange &CR) {
+         ConstantRange Res = CR.inverse();
+         ForeachNumInConstantRangeFP(Full, ExpDiff, [&](const APFloat &N) {
+           if (CR.contains(N) == Res.contains(N))
+             ADD_FAILURE() << "FAILURE AT: " << N.convertToFloat() << "\n";
+         });
+      });
+}
+
 TEST_F(ConstantRangeTest, SetDifference) {
   EXPECT_EQ(Full.difference(Empty), Full);
   EXPECT_EQ(Full.difference(Full), Empty);
@@ -607,6 +1011,26 @@ TEST_F(ConstantRangeTest, SetDifference) {
   ConstantRange D(APInt(16, 7), APInt(16, 9));
   ConstantRange E(APInt(16, 5), APInt(16, 4));
   ConstantRange F(APInt(16, 7), APInt(16, 3));
+  EXPECT_EQ(A.difference(B), C);
+  EXPECT_EQ(B.difference(A), D);
+  EXPECT_EQ(E.difference(A), F);
+}
+
+TEST_F(ConstantRangeTest, SetDifferenceFP) {
+  EXPECT_EQ(FullFP.difference(EmptyFP), FullFP);
+  EXPECT_EQ(FullFP.difference(FullFP), EmptyFP);
+  EXPECT_EQ(EmptyFP.difference(EmptyFP), EmptyFP);
+  EXPECT_EQ(EmptyFP.difference(FullFP), EmptyFP);
+
+  auto N7U = APFloat(7.0f); N7U.next(false);
+  auto N3D = APFloat(3.0f); N3D.next(true);
+  auto N5D = APFloat(5.0f); N5D.next(true);
+  ConstantRange A(APFloat(3.0f), APFloat(7.0f));
+  ConstantRange B(APFloat(5.0f), APFloat(9.0f));
+  ConstantRange C(APFloat(3.0f), N5D);
+  ConstantRange D(N7U, APFloat(9.0f));
+  ConstantRange E(APFloat(5.0f), APFloat(4.0f));
+  ConstantRange F(N7U, N3D);
   EXPECT_EQ(A.difference(B), C);
   EXPECT_EQ(B.difference(A), D);
   EXPECT_EQ(E.difference(A), F);
@@ -641,6 +1065,146 @@ TEST_F(ConstantRangeTest, Add) {
             ConstantRange(APInt(16, 0xaae), APInt(16, 0xe)));
   EXPECT_EQ(One.add(APInt(16, 4)),
             ConstantRange(APInt(16, 0xe)));
+}
+
+TEST_F(ConstantRangeTest, AddFP) {
+  EXPECT_EQ(FullFP.fadd(APFloat(4.0f)), FullFP);
+  EXPECT_EQ(FullFP.fadd(FullFP), FullFP);
+  EXPECT_EQ(FullFP.fadd(EmptyFP), EmptyFP);
+  EXPECT_EQ(FullFP.fadd(OneFP), FullFP);
+  EXPECT_EQ(FullFP.fadd(SomeFP), FullFP);
+  EXPECT_EQ(FullFP.fadd(WrapFP), FullFP);
+  EXPECT_EQ(EmptyFP.fadd(EmptyFP), EmptyFP);
+  EXPECT_EQ(EmptyFP.fadd(OneFP), EmptyFP);
+  EXPECT_EQ(EmptyFP.fadd(SomeFP), EmptyFP);
+  EXPECT_EQ(EmptyFP.fadd(WrapFP), EmptyFP);
+  EXPECT_EQ(EmptyFP.fadd(APFloat(4.0f)), EmptyFP);
+  EXPECT_EQ(SomeFP.fadd(APFloat(4.0f)),
+            ConstantRange(APFloat(14.0f), APFloat(104.0f)));
+  EXPECT_EQ(WrapFP.fadd(APFloat(4.0f)), InfFP);
+  EXPECT_EQ(OneFP.fadd(APFloat(4.0f)),
+            ConstantRange(APFloat(14.0f)));
+}
+
+template<typename Fn1, typename Fn2>
+static void TestFPBinOpExhaustive(
+    Fn1 RangeFn, Fn2 FloatFn, bool CorrectnessOnly = false) {
+  unsigned ExpDiff = 1;
+  APFloat NaN = APFloat::getNaN(APFloat::IEEEsingle());
+  APFloat PosInf = APFloat::getInf(APFloat::IEEEsingle());
+  APFloat NegInf = APFloat::getInf(APFloat::IEEEsingle(), true);
+
+  EnumerateTwoConstantRangesFP(ExpDiff, [&](const ConstantRange &CR1,
+                                            const ConstantRange &CR2) {
+    SmallVector<ConstantRange, 2> Ranges1;
+    SmallVector<ConstantRange, 2> Ranges2;
+    SmallVector<ConstantRange, 4> ExactRanges;
+
+    // Split upperWrapped ranges into pos and neg part and test separately
+    if (CR1.isUpperWrapped()) {
+      Ranges1.push_back({CR1.getLowerFP(), PosInf, CR1.getCanBeNaN()});
+      Ranges1.push_back({NegInf, CR1.getUpperFP(), CR1.getCanBeNaN()});
+    } else {
+      Ranges1.push_back(CR1);
+    }
+    if (CR2.isUpperWrapped()) {
+      Ranges2.push_back({CR2.getLowerFP(), PosInf, CR2.getCanBeNaN()});
+      Ranges2.push_back({NegInf, CR2.getUpperFP(), CR2.getCanBeNaN()});
+    } else {
+      Ranges2.push_back(CR2);
+    }
+
+
+    for (const auto &R1:Ranges1)
+      for (const auto &R2:Ranges2) {
+        APFloat Min = NaN;
+        APFloat Max = NaN;
+        bool canBeNaN = R1.getCanBeNaN() || R2.getCanBeNaN();
+        ForeachNumInConstantRangeFP(R1, ExpDiff, [&](const APFloat &N1) {
+          ForeachNumInConstantRangeFP(R2, ExpDiff, [&](const APFloat &N2) {
+            APFloat N = FloatFn(N1, N2);
+            Min = minnum(Min, N);
+            Max = maxnum(Max, N);
+            if (N.isNaN())
+              canBeNaN = true;
+          });
+        });
+        ExactRanges.push_back({Min, Max, canBeNaN});
+      }
+
+    ConstantRange CR = RangeFn(CR1, CR2);
+
+    bool ExactNaN = false;
+    for (const auto &Exact: ExactRanges) {
+      if (Exact.getCanBeNaN())
+        ExactNaN = true;
+      if (!CR.contains(Exact))
+        ADD_FAILURE() << "FAILED: \n";
+    }
+    // Check that we don't unnecesarilly include NaN
+    EXPECT_EQ(CR.getCanBeNaN(), ExactNaN);
+  });
+}
+
+
+TEST_F(ConstantRangeTest, AddFPExhaustive) {
+  TestFPBinOpExhaustive(
+      [](const ConstantRange &CR1, const ConstantRange &CR2) {
+        return CR1.fadd(CR2);
+      },
+      [](const APFloat &X, const APFloat &Y) {
+        return X + Y;
+      });
+}
+
+TEST_F(ConstantRangeTest, SubFPExhaustive) {
+  TestFPBinOpExhaustive(
+      [](const ConstantRange &CR1, const ConstantRange &CR2) {
+        return CR1.fsub(CR2);
+      },
+      [](const APFloat &X, const APFloat &Y) {
+        return X - Y;
+      });
+}
+
+TEST_F(ConstantRangeTest, MulFPExhaustive) {
+  TestFPBinOpExhaustive(
+      [](const ConstantRange &CR1, const ConstantRange &CR2) {
+        return CR1.fmultiply(CR2);
+      },
+      [](const APFloat &X, const APFloat &Y) {
+        return X * Y;
+      });
+}
+
+TEST_F(ConstantRangeTest, DivFPExhaustive) {
+  TestFPBinOpExhaustive(
+      [](const ConstantRange &CR1, const ConstantRange &CR2) {
+        return CR1.fdivide(CR2);
+      },
+      [](const APFloat &X, const APFloat &Y) {
+        return X / Y;
+      });
+}
+
+TEST_F(ConstantRangeTest, MaximumFPExhaustive) {
+  TestFPBinOpExhaustive(
+      [](const ConstantRange &CR1, const ConstantRange &CR2) {
+        return CR1.fmax(CR2);
+      },
+      [](const APFloat &X, const APFloat &Y) {
+        return maximum(X, Y);
+      });
+}
+
+TEST_F(ConstantRangeTest, MinimumFPExhaustive) {
+  TestFPBinOpExhaustive(
+      [](const ConstantRange &CR1, const ConstantRange &CR2) {
+        return CR1.fmin(CR2);
+      },
+      [](const APFloat &X, const APFloat &Y) {
+        return minimum(X, Y);
+      });
 }
 
 template <typename Fn1, typename Fn2>
@@ -1353,6 +1917,287 @@ TEST_F(ConstantRangeTest, Ashr) {
   ConstantRange Neg(APInt(16, 0xf3f0, true), APInt(16, 0xf7f8, true));
   EXPECT_EQ(Neg.ashr(Small), ConstantRange(APInt(16, 0xfffc, true),
                                            APInt(16, 0xfffe, true)));
+}
+
+template<typename Fn1, typename Fn2, typename Fn3>
+static void TestFPCompExhaustive(Fn1 RangeFn, Fn2 FloatFn, Fn3 CombFn, bool Init) {
+  unsigned ExpDiff = 105;
+  ConstantRange FullCR = ConstantRange::getFull(APFloat::IEEEsingle());
+  EnumerateConstantRangesFP(ExpDiff, [&](const ConstantRange &CR) {
+    ConstantRange ResCR = RangeFn(CR);
+    ForeachNumInConstantRangeFP(FullCR, ExpDiff, [&](const APFloat &LHS) {
+      bool ResVal = Init;
+      // Compare against all values in the original ConstantRange
+      ForeachNumInConstantRangeFP(CR, ExpDiff, [&](const APFloat &RHS) {
+        ResVal = CombFn(ResVal, FloatFn(LHS, RHS));
+      });
+      EXPECT_EQ(ResVal, ResCR.contains(LHS));
+    });
+  });
+}
+
+template<typename Fn1, typename Fn2>
+static void TestFPCompExhaustiveAllowed(Fn1 RangeFn, Fn2 FloatFn) {
+  TestFPCompExhaustive(
+    RangeFn, FloatFn, [](bool a, bool b){ return a || b; }, false);
+}
+
+TEST(ConstantRange, MakeAllowedFCmpOrdRegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_ORD, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN(); }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpUnoRegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_UNO, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN(); }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpOEQRegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_OEQ, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS == RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpUEQRegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_UEQ, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS == RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpONERegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_ONE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS != RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpUNERegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_UNE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS != RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpOGTRegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_OGT, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS > RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpUGTRegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_UGT, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS > RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpOLTRegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_OLT, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS < RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpULTRegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_ULT, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS < RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpOGERegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_OGE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS >= RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpUGERegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_UGE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS >= RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpOLERegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_OLE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS <= RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeAllowedFCmpULERegion) {
+  TestFPCompExhaustiveAllowed(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeAllowedFCmpRegion(CmpInst::FCMP_ULE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS <= RHS; }
+  );
+}
+
+template<typename Fn1, typename Fn2>
+static void TestFPCompExhaustiveSatisfying(Fn1 RangeFn, Fn2 FloatFn) {
+  TestFPCompExhaustive(
+    RangeFn, FloatFn, [](bool a, bool b){ return a && b; }, true);
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpOrdRegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_ORD, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN(); }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpUnoRegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_UNO, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN(); }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpOEQRegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_OEQ, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS == RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpUEQRegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_UEQ, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS == RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpONERegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_ONE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS != RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpUNERegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_UNE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS != RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpOGTRegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_OGT, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS > RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpUGTRegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_UGT, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS > RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpOLTRegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_OLT, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS < RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpULTRegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_ULT, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS < RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpOGERegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_OGE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS >= RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpUGERegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_UGE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS >= RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpOLERegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_OLE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return !LHS.isNaN() && !RHS.isNaN() && LHS <= RHS; }
+  );
+}
+
+TEST(ConstantRange, MakeSatisfyingFCmpULERegion) {
+  TestFPCompExhaustiveSatisfying(
+    [](const ConstantRange &CR) {
+      return ConstantRange::makeSatisfyingFCmpRegion(CmpInst::FCMP_ULE, CR); },
+    [](const APFloat &LHS, const APFloat &RHS) {
+      return LHS.isNaN() || RHS.isNaN() || LHS <= RHS; }
+  );
 }
 
 TEST(ConstantRange, MakeAllowedICmpRegion) {
@@ -2297,17 +3142,46 @@ TEST_F(ConstantRangeTest, Abs) {
 
 TEST_F(ConstantRangeTest, castOps) {
   ConstantRange A(APInt(16, 66), APInt(16, 128));
-  ConstantRange FpToI8 = A.castOp(Instruction::FPToSI, 8);
+  ConstantRange A32(APInt(32, 66), APInt(32, 128));
+  ConstantRange AF(APFloat(66.0f), APFloat(128.0f));
+  EXPECT_EQ(32u, AF.getBitWidth());
+
+  EXPECT_TRUE(A.castOp(Instruction::BitCast, APFloat::IEEEhalf()).getIsFloat());
+  EXPECT_TRUE(A32.castOp(Instruction::BitCast, APFloat::IEEEsingle()).getIsFloat());
+  EXPECT_TRUE(A32.castOp(Instruction::BitCast, APFloat::IEEEsingle()).isFullSet());
+  EXPECT_TRUE(AF.castOp(Instruction::BitCast, APFloat::IEEEsingle()).getIsFloat());
+  EXPECT_EQ(AF.castOp(Instruction::BitCast, APFloat::IEEEsingle()), AF);
+
+  EXPECT_FALSE(A32.castOp(Instruction::BitCast, 32).getIsFloat());
+  EXPECT_FALSE(AF.castOp(Instruction::BitCast, 32).getIsFloat());
+  EXPECT_EQ(A32.castOp(Instruction::BitCast, 32), A32);
+  EXPECT_TRUE(AF.castOp(Instruction::BitCast, 32).isFullSet());
+
+  ConstantRange FpToI8 = AF.castOp(Instruction::FPToSI, 8);
   EXPECT_EQ(8u, FpToI8.getBitWidth());
   EXPECT_TRUE(FpToI8.isFullSet());
 
-  ConstantRange FpToI16 = A.castOp(Instruction::FPToSI, 16);
+  ConstantRange FpToI16 = AF.castOp(Instruction::FPToSI, 16);
   EXPECT_EQ(16u, FpToI16.getBitWidth());
-  EXPECT_EQ(A, FpToI16);
+  EXPECT_TRUE(FpToI16.isFullSet());
 
-  ConstantRange FPExtToDouble = A.castOp(Instruction::FPExt, 64);
+  ConstantRange UI32ToFP32 = A.castOp(Instruction::UIToFP, APFloat::IEEEsingle());
+  EXPECT_EQ(32u, UI32ToFP32.getBitWidth());
+  EXPECT_TRUE(UI32ToFP32.isFullSet());
+
+  ConstantRange SI32ToFP32 = A.castOp(Instruction::SIToFP, APFloat::IEEEsingle());
+  EXPECT_EQ(32u, SI32ToFP32.getBitWidth());
+  EXPECT_TRUE(SI32ToFP32.isFullSet());
+
+  ConstantRange FPExtToDouble = AF.castOp(Instruction::FPExt, APFloat::IEEEdouble());
   EXPECT_EQ(64u, FPExtToDouble.getBitWidth());
-  EXPECT_TRUE(FPExtToDouble.isFullSet());
+  EXPECT_EQ(66.0, FPExtToDouble.getLowerFP().convertToDouble());
+  EXPECT_EQ(128.0, FPExtToDouble.getUpperFP().convertToDouble());
+
+  ConstantRange FPTruncToHalf = AF.castOp(Instruction::FPTrunc, APFloat::IEEEhalf());
+  EXPECT_EQ(16u, FPTruncToHalf.getBitWidth());
+  EXPECT_TRUE(FPTruncToHalf.getLowerFP().isExactlyValue(66.0));
+  EXPECT_TRUE(FPTruncToHalf.getUpperFP().isExactlyValue(128.0));
 
   ConstantRange PtrToInt = A.castOp(Instruction::PtrToInt, 64);
   EXPECT_EQ(64u, PtrToInt.getBitWidth());
@@ -2316,6 +3190,19 @@ TEST_F(ConstantRangeTest, castOps) {
   ConstantRange IntToPtr = A.castOp(Instruction::IntToPtr, 64);
   EXPECT_EQ(64u, IntToPtr.getBitWidth());
   EXPECT_TRUE(IntToPtr.isFullSet());
+
+  ConstantRange A128(APInt(128, 66), APInt(128, 128));
+  EXPECT_TRUE(A128.castOp(Instruction::BitCast, APFloat::PPCDoubleDouble()).getIsFloat());
+  EXPECT_TRUE(A128.castOp(Instruction::BitCast, APFloat::PPCDoubleDouble()).isFullSet());
+  EXPECT_EQ(A128.castOp(Instruction::BitCast, 128), A128);
+  EXPECT_FALSE(A128.castOp(Instruction::BitCast, 128).getIsFloat());
+
+  ConstantRange AFPPC(APFloat::getZero(APFloat::PPCDoubleDouble()),
+                      APFloat::getInf(APFloat::PPCDoubleDouble()));
+  EXPECT_EQ(AFPPC.castOp(Instruction::BitCast, APFloat::PPCDoubleDouble()), AFPPC);
+  EXPECT_TRUE(AFPPC.castOp(Instruction::BitCast, APFloat::PPCDoubleDouble()).getIsFloat());
+  EXPECT_FALSE(AFPPC.castOp(Instruction::BitCast, 128).getIsFloat());
+  EXPECT_TRUE(AFPPC.castOp(Instruction::BitCast, 128).isFullSet());
 }
 
 TEST_F(ConstantRangeTest, binaryXor) {

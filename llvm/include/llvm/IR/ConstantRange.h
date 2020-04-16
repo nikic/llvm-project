@@ -32,6 +32,7 @@
 #define LLVM_IR_CONSTANTRANGE_H
 
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/Support/Compiler.h"
@@ -46,14 +47,25 @@ struct KnownBits;
 /// This class represents a range of values.
 class LLVM_NODISCARD ConstantRange {
   APInt Lower, Upper;
+  APFloat LowerFP = APFloat(0.0), UpperFP = APFloat(0.0);
+  bool isFloat = false;
+  bool canBeNaN = false;
 
-  /// Create empty constant range with same bitwidth.
+  /// Create full constant FP range with the same semantics
+  ConstantRange getFullFP(bool CanBeNan=true) const {
+    assert(isFloat);
+    return getFull(LowerFP.getSemantics(), CanBeNan);
+  }
+
+  /// Create empty constant range with same bitwidth/semantics.
   ConstantRange getEmpty() const {
+    if (isFloat) return getEmpty(LowerFP.getSemantics());
     return ConstantRange(getBitWidth(), false);
   }
 
   /// Create full constant range with same bitwidth.
   ConstantRange getFull() const {
+    if (isFloat) return getFull(LowerFP.getSemantics(), true);
     return ConstantRange(getBitWidth(), true);
   }
 
@@ -63,20 +75,33 @@ public:
 
   /// Initialize a range to hold the single specified value.
   ConstantRange(APInt Value);
+  ConstantRange(const APFloat &Value);
 
   /// Initialize a range of values explicitly. This will assert out if
   /// Lower==Upper and Lower != Min or Max value for its type. It will also
   /// assert out if the two APInt's are not the same bit width.
   ConstantRange(APInt Lower, APInt Upper);
+  ConstantRange(APFloat Lower, APFloat Upper, bool canBeNaN = false);
 
   /// Create empty constant range with the given bit width.
   static ConstantRange getEmpty(uint32_t BitWidth) {
     return ConstantRange(BitWidth, false);
   }
 
+  /// Create empty float constant range with the given semantics.
+  static ConstantRange getEmpty(const fltSemantics &Sem) {
+    return ConstantRange(APFloat::getNaN(Sem), APFloat::getNaN(Sem), false);
+  }
+
   /// Create full constant range with the given bit width.
   static ConstantRange getFull(uint32_t BitWidth) {
     return ConstantRange(BitWidth, true);
+  }
+
+  /// Create full constant range with the given bit width.
+  static ConstantRange getFull(const fltSemantics &Sem, bool CanBeNan=true) {
+    return ConstantRange(APFloat::getInf(Sem, true),
+                         APFloat::getInf(Sem, false), CanBeNan);
   }
 
   /// Create non-empty constant range with the given bounds. If Lower and
@@ -103,6 +128,15 @@ public:
   static ConstantRange makeAllowedICmpRegion(CmpInst::Predicate Pred,
                                              const ConstantRange &Other);
 
+  /// Produce the smallest range such that all values that may satisfy the given
+  /// predicate with any value contained within Other is contained in the
+  /// returned range.  Formally, this returns a superset of
+  /// 'union over all y in Other . { x : icmp op x y is true }'.  If the exact
+  /// answer is not representable as a ConstantRange, the return value will be a
+  /// proper superset of the above.
+  static ConstantRange makeAllowedFCmpRegion(CmpInst::Predicate Pred,
+                                             const ConstantRange &Other);
+
   /// Produce the largest range such that all values in the returned range
   /// satisfy the given predicate with all values contained within Other.
   /// Formally, this returns a subset of
@@ -114,6 +148,15 @@ public:
   static ConstantRange makeSatisfyingICmpRegion(CmpInst::Predicate Pred,
                                                 const ConstantRange &Other);
 
+  /// Produce the largest range such that all values in the returned range
+  /// satisfy the given predicate with all values contained within Other.
+  /// Formally, this returns a subset of
+  /// 'intersection over all y in Other . { x : fcmp op x y is true }'.  If the
+  /// exact answer is not representable as a ConstantRange, the return value
+  /// will be a proper subset of the above.
+  static ConstantRange makeSatisfyingFCmpRegion(CmpInst::Predicate Pred,
+                                                const ConstantRange &Other);
+
   /// Produce the exact range such that all values in the returned range satisfy
   /// the given predicate with any value contained within Other. Formally, this
   /// returns the exact answer when the superset of 'union over all y in Other
@@ -123,6 +166,14 @@ public:
   /// Example: Pred = ult and Other = i8 3 returns [0, 3)
   static ConstantRange makeExactICmpRegion(CmpInst::Predicate Pred,
                                            const APInt &Other);
+
+  /// Produce the exact range such that all values in the returned range satisfy
+  /// the given predicate with any value contained within Other. Formally, this
+  /// returns the exact answer when the superset of 'union over all y in Other
+  /// is exactly same as the subset of intersection over all y in Other.
+  /// { x : fcmp op x y is true}'.
+  static ConstantRange makeExactFCmpRegion(CmpInst::Predicate Pred,
+                                           const APFloat &Other);
 
   /// Produce the largest range containing all X such that "X BinOp Y" is
   /// guaranteed not to wrap (overflow) for *all* Y in Other. However, there may
@@ -156,13 +207,25 @@ public:
   bool getEquivalentICmp(CmpInst::Predicate &Pred, APInt &RHS) const;
 
   /// Return the lower value for this range.
-  const APInt &getLower() const { return Lower; }
+  const APInt &getLower() const { assert(!isFloat); return Lower; }
 
   /// Return the upper value for this range.
-  const APInt &getUpper() const { return Upper; }
+  const APInt &getUpper() const { assert(!isFloat); return Upper; }
+
+  /// Return the lower value for this range.
+  const APFloat &getLowerFP() const { assert(isFloat); return LowerFP; }
+
+  /// Return the upper value for this range.
+  const APFloat &getUpperFP() const { assert(isFloat); return UpperFP; }
+
+  bool getIsFloat() const { return isFloat; }
+  bool getCanBeNaN() const { return isFloat && canBeNaN; }
 
   /// Get the bit width of this ConstantRange.
-  uint32_t getBitWidth() const { return Lower.getBitWidth(); }
+  uint32_t getBitWidth() const {
+    if (isFloat) return APFloat::getSizeInBits(LowerFP.getSemantics());
+	    else return Lower.getBitWidth();
+  }
 
   /// Return true if this set contains all of the elements possible
   /// for this data-type.
@@ -200,26 +263,41 @@ public:
   /// Return true if the specified value is in the set.
   bool contains(const APInt &Val) const;
 
+  /// Return true if the specified value is in the set.
+  bool contains(const APFloat &Val) const;
+
   /// Return true if the other range is a subset of this one.
   bool contains(const ConstantRange &CR) const;
 
   /// If this set contains a single element, return it, otherwise return null.
   const APInt *getSingleElement() const {
-    if (Upper == Lower + 1)
+    if (!isFloat && (Upper == Lower + 1))
       return &Lower;
+    return nullptr;
+  }
+
+  /// If this set contains a single FP element, return it, otherwise return null.
+  const APFloat *getSingleElementFP() const {
+    if (isFloat && !isEmptySet() && UpperFP.bitwiseIsEqual(LowerFP) &&
+        (canBeNaN == LowerFP.isNaN()))
+      return &LowerFP;
     return nullptr;
   }
 
   /// If this set contains all but a single element, return it, otherwise return
   /// null.
   const APInt *getSingleMissingElement() const {
+    assert(!isFloat);
     if (Lower == Upper + 1)
       return &Upper;
     return nullptr;
   }
 
-  /// Return true if this set contains exactly one member.
+  /// Return true if this set contains exactly one integer member.
   bool isSingleElement() const { return getSingleElement() != nullptr; }
+
+  /// Return true if this set contains exactly one floating point member.
+  bool isSingleElementFP() const { return getSingleElementFP() != nullptr; }
 
   /// Compare set size of this range with the range CR.
   bool isSizeStrictlySmallerThan(const ConstantRange &CR) const;
@@ -247,7 +325,12 @@ public:
 
   /// Return true if this range is equal to another range.
   bool operator==(const ConstantRange &CR) const {
-    return Lower == CR.Lower && Upper == CR.Upper;
+    if (isFloat)
+      return isFloat == CR.isFloat && canBeNaN == CR.canBeNaN &&
+             (LowerFP.bitwiseIsEqual(CR.LowerFP) || (LowerFP.isNaN() && CR.LowerFP.isNaN())) &&
+             (UpperFP.bitwiseIsEqual(CR.UpperFP) || (UpperFP.isNaN() && CR.UpperFP.isNaN()));
+    else
+      return isFloat == CR.isFloat && Lower == CR.Lower && Upper == CR.Upper;
   }
   bool operator!=(const ConstantRange &CR) const {
     return !operator==(CR);
@@ -287,12 +370,18 @@ public:
 
   /// Return a new range representing the possible values resulting
   /// from an application of the specified cast operator to this range. \p
-  /// BitWidth is the target bitwidth of the cast.  For casts which don't
-  /// change bitwidth, it must be the same as the source bitwidth.  For casts
+  /// BitWidth is the target bitwidth of the cast. For casts which don't
+  /// change bitwidth, it must be the same as the source bitwidth. For casts
   /// which do change bitwidth, the bitwidth must be consistent with the
-  /// requested cast and source bitwidth.
+  /// requested cast and source bitwidth. Casts to floating point type are not
+  /// handled by this function.
   ConstantRange castOp(Instruction::CastOps CastOp,
                        uint32_t BitWidth) const;
+  /// Return a new range representing the possible values resulting
+  /// from an application of the specified cast operator to this range. \p
+  /// Sem is target floating point semantics.
+  ConstantRange castOp(Instruction::CastOps CastOp,
+                       const llvm::fltSemantics &Sem) const;
 
   /// Return a new range in the specified integer type, which must
   /// be strictly larger than the current type.  The returned range will
@@ -339,6 +428,10 @@ public:
   ConstantRange add(const ConstantRange &Other) const;
 
   /// Return a new range representing the possible values resulting
+  /// from an addition of a value in this range and a value in \p Other.
+  ConstantRange fadd(const ConstantRange &Other) const;
+
+  /// Return a new range representing the possible values resulting
   /// from an addition with wrap type \p NoWrapKind of a value in this
   /// range and a value in \p Other.
   /// If the result range is disjoint, the preferred range is determined by the
@@ -359,9 +452,29 @@ public:
                               PreferredRangeType RangeType = Smallest) const;
 
   /// Return a new range representing the possible values resulting
+  /// from a subtraction of a value in this range and a value in \p Other.
+  ConstantRange fsub(const ConstantRange &Other) const;
+
+  /// Return a new range representing the possible values resulting
   /// from a multiplication of a value in this range and a value in \p Other,
   /// treating both this and \p Other as unsigned ranges.
   ConstantRange multiply(const ConstantRange &Other) const;
+
+  /// Return a new range representing the possible values resulting
+  /// from a multiplication of a value in this range and a value in \p Other.
+  ConstantRange fmultiply(const ConstantRange &Other) const;
+
+  /// Return a new range representing the possible values resulting
+  /// from a division of a value in this range and a value in \p Other.
+  ConstantRange fdivide(const ConstantRange &Other) const;
+
+  /// Return a new range representing the possible values resulting
+  /// from a maximum of a value in this range and a value in \p Other.
+  ConstantRange fmax(const ConstantRange &Other) const;
+
+  /// Return a new range representing the possible values resulting
+  /// from a minimum of a value in this range and a value in \p Other.
+  ConstantRange fmin(const ConstantRange &Other) const;
 
   /// Return a new range representing the possible values resulting
   /// from a signed maximum of a value in this range and a value in \p Other.

@@ -39,6 +39,14 @@
 
 using namespace llvm;
 
+static APFloat ZeroNext(APFloat X, bool Neg) {
+  if (X.isZero() && X.isNegative() != Neg)
+    X.changeSign();
+  else
+    X.next(Neg);
+  return X;
+}
+
 ConstantRange::ConstantRange(uint32_t BitWidth, bool Full)
     : Lower(Full ? APInt::getMaxValue(BitWidth) : APInt::getMinValue(BitWidth)),
       Upper(Lower) {}
@@ -52,6 +60,23 @@ ConstantRange::ConstantRange(APInt L, APInt U)
          "ConstantRange with unequal bit widths");
   assert((Lower != Upper || (Lower.isMaxValue() || Lower.isMinValue())) &&
          "Lower == Upper, but they aren't min or max value!");
+}
+
+ConstantRange::ConstantRange(const APFloat &Const)
+    : LowerFP(Const), UpperFP(Const), isFloat(true), canBeNaN(Const.isNaN()) {}
+
+ConstantRange::ConstantRange(APFloat Lower, APFloat Upper, bool canBeNaN)
+    : LowerFP(std::move(Lower)), UpperFP(std::move(Upper)), isFloat(true),
+      canBeNaN(canBeNaN) {
+  assert(&Lower.getSemantics() == &Upper.getSemantics() &&
+         "ConstantRange with mismatched FP semantics");
+  assert(LowerFP.isNaN() == UpperFP.isNaN());
+  // Check if we are wrapped range with no values outside
+  APFloat Tmp = ZeroNext(LowerFP, true);
+  if (!LowerFP.bitwiseIsEqual(UpperFP) && Tmp.bitwiseIsEqual(UpperFP) && !Tmp.isNaN()) {
+    LowerFP = APFloat::getInf(LowerFP.getSemantics(), true); // NegInf
+    UpperFP = APFloat::getInf(LowerFP.getSemantics(), false); // PosInf
+  }
 }
 
 ConstantRange ConstantRange::fromKnownBits(const KnownBits &Known,
@@ -72,6 +97,117 @@ ConstantRange ConstantRange::fromKnownBits(const KnownBits &Known,
   Lower.setSignBit();
   Upper.clearSignBit();
   return ConstantRange(Lower, Upper + 1);
+}
+
+ConstantRange ConstantRange::makeAllowedFCmpRegion(CmpInst::Predicate Pred,
+                                                   const ConstantRange &CR) {
+  assert(CR.isFloat);
+  if (CR.isEmptySet())
+    return CR;
+
+  // Nothing is ordered wrt NaN
+  if (CR.LowerFP.isNaN() && CmpInst::isOrdered(Pred))
+    return CR.getEmpty();
+  // Everything is unordered wrt NaN
+  if (CR.canBeNaN && CmpInst::isUnordered(Pred))
+      return CR.getFull();
+
+  // Useful constants
+  APFloat PosInf = APFloat::getInf(CR.LowerFP.getSemantics(), false);
+  APFloat NegInf = APFloat::getInf(CR.LowerFP.getSemantics(), true);
+  APFloat NaN = APFloat::getNaN(CR.LowerFP.getSemantics());
+
+  switch (Pred) {
+  default:
+    llvm_unreachable("Invalid FCmp predicate to makeAllowedFCmpRegion()");
+  case CmpInst::FCMP_UNO:
+    // CR.canBeNaN is handled above, so only NaN compares UNO to CR.
+    return ConstantRange(NaN);
+  case CmpInst::FCMP_ORD:
+    // isnan(CR) is handled above, return no-nan range
+    return ConstantRange(std::move(NegInf), std::move(PosInf), false);
+  case CmpInst::FCMP_UEQ:
+  case CmpInst::FCMP_OEQ: {
+    // Return the sames ordered part as CR, extend boundaries if zero.
+    APFloat LowerFP = CR.LowerFP.isZero() ? APFloat::getZero(CR.LowerFP.getSemantics(), true) : CR.LowerFP;
+    APFloat UpperFP = CR.UpperFP.isZero() ? APFloat::getZero(CR.UpperFP.getSemantics(), false) : CR.UpperFP;
+    return ConstantRange(std::move(LowerFP), std::move(UpperFP), CmpInst::isUnordered(Pred));
+  }
+  case CmpInst::FCMP_UNE:
+  case CmpInst::FCMP_ONE:
+    // bitwiseIsEqual covers singleElement + canBeNaN
+    // [-0,0] should be trated as single value wrt != operator
+    if (CR.LowerFP.bitwiseIsEqual(CR.UpperFP) ||
+        (CR.LowerFP.isNegZero() && CR.UpperFP.isPosZero())) {
+      ConstantRange Inv = CR.inverse();
+      Inv.canBeNaN = CmpInst::isUnordered(Pred);
+      // Handle +/- 0
+      if (Inv.LowerFP.isPosZero()) // The original included -0.0
+        Inv.LowerFP.next(false);
+      if (Inv.UpperFP.isNegZero()) // The original included 0.0
+        Inv.UpperFP.next(true);
+      return Inv;
+    }
+    return ConstantRange(std::move(NegInf), std::move(PosInf), CmpInst::isUnordered(Pred));
+  case CmpInst::FCMP_OLT:
+  case CmpInst::FCMP_ULT: {
+    // Nothing is LT -Inf, but NaN is unordered
+    if (CR.UpperFP.bitwiseIsEqual(CR.LowerFP) &&
+        CR.UpperFP.isNegative() && CR.UpperFP.isInfinity())
+      return ConstantRange(NaN, NaN, CmpInst::isUnordered(Pred));
+    // Almost everything is LT +Inf
+    APFloat Upper = CR.contains(PosInf) ? PosInf : CR.UpperFP;
+    Upper.next(true);
+    return ConstantRange(std::move(NegInf), std::move(Upper), CmpInst::isUnordered(Pred));
+  }
+  case CmpInst::FCMP_OGT:
+  case CmpInst::FCMP_UGT: {
+    // Nothing is GT +Inf, but NaN unordered
+    if (CR.UpperFP.bitwiseIsEqual(CR.LowerFP) &&
+        !CR.UpperFP.isNegative() && CR.UpperFP.isInfinity())
+      return ConstantRange(NaN, NaN, CmpInst::isUnordered(Pred));
+    // Almost everything is LT -Inf
+    APFloat Lower = CR.contains(NegInf) ? NegInf : CR.LowerFP;
+    Lower.next(false);
+    return ConstantRange(std::move(Lower), std::move(PosInf), CmpInst::isUnordered(Pred));
+  }
+  case CmpInst::FCMP_OLE:
+  case CmpInst::FCMP_ULE: {
+    // Everything is LE than +Inf, and NaN is unordered
+    if (CR.contains(PosInf))
+      return ConstantRange(std::move(NegInf), std::move(PosInf), CmpInst::isUnordered(Pred));
+    APFloat Upper = CR.UpperFP.isZero() ? APFloat::getZero(CR.UpperFP.getSemantics()) : CR.UpperFP;
+    return ConstantRange(std::move(NegInf), std::move(Upper), CmpInst::isUnordered(Pred));
+  }
+  case CmpInst::FCMP_OGE:
+  case CmpInst::FCMP_UGE: {
+    // Everything is GE than -Inf, and NaN is unordered
+    if (CR.contains(NegInf))
+      return ConstantRange(std::move(NegInf), std::move(PosInf), CmpInst::isUnordered(Pred));
+    APFloat Lower = CR.LowerFP.isZero() ? APFloat::getZero(CR.LowerFP.getSemantics(), true) : CR.LowerFP;
+    return ConstantRange(std::move(Lower), std::move(PosInf), CmpInst::isUnordered(Pred));
+  }
+  }
+}
+
+ConstantRange ConstantRange::makeSatisfyingFCmpRegion(CmpInst::Predicate Pred,
+                                                      const ConstantRange &CR) {
+  // Follows from De-Morgan's laws:
+  //
+  // ~(~A union ~B) == A intersect B.
+  //
+  return makeAllowedFCmpRegion(CmpInst::getInversePredicate(Pred), CR)
+      .inverse();
+}
+
+ConstantRange ConstantRange::makeExactFCmpRegion(CmpInst::Predicate Pred,
+                                                 const APFloat &C) {
+  // Computes the exact range that is equal to both the constant ranges returned
+  // by makeAllowedFCmpRegion and makeSatisfyingICmpRegion. This is always true
+  // when RHS is a singleton such as an APFloat and so the assert is valid.
+  //
+  assert(makeAllowedFCmpRegion(Pred, C) == makeSatisfyingFCmpRegion(Pred, C));
+  return makeAllowedFCmpRegion(Pred, C);
 }
 
 ConstantRange ConstantRange::makeAllowedICmpRegion(CmpInst::Predicate Pred,
@@ -149,6 +285,7 @@ ConstantRange ConstantRange::makeExactICmpRegion(CmpInst::Predicate Pred,
 bool ConstantRange::getEquivalentICmp(CmpInst::Predicate &Pred,
                                       APInt &RHS) const {
   bool Success = false;
+  assert(!isFloat);
 
   if (isFullSet() || isEmptySet()) {
     Pred = isEmptySet() ? CmpInst::ICMP_ULT : CmpInst::ICMP_UGE;
@@ -302,32 +439,45 @@ ConstantRange ConstantRange::makeExactNoWrapRegion(Instruction::BinaryOps BinOp,
 }
 
 bool ConstantRange::isFullSet() const {
-  return Lower == Upper && Lower.isMaxValue();
+  if (isFloat)
+    return LowerFP.isInfinity() && LowerFP.isNegative() &&
+	   UpperFP.isInfinity() && !UpperFP.isNegative() && canBeNaN;
+  else
+    return Lower == Upper && Lower.isMaxValue();
 }
 
 bool ConstantRange::isEmptySet() const {
+  if (isFloat)
+    return LowerFP.isNaN() && UpperFP.isNaN() && !canBeNaN;
   return Lower == Upper && Lower.isMinValue();
 }
 
 bool ConstantRange::isWrappedSet() const {
+  if (isFloat) // Float version is the same as isUpperWrapped
+    return isUpperWrapped();
   return Lower.ugt(Upper) && !Upper.isNullValue();
 }
 
 bool ConstantRange::isUpperWrapped() const {
+  if (isFloat)
+    return LowerFP.compare(UpperFP) == APFloat::cmpGreaterThan;
   return Lower.ugt(Upper);
 }
 
 bool ConstantRange::isSignWrappedSet() const {
+  assert(!isFloat);
   return Lower.sgt(Upper) && !Upper.isMinSignedValue();
 }
 
 bool ConstantRange::isUpperSignWrapped() const {
+  assert(!isFloat);
   return Lower.sgt(Upper);
 }
 
 bool
 ConstantRange::isSizeStrictlySmallerThan(const ConstantRange &Other) const {
   assert(getBitWidth() == Other.getBitWidth());
+  assert(!isFloat);
   if (isFullSet())
     return false;
   if (Other.isFullSet())
@@ -338,6 +488,7 @@ ConstantRange::isSizeStrictlySmallerThan(const ConstantRange &Other) const {
 bool
 ConstantRange::isSizeLargerThan(uint64_t MaxSize) const {
   assert(MaxSize && "MaxSize can't be 0.");
+  assert(!isFloat);
   // If this a full set, we need special handling to avoid needing an extra bit
   // to represent the size.
   if (isFullSet())
@@ -353,6 +504,7 @@ bool ConstantRange::isAllNegative() const {
   if (isFullSet())
     return false;
 
+  assert(!isFloat);
   return !isUpperSignWrapped() && !Upper.isStrictlyPositive();
 }
 
@@ -362,30 +514,35 @@ bool ConstantRange::isAllNonNegative() const {
 }
 
 APInt ConstantRange::getUnsignedMax() const {
+  assert(!isFloat);
   if (isFullSet() || isUpperWrapped())
     return APInt::getMaxValue(getBitWidth());
   return getUpper() - 1;
 }
 
 APInt ConstantRange::getUnsignedMin() const {
+  assert(!isFloat);
   if (isFullSet() || isWrappedSet())
     return APInt::getMinValue(getBitWidth());
   return getLower();
 }
 
 APInt ConstantRange::getSignedMax() const {
+  assert(!isFloat);
   if (isFullSet() || isUpperSignWrapped())
     return APInt::getSignedMaxValue(getBitWidth());
   return getUpper() - 1;
 }
 
 APInt ConstantRange::getSignedMin() const {
+  assert(!isFloat);
   if (isFullSet() || isSignWrappedSet())
     return APInt::getSignedMinValue(getBitWidth());
   return getLower();
 }
 
 bool ConstantRange::contains(const APInt &V) const {
+  assert(!isFloat);
   if (Lower == Upper)
     return isFullSet();
 
@@ -394,21 +551,64 @@ bool ConstantRange::contains(const APInt &V) const {
   return Lower.ule(V) || V.ult(Upper);
 }
 
+bool ConstantRange::contains(const APFloat &V) const {
+  assert(isFloat);
+  if (V.isNaN())
+    return canBeNaN;
+
+  if (V.bitwiseIsEqual(LowerFP) || V.bitwiseIsEqual(UpperFP))
+    return true;
+
+  // Special handling for signed zeros
+  if (V.isPosZero() && LowerFP.isNegZero() && !UpperFP.isNegZero())
+    return true;
+  if (V.isNegZero() && UpperFP.isPosZero() && !LowerFP.isPosZero())
+    return true;
+
+  if (!isUpperWrapped())
+    return LowerFP < V && V < UpperFP;
+  return UpperFP > V || V > LowerFP;
+}
+
 bool ConstantRange::contains(const ConstantRange &Other) const {
+  assert(isFloat == Other.isFloat);
   if (isFullSet() || Other.isEmptySet()) return true;
   if (isEmptySet() || Other.isFullSet()) return false;
+  if (isFloat && canBeNaN && Other.UpperFP.isNaN()) return true;
 
   if (!isUpperWrapped()) {
     if (Other.isUpperWrapped())
       return false;
 
+    if (isFloat) {
+      auto Lo = LowerFP.compare(Other.LowerFP);
+      auto Hi = UpperFP.compare(Other.UpperFP);
+      return (Lo == APFloat::cmpLessThan ||
+              LowerFP.bitwiseIsEqual(Other.LowerFP) ||
+              (LowerFP.isNegZero() && Other.LowerFP.isPosZero())) &&
+             (Hi == APFloat::cmpGreaterThan ||
+              UpperFP.bitwiseIsEqual(Other.UpperFP) ||
+             (UpperFP.isPosZero() && Other.UpperFP.isNegZero())) &&
+	     (canBeNaN || !Other.canBeNaN);
+    }
     return Lower.ule(Other.getLower()) && Other.getUpper().ule(Upper);
   }
 
-  if (!Other.isUpperWrapped())
-    return Other.getUpper().ule(Upper) ||
-           Lower.ule(Other.getLower());
+  if (!Other.isUpperWrapped()) {
+    if (isFloat) {
+      // LHS is UpperWrapped, RHS is not. We can split into two subregions.
+      ConstantRange UpperHalf = ConstantRange(LowerFP,
+                                  APFloat::getInf(LowerFP.getSemantics()),
+				  canBeNaN);
+      ConstantRange LowerHalf = ConstantRange(
+                                  APFloat::getInf(LowerFP.getSemantics(), true),
+                                  UpperFP, canBeNaN);
+      return LowerHalf.contains(Other) || UpperHalf.contains(Other);
+    }
+    return Other.getUpper().ule(Upper) || Lower.ule(Other.getLower());
+  }
 
+  assert(!isFloat);
   return Other.getUpper().ule(Upper) && Lower.ule(Other.getLower());
 }
 
@@ -446,6 +646,8 @@ static ConstantRange getPreferredRange(
 
 ConstantRange ConstantRange::intersectWith(const ConstantRange &CR,
                                            PreferredRangeType Type) const {
+  assert(isFloat == CR.isFloat &&
+         "ConstantRange type don't agree!");
   assert(getBitWidth() == CR.getBitWidth() &&
          "ConstantRange types don't agree!");
 
@@ -457,6 +659,24 @@ ConstantRange ConstantRange::intersectWith(const ConstantRange &CR,
     return CR.intersectWith(*this, Type);
 
   if (!isUpperWrapped() && !CR.isUpperWrapped()) {
+    if (isFloat) {
+      assert(Type == Smallest);
+      // There are several situations handled in this block,
+      // none of which can result in a wrapped or disjoint result:
+      // this: L--U      | L--U   |  L--U  |  L---U |   L--U |      L--U
+      // CR:        L--U |   L--U | L----U |   L-U  | L--U   | L--U
+      APFloat Upper = llvm::minimum(UpperFP, CR.UpperFP);
+      APFloat Lower = llvm::maximum(LowerFP, CR.LowerFP);
+      auto Res = Lower.compare(Upper);
+      // Explicitly allow [-0, 0]
+      if (Res != APFloat::cmpLessThan && !Lower.bitwiseIsEqual(Upper) &&
+	  !(Lower.isNegZero() && Upper.isPosZero()))
+        return ConstantRange(APFloat::getNaN(Lower.getSemantics()),
+                             APFloat::getNaN(Upper.getSemantics()),
+                             canBeNaN && CR.canBeNaN);
+      return ConstantRange(::std::move(Lower), ::std::move(Upper),
+                           canBeNaN && CR.canBeNaN);
+    }
     if (Lower.ult(CR.Lower)) {
       // L---U       : this
       //       L---U : CR
@@ -488,37 +708,65 @@ ConstantRange ConstantRange::intersectWith(const ConstantRange &CR,
   }
 
   if (isUpperWrapped() && !CR.isUpperWrapped()) {
-    if (CR.Lower.ult(Upper)) {
+    // FP range is inclusive so include it here
+    if ((!isFloat && CR.Lower.ult(Upper)) ||
+        (isFloat && CR.LowerFP <= UpperFP)) {
       // ------U   L--- : this
       //  L--U          : CR
-      if (CR.Upper.ult(Upper))
+      if (!isFloat && CR.Upper.ult(Upper))
         return CR;
+      if (isFloat && CR.UpperFP < UpperFP)
+        return ConstantRange(CR.LowerFP, CR.UpperFP, canBeNaN && CR.canBeNaN);
 
       // ------U   L--- : this
       //  L------U      : CR
-      if (CR.Upper.ule(Lower))
+      if (!isFloat && CR.Upper.ule(Lower))
         return ConstantRange(CR.Lower, Upper);
+      // FP range is inclusive so don't include it here
+      if (isFloat && CR.UpperFP < LowerFP)
+        return ConstantRange(CR.LowerFP, UpperFP, canBeNaN && CR.canBeNaN);
 
       // ------U   L--- : this
       //  L----------U  : CR
+      if (isFloat)
+        return ConstantRange(CR.LowerFP, CR.UpperFP, canBeNaN && CR.canBeNaN);
       return getPreferredRange(*this, CR, Type);
     }
-    if (CR.Lower.ult(Lower)) {
+    if ((!isFloat && CR.Lower.ult(Lower)) ||
+        (isFloat && CR.LowerFP < LowerFP)) {
       // --U      L---- : this
       //     L--U       : CR
-      if (CR.Upper.ule(Lower))
+      if (!isFloat && CR.Upper.ule(Lower))
         return getEmpty();
+      if (isFloat && CR.UpperFP < LowerFP)
+        return ConstantRange(APFloat::getNaN(LowerFP.getSemantics()),
+                             APFloat::getNaN(UpperFP.getSemantics()),
+                             canBeNaN && CR.canBeNaN);
 
       // --U      L---- : this
       //     L------U   : CR
+      if (isFloat)
+        return ConstantRange(LowerFP, CR.UpperFP, canBeNaN && CR.canBeNaN);
       return ConstantRange(Lower, CR.Upper);
     }
 
     // --U  L------ : this
     //        L--U  : CR
+    if (isFloat)
+      return ConstantRange(CR.LowerFP, CR.UpperFP, canBeNaN && CR.canBeNaN);
     return CR;
   }
 
+  // Both are upperWrapped
+  if (isFloat) {
+    assert(Type == Smallest);
+    // Handle disjoint cases
+    if (CR.LowerFP <= UpperFP || LowerFP <= CR.UpperFP)
+      return (CR.LowerFP - CR.UpperFP) > (LowerFP - UpperFP) ? CR : *this;
+    APFloat Upper = llvm::minimum(UpperFP, CR.UpperFP);
+    APFloat Lower = llvm::maximum(LowerFP, CR.LowerFP);
+    return ConstantRange(::std::move(Lower), ::std::move(Upper), canBeNaN && CR.canBeNaN);
+  }
   if (CR.Upper.ult(Upper)) {
     // ------U L-- : this
     // --U L------ : CR
@@ -552,16 +800,25 @@ ConstantRange ConstantRange::intersectWith(const ConstantRange &CR,
 
 ConstantRange ConstantRange::unionWith(const ConstantRange &CR,
                                        PreferredRangeType Type) const {
-  assert(getBitWidth() == CR.getBitWidth() &&
-         "ConstantRange types don't agree!");
+  assert(isFloat == CR.isFloat);
 
   if (   isFullSet() || CR.isEmptySet()) return *this;
   if (CR.isFullSet() ||    isEmptySet()) return CR;
+  // Handle union with NaN that is not empty
+  if (CR.UpperFP.isNaN()) return ConstantRange(LowerFP, UpperFP, true);
+  if (UpperFP.isNaN()) return ConstantRange(CR.LowerFP, CR.UpperFP, true);
+
+  assert(getBitWidth() == CR.getBitWidth() &&
+         "ConstantRange types don't agree!");
 
   if (!isUpperWrapped() && CR.isUpperWrapped())
     return CR.unionWith(*this, Type);
 
   if (!isUpperWrapped() && !CR.isUpperWrapped()) {
+    if (isFloat) {
+      return ConstantRange(minimum(LowerFP, CR.LowerFP),
+                           maximum(UpperFP, CR.UpperFP), canBeNaN || CR.canBeNaN);
+    }
     //        L---U  and  L---U        : this
     //  L---U                   L---U  : CR
     // result in one of
@@ -583,30 +840,47 @@ ConstantRange ConstantRange::unionWith(const ConstantRange &CR,
   if (!CR.isUpperWrapped()) {
     // ------U   L-----  and  ------U   L----- : this
     //   L--U                            L--U  : CR
-    if (CR.Upper.ule(Upper) || CR.Lower.uge(Lower))
+    if (!isFloat && (CR.Upper.ule(Upper) || CR.Lower.uge(Lower)))
       return *this;
+    // Call maximum/minimum to properly handle +/-0 situations.
+    if (isFloat && CR.UpperFP <= UpperFP)
+      return ConstantRange(LowerFP, maximum(UpperFP, CR.UpperFP), canBeNaN || CR.canBeNaN);
+    if (isFloat && CR.LowerFP >= LowerFP)
+      return ConstantRange(minimum(LowerFP, CR.LowerFP), UpperFP, canBeNaN || CR.canBeNaN);
 
     // ------U   L----- : this
     //    L---------U   : CR
-    if (CR.Lower.ule(Upper) && Lower.ule(CR.Upper))
+    if (!isFloat && (CR.Lower.ule(Upper) && Lower.ule(CR.Upper)))
       return getFull();
+    if (isFloat && (CR.LowerFP <= UpperFP && LowerFP <= CR.UpperFP))
+      return getFullFP(canBeNaN || CR.canBeNaN);
 
     // ----U       L---- : this
     //       L---U       : CR
     // results in one of
     // ----------U L----
     // ----U L----------
-    if (Upper.ult(CR.Lower) && CR.Upper.ult(Lower))
+    if (!isFloat && Upper.ult(CR.Lower) && CR.Upper.ult(Lower))
       return getPreferredRange(
           ConstantRange(Lower, CR.Upper), ConstantRange(CR.Lower, Upper), Type);
+    if (isFloat && UpperFP < CR.LowerFP && CR.UpperFP < LowerFP) {
+      assert(Type == Smallest);
+      return CR.LowerFP - UpperFP > LowerFP - CR.UpperFP ?
+             ConstantRange(CR.LowerFP, UpperFP, canBeNaN || CR.canBeNaN):
+             ConstantRange(LowerFP, CR.UpperFP, canBeNaN || CR.canBeNaN);
+    }
 
     // ----U     L----- : this
     //        L----U    : CR
-    if (Upper.ult(CR.Lower) && Lower.ule(CR.Upper))
+    if (!isFloat && Upper.ult(CR.Lower) && Lower.ule(CR.Upper))
       return ConstantRange(CR.Lower, Upper);
+    if (isFloat && UpperFP < CR.LowerFP && LowerFP <= CR.UpperFP)
+      return ConstantRange(CR.LowerFP, UpperFP, canBeNaN || CR.canBeNaN);
 
     // ------U    L---- : this
     //    L-----U       : CR
+    if (isFloat)
+      return ConstantRange(LowerFP, CR.UpperFP, canBeNaN || CR.canBeNaN);
     assert(CR.Lower.ule(Upper) && CR.Upper.ult(Lower) &&
            "ConstantRange::unionWith missed a case with one range wrapped");
     return ConstantRange(Lower, CR.Upper);
@@ -614,9 +888,14 @@ ConstantRange ConstantRange::unionWith(const ConstantRange &CR,
 
   // ------U    L----  and  ------U    L---- : this
   // -U  L-----------  and  ------------U  L : CR
-  if (CR.Lower.ule(Upper) || Lower.ule(CR.Upper))
+  if (!isFloat && (CR.Lower.ule(Upper) || Lower.ule(CR.Upper)))
     return getFull();
+  if (isFloat && (CR.LowerFP <= UpperFP || LowerFP <= CR.UpperFP))
+    return getFullFP(canBeNaN || CR.canBeNaN);
 
+  if (isFloat)
+    return ConstantRange(minimum(LowerFP, CR.LowerFP),
+                         maximum(UpperFP, CR.UpperFP), canBeNaN || CR.canBeNaN);
   APInt L = CR.Lower.ult(Lower) ? CR.Lower : Lower;
   APInt U = CR.Upper.ugt(Upper) ? CR.Upper : Upper;
 
@@ -635,29 +914,14 @@ ConstantRange ConstantRange::castOp(Instruction::CastOps CastOp,
   case Instruction::ZExt:
     return zeroExtend(ResultBitWidth);
   case Instruction::BitCast:
-    return *this;
+    // Bitcast bitwidth needs to match. ppc_fp128 needs special handling
+    assert((getBitWidth() == ResultBitWidth) ||
+           (ResultBitWidth == 128 && (isFloat && &LowerFP.getSemantics() == &APFloat::PPCDoubleDouble())));
+    return isFloat ? getFull(ResultBitWidth) : *this;
   case Instruction::FPToUI:
   case Instruction::FPToSI:
-    if (getBitWidth() == ResultBitWidth)
-      return *this;
-    else
-      return getFull(ResultBitWidth);
-  case Instruction::UIToFP: {
     // TODO: use input range if available
-    auto BW = getBitWidth();
-    APInt Min = APInt::getMinValue(BW).zextOrSelf(ResultBitWidth);
-    APInt Max = APInt::getMaxValue(BW).zextOrSelf(ResultBitWidth);
-    return ConstantRange(std::move(Min), std::move(Max));
-  }
-  case Instruction::SIToFP: {
-    // TODO: use input range if available
-    auto BW = getBitWidth();
-    APInt SMin = APInt::getSignedMinValue(BW).sextOrSelf(ResultBitWidth);
-    APInt SMax = APInt::getSignedMaxValue(BW).sextOrSelf(ResultBitWidth);
-    return ConstantRange(std::move(SMin), std::move(SMax));
-  }
-  case Instruction::FPTrunc:
-  case Instruction::FPExt:
+    return getFull(ResultBitWidth);
   case Instruction::IntToPtr:
   case Instruction::PtrToInt:
   case Instruction::AddrSpaceCast:
@@ -666,7 +930,38 @@ ConstantRange ConstantRange::castOp(Instruction::CastOps CastOp,
   };
 }
 
+ConstantRange ConstantRange::castOp(Instruction::CastOps CastOp,
+                                    const llvm::fltSemantics &Sem) const {
+  switch (CastOp) {
+  default:
+    llvm_unreachable("unsupported cast type");
+  case Instruction::FPTrunc:
+  case Instruction::FPExt: {
+    bool losesInfo1 = false, losesInfo2 = false;
+    APFloat ValL = LowerFP, ValU = UpperFP;
+    if (isUpperWrapped()) {
+      ValL.convert(Sem, APFloat::rmTowardPositive, &losesInfo1);
+      ValU.convert(Sem, APFloat::rmTowardNegative, &losesInfo2);
+    } else {
+      ValL.convert(Sem, APFloat::rmTowardNegative, &losesInfo1);
+      ValU.convert(Sem, APFloat::rmTowardPositive, &losesInfo2);
+    }
+    return ConstantRange(ValL, ValU, canBeNaN);
+  }
+  case Instruction::BitCast:
+    // Bitcast bitwidth needs to match. ppc_fp128 needs special handling
+    assert((getBitWidth() == APFloat::getSizeInBits(Sem)) ||
+           (getBitWidth() == 128 && &Sem == &APFloat::PPCDoubleDouble()));
+    return isFloat ? *this : getFull(Sem);
+  case Instruction::UIToFP:
+  case Instruction::SIToFP:
+    // TODO: use input range if available
+    return getFull(Sem);
+  };
+}
+
 ConstantRange ConstantRange::zeroExtend(uint32_t DstTySize) const {
+  assert(!isFloat);
   if (isEmptySet()) return getEmpty(DstTySize);
 
   unsigned SrcTySize = getBitWidth();
@@ -684,6 +979,7 @@ ConstantRange ConstantRange::zeroExtend(uint32_t DstTySize) const {
 }
 
 ConstantRange ConstantRange::signExtend(uint32_t DstTySize) const {
+  assert(!isFloat);
   if (isEmptySet()) return getEmpty(DstTySize);
 
   unsigned SrcTySize = getBitWidth();
@@ -702,6 +998,7 @@ ConstantRange ConstantRange::signExtend(uint32_t DstTySize) const {
 }
 
 ConstantRange ConstantRange::truncate(uint32_t DstTySize) const {
+  assert(!isFloat);
   assert(getBitWidth() > DstTySize && "Not a value truncation");
   if (isEmptySet())
     return getEmpty(DstTySize);
@@ -756,6 +1053,7 @@ ConstantRange ConstantRange::truncate(uint32_t DstTySize) const {
 }
 
 ConstantRange ConstantRange::zextOrTrunc(uint32_t DstTySize) const {
+  assert(!isFloat);
   unsigned SrcTySize = getBitWidth();
   if (SrcTySize > DstTySize)
     return truncate(DstTySize);
@@ -765,6 +1063,7 @@ ConstantRange ConstantRange::zextOrTrunc(uint32_t DstTySize) const {
 }
 
 ConstantRange ConstantRange::sextOrTrunc(uint32_t DstTySize) const {
+  assert(!isFloat);
   unsigned SrcTySize = getBitWidth();
   if (SrcTySize > DstTySize)
     return truncate(DstTySize);
@@ -804,14 +1103,22 @@ ConstantRange ConstantRange::binaryOp(Instruction::BinaryOps BinOp,
     return binaryOr(Other);
   case Instruction::Xor:
     return binaryXor(Other);
-  // Note: floating point operations applied to abstract ranges are just
-  // ideal integer operations with a lossy representation
   case Instruction::FAdd:
-    return add(Other);
+    if (isFloat) // We don't support vector types
+      return fadd(Other);
+    // Fallthrough
   case Instruction::FSub:
-    return sub(Other);
+    if (isFloat) // We don't support vector types
+      return fsub(Other);
+    // Fallthrough
   case Instruction::FMul:
-    return multiply(Other);
+    if (isFloat) // We don't support vector types
+      return fmultiply(Other);
+    // Fallthrough
+  case Instruction::FDiv:
+    if (isFloat) // We don't support vector types
+      return fdivide(Other);
+    // Fallthrough
   default:
     // Conservatively return getFull set.
     return getFull();
@@ -836,7 +1143,45 @@ ConstantRange ConstantRange::overflowingBinaryOp(Instruction::BinaryOps BinOp,
 }
 
 ConstantRange
+ConstantRange::fadd(const ConstantRange &Other) const {
+  assert(isFloat && Other.isFloat);
+  if (isEmptySet() || Other.isEmptySet())
+    return getEmpty();
+
+  // If one of the operands can only be NaN, it propagates.
+  // Even if the other operand is full set.
+  if (isSingleElementFP() && getSingleElementFP()->isNaN())
+    return *this;
+  if (Other.isSingleElementFP() && Other.getSingleElementFP()->isNaN())
+    return Other;
+
+  if (isFullSet() || Other.isFullSet())
+    return getFull();
+
+  // Adding infinities of oposing signs generates NaN
+  APFloat PosInf = APFloat::getInf(LowerFP.getSemantics(), false);
+  APFloat NegInf = APFloat::getInf(LowerFP.getSemantics(), true);
+  bool ResNaN = (contains(PosInf) && Other.contains(NegInf)) ||
+                (contains(NegInf) && Other.contains(PosInf)) ||
+                canBeNaN || Other.canBeNaN;
+
+  if (isUpperWrapped() || Other.isUpperWrapped())
+    return ConstantRange(std::move(NegInf), std::move(PosInf), ResNaN);
+
+  APFloat NewLower = LowerFP;
+  APFloat NewUpper = UpperFP;
+  NewLower.add(Other.LowerFP, APFloat::rmTowardNegative);
+  NewUpper.add(Other.UpperFP, APFloat::rmTowardPositive);
+  // Give up if any boundaries generate NaN
+  if (NewUpper.isNaN() || NewLower.isNaN())
+    return getFull();
+
+  return ConstantRange(std::move(NewLower), std::move(NewUpper), ResNaN);
+}
+
+ConstantRange
 ConstantRange::add(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
   if (isFullSet() || Other.isFullSet())
@@ -860,6 +1205,7 @@ ConstantRange ConstantRange::addWithNoWrap(const ConstantRange &Other,
                                            PreferredRangeType RangeType) const {
   // Calculate the range for "X + Y" which is guaranteed not to wrap(overflow).
   // (X is from this, and Y is from Other)
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
   if (isFullSet() && Other.isFullSet())
@@ -883,7 +1229,45 @@ ConstantRange ConstantRange::addWithNoWrap(const ConstantRange &Other,
 }
 
 ConstantRange
+ConstantRange::fsub(const ConstantRange &Other) const {
+  assert(isFloat && Other.isFloat);
+  if (isEmptySet() || Other.isEmptySet())
+    return getEmpty();
+
+  // If one of the operands can only be NaN, it propagates.
+  // Even if the other operand is full set.
+  if (isSingleElementFP() && getSingleElementFP()->isNaN())
+    return *this;
+  if (Other.isSingleElementFP() && Other.getSingleElementFP()->isNaN())
+    return Other;
+
+  if (isFullSet() || Other.isFullSet())
+    return getFull();
+
+  // Subtracting infinities of the same sign generates NaN
+  APFloat PosInf = APFloat::getInf(LowerFP.getSemantics(), false);
+  APFloat NegInf = APFloat::getInf(LowerFP.getSemantics(), true);
+  bool ResNaN = (contains(PosInf) && Other.contains(PosInf)) ||
+                (contains(NegInf) && Other.contains(NegInf)) ||
+                canBeNaN || Other.canBeNaN;
+
+  if (isUpperWrapped() || Other.isUpperWrapped())
+    return ConstantRange(std::move(NegInf), std::move(PosInf), ResNaN);
+
+  APFloat NewLower = LowerFP;
+  APFloat NewUpper = UpperFP;
+  NewLower.subtract(Other.UpperFP, APFloat::rmTowardNegative);
+  NewUpper.subtract(Other.LowerFP, APFloat::rmTowardPositive);
+  // Give up if any boundaries generate NaN
+  if (NewUpper.isNaN() || NewLower.isNaN())
+    return getFull();
+
+  return ConstantRange(std::move(NewLower), std::move(NewUpper), ResNaN);
+}
+
+ConstantRange
 ConstantRange::sub(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
   if (isFullSet() || Other.isFullSet())
@@ -907,6 +1291,7 @@ ConstantRange ConstantRange::subWithNoWrap(const ConstantRange &Other,
                                            PreferredRangeType RangeType) const {
   // Calculate the range for "X - Y" which is guaranteed not to wrap(overflow).
   // (X is from this, and Y is from Other)
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
   if (isFullSet() && Other.isFullSet())
@@ -933,12 +1318,183 @@ ConstantRange ConstantRange::subWithNoWrap(const ConstantRange &Other,
 }
 
 ConstantRange
+ConstantRange::fdivide(const ConstantRange &Other) const {
+  assert(isFloat && Other.isFloat);
+  if (isEmptySet() || Other.isEmptySet())
+    return getEmpty();
+
+  // If one of the operands can only be NaN, it propagates.
+  // Even if the other operand is full set.
+  if (isSingleElementFP() && getSingleElementFP()->isNaN())
+    return *this;
+  if (Other.isSingleElementFP() && Other.getSingleElementFP()->isNaN())
+    return Other;
+
+  if (isFullSet() || Other.isFullSet())
+    return getFull();
+
+  // Useful constants
+  APFloat PosInf = APFloat::getInf(LowerFP.getSemantics(), false);
+  APFloat NegInf = APFloat::getInf(LowerFP.getSemantics(), true);
+  APFloat PosZero = APFloat::getZero(LowerFP.getSemantics(), false);
+  APFloat NegZero = APFloat::getZero(LowerFP.getSemantics(), true);
+
+  // Dividing Inf/Inf is NaN, as is 0/0
+  auto ContainsInf = [=](const ConstantRange &CR) {
+    return CR.contains(PosInf) || CR.contains(NegInf);
+  };
+  auto ContainsZero = [=](const ConstantRange &CR) {
+    return CR.contains(PosZero) || CR.contains(NegZero);
+  };
+  bool ResNaN = (ContainsInf(*this) && ContainsInf(Other)) ||
+                (ContainsZero(Other) && ContainsZero(*this)) ||
+                canBeNaN || Other.canBeNaN;
+
+  // Division by +/-Zero:
+  // X / 0 == Inf for X > 0, X / -0 == -Inf for X < -0
+  // X / 0 == -Inf for X < -0, X / -0 == Inf for X > 0
+  bool ResPosInf = (Other.contains(PosZero) && (!LowerFP.isNegative() || !UpperFP.isNegative())) ||
+                   (Other.contains(NegZero) && (LowerFP.isNegative() || UpperFP.isNegative()));
+  bool ResNegInf = (Other.contains(PosZero) && (LowerFP.isNegative() || UpperFP.isNegative())) ||
+                   (Other.contains(NegZero) && (!LowerFP.isNegative() || !UpperFP.isNegative()));
+  if (ResPosInf && ResNegInf)
+    return ConstantRange(std::move(NegInf), std::move(PosInf), ResNaN);
+
+  // Division by Inf. Both bounds are Inf except for [-Inf, Inf]
+  if (Other.LowerFP.isInfinity() && Other.UpperFP.isInfinity() &&
+      !(!Other.UpperFP.isNegative() && Other.LowerFP.isNegative())) {
+    // +/-Inf / +/- Inf can only be NaN
+    if (LowerFP.isInfinity() && UpperFP.isInfinity() &&
+        !(!UpperFP.isNegative() && LowerFP.isNegative()))
+      return ConstantRange(APFloat::getNaN(LowerFP.getSemantics()));
+    // 'this' contains other numbers than +/-Inf
+    return ConstantRange(std::move(NegZero), std::move(PosZero), ResNaN);
+  }
+
+  // If upperWrapped ranges have not been handled by now, give up.
+  if (isUpperWrapped() || Other.isUpperWrapped())
+    return ConstantRange(std::move(NegInf), std::move(PosInf), ResNaN);
+
+  APFloat MyBounds[] = {LowerFP, UpperFP};
+  APFloat OtherBounds[] = {Other.LowerFP, Other.UpperFP};
+  APFloat::roundingMode RoundingModes[] = {APFloat::rmTowardNegative, APFloat::rmTowardPositive};
+
+  SmallVector<APFloat, 8> Bounds;
+  for (const auto &MyBound:MyBounds)
+    for (const auto &OtherBound:OtherBounds)
+     for (auto RM:RoundingModes) {
+       APFloat Res = MyBound;
+       Res.divide(OtherBound, RM);
+       if (!Res.isNaN())
+         Bounds.push_back(std::move(Res));
+     }
+  if (ResPosInf)
+    Bounds.push_back(std::move(PosInf));
+  if (ResNegInf)
+    Bounds.push_back(std::move(PosInf));
+  assert(!Bounds.empty());
+  auto CompareMin = [](const APFloat &A, const APFloat &B) {
+    return llvm::minimum(A, B).bitwiseIsEqual(A); };
+  auto CompareMax = [](const APFloat &A, const APFloat &B) {
+    return llvm::maximum(A, B).bitwiseIsEqual(B); };
+  return ConstantRange(*std::min_element(Bounds.begin(), Bounds.end(), CompareMin),
+                       *std::max_element(Bounds.begin(), Bounds.end(), CompareMax), ResNaN);
+}
+
+ConstantRange
+ConstantRange::fmultiply(const ConstantRange &Other) const {
+  assert(isFloat && Other.isFloat);
+  if (isEmptySet() || Other.isEmptySet())
+    return getEmpty();
+
+  // If one of the operands can only be NaN, it propagates.
+  // Even if the other operand is full set.
+  if (isSingleElementFP() && getSingleElementFP()->isNaN())
+    return *this;
+  if (Other.isSingleElementFP() && Other.getSingleElementFP()->isNaN())
+    return Other;
+
+  // Full set includes infinities. Multiplying inf results in +/-inf so just
+  // return another full set
+  if (isFullSet() || Other.isFullSet())
+    return getFull();
+
+  // Useful constants
+  APFloat PosInf = APFloat::getInf(LowerFP.getSemantics(), false);
+  APFloat NegInf = APFloat::getInf(LowerFP.getSemantics(), true);
+  APFloat PosZero = APFloat::getZero(LowerFP.getSemantics(), false);
+  APFloat NegZero = APFloat::getZero(LowerFP.getSemantics(), true);
+
+  // Handle special cases, where multiplying boudnaries doesn't work:
+  // [-Inf, 0] * [-Inf, 0] -- produces [0, Inf] instead of [-0, Inf]
+  // [-Inf, 0] * [-0, Inf] -- produces [-Inf, -0] instead of [-Inf, 0]
+  // [-0, Inf] * [-Inf, 0] -- produces [-Inf, -0] instead of [-Inf, 0]
+  // [-0, Inf] * [-0, Inf] -- produces [0, Inf] instead of [-0, Inf]
+  auto IsNegZeroPosInf = [](const ConstantRange &CR) {
+    return CR.LowerFP.isNegZero() && CR.UpperFP.isInfinity() && !CR.UpperFP.isNegative();
+  };
+  auto IsNegInfPosZero = [](const ConstantRange &CR) {
+    return CR.UpperFP.isPosZero() && CR.LowerFP.isInfinity() && CR.LowerFP.isNegative();
+  };
+  if ((IsNegInfPosZero(*this) && IsNegZeroPosInf(Other)) ||
+      (IsNegZeroPosInf(*this) && IsNegInfPosZero(Other)))
+    return ConstantRange(std::move(NegInf), std::move(PosZero), true);
+  if ((IsNegZeroPosInf(*this) && IsNegZeroPosInf(Other)) ||
+      (IsNegInfPosZero(*this) && IsNegInfPosZero(Other)))
+    return ConstantRange(std::move(NegZero), std::move(PosInf), true);
+
+  // Multiplying any zero by any inf produces NaN
+  auto ContainsInf = [=](const ConstantRange &CR) {
+    return CR.contains(PosInf) || CR.contains(NegInf);
+  };
+  auto ContainsZero = [=](const ConstantRange &CR) {
+    return CR.contains(PosZero) || CR.contains(NegZero);
+  };
+  bool ResNaN = (ContainsZero(*this) && ContainsInf(Other)) ||
+                (ContainsZero(Other) && ContainsInf(*this)) ||
+                canBeNaN || Other.canBeNaN;
+
+  // Multiplication by +/-Zero: Inf * 0 is NaN, any other value * 0 is +/-0
+  // This conservatively includes both zeros.
+  if ((LowerFP.isZero() && UpperFP.isZero()) ||
+      (Other.LowerFP.isZero() && Other.UpperFP.isZero()))
+      return ConstantRange(std::move(NegZero), std::move(PosZero), ResNaN);
+
+  // If upperWrapped ranges have not been handled by now, give up.
+  if (isUpperWrapped() || Other.isUpperWrapped())
+    return ConstantRange(std::move(NegInf), std::move(PosInf), ResNaN);
+
+  APFloat MyBounds[] = {LowerFP, UpperFP};
+  APFloat OtherBounds[] = {Other.LowerFP, Other.UpperFP};
+  APFloat::roundingMode RoundingModes[] = {APFloat::rmTowardNegative, APFloat::rmTowardPositive};
+
+  SmallVector<APFloat, 8> Bounds;
+  for (const auto &MyBound:MyBounds)
+    for (const auto &OtherBound:OtherBounds)
+     for (auto RM:RoundingModes) {
+       APFloat Res = MyBound;
+       Res.multiply(OtherBound, RM);
+       if (!Res.isNaN())
+         Bounds.push_back(std::move(Res));
+     }
+  assert(!Bounds.empty());
+
+  auto CompareMin = [](const APFloat &A, const APFloat &B) {
+    return llvm::minimum(A, B).bitwiseIsEqual(A); };
+  auto CompareMax = [](const APFloat &A, const APFloat &B) {
+    return llvm::maximum(A, B).bitwiseIsEqual(B); };
+  return ConstantRange(*std::min_element(Bounds.begin(), Bounds.end(), CompareMin),
+                       *std::max_element(Bounds.begin(), Bounds.end(), CompareMax), ResNaN);
+}
+
+ConstantRange
 ConstantRange::multiply(const ConstantRange &Other) const {
   // TODO: If either operand is a single element and the multiply is known to
   // be non-wrapping, round the result min and max value to the appropriate
   // multiple of that element. If wrapping is possible, at least adjust the
   // range according to the greatest power-of-two factor of the single element.
 
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -987,9 +1543,59 @@ ConstantRange::multiply(const ConstantRange &Other) const {
 }
 
 ConstantRange
+ConstantRange::fmax(const ConstantRange &Other) const {
+  assert(isFloat);
+  if (isEmptySet() || Other.isEmptySet())
+    return getEmpty();
+  // X fmax Y is: range(fmax(X_smin, Y_smin), fmax(X_smax, Y_smax))
+  if (!isUpperWrapped() && !Other.isUpperWrapped())
+    return ConstantRange(maximum(LowerFP, Other.LowerFP),
+                         maximum(UpperFP, Other.UpperFP),
+                         canBeNaN || Other.canBeNaN);
+
+  if (!isUpperWrapped() && Other.isUpperWrapped())
+    return Other.fmax(*this);
+
+  // Handle NaN explicitly
+  if (Other.LowerFP.isNaN())
+    return ConstantRange(LowerFP, UpperFP, true);
+  // If a range is upper wrapped it includes -Inf.
+  // This results in all numbers from the other range to appear in the results.
+  if (isUpperWrapped() && !Other.isUpperWrapped())
+    return ConstantRange(Other.LowerFP, APFloat::getInf(UpperFP.getSemantics()),
+                         canBeNaN || Other.canBeNaN);
+  return unionWith(Other);
+}
+
+ConstantRange
+ConstantRange::fmin(const ConstantRange &Other) const {
+  assert(isFloat && Other.isFloat);
+  if (isEmptySet() || Other.isEmptySet())
+    return getEmpty();
+  // X fmin Y is: range(fmin(X_smin, Y_smin), fmin(X_smax, Y_smax))
+  if (!isUpperWrapped() && !Other.isUpperWrapped())
+    return ConstantRange(minimum(LowerFP, Other.LowerFP),
+                         minimum(UpperFP, Other.UpperFP),
+                         canBeNaN || Other.canBeNaN);
+  if (!isUpperWrapped() && Other.isUpperWrapped())
+    return Other.fmin(*this);
+
+  // Handle NaN explicitly
+  if (Other.LowerFP.isNaN())
+    return ConstantRange(LowerFP, UpperFP, true);
+  // If a range is upper wrapped it includes Inf.
+  // This results in all numbers from the other range to appear in the results.
+  if (isUpperWrapped() && !Other.isUpperWrapped())
+    return ConstantRange(APFloat::getInf(UpperFP.getSemantics(), true),
+                         Other.UpperFP, canBeNaN || Other.canBeNaN);
+  return unionWith(Other);
+}
+
+ConstantRange
 ConstantRange::smax(const ConstantRange &Other) const {
   // X smax Y is: range(smax(X_smin, Y_smin),
   //                    smax(X_smax, Y_smax))
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
   APInt NewL = APIntOps::smax(getSignedMin(), Other.getSignedMin());
@@ -1001,6 +1607,7 @@ ConstantRange
 ConstantRange::umax(const ConstantRange &Other) const {
   // X umax Y is: range(umax(X_umin, Y_umin),
   //                    umax(X_umax, Y_umax))
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
   APInt NewL = APIntOps::umax(getUnsignedMin(), Other.getUnsignedMin());
@@ -1012,6 +1619,7 @@ ConstantRange
 ConstantRange::smin(const ConstantRange &Other) const {
   // X smin Y is: range(smin(X_smin, Y_smin),
   //                    smin(X_smax, Y_smax))
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
   APInt NewL = APIntOps::smin(getSignedMin(), Other.getSignedMin());
@@ -1023,6 +1631,7 @@ ConstantRange
 ConstantRange::umin(const ConstantRange &Other) const {
   // X umin Y is: range(umin(X_umin, Y_umin),
   //                    umin(X_umax, Y_umax))
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
   APInt NewL = APIntOps::umin(getUnsignedMin(), Other.getUnsignedMin());
@@ -1032,6 +1641,7 @@ ConstantRange::umin(const ConstantRange &Other) const {
 
 ConstantRange
 ConstantRange::udiv(const ConstantRange &RHS) const {
+  assert(!isFloat);
   if (isEmptySet() || RHS.isEmptySet() || RHS.getUnsignedMax().isNullValue())
     return getEmpty();
 
@@ -1055,6 +1665,7 @@ ConstantRange ConstantRange::sdiv(const ConstantRange &RHS) const {
   // We split up the LHS and RHS into positive and negative components
   // and then also compute the positive and negative components of the result
   // separately by combining division results with the appropriate signs.
+  assert(!isFloat);
   APInt Zero = APInt::getNullValue(getBitWidth());
   APInt SignedMin = APInt::getSignedMinValue(getBitWidth());
   ConstantRange PosFilter(APInt(getBitWidth(), 1), SignedMin);
@@ -1137,6 +1748,7 @@ ConstantRange ConstantRange::sdiv(const ConstantRange &RHS) const {
 }
 
 ConstantRange ConstantRange::urem(const ConstantRange &RHS) const {
+  assert(!isFloat);
   if (isEmptySet() || RHS.isEmptySet() || RHS.getUnsignedMax().isNullValue())
     return getEmpty();
 
@@ -1150,6 +1762,7 @@ ConstantRange ConstantRange::urem(const ConstantRange &RHS) const {
 }
 
 ConstantRange ConstantRange::srem(const ConstantRange &RHS) const {
+  assert(!isFloat);
   if (isEmptySet() || RHS.isEmptySet())
     return getEmpty();
 
@@ -1193,6 +1806,7 @@ ConstantRange ConstantRange::srem(const ConstantRange &RHS) const {
 
 ConstantRange
 ConstantRange::binaryAnd(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1208,6 +1822,7 @@ ConstantRange::binaryAnd(const ConstantRange &Other) const {
 
 ConstantRange
 ConstantRange::binaryOr(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1235,6 +1850,7 @@ ConstantRange ConstantRange::binaryXor(const ConstantRange &Other) const {
 
 ConstantRange
 ConstantRange::shl(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1260,6 +1876,7 @@ ConstantRange::shl(const ConstantRange &Other) const {
 
 ConstantRange
 ConstantRange::lshr(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1270,6 +1887,7 @@ ConstantRange::lshr(const ConstantRange &Other) const {
 
 ConstantRange
 ConstantRange::ashr(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1320,6 +1938,7 @@ ConstantRange::ashr(const ConstantRange &Other) const {
 }
 
 ConstantRange ConstantRange::uadd_sat(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1329,6 +1948,7 @@ ConstantRange ConstantRange::uadd_sat(const ConstantRange &Other) const {
 }
 
 ConstantRange ConstantRange::sadd_sat(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1338,6 +1958,7 @@ ConstantRange ConstantRange::sadd_sat(const ConstantRange &Other) const {
 }
 
 ConstantRange ConstantRange::usub_sat(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1347,6 +1968,7 @@ ConstantRange ConstantRange::usub_sat(const ConstantRange &Other) const {
 }
 
 ConstantRange ConstantRange::ssub_sat(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1356,6 +1978,7 @@ ConstantRange ConstantRange::ssub_sat(const ConstantRange &Other) const {
 }
 
 ConstantRange ConstantRange::umul_sat(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1365,6 +1988,7 @@ ConstantRange ConstantRange::umul_sat(const ConstantRange &Other) const {
 }
 
 ConstantRange ConstantRange::smul_sat(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1391,6 +2015,7 @@ ConstantRange ConstantRange::smul_sat(const ConstantRange &Other) const {
 }
 
 ConstantRange ConstantRange::ushl_sat(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1400,6 +2025,7 @@ ConstantRange ConstantRange::ushl_sat(const ConstantRange &Other) const {
 }
 
 ConstantRange ConstantRange::sshl_sat(const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return getEmpty();
 
@@ -1415,10 +2041,31 @@ ConstantRange ConstantRange::inverse() const {
     return getEmpty();
   if (isEmptySet())
     return getFull();
-  return ConstantRange(Upper, Lower);
+
+  if (!isFloat)
+    return ConstantRange(Upper, Lower);
+
+  // Handle 'almost full' range
+  if (LowerFP.isNegative() && LowerFP.isInfinity() && !UpperFP.isNegative() && UpperFP.isInfinity())
+    return APFloat::getNaN(LowerFP.getSemantics());
+
+  APFloat NewLower = UpperFP;
+  if ((NewLower.isInfinity() && !NewLower.isNegative()) || NewLower.isNaN())
+    NewLower = APFloat::getInf(LowerFP.getSemantics(), true);
+  else
+    NewLower = ZeroNext(NewLower, false);
+
+  APFloat NewUpper = LowerFP;
+  if ((NewUpper.isInfinity() && NewUpper.isNegative()) || NewUpper.isNaN())
+    NewUpper = APFloat::getInf(UpperFP.getSemantics(), false);
+  else
+    NewUpper = ZeroNext(NewUpper, true);
+
+  return ConstantRange(::std::move(NewLower), ::std::move(NewUpper), !canBeNaN);
 }
 
 ConstantRange ConstantRange::abs() const {
+  assert(!isFloat);
   if (isEmptySet())
     return getEmpty();
 
@@ -1451,6 +2098,7 @@ ConstantRange ConstantRange::abs() const {
 
 ConstantRange::OverflowResult ConstantRange::unsignedAddMayOverflow(
     const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return OverflowResult::MayOverflow;
 
@@ -1467,6 +2115,7 @@ ConstantRange::OverflowResult ConstantRange::unsignedAddMayOverflow(
 
 ConstantRange::OverflowResult ConstantRange::signedAddMayOverflow(
     const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return OverflowResult::MayOverflow;
 
@@ -1497,6 +2146,7 @@ ConstantRange::OverflowResult ConstantRange::signedAddMayOverflow(
 
 ConstantRange::OverflowResult ConstantRange::unsignedSubMayOverflow(
     const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return OverflowResult::MayOverflow;
 
@@ -1513,6 +2163,7 @@ ConstantRange::OverflowResult ConstantRange::unsignedSubMayOverflow(
 
 ConstantRange::OverflowResult ConstantRange::signedSubMayOverflow(
     const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return OverflowResult::MayOverflow;
 
@@ -1543,6 +2194,7 @@ ConstantRange::OverflowResult ConstantRange::signedSubMayOverflow(
 
 ConstantRange::OverflowResult ConstantRange::unsignedMulMayOverflow(
     const ConstantRange &Other) const {
+  assert(!isFloat);
   if (isEmptySet() || Other.isEmptySet())
     return OverflowResult::MayOverflow;
 
@@ -1563,11 +2215,21 @@ ConstantRange::OverflowResult ConstantRange::unsignedMulMayOverflow(
 
 void ConstantRange::print(raw_ostream &OS) const {
   if (isFullSet())
-    OS << "full-set";
+    OS << (isFloat ? "full-set-fp" : "full-set");
   else if (isEmptySet())
-    OS << "empty-set";
+    OS << (isFloat ? "empty-set-fp" : "empty-set");
   else
-    OS << "[" << Lower << "," << Upper << ")";
+    if (isFloat) {
+      SmallVector<char, 16> Lo, Up;
+      LowerFP.toString(Lo);
+      UpperFP.toString(Up);
+      OS << "[" << Lo << ", " << Up << "]";
+      if (LowerFP.bitwiseIsEqual(UpperFP))
+        OS << "*";
+      if (canBeNaN)
+        OS << " or NaN";
+    } else
+      OS << "[" << Lower << "," << Upper << ")";
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
