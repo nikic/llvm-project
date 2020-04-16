@@ -101,6 +101,7 @@ ConstantRange ConstantRange::fromKnownBits(const KnownBits &Known,
 
 ConstantRange ConstantRange::makeAllowedFCmpRegion(CmpInst::Predicate Pred,
                                                    const ConstantRange &CR) {
+//  dbgs() << "Make allowed FCmp region '" << CmpInst::getPredicateName(Pred) << "' " << CR << "\n";
   assert(CR.isFloat);
   if (CR.isEmptySet())
     return CR;
@@ -1104,8 +1105,11 @@ ConstantRange ConstantRange::binaryOp(Instruction::BinaryOps BinOp,
   case Instruction::Xor:
     return binaryXor(Other);
   case Instruction::FAdd:
-    if (isFloat) // We don't support vector types
-      return fadd(Other);
+    if (isFloat) { // We don't support vector types
+      auto ret = fadd(Other);
+//      dbgs() << "FADD: " << *this << " + " << Other << " = " << ret << "\n";
+      return ret;
+    }
     // Fallthrough
   case Instruction::FSub:
     if (isFloat) // We don't support vector types

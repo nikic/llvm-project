@@ -30,14 +30,17 @@ TEST_F(ValueLatticeTest, ValueLatticeGetters) {
   auto *C1 = ConstantInt::get(I32Ty, 1);
 
   EXPECT_TRUE(ValueLatticeElement::get(C1).isConstantRange());
+  EXPECT_TRUE(ValueLatticeElement::getNot(C1).isConstantRange());
   EXPECT_TRUE(
       ValueLatticeElement::getRange({C1->getValue()}).isConstantRange());
   EXPECT_TRUE(ValueLatticeElement::getOverdefined().isOverdefined());
 
   auto FloatTy = Type::getFloatTy(Context);
-  auto *C2 = ConstantFP::get(FloatTy, 1.1);
-  EXPECT_TRUE(ValueLatticeElement::get(C2).isConstant());
-  EXPECT_TRUE(ValueLatticeElement::getNot(C2).isNotConstant());
+  auto *C2 = dyn_cast<ConstantFP>(ConstantFP::get(FloatTy, 1.1));
+  EXPECT_TRUE(ValueLatticeElement::get(C2).isConstantRange());
+  EXPECT_TRUE(ValueLatticeElement::getNot(C2).isConstantRange());
+  EXPECT_TRUE(
+      ValueLatticeElement::getRange({C2->getValueAPF()}).isConstantRange());
 }
 
 TEST_F(ValueLatticeTest, MarkConstantRange) {
@@ -162,10 +165,12 @@ TEST_F(ValueLatticeTest, getCompareFloat) {
   EXPECT_TRUE(
       LV1.mergeIn(ValueLatticeElement::get(ConstantFP::get(FloatTy, 2.2))));
   EXPECT_EQ(LV1.getCompare(CmpInst::FCMP_OEQ, I1Ty, LV2), nullptr);
-  EXPECT_EQ(LV1.getCompare(CmpInst::FCMP_OGE, I1Ty, LV2), nullptr);
+  // [1.0, 2.2] is always >= 1.0
+  EXPECT_TRUE(LV1.getCompare(CmpInst::FCMP_OGE, I1Ty, LV2)->isOneValue());
   EXPECT_EQ(LV1.getCompare(CmpInst::FCMP_OLE, I1Ty, LV2), nullptr);
   EXPECT_EQ(LV1.getCompare(CmpInst::FCMP_ONE, I1Ty, LV2), nullptr);
-  EXPECT_EQ(LV1.getCompare(CmpInst::FCMP_OLT, I1Ty, LV2), nullptr);
+  // [1.0, 2.2] is never < 1.0
+  EXPECT_TRUE(LV1.getCompare(CmpInst::FCMP_OLT, I1Ty, LV2)->isZeroValue());
   EXPECT_EQ(LV1.getCompare(CmpInst::FCMP_OGT, I1Ty, LV2), nullptr);
 }
 

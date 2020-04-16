@@ -69,8 +69,9 @@ AnalysisKey LazyValueAnalysis::Key;
 /// reachable code.
 static bool hasSingleValue(const ValueLatticeElement &Val) {
   if (Val.isConstantRange() &&
-      Val.getConstantRange().isSingleElement())
-    // Integer constants are single element ranges
+      (Val.getConstantRange().isSingleElement() ||
+       Val.getConstantRange().isSingleElementFP()))
+    // Integer and FP constants are single element ranges
     return true;
   if (Val.isConstant())
     // Non integer constants
@@ -640,12 +641,12 @@ bool LazyValueInfoImpl::solveBlockValueImpl(ValueLatticeElement &Res,
     Res = ValueLatticeElement::getNot(ConstantPointerNull::get(PT));
     return true;
   }
+  if (BinaryOperator *BO = dyn_cast<BinaryOperator>(BBI))
+    return solveBlockValueBinaryOp(Res, BO, BB);
+
   if (BBI->getType()->isIntegerTy()) {
     if (auto *CI = dyn_cast<CastInst>(BBI))
       return solveBlockValueCast(Res, CI, BB);
-
-    if (BinaryOperator *BO = dyn_cast<BinaryOperator>(BBI))
-      return solveBlockValueBinaryOp(Res, BO, BB);
 
     if (auto *EVI = dyn_cast<ExtractValueInst>(BBI))
       return solveBlockValueExtractValue(Res, EVI, BB);
@@ -1709,6 +1710,8 @@ Constant *LazyValueInfo::getConstant(Value *V, BasicBlock *BB,
     const ConstantRange &CR = Result.getConstantRange();
     if (const APInt *SingleVal = CR.getSingleElement())
       return ConstantInt::get(V->getContext(), *SingleVal);
+    if (const APFloat *SingleVal = CR.getSingleElementFP())
+      return ConstantFP::get(V->getContext(), *SingleVal);
   }
   return nullptr;
 }
@@ -1747,6 +1750,8 @@ Constant *LazyValueInfo::getConstantOnEdge(Value *V, BasicBlock *FromBB,
     const ConstantRange &CR = Result.getConstantRange();
     if (const APInt *SingleVal = CR.getSingleElement())
       return ConstantInt::get(V->getContext(), *SingleVal);
+    if (const APFloat *SingleVal = CR.getSingleElementFP())
+      return ConstantFP::get(V->getContext(), *SingleVal);
   }
   return nullptr;
 }
@@ -1766,8 +1771,9 @@ ConstantRange LazyValueInfo::getConstantRangeOnEdge(Value *V,
     return Result.getConstantRange();
   // We represent ConstantInt constants as constant ranges but other kinds
   // of integer constants, i.e. ConstantExpr will be tagged as constants
-  assert(!(Result.isConstant() && isa<ConstantInt>(Result.getConstant())) &&
-         "ConstantInt value must be represented as constantrange");
+  assert(!(Result.isConstant() && isa<ConstantInt>(Result.getConstant()) &&
+           isa<ConstantFP>(Result.getConstant())  ) &&
+         "ConstantInt and ConstantFP values must be represented as constantrange");
   return ConstantRange::getFull(Width);
 }
 
@@ -1785,7 +1791,8 @@ getPredicateResult(unsigned Pred, Constant *C, const ValueLatticeElement &Val,
 
   if (Val.isConstantRange()) {
     ConstantInt *CI = dyn_cast<ConstantInt>(C);
-    if (!CI) return LazyValueInfo::Unknown;
+    ConstantFP *CFP = dyn_cast<ConstantFP>(C);
+    if (!CI && !CFP) return LazyValueInfo::Unknown;
 
     const ConstantRange &CR = Val.getConstantRange();
     if (Pred == ICmpInst::ICMP_EQ) {
@@ -1802,12 +1809,26 @@ getPredicateResult(unsigned Pred, Constant *C, const ValueLatticeElement &Val,
         return LazyValueInfo::False;
     } else {
       // Handle more complex predicates.
-      ConstantRange TrueValues = ConstantRange::makeExactICmpRegion(
-          (ICmpInst::Predicate)Pred, CI->getValue());
-      if (TrueValues.contains(CR))
-        return LazyValueInfo::True;
-      if (TrueValues.inverse().contains(CR))
-        return LazyValueInfo::False;
+      if (CI) {
+        ConstantRange TrueValues = ConstantRange::makeExactICmpRegion(
+            (ICmpInst::Predicate)Pred, CI->getValue());
+        if (TrueValues.contains(CR))
+          return LazyValueInfo::True;
+        if (TrueValues.inverse().contains(CR))
+          return LazyValueInfo::False;
+      }
+      // Handle floating point prdicates
+      if (CFP) {
+	ConstantRange TrueValues = ConstantRange::makeExactFCmpRegion(
+            (FCmpInst::Predicate)Pred, CFP->getValueAPF());
+	if (TrueValues.contains(CR))
+	  return LazyValueInfo::True;
+	ConstantRange FalseValues = ConstantRange::makeExactFCmpRegion(
+            FCmpInst::getInversePredicate((FCmpInst::Predicate)Pred),
+            CFP->getValueAPF());
+	if (FalseValues.contains(CR))
+	  return LazyValueInfo::False;
+      }
     }
     return LazyValueInfo::Unknown;
   }

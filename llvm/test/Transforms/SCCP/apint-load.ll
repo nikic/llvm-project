@@ -4,7 +4,7 @@
 ; RUN: opt < %s -ipsccp -S | not grep fdiv
 
 @X = constant i212 42
-@Y = constant [2 x { i212, float }] [ { i212, float } { i212 12, float 1.0 }, 
+@Y = constant [2 x { i212, float }] [ { i212, float } { i212 16, float 1.0 },
                                      { i212, float } { i212 37, float 0x3FF3B2FEC0000000 } ]
 define i212 @test1() {
 	%B = load i212, i212* @X
@@ -27,7 +27,7 @@ define float @All()
 {
    %A = call float @test2()
    %B = call i212 @test3()
-   %C = mul i212 %B, -1234567
+   %C = mul i212 %B, -16
    %D = sitofp i212 %C to float
    %E = fdiv float %A, %D
    ret float %E

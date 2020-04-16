@@ -81,7 +81,9 @@ namespace {
 // transition to ValueLatticeElement.
 bool isConstant(const ValueLatticeElement &LV) {
   return LV.isConstant() ||
-         (LV.isConstantRange() && LV.getConstantRange().isSingleElement());
+         (LV.isConstantRange() &&
+          (LV.getConstantRange().isSingleElement() ||
+           LV.getConstantRange().isSingleElementFP()));
 }
 
 // Helper to check if \p LV is either overdefined or a constant range with more
@@ -90,7 +92,8 @@ bool isConstant(const ValueLatticeElement &LV) {
 // transition to ValueLatticeElement.
 bool isOverdefined(const ValueLatticeElement &LV) {
   return LV.isOverdefined() ||
-         (LV.isConstantRange() && !LV.getConstantRange().isSingleElement());
+         (LV.isConstantRange() && !LV.getConstantRange().isSingleElement() &&
+          !LV.getConstantRange().isSingleElementFP());
 }
 
 //===----------------------------------------------------------------------===//
@@ -342,6 +345,8 @@ public:
       auto &CR = LV.getConstantRange();
       if (CR.getSingleElement())
         return ConstantInt::get(Ctx, *CR.getSingleElement());
+      if (CR.getSingleElementFP())
+        return ConstantFP::get(Ctx, *CR.getSingleElementFP());
     }
     return nullptr;
   }
@@ -814,6 +819,13 @@ void SCCPSolver::visitCastInst(CastInst &I) {
     ConstantRange Res =
         OpRange.castOp(I.getOpcode(), DL.getTypeSizeInBits(DestTy));
     mergeInValue(LV, &I, ValueLatticeElement::getRange(Res));
+  } else if (OpSt.isConstantRange() && I.getDestTy()->isFloatingPointTy()) {
+    auto &LV = getValueState(&I);
+    ConstantRange OpRange = OpSt.getConstantRange();
+    Type *DestTy = I.getDestTy();
+    ConstantRange Res =
+        OpRange.castOp(I.getOpcode(), DestTy->getFltSemantics());
+    mergeInValue(LV, &I, ValueLatticeElement::getRange(Res));
   } else if (!OpSt.isUnknownOrUndef())
     markOverdefined(&I);
 }
@@ -979,13 +991,16 @@ void SCCPSolver::visitBinaryOperator(Instruction &I) {
     }
   }
 
-  // Only use ranges for binary operators on integers.
-  if (!I.getType()->isIntegerTy())
+  auto IType = I.getType();
+  // Only use ranges for binary operators on integers and floating point
+  if (!IType->isIntegerTy() && !IType->isFloatingPointTy())
     return markOverdefined(&I);
 
   // Try to simplify to a constant range.
-  ConstantRange A = ConstantRange::getFull(I.getType()->getScalarSizeInBits());
-  ConstantRange B = ConstantRange::getFull(I.getType()->getScalarSizeInBits());
+  ConstantRange A = IType->isFloatingPointTy() ?
+      ConstantRange::getFull(IType->getFltSemantics()):
+      ConstantRange::getFull(IType->getScalarSizeInBits());
+  ConstantRange B = A;
   if (V1State.isConstantRange())
     A = V1State.getConstantRange();
   if (V2State.isConstantRange())
@@ -1244,7 +1259,10 @@ void SCCPSolver::handleCallResult(CallSite CS) {
       }
 
       // Everything below relies on the condition being a comparison.
-      auto *Cmp = dyn_cast<CmpInst>(PBranch->Condition);
+      // FIXME: This is restricted to integer comparisons.
+      //        FP comaprisons introduce a rather large range first,
+      //        ehich then doesn't get reduced.
+      auto *Cmp = dyn_cast<ICmpInst>(PBranch->Condition);
       if (!Cmp) {
         mergeInValue(ValueState[I], I, getValueState(CopyOf));
         return;
@@ -1276,20 +1294,24 @@ void SCCPSolver::handleCallResult(CallSite CS) {
       ValueLatticeElement &IV = ValueState[I];
       ValueLatticeElement OriginalVal = getValueState(CopyOf);
       if (CondVal.isConstantRange() || OriginalVal.isConstantRange()) {
-        auto NewCR =
-            ConstantRange::getFull(DL.getTypeSizeInBits(CopyOf->getType()));
+        auto CoType = CopyOf->getType();
+        auto NewCR = CoType->isFloatingPointTy() ?
+            ConstantRange::getFull(CoType->getFltSemantics()):
+            ConstantRange::getFull(DL.getTypeSizeInBits(CoType));
+
+        auto OriginalCR = OriginalVal.isConstantRange()
+                              ? OriginalVal.getConstantRange() : NewCR;
 
         // Get the range imposed by the condition.
-        if (CondVal.isConstantRange())
-          NewCR = ConstantRange::makeAllowedICmpRegion(
-              Pred, CondVal.getConstantRange());
+        if (CondVal.isConstantRange()) {
+           ConstantRange CR = CondVal.getConstantRange();
+           NewCR = CR.getIsFloat() ?
+              ConstantRange::makeAllowedFCmpRegion(Pred, CR):
+              ConstantRange::makeAllowedICmpRegion(Pred, CR);
+	}
 
         // Combine range info for the original value with the new range from the
         // condition.
-        auto OriginalCR = OriginalVal.isConstantRange()
-                              ? OriginalVal.getConstantRange()
-                              : ConstantRange::getFull(
-                                    DL.getTypeSizeInBits(CopyOf->getType()));
         NewCR = NewCR.intersectWith(OriginalCR);
 
         addAdditionalUser(CmpOp1, I);

@@ -206,7 +206,7 @@ define i1 @test4(i32* %p, i32 %qval, i1 %unknown) {
 ; CHECK-NEXT:    [[MIN:%.*]] = select i1 [[UNKNOWN:%.*]], double 1.000000e+00, double 0.000000e+00
 ; CHECK-NEXT:    br label [[NEXT2:%.*]]
 ; CHECK:       next2:
-; CHECK-NEXT:    [[RES:%.*]] = fcmp oeq double [[MIN]], 3.000000e+02
+; CHECK-NEXT:    [[RES:%.*]] = fcmp oeq double [[MIN]], 5.000000e-01
 ; CHECK-NEXT:    ret i1 [[RES]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret i1 true
@@ -220,7 +220,7 @@ next:
   ;; TODO: This pointless branch shouldn't be neccessary
   br label %next2
 next2:
-  %res = fcmp oeq double %min, 300.0
+  %res = fcmp oeq double %min, 0.5
   ret i1 %res
 
 exit:

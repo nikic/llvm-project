@@ -20,14 +20,26 @@ raw_ostream &operator<<(raw_ostream &OS, const ValueLatticeElement &Val) {
   if (Val.isNotConstant())
     return OS << "notconstant<" << *Val.getNotConstant() << ">";
 
-  if (Val.isConstantRangeIncludingUndef())
-    return OS << "constantrange incl. undef <"
-              << Val.getConstantRange(true).getLower() << ", "
-              << Val.getConstantRange(true).getUpper() << ">";
+  if (Val.isConstantRangeIncludingUndef()) {
+    const ConstantRange &CR = Val.getConstantRange(true);
+    if (CR.getIsFloat()) {
+      return OS << "constantrange-fp incl. undef <" << CR << ">";
+    } else {
+      return OS << "constantrange incl. undef <" << CR.getLower() << ", "
+                                                 << CR.getUpper() << ">";
+    }
+  }
 
-  if (Val.isConstantRange())
-    return OS << "constantrange<" << Val.getConstantRange().getLower() << ", "
-              << Val.getConstantRange().getUpper() << ">";
+  if (Val.isConstantRange()) {
+    const ConstantRange &CR = Val.getConstantRange(true);
+    if (CR.getIsFloat()) {
+      return OS << "constantrange-fp<" << CR << ">";
+    } else {
+      return OS << "constantrange<" << CR.getLower() << ", "
+                                    << CR.getUpper() << ">";
+    }
+  }
+
   return OS << "constant<" << *Val.getConstant() << ">";
 }
 } // end namespace llvm

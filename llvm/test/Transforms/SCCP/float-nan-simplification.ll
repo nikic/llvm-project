@@ -2,10 +2,12 @@
 ; RUN: opt -sccp -S %s | FileCheck %s
 
 ; When marking the edge from bb2 -> exit as executable first, %p will be NaN
-; first and %v.1 will simplify to NaN. But when marking bb1 -> exit executable,
-; %p will we overdefined and %v.1 will be simplified to 0.0. Make sure we go to
-; overdefined, instead of crashing.
-; TODO: Can we do better, i.e. choose the 'conservative' 0.0 initially?
+; first and %v.1 will simplify to NaN. Note that this will be a positive NaN.
+; Operations with two NaNs return the first one, so the returned value is
+; positive NaN. But when marking bb1 -> exit executable, %p will we
+; overdefined (full set) and %v.1 will be simplified to 0.0 or NaN.
+; This will be combined with neg NaN, which is the returend.
+; TODO: Can we do better, i.e. track pos and neg NaN separately?
 define float @test1(float %a, i1 %bc) {
 ; CHECK-LABEL: @test1(
 ; CHECK-NEXT:  entry:
@@ -17,8 +19,7 @@ define float @test1(float %a, i1 %bc) {
 ; CHECK:       exit:
 ; CHECK-NEXT:    [[P:%.*]] = phi float [ [[A:%.*]], [[BB1]] ], [ 0x7FF8000000000000, [[BB2]] ]
 ; CHECK-NEXT:    [[V_1:%.*]] = fmul float [[P]], 0.000000e+00
-; CHECK-NEXT:    [[V_2:%.*]] = fadd float [[V_1]], 0xFFF8000000000000
-; CHECK-NEXT:    ret float [[V_2]]
+; CHECK-NEXT:    ret float 0x7FF8000000000000
 ;
 entry:
   br i1 %bc, label %bb1, label %bb2
