@@ -114,6 +114,10 @@ public:
     *this = Other;
   }
 
+  ValueLatticeElement(ValueLatticeElement &&Other) : Tag(unknown) {
+    *this = std::move(Other);
+  }
+
   /// Custom assignment operator, to ensure Range gets initialized when
   /// assigning a constant range lattice element.
   ValueLatticeElement &operator=(const ValueLatticeElement &Other) {
@@ -121,12 +125,6 @@ public:
     // destroy Range.
     if (isConstantRange() && !Other.isConstantRange())
       Range.~ConstantRange();
-
-    // If we change the state of this from a valid ConstVal to another a state
-    // without a valid ConstVal, zero the pointer.
-    if ((isConstant() || isNotConstant()) && !Other.isConstant() &&
-        !Other.isNotConstant())
-      ConstVal = nullptr;
 
     switch (Other.Tag) {
     case constantrange:
@@ -147,6 +145,30 @@ public:
       break;
     }
     Tag = Other.Tag;
+    return *this;
+  }
+
+  ValueLatticeElement &operator=(ValueLatticeElement &&Other) {
+    if (isConstantRange())
+      Range.~ConstantRange();
+
+    switch (Other.Tag) {
+    case constantrange:
+    case constantrange_including_undef:
+      new (&Range) ConstantRange(std::move(Other.Range));
+      NumRangeExtensions = Other.NumRangeExtensions;
+      break;
+    case constant:
+    case notconstant:
+      ConstVal = Other.ConstVal;
+      break;
+    case overdefined:
+    case unknown:
+    case undef:
+      break;
+    }
+    Tag = Other.Tag;
+    Other.Tag = unknown;
     return *this;
   }
 

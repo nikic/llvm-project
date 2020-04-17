@@ -184,7 +184,7 @@ namespace {
 
   public:
     void insertResult(Value *Val, BasicBlock *BB,
-                      const ValueLatticeElement &Result) {
+                      ValueLatticeElement Result) {
       SeenBlocks.insert(BB);
 
       // Insert over-defined values into their own cache to reduce memory
@@ -198,7 +198,7 @@ namespace {
           It = ValueCache.find_as(Val);
           assert(It != ValueCache.end() && "Val was just added to the map!");
         }
-        It->second->BlockVals[BB] = Result;
+        It->second->BlockVals[BB] = std::move(Result);
       }
     }
 
@@ -600,7 +600,7 @@ bool LazyValueInfoImpl::solveBlockValue(Value *Val, BasicBlock *BB) {
     // Work pushed, will revisit
     return false;
 
-  TheCache.insertResult(Val, BB, *Res);
+  TheCache.insertResult(Val, BB, *std::move(Res));
   return true;
 }
 
@@ -836,7 +836,7 @@ Optional<ValueLatticeElement> LazyValueInfoImpl::solveBlockValueSelect(
       getBlockValue(SI->getTrueValue(), BB);
   if (!OptTrueVal)
     return None;
-  ValueLatticeElement TrueVal = *OptTrueVal;
+  ValueLatticeElement TrueVal = *std::move(OptTrueVal);
 
   // If we hit overdefined, don't ask more queries.  We want to avoid poisoning
   // extra slots in the table if we can.
@@ -847,7 +847,7 @@ Optional<ValueLatticeElement> LazyValueInfoImpl::solveBlockValueSelect(
       getBlockValue(SI->getFalseValue(), BB);
   if (!OptFalseVal)
     return None;
-  ValueLatticeElement FalseVal = *OptFalseVal;
+  ValueLatticeElement FalseVal = *std::move(OptFalseVal);
 
   // If we hit overdefined, don't ask more queries.  We want to avoid poisoning
   // extra slots in the table if we can.
@@ -967,7 +967,7 @@ Optional<ConstantRange> LazyValueInfoImpl::getRangeForOperand(unsigned Op,
   if (!OptVal)
     return None;
 
-  ValueLatticeElement Val = *OptVal;
+  ValueLatticeElement Val = *std::move(OptVal);
   intersectAssumeOrGuardBlockValueConstantRange(I->getOperand(Op), Val, I);
   if (Val.isConstantRange())
     return Val.getConstantRange();
@@ -1461,7 +1461,7 @@ Optional<ValueLatticeElement> LazyValueInfoImpl::getEdgeValue(
   Optional<ValueLatticeElement> OptInBlock = getBlockValue(Val, BBFrom);
   if (!OptInBlock)
     return None;
-  ValueLatticeElement InBlock = *OptInBlock;
+  ValueLatticeElement InBlock = *std::move(OptInBlock);
 
   // Try to intersect ranges of the BB and the constraint on the edge.
   intersectAssumeOrGuardBlockValueConstantRange(Val, InBlock,
@@ -1491,7 +1491,7 @@ ValueLatticeElement LazyValueInfoImpl::getValueInBlock(Value *V, BasicBlock *BB,
     OptResult = getBlockValue(V, BB);
     assert(OptResult && "Value not available after solving");
   }
-  ValueLatticeElement Result = *OptResult;
+  ValueLatticeElement Result = *std::move(OptResult);
   intersectAssumeOrGuardBlockValueConstantRange(V, Result, CxtI);
 
   LLVM_DEBUG(dbgs() << "  Result = " << Result << "\n");
@@ -1529,7 +1529,7 @@ getValueOnEdge(Value *V, BasicBlock *FromBB, BasicBlock *ToBB,
   }
 
   LLVM_DEBUG(dbgs() << "  Result = " << *Result << "\n");
-  return *Result;
+  return *std::move(Result);
 }
 
 void LazyValueInfoImpl::threadEdge(BasicBlock *PredBB, BasicBlock *OldSucc,
