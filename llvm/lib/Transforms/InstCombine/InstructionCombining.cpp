@@ -3633,28 +3633,30 @@ bool InstCombiner::run() {
   return MadeIRChange;
 }
 
-/// Populate the IC worklist from a function, by walking it in reverse
-/// post-order and adding all reachable code to the worklist.
+/// Populate the IC worklist from a function, by walking it in depth-first
+/// order and adding all reachable code to the worklist.
 ///
 /// This has a couple of tricks to make the code faster and more powerful.  In
 /// particular, we constant fold and DCE instructions as we go, to avoid adding
 /// them to the worklist (this significantly speeds up instcombine on code where
 /// many instructions are dead or constant).  Additionally, if we find a branch
 /// whose condition is a known constant, we only visit the reachable successors.
-static bool prepareICWorklistFromFunction(
-    Function &F, const DataLayout &DL, const TargetLibraryInfo *TLI,
-    InstCombineWorklist &ICWorklist,
-    ReversePostOrderTraversal<BasicBlock *> &RPOT) {
+static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
+                                          const TargetLibraryInfo *TLI,
+                                          InstCombineWorklist &ICWorklist) {
   bool MadeIRChange = false;
-  SmallPtrSet<BasicBlock *, 32> LiveBlocks;
-  LiveBlocks.insert(&F.front());
+  SmallPtrSet<BasicBlock *, 32> Visited;
   SmallVector<BasicBlock*, 256> Worklist;
   Worklist.push_back(&F.front());
 
   SmallVector<Instruction*, 128> InstrsForInstCombineWorklist;
   DenseMap<Constant *, Constant *> FoldedConstants;
-  for (BasicBlock *BB : RPOT) {
-    if (!LiveBlocks.count(BB))
+
+  do {
+    BasicBlock *BB = Worklist.pop_back_val();
+
+    // We have now visited this block!  If we've already been here, ignore it.
+    if (!Visited.insert(BB).second)
       continue;
 
     for (BasicBlock::iterator BBI = BB->begin(), E = BB->end(); BBI != E; ) {
@@ -3699,32 +3701,32 @@ static bool prepareICWorklistFromFunction(
         InstrsForInstCombineWorklist.push_back(Inst);
     }
 
-    // If this is a branch or switch on a constant, mark only the single
-    // live successor. Otherwise assume all successors are live.
+    // Recursively visit successors.  If this is a branch or switch on a
+    // constant, only visit the reachable successor.
     Instruction *TI = BB->getTerminator();
     if (BranchInst *BI = dyn_cast<BranchInst>(TI)) {
       if (BI->isConditional() && isa<ConstantInt>(BI->getCondition())) {
         bool CondVal = cast<ConstantInt>(BI->getCondition())->getZExtValue();
         BasicBlock *ReachableBB = BI->getSuccessor(!CondVal);
-        LiveBlocks.insert(ReachableBB);
+        Worklist.push_back(ReachableBB);
         continue;
       }
     } else if (SwitchInst *SI = dyn_cast<SwitchInst>(TI)) {
       if (ConstantInt *Cond = dyn_cast<ConstantInt>(SI->getCondition())) {
-        LiveBlocks.insert(SI->findCaseValue(Cond)->getCaseSuccessor());
+        Worklist.push_back(SI->findCaseValue(Cond)->getCaseSuccessor());
         continue;
       }
     }
 
     for (BasicBlock *SuccBB : successors(TI))
-      LiveBlocks.insert(SuccBB);
-  }
+      Worklist.push_back(SuccBB);
+  } while (!Worklist.empty());
 
   // Remove instructions inside unreachable blocks. This prevents the
   // instcombine code from having to deal with some bad special cases, and
   // reduces use counts of instructions.
   for (BasicBlock &BB : F) {
-    if (LiveBlocks.count(&BB))
+    if (Visited.count(&BB))
       continue;
 
     unsigned NumDeadInstInBB = removeAllNonTerminatorAndEHPadInstructions(&BB);
@@ -3803,7 +3805,7 @@ static bool combineInstructionsOverFunction(
     LLVM_DEBUG(dbgs() << "\n\nINSTCOMBINE ITERATION #" << Iteration << " on "
                       << F.getName() << "\n");
 
-    MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist, RPOT);
+    MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
     InstCombiner IC(Worklist, Builder, F.hasMinSize(), AA,
                     AC, TLI, DT, ORE, BFI, PSI, DL, LI);
