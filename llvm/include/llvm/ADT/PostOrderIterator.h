@@ -100,13 +100,23 @@ class po_iterator
   using NodeRef = typename GT::NodeRef;
   using ChildItTy = typename GT::ChildIteratorType;
 
+  struct StackElem {
+    NodeRef Node;
+    ChildItTy Cur;
+    ChildItTy End;
+
+    bool operator==(const StackElem &Other) const {
+      return Node == Other.Node && Cur == Other.Cur && End == Other.End;
+    }
+    bool operator!=(const StackElem &Other) const { return !(*this == Other); }
+  };
+
   // VisitStack - Used to maintain the ordering.  Top = current block
-  // First element is basic block pointer, second is the 'next child' to visit
-  SmallVector<std::pair<NodeRef, ChildItTy>, 8> VisitStack;
+  SmallVector<StackElem, 8> VisitStack;
 
   po_iterator(NodeRef BB) {
     this->insertEdge(Optional<NodeRef>(), BB);
-    VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
+    VisitStack.push_back({ BB, GT::child_begin(BB), GT::child_end(BB) });
     traverseChild();
   }
 
@@ -115,7 +125,7 @@ class po_iterator
   po_iterator(NodeRef BB, SetType &S)
       : po_iterator_storage<SetType, ExtStorage>(S) {
     if (this->insertEdge(Optional<NodeRef>(), BB)) {
-      VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
+      VisitStack.push_back({ BB, GT::child_begin(BB), GT::child_end(BB) });
       traverseChild();
     }
   }
@@ -125,11 +135,15 @@ class po_iterator
   } // End is when stack is empty.
 
   void traverseChild() {
-    while (VisitStack.back().second != GT::child_end(VisitStack.back().first)) {
-      NodeRef BB = *VisitStack.back().second++;
-      if (this->insertEdge(Optional<NodeRef>(VisitStack.back().first), BB)) {
+    while (true) {
+      StackElem &Elem = VisitStack.back();
+      if (Elem.Cur == Elem.End)
+        break;
+
+      NodeRef BB = *Elem.Cur++;
+      if (this->insertEdge(Optional<NodeRef>(Elem.Node), BB)) {
         // If the block is not visited...
-        VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
+        VisitStack.push_back({ BB, GT::child_begin(BB), GT::child_end(BB) });
       }
     }
   }
@@ -153,7 +167,7 @@ public:
   }
   bool operator!=(const po_iterator &x) const { return !(*this == x); }
 
-  const NodeRef &operator*() const { return VisitStack.back().first; }
+  const NodeRef &operator*() const { return VisitStack.back().Node; }
 
   // This is a nonstandard operator-> that dereferences the pointer an extra
   // time... so that you can actually call methods ON the BasicBlock, because
@@ -162,7 +176,7 @@ public:
   NodeRef operator->() const { return **this; }
 
   po_iterator &operator++() { // Preincrement
-    this->finishPostorder(VisitStack.back().first);
+    this->finishPostorder(VisitStack.back().Node);
     VisitStack.pop_back();
     if (!VisitStack.empty())
       traverseChild();
