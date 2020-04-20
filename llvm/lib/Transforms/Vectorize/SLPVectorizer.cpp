@@ -29,6 +29,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/iterator.h"
@@ -117,8 +118,17 @@ static cl::opt<int>
                               "number "));
 
 static cl::opt<bool>
-ShouldVectorizeHor("slp-vectorize-hor", cl::init(true), cl::Hidden,
-                   cl::desc("Attempt to vectorize horizontal reductions"));
+    ShouldVectorizeHor("slp-vectorize-hor", cl::init(true), cl::Hidden,
+                       cl::desc("Attempt to vectorize horizontal reductions"));
+
+static cl::opt<bool>
+    SLPThrottling("slp-throttle", cl::init(true), cl::Hidden,
+                  cl::desc("Enable tree partial vectorize with throttling"));
+
+static cl::opt<unsigned>
+    MaxCostsRecalculations("slp-throttling-budget", cl::init(32), cl::Hidden,
+                           cl::desc("Limit the total number of nodes for cost "
+                                    "recalculations during throttling"));
 
 static cl::opt<bool> ShouldStartVectorizeHorAtStore(
     "slp-vectorize-hor-store", cl::init(false), cl::Hidden,
@@ -570,7 +580,48 @@ public:
 
   /// \returns the cost incurred by unwanted spills and fills, caused by
   /// holding live values over call sites.
-  int getSpillCost() const;
+  int getSpillCost();
+
+  /// \returns the cost extracting vectorized elements.
+  int getExtractCost() const;
+
+  /// \returns the cost of gathering canceled elements to be used
+  /// by vectorized operations during throttling.
+  int getInsertCost();
+
+  /// Find a subtree of the whole tree suitable to be vectorized. When
+  /// vectorizing the whole tree is not profitable, we can consider vectorizing
+  /// part of that tree. SLP algorithm looks to operations to vectorize starting
+  /// from seed instructions on the bottom toward the end of chains of
+  /// dependencies to the top of SLP graph, it groups potentially vectorizable
+  /// operations in scalar form to bundles.
+  /// For example:
+  ///
+  ///   <bundle 1> scalar form
+  ///      |
+  ///   <bundle 2> scalar form  <bundle 3> scalar form
+  ///       \                    /
+  ///        <seed root bundle> scalar form
+  ///
+  /// Total cost is not profitable to vectorize, hence all operations are in
+  /// scalar form.
+  ///
+  /// Here is the same tree after SLP throttling transformation:
+  ///
+  ///   <bundle 1> vector form
+  ///      |
+  ///   <bundle 2> vector form  <bundle 3> scalar form
+  ///       \                    /
+  ///        <seed root bundle> vector form
+  ///
+  /// So, we can throttle some operations in such a way that it is still
+  /// profitable to vectorize part on the tree, while all tree vectorization
+  /// does not make sense.
+  /// More details: http://www.llvm.org/devmtg/2015-10/slides/Porpodas-ThrottlingAutomaticVectorization.pdf
+  bool findSubTree(int UserCost = 0);
+
+  /// Get raw summary of all elements of the tree.
+  int getRawTreeCost();
 
   /// \returns the vectorization cost of the subtree that starts at \p VL.
   /// A negative number means that this is profitable.
@@ -595,6 +646,8 @@ public:
     ScalarToTreeEntry.clear();
     MustGather.clear();
     ExternalUses.clear();
+    InternalTreeUses.clear();
+    RemovedOperations.clear();
     NumOpsWantToKeepOrder.clear();
     NumOpsWantToKeepOriginalOrder = 0;
     for (auto &Iter : BlocksSchedules) {
@@ -602,6 +655,12 @@ public:
       BS->clear();
     }
     MinBWs.clear();
+    ScalarsToVec.clear();
+    VecToScalars.clear();
+    VecInserts.clear();
+    NoCallInst = true;
+    RawTreeCost = 0;
+    IsCostSumReady = false;
   }
 
   unsigned getTreeSize() const { return VectorizableTree.size(); }
@@ -665,6 +724,9 @@ public:
   /// TODO: If load combining is allowed in the IR optimizer, this analysis
   ///       may not be necessary.
   bool isLoadCombineReductionCandidate(unsigned ReductionOpcode) const;
+
+  /// Try to cut the tree to make it partially vectorizable.
+  bool cutTree();
 
   OptimizationRemarkEmitter *getORE() { return ORE; }
 
@@ -1447,7 +1509,7 @@ private:
     Value *VectorizedValue = nullptr;
 
     /// Do we need to gather this sequence ?
-    enum EntryState { Vectorize, NeedToGather };
+    enum EntryState { Vectorize, NeedToGather, ProposedToGather };
     EntryState State;
 
     /// Does this sequence require some shuffling?
@@ -1455,6 +1517,9 @@ private:
 
     /// Does this entry require reordering?
     ArrayRef<unsigned> ReorderIndices;
+
+    /// Cost of this tree entry.
+    int Cost = 0;
 
     /// Points back to the VectorizableTree.
     ///
@@ -1467,6 +1532,9 @@ private:
     /// The TreeEntry index containing the user of this entry.  We can actually
     /// have multiple users so the data structure is not truly a tree.
     SmallVector<EdgeInfo, 1> UserTreeIndices;
+
+    /// Use of this entry.
+    TinyPtrVector<TreeEntry *> UseEntries;
 
     /// The index of this treeEntry in VectorizableTree.
     int Idx = -1;
@@ -1598,6 +1666,9 @@ private:
       case NeedToGather:
         dbgs() << "NeedToGather\n";
         break;
+      case ProposedToGather:
+        dbgs() << "ProposedToGather\n";
+        break;
       }
       dbgs() << "MainOp: ";
       if (MainOp)
@@ -1668,8 +1739,10 @@ private:
       MustGather.insert(VL.begin(), VL.end());
     }
 
-    if (UserTreeIdx.UserTE)
+    if (UserTreeIdx.UserTE) {
       Last->UserTreeIndices.push_back(UserTreeIdx);
+      VectorizableTree[UserTreeIdx.UserTE->Idx]->UseEntries.push_back(Last);
+    }
 
     return Last;
   }
@@ -1705,8 +1778,34 @@ private:
   /// Maps a specific scalar to its tree entry.
   SmallDenseMap<Value*, TreeEntry *> ScalarToTreeEntry;
 
+  /// Tree entries that should not be vectorized due to throttling.
+  SmallVector<TreeEntry *, 2> RemovedOperations;
+
+  /// Tree values proposed to be vectorized.
+  ValueSet ScalarsToVec;
+
+  /// Tree values once considered to be vectorized, but later with throttling
+  /// decided to stay in a scalar form.
+  ValueSet VecToScalars;
+
   /// A list of scalars that we found that we need to keep as scalars.
   ValueSet MustGather;
+
+  /// Total cost of inserts in the tree for a particular value.
+  SmallDenseMap<Value*, int> VecInserts;
+
+  /// Raw cost of all elemts in the tree.
+  int RawTreeCost = 0;
+
+  /// Final cost of the tree.
+  int TreeCost = 0;
+
+  /// Indicate that no CallInst found in the tree and we don't need to calculate
+  /// spill cost.
+  bool NoCallInst = true;
+
+  /// True, if we have calucalte tree cost for the tree.
+  bool IsCostSumReady = false;
 
   /// This POD struct describes one external user in the vectorized tree.
   struct ExternalUser {
@@ -1723,6 +1822,9 @@ private:
     int Lane;
   };
   using UserList = SmallVector<ExternalUser, 16>;
+
+  /// \returns the cost of extracting the vectorized elements.
+  int getExtractOperationCost(const ExternalUser &EU) const;
 
   /// Checks if two instructions may access the same memory.
   ///
@@ -1773,6 +1875,12 @@ private:
   /// can be nullptr, it means that this Internal Scalar will be used later,
   /// after vectorization.
   UserList ExternalUses;
+
+  /// Current operations width to vectorize.
+  unsigned BundleWidth = 0;
+
+  /// Internal tree oprations proposed to be vectorized values use.
+  SmallDenseMap<Value *, UserList> InternalTreeUses;
 
   /// Values used only by @llvm.assume calls.
   SmallPtrSet<const Value *, 32> EphValues;
@@ -2174,6 +2282,9 @@ private:
   /// Attaches the BlockScheduling structures to basic blocks.
   MapVector<BasicBlock *, std::unique_ptr<BlockScheduling>> BlocksSchedules;
 
+  /// Remove operations from the list of proposed to schedule.
+  void removeFromScheduling(BlockScheduling *BS);
+
   /// Performs the "real" scheduling. Done before vectorization is actually
   /// performed in a basic block.
   void scheduleBlock(BlockScheduling *BS);
@@ -2377,7 +2488,7 @@ void BoUpSLP::buildTree(ArrayRef<Value *> Roots,
   buildTree_rec(Roots, 0, EdgeInfo());
 
   // Collect the values that we need to extract from the tree.
-  for (auto &TEPtr : VectorizableTree) {
+  for (std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
     TreeEntry *Entry = TEPtr.get();
 
     // No need to handle users of gathered values.
@@ -2419,6 +2530,7 @@ void BoUpSLP::buildTree(ArrayRef<Value *> Roots,
             LLVM_DEBUG(dbgs() << "SLP: \tInternal user will be removed:" << *U
                               << ".\n");
             assert(UseEntry->State != TreeEntry::NeedToGather && "Bad state");
+            InternalTreeUses[U].emplace_back(Scalar, U, FoundLane);
             continue;
           }
         }
@@ -3126,6 +3238,66 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
   }
 }
 
+bool BoUpSLP::cutTree() {
+  SmallVector<TreeEntry *, 4> VecNodes;
+
+  // Estimate the subtree not just from a cost perspective, but functional.
+  bool FoundRealOp = false;
+  for (const std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
+    TreeEntry *Entry = TEPtr.get();
+    if (Entry->State != TreeEntry::Vectorize)
+      continue;
+    Instruction *Inst = Entry->getMainOp();
+    if (Inst && (isa<BinaryOperator>(Inst) || isa<FPMathOperator>(Inst) ||
+                 isa<CmpInst>(Inst))) {
+      FoundRealOp = true;
+      break;
+    }
+  }
+  if (!FoundRealOp)
+    return false;
+
+  for (std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
+    TreeEntry *Entry = TEPtr.get();
+    if (Entry->State == TreeEntry::Vectorize)
+      VecNodes.push_back(Entry);
+  }
+  // Canceling unprofitable elements.
+  for (std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
+    TreeEntry *Entry = TEPtr.get();
+    if (Entry->State == TreeEntry::NeedToGather)
+      continue;
+    if (Entry->State == TreeEntry::ProposedToGather) {
+      Entry->State = TreeEntry::NeedToGather;
+      for (Value *V : Entry->Scalars) {
+        LLVM_DEBUG(dbgs() << "SLP: Remove scalar " << *V
+                          << " out of proposed to vectorize.\n");
+      }
+    }
+  }
+  // For all canceled operations we should consider the possibility of
+  // use by with non-canceled operations and for that, it requires
+  // to populate ExternalUser list with canceled elements.
+  for (TreeEntry *Entry : VecNodes)
+    for (int Lane = 0, LE = Entry->Scalars.size(); Lane != LE; ++Lane) {
+      Value *Scalar = Entry->Scalars[Lane];
+      for (User *U : Scalar->users()) {
+        LLVM_DEBUG(dbgs() << "SLP: Checking user:" << *U << ".\n");
+        if (!VecToScalars.count(U))
+          continue;
+        // Ignore users in the user ignore list.
+        auto *UserInst = cast<Instruction>(U);
+        if (is_contained(UserIgnoreList, UserInst))
+          continue;
+        LLVM_DEBUG(dbgs() << "SLP: Need to extract canceled operation :" << *U
+                          << " from lane " << Lane << " from " << *Scalar
+                          << ".\n");
+        ExternalUses.emplace_back(Scalar, U, Lane);
+      }
+    }
+  return true;
+}
+
 unsigned BoUpSLP::canMapToVector(Type *T, const DataLayout &DL) const {
   unsigned N = 1;
   Type *EltTy = T;
@@ -3286,7 +3458,7 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
     ReuseShuffleCost =
         TTI->getShuffleCost(TargetTransformInfo::SK_PermuteSingleSrc, VecTy);
   }
-  if (E->State == TreeEntry::NeedToGather) {
+  if (E->State != TreeEntry::Vectorize) {
     if (allConstant(VL))
       return 0;
     if (isSplat(VL)) {
@@ -3715,18 +3887,17 @@ bool BoUpSLP::isTreeTinyAndNotFullyVectorizable() const {
   return true;
 }
 
-int BoUpSLP::getSpillCost() const {
+int BoUpSLP::getSpillCost() {
   // Walk from the bottom of the tree to the top, tracking which values are
   // live. When we see a call instruction that is not part of our tree,
   // query TTI to see if there is a cost to keeping values live over it
   // (for example, if spills and fills are required).
-  unsigned BundleWidth = VectorizableTree.front()->Scalars.size();
   int Cost = 0;
 
   SmallPtrSet<Instruction*, 4> LiveValues;
   Instruction *PrevInst = nullptr;
 
-  for (const auto &TEPtr : VectorizableTree) {
+  for (const std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
     Instruction *Inst = dyn_cast<Instruction>(TEPtr->Scalars[0]);
     if (!Inst)
       continue;
@@ -3739,7 +3910,7 @@ int BoUpSLP::getSpillCost() const {
     // Update LiveValues.
     LiveValues.erase(PrevInst);
     for (auto &J : PrevInst->operands()) {
-      if (isa<Instruction>(&*J) && getTreeEntry(&*J))
+      if (isa<Instruction>(&*J) && ScalarsToVec.count(&*J))
         LiveValues.insert(cast<Instruction>(&*J));
     }
 
@@ -3767,11 +3938,11 @@ int BoUpSLP::getSpillCost() const {
            !isa<DbgInfoIntrinsic>(&*PrevInstIt)) &&
           &*PrevInstIt != PrevInst)
         NumCalls++;
-
       ++PrevInstIt;
     }
 
     if (NumCalls) {
+      NoCallInst = false;
       SmallVector<Type*, 4> V;
       for (auto *II : LiveValues)
         V.push_back(VectorType::get(II->getType(), BundleWidth));
@@ -3784,15 +3955,140 @@ int BoUpSLP::getSpillCost() const {
   return Cost;
 }
 
-int BoUpSLP::getTreeCost() {
-  int Cost = 0;
+int BoUpSLP::getExtractOperationCost(const ExternalUser &EU) const {
+  // Uses by ephemeral values are free (because the ephemeral value will be
+  // removed prior to code generation, and so the extraction will be
+  // removed as well).
+  if (EphValues.count(EU.User))
+    return 0;
+
+  // If we plan to rewrite the tree in a smaller type, we will need to sign
+  // extend the extracted value back to the original type. Here, we account
+  // for the extract and the added cost of the sign extend if needed.
+  auto *VecTy = VectorType::get(EU.Scalar->getType(), BundleWidth);
+  Value *ScalarRoot = VectorizableTree.front()->Scalars[0];
+
+  auto It = MinBWs.find(ScalarRoot);
+  if (It != MinBWs.end()) {
+    uint64_t Width = It->second.first;
+    bool Signed = It->second.second;
+    auto *MinTy = IntegerType::get(F->getContext(), Width);
+    unsigned ExtOp = Signed ? Instruction::SExt : Instruction::ZExt;
+    VecTy = VectorType::get(MinTy, BundleWidth);
+    return (TTI->getExtractWithExtendCost(ExtOp, EU.Scalar->getType(), VecTy,
+                                          EU.Lane));
+  }
+  return TTI->getVectorInstrCost(Instruction::ExtractElement, VecTy, EU.Lane);
+}
+
+int BoUpSLP::getExtractCost() const {
+  int ExtractCost = 0;
+  SmallPtrSet<Value *, 16> ExtractCostCalculated;
+  // Consider the possibility of extracting vectorized
+  // values for canceled elements use.
+  for (const std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
+    TreeEntry *Entry = TEPtr.get();
+    if (Entry->State != TreeEntry::ProposedToGather)
+      continue;
+    for (Value *V : Entry->Scalars) {
+      // Consider the possibility of extracting vectorized
+      // values for canceled elements use.
+      auto It = InternalTreeUses.find(V);
+      if (It != InternalTreeUses.end()) {
+        const UserList &UL = It->second;
+        for (const ExternalUser &IU : UL)
+          ExtractCost += getExtractOperationCost(IU);
+      }
+    }
+  }
+  for (const ExternalUser &EU : ExternalUses) {
+    // We only add extract cost once for the same scalar.
+    if (!ExtractCostCalculated.insert(EU.Scalar).second)
+      continue;
+
+    int Cost = getExtractOperationCost(EU);
+    ExtractCost += Cost;
+  }
+  return ExtractCost;
+}
+
+int BoUpSLP::getInsertCost() {
+  int InsertCost = 0;
+  for (const std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
+    TreeEntry *Entry = TEPtr.get();
+    // Avoid already vectorized TreeEntries, it is already in a vector form and
+    // we don't need to gather those operations.
+    if (Entry->State != TreeEntry::ProposedToGather)
+      continue;
+    bool NeedGather = false;
+    for (Value *V : Entry->Scalars) {
+      auto *Inst = cast<Instruction>(V);
+      for (User *Op : Inst->users())
+        if (ScalarsToVec.count(Op)) {
+          NeedGather = true;
+          break;
+        }
+    }
+    if (NeedGather)
+      InsertCost += getEntryCost(Entry);
+  }
+  return InsertCost;
+}
+
+bool BoUpSLP::findSubTree(int UserCost) {
+  SmallVector<TreeEntry *, 64> Vec;
+  for (const std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
+    TreeEntry *Entry = TEPtr.get();
+    if (Entry->State != TreeEntry::Vectorize || Entry->Cost <= 0 || !Entry->Idx)
+      continue;
+    Vec.push_back(Entry);
+  }
+  llvm::sort(Vec, [&](const TreeEntry *LHS, const TreeEntry *RHS) {
+    return LHS->Cost > RHS->Cost;
+  });
+
+  if (Vec.size() > MaxCostsRecalculations)
+    Vec.erase(Vec.begin() + MaxCostsRecalculations, Vec.end());
+
+  int Sum = 0;
+  for (TreeEntry *Entry : Vec)
+    Sum += Entry->Cost;
+  // Avoid reducing the tree if there is no potential room to reduce.
+  if ((TreeCost - UserCost - Sum) > -SLPCostThreshold)
+    return false;
+
+  for (TreeEntry *T : Vec) {
+    T->State = TreeEntry::ProposedToGather;
+    for (Value *V : T->Scalars) {
+      ScalarsToVec.erase(V);
+      VecToScalars.insert(V);
+      ScalarToTreeEntry.erase(V);
+      MustGather.insert(V);
+      ExternalUses.erase(
+          llvm::remove_if(ExternalUses,
+                          [&V](ExternalUser &EU) { return EU.Scalar == V; }),
+          ExternalUses.end());
+    }
+    int PartialCost = getTreeCost() - UserCost;
+    RemovedOperations.push_back(T);
+    if (PartialCost < -SLPCostThreshold && cutTree()) {
+      LLVM_DEBUG(
+          dbgs() << "SLP: Decided to partially vectorize tree with cost: "
+                 << PartialCost << ".\n");
+      return true;
+    }
+  }
+  return false;
+}
+
+int BoUpSLP::getRawTreeCost() {
+  int CostSum = 0;
+  BundleWidth = VectorizableTree.front()->Scalars.size();
   LLVM_DEBUG(dbgs() << "SLP: Calculating cost for tree of size "
                     << VectorizableTree.size() << ".\n");
 
-  unsigned BundleWidth = VectorizableTree[0]->Scalars.size();
-
-  for (unsigned I = 0, E = VectorizableTree.size(); I < E; ++I) {
-    TreeEntry &TE = *VectorizableTree[I].get();
+  for (std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
+    TreeEntry &TE = *TEPtr.get();
 
     // We create duplicate tree entries for gather sequences that have multiple
     // uses. However, we should not compute the cost of duplicate sequences.
@@ -3806,68 +4102,81 @@ int BoUpSLP::getTreeCost() {
     // their uses. Since such an approach results in fewer total entries,
     // existing heuristics based on tree size may yield different results.
     //
-    if (TE.State == TreeEntry::NeedToGather &&
-        std::any_of(std::next(VectorizableTree.begin(), I + 1),
-                    VectorizableTree.end(),
-                    [TE](const std::unique_ptr<TreeEntry> &EntryPtr) {
-                      return EntryPtr->State == TreeEntry::NeedToGather &&
-                             EntryPtr->isSame(TE.Scalars);
-                    }))
+    if (TE.State == TreeEntry::ProposedToGather)
+      VecToScalars.insert(TE.Scalars.begin(), TE.Scalars.end());
+    if (TE.State != TreeEntry::Vectorize &&
+        llvm::any_of(llvm::drop_begin(VectorizableTree, TE.Idx + 1),
+                     [TE](const std::unique_ptr<TreeEntry> &EntryPtr) {
+                       return EntryPtr->State != TreeEntry::Vectorize &&
+                              EntryPtr->isSame(TE.Scalars);
+                     }))
       continue;
 
-    int C = getEntryCost(&TE);
-    LLVM_DEBUG(dbgs() << "SLP: Adding cost " << C
+    if (TE.State == TreeEntry::Vectorize)
+      ScalarsToVec.insert(TE.Scalars.begin(), TE.Scalars.end());
+
+    TE.Cost = getEntryCost(&TE);
+    LLVM_DEBUG(dbgs() << "SLP: Adding cost " << TE.Cost
                       << " for bundle that starts with " << *TE.Scalars[0]
                       << ".\n");
-    Cost += C;
+    CostSum += TE.Cost;
   }
 
-  SmallPtrSet<Value *, 16> ExtractCostCalculated;
-  int ExtractCost = 0;
-  for (ExternalUser &EU : ExternalUses) {
-    // We only add extract cost once for the same scalar.
-    if (!ExtractCostCalculated.insert(EU.Scalar).second)
-      continue;
-
-    // Uses by ephemeral values are free (because the ephemeral value will be
-    // removed prior to code generation, and so the extraction will be
-    // removed as well).
-    if (EphValues.count(EU.User))
-      continue;
-
-    // If we plan to rewrite the tree in a smaller type, we will need to sign
-    // extend the extracted value back to the original type. Here, we account
-    // for the extract and the added cost of the sign extend if needed.
-    auto *VecTy = VectorType::get(EU.Scalar->getType(), BundleWidth);
-    auto *ScalarRoot = VectorizableTree[0]->Scalars[0];
-    if (MinBWs.count(ScalarRoot)) {
-      auto *MinTy = IntegerType::get(F->getContext(), MinBWs[ScalarRoot].first);
-      auto Extend =
-          MinBWs[ScalarRoot].second ? Instruction::SExt : Instruction::ZExt;
-      VecTy = VectorType::get(MinTy, BundleWidth);
-      ExtractCost += TTI->getExtractWithExtendCost(Extend, EU.Scalar->getType(),
-                                                   VecTy, EU.Lane);
-    } else {
-      ExtractCost +=
-          TTI->getVectorInstrCost(Instruction::ExtractElement, VecTy, EU.Lane);
+  if (SLPThrottling)
+    for (std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
+      TreeEntry *TE = TEPtr.get();
+      if (TE->State != TreeEntry::Vectorize)
+        continue;
+      int GatherCost = 0;
+      for (TreeEntry *Gather : TE->UseEntries)
+        if (Gather->State != TreeEntry::Vectorize)
+          GatherCost += Gather->Cost;
+      TE->Cost += GatherCost;
     }
+  return CostSum;
+}
+
+int BoUpSLP::getTreeCost() {
+  int CostSum;
+  if (!IsCostSumReady) {
+    CostSum = getRawTreeCost();
+    RawTreeCost = CostSum;
+  } else {
+    CostSum = RawTreeCost;
   }
 
-  int SpillCost = getSpillCost();
-  Cost += SpillCost + ExtractCost;
+  if (SLPThrottling)
+    for (std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
+      TreeEntry *TE = TEPtr.get();
+      if (TE->State == TreeEntry::ProposedToGather)
+        CostSum -= TE->Cost;
+    }
 
-  std::string Str;
-  {
-    raw_string_ostream OS(Str);
-    OS << "SLP: Spill Cost = " << SpillCost << ".\n"
-       << "SLP: Extract Cost = " << ExtractCost << ".\n"
-       << "SLP: Total Cost = " << Cost << ".\n";
-  }
+  int ExtractCost = getExtractCost();
+  int SpillCost = 0;
+  if (!NoCallInst || !IsCostSumReady)
+    SpillCost = getSpillCost();
+#ifndef NDEBUG
+  if (NoCallInst)
+    assert(getSpillCost() == 0 && "Incorrect spill cost");
+#endif
+  if (!IsCostSumReady)
+    IsCostSumReady = true;
+  int InsertCost = getInsertCost();
+  int Cost = CostSum + ExtractCost + SpillCost + InsertCost;
+  TreeCost = Cost;
+
+#ifndef NDEBUG
+  SmallString<256> Str;
+  raw_svector_ostream OS(Str);
+  OS << "SLP: Spill Cost = " << SpillCost << ".\n"
+     << "SLP: Extract Cost = " << ExtractCost << ".\n"
+     << "SLP: Insert Cost = " << InsertCost << ".\n"
+     << "SLP: Total Cost = " << Cost << ".\n";
   LLVM_DEBUG(dbgs() << Str);
-
   if (ViewSLPTree)
     ViewGraph(this, "SLP" + F->getName(), false, Str);
-
+#endif
   return Cost;
 }
 
@@ -4616,11 +4925,22 @@ Value *
 BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
   // All blocks must be scheduled before any instructions are inserted.
   for (auto &BSIter : BlocksSchedules) {
-    scheduleBlock(BSIter.second.get());
+    BlockScheduling *BS = BSIter.second.get();
+    // Remove all Schedule Data from all nodes that we have changed
+    // vectorization decision.
+    if (!RemovedOperations.empty())
+      removeFromScheduling(BS);
+    scheduleBlock(BS);
   }
 
   Builder.SetInsertPoint(&F->getEntryBlock().front());
-  auto *VectorRoot = vectorizeTree(VectorizableTree[0].get());
+  auto *VectorRoot = vectorizeTree(VectorizableTree.front().get());
+
+  for (std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
+    TreeEntry *Entry = TEPtr.get();
+    if (Entry->State == TreeEntry::Vectorize && !Entry->VectorizedValue)
+      vectorizeTree(Entry);
+  }
 
   // If the vectorized tree can be rewritten in a smaller type, we truncate the
   // vectorized root. InstCombine will then rewrite the entire expression. We
@@ -4629,7 +4949,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
   if (MinBWs.count(ScalarRoot)) {
     if (auto *I = dyn_cast<Instruction>(VectorRoot))
       Builder.SetInsertPoint(&*++BasicBlock::iterator(I));
-    auto BundleWidth = VectorizableTree[0]->Scalars.size();
+    BundleWidth = VectorizableTree.front()->Scalars.size();
     auto *MinTy = IntegerType::get(F->getContext(), MinBWs[ScalarRoot].first);
     auto *VecTy = VectorType::get(MinTy, BundleWidth);
     auto *Trunc = Builder.CreateTrunc(VectorRoot, VecTy);
@@ -4729,7 +5049,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
   }
 
   // For each vectorized value:
-  for (auto &TEPtr : VectorizableTree) {
+  for (std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
     TreeEntry *Entry = TEPtr.get();
 
     // No need to handle users of gathered values.
@@ -4744,7 +5064,9 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
 
 #ifndef NDEBUG
       Type *Ty = Scalar->getType();
-      if (!Ty->isVoidTy()) {
+      // The tree might not be fully vectorized, so we don't have to
+      // check every user.
+      if (!Ty->isVoidTy() && RemovedOperations.empty()) {
         for (User *U : Scalar->users()) {
           LLVM_DEBUG(dbgs() << "SLP: \tvalidating user:" << *U << ".\n");
 
@@ -5227,6 +5549,31 @@ void BoUpSLP::BlockScheduling::resetSchedule() {
     });
   }
   ReadyInsts.clear();
+}
+
+void BoUpSLP::removeFromScheduling(BlockScheduling *BS) {
+  bool Removed = false;
+  for (TreeEntry *Entry : RemovedOperations) {
+    ScheduleData *SD = BS->getScheduleData(Entry->Scalars[0]);
+    if (SD && SD->isPartOfBundle()) {
+      if (!Removed) {
+        Removed = true;
+        BS->resetSchedule();
+      }
+      BS->cancelScheduling(Entry->Scalars, SD->OpValue);
+    }
+  }
+  if (!Removed)
+    return;
+  BS->resetSchedule();
+  BS->initialFillReadyList(BS->ReadyInsts);
+  for (Instruction *I = BS->ScheduleStart; I != BS->ScheduleEnd;
+       I = I->getNextNode()) {
+    if (BS->ScheduleDataMap.find(I) == BS->ScheduleDataMap.end())
+      continue;
+    BS->doForAllOpcodes(I,
+                        [&](ScheduleData *SD) { SD->clearDependencies(); });
+  }
 }
 
 void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
@@ -5756,6 +6103,11 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
 
     R.vectorizeTree();
     return true;
+  } else {
+    if (SLPThrottling && R.findSubTree()) {
+      R.vectorizeTree();
+      return true;
+    }
   }
 
   return false;
@@ -6008,6 +6360,11 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
         I += VF - 1;
         NextInst = I + 1;
         Changed = true;
+      } else {
+        if (SLPThrottling && R.findSubTree(UserCost)) {
+          R.vectorizeTree();
+          Changed = true;
+        }
       }
     }
   }
@@ -6792,15 +7149,16 @@ public:
       int ReductionCost = getReductionCost(TTI, ReducedVals[i], ReduxWidth);
       int Cost = TreeCost + ReductionCost;
       if (Cost >= -SLPCostThreshold) {
-          V.getORE()->emit([&]() {
-              return OptimizationRemarkMissed(
-                         SV_NAME, "HorSLPNotBeneficial", cast<Instruction>(VL[0]))
-                     << "Vectorizing horizontal reduction is possible"
-                     << "but not beneficial with cost "
-                     << ore::NV("Cost", Cost) << " and threshold "
-                     << ore::NV("Threshold", -SLPCostThreshold);
-          });
+        if (!SLPThrottling || !V.findSubTree(-ReductionCost))
           break;
+        V.getORE()->emit([&]() {
+          return OptimizationRemarkMissed(SV_NAME, "HorSLPNotBeneficial",
+                                          cast<Instruction>(VL[0]))
+                 << "Vectorizing horizontal reduction is possible"
+                 << "but not beneficial with cost " << ore::NV("Cost", Cost)
+                 << " and threshold "
+                 << ore::NV("Threshold", -SLPCostThreshold);
+        });
       }
 
       LLVM_DEBUG(dbgs() << "SLP: Vectorizing horizontal reduction at cost:"
