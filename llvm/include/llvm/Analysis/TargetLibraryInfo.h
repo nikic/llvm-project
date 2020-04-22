@@ -226,18 +226,17 @@ public:
       : Impl(&Impl), OverrideAsUnavailable(NumLibFuncs) {
     if (!F)
       return;
-    if ((*F)->hasFnAttribute("no-builtins"))
-      disableAllFunctions();
-    else {
-      // Disable individual libc/libm calls in TargetLibraryInfo.
-      LibFunc LF;
-      AttributeSet FnAttrs = (*F)->getAttributes().getFnAttributes();
-      for (const Attribute &Attr : FnAttrs) {
-        if (!Attr.isStringAttribute())
-          continue;
-        auto AttrStr = Attr.getKindAsString();
-        if (!AttrStr.consume_front("no-builtin-"))
-          continue;
+
+    AttributeSet FnAttrs = (*F)->getAttributes().getFnAttributes();
+    for (const Attribute &Attr : FnAttrs) {
+      if (!Attr.isStringAttribute())
+        continue;
+      auto AttrStr = Attr.getKindAsString();
+      if (AttrStr == "no-builtins") {
+        disableAllFunctions();
+      } else if (AttrStr.consume_front("no-builtin-")) {
+        // Disable individual libc/libm calls in TargetLibraryInfo.
+        LibFunc LF;
         if (getLibFunc(AttrStr, LF))
           setUnavailable(LF);
       }
