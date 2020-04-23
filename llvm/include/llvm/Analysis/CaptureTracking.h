@@ -37,8 +37,7 @@ namespace llvm {
   /// one value before giving up due too "too many uses".
   bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
                             bool StoreCaptures,
-                            unsigned MaxUsesToExplore =
-                                getDefaultMaxUsesToExploreForCaptureTracking());
+                            unsigned MaxUsesToExplore = 0);
 
   /// PointerMayBeCapturedBefore - Return true if this pointer value may be
   /// captured by the enclosing function (which is required to exist). If a
@@ -55,8 +54,7 @@ namespace llvm {
   bool PointerMayBeCapturedBefore(
       const Value *V, bool ReturnCaptures, bool StoreCaptures,
       const Instruction *I, const DominatorTree *DT, bool IncludeI = false,
-      unsigned MaxUsesToExplore =
-          getDefaultMaxUsesToExploreForCaptureTracking());
+      unsigned MaxUsesToExplore = 0);
 
   /// This callback is used in conjunction with PointerMayBeCaptured. In
   /// addition to the interface here, you'll need to provide your own getters
@@ -92,8 +90,7 @@ namespace llvm {
   /// MaxUsesToExplore specifies how many uses should the analysis explore for
   /// one value before giving up due too "too many uses".
   void PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
-                            unsigned MaxUsesToExplore =
-                                getDefaultMaxUsesToExploreForCaptureTracking());
+                            unsigned MaxUsesToExplore = 0);
 } // end namespace llvm
 
 #endif
