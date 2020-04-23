@@ -49,9 +49,7 @@ protected:
   Size_T Size = 0, Capacity;
 
   /// The maximum value of the Size_T used.
-  static constexpr size_t SizeTypeMax() {
-    return std::numeric_limits<Size_T>::max();
-  }
+  static constexpr size_t SizeTypeMax = std::numeric_limits<Size_T>::max();
 
   SmallVectorBase() = delete;
   SmallVectorBase(void *FirstEl, size_t TotalCapacity)
@@ -189,7 +187,7 @@ public:
 
   size_type size_in_bytes() const { return size() * sizeof(T); }
   size_type max_size() const {
-    return std::min(this->SizeTypeMax(), size_type(-1) / sizeof(T));
+    return std::min(this->SizeTypeMax, size_type(-1) / sizeof(T));
   }
 
   size_t capacity_in_bytes() const { return capacity() * sizeof(T); }
@@ -287,19 +285,19 @@ template <typename T, bool TriviallyCopyable>
 void SmallVectorTemplateBase<T, TriviallyCopyable>::grow(size_t MinSize) {
   // Ensure we can fit the new capacity.
   // This is only going to be applicable if the when the capacity is 32 bit.
-  if (MinSize > this->SizeTypeMax())
+  if (MinSize > this->SizeTypeMax)
     report_bad_alloc_error("SmallVector capacity overflow during allocation");
 
   // Ensure we can meet the guarantee of space for at least one more element.
   // The above check alone will not catch the case where grow is called with a
   // default MinCapacity of 0, but the current capacity cannot be increased.
   // This is only going to be applicable if the when the capacity is 32 bit.
-  if (this->capacity() == this->SizeTypeMax())
+  if (this->capacity() == this->SizeTypeMax)
     report_bad_alloc_error("SmallVector capacity unable to grow");
 
   // Always grow, even from zero.
   size_t NewCapacity = size_t(NextPowerOf2(this->capacity() + 2));
-  NewCapacity = std::min(std::max(NewCapacity, MinSize), this->SizeTypeMax());
+  NewCapacity = std::min(std::max(NewCapacity, MinSize), this->SizeTypeMax);
   T *NewElts = static_cast<T*>(llvm::safe_malloc(NewCapacity*sizeof(T)));
 
   // Move the elements over.
