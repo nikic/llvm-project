@@ -16,8 +16,8 @@
 #define LLVM_LIB_IR_ATTRIBUTEIMPL_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/FoldingSet.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/Support/TrailingObjects.h"
@@ -182,7 +182,7 @@ class AttributeSetNode final
   /// Bitset with a bit for each available attribute Attribute::AttrKind.
   uint8_t AvailableAttrs[12] = {};
 
-  DenseMap<StringRef, Attribute> StringAttrs;
+  StringMap<Attribute> StringAttrs;
 
   AttributeSetNode(ArrayRef<Attribute> Attrs);
 
