@@ -19,6 +19,7 @@
 #define AA_NAME "alignment-from-assumptions"
 #define DEBUG_TYPE AA_NAME
 #include "llvm/Transforms/Scalar/AlignmentFromAssumptions.h"
+#include "llvm/Support/KnownBits.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -35,6 +36,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
 
 STATISTIC(NumLoadAlignChanged,
@@ -392,6 +394,50 @@ bool AlignmentFromAssumptions::runOnFunction(Function &F) {
   return Impl.runImpl(F, AC, SE, DT);
 }
 
+static bool tryToImproveAlign(
+    const DataLayout &DL, Instruction *I,
+    llvm::function_ref<Align(Value *PtrOp, Align OldAlign,
+                             Align PrefAlign)> Fn) {
+  bool Changed = false;
+  if (auto *LI = dyn_cast<LoadInst>(I)) {
+    Value *PtrOp = LI->getPointerOperand();
+    Align OldAlign = LI->getAlign();
+    Align NewAlign = Fn(PtrOp, OldAlign, DL.getPrefTypeAlign(LI->getType()));
+    if (NewAlign > OldAlign) {
+      LI->setAlignment(NewAlign);
+      Changed = true;
+    }
+  } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+    Value *PtrOp = SI->getPointerOperand();
+    Value *ValOp = SI->getValueOperand();
+    Align OldAlign = SI->getAlign();
+    Align NewAlign = Fn(PtrOp, OldAlign, DL.getPrefTypeAlign(ValOp->getType()));
+    if (NewAlign > OldAlign) {
+      SI->setAlignment(NewAlign);
+      Changed = true;
+    }
+  } else if (auto *MI = dyn_cast<MemIntrinsic>(I)) {
+    Value *PtrOp = MI->getDest();
+    Align OldAlign = *MI->getDestAlign();
+    Align NewAlign = Fn(PtrOp, OldAlign, Align(1));
+    if (NewAlign > OldAlign) {
+      MI->setDestAlignment(NewAlign);
+      Changed = true;
+    }
+
+    if (auto *MTI = dyn_cast<MemTransferInst>(I)) {
+      Value *PtrOp = MTI->getSource();
+      Align OldAlign = *MTI->getSourceAlign();
+      Align NewAlign = Fn(PtrOp, OldAlign, Align(1));
+      if (NewAlign > OldAlign) {
+        MTI->setSourceAlignment(NewAlign);
+        Changed = true;
+      }
+    }
+  }
+  return Changed;
+}
+
 bool AlignmentFromAssumptionsPass::runImpl(Function &F, AssumptionCache &AC,
                                            ScalarEvolution *SE_,
                                            DominatorTree *DT_) {
@@ -399,6 +445,35 @@ bool AlignmentFromAssumptionsPass::runImpl(Function &F, AssumptionCache &AC,
   DT = DT_;
 
   bool Changed = false;
+  const DataLayout &DL = F.getParent()->getDataLayout();
+
+  // Enforce preferred type alignment if possible. We do this as a separate
+  // pass first, because it may improve the alignments we infer below.
+  for (BasicBlock &BB : F) {
+    for (Instruction &I : BB) {
+      Changed |= tryToImproveAlign(DL, &I,
+          [&](Value *PtrOp, Align OldAlign, Align PrefAlign) {
+            if (PrefAlign > OldAlign)
+              return enforceKnownAlignment(PtrOp, OldAlign, PrefAlign, DL);
+            return OldAlign;
+          });
+    }
+  }
+
+  // Compute alignment from known bits.
+  for (BasicBlock &BB : F) {
+    for (Instruction &I : BB) {
+      Changed |= tryToImproveAlign(DL, &I,
+          [&](Value *PtrOp, Align OldAlign, Align PrefAlign) {
+            KnownBits Known = computeKnownBits(PtrOp, DL, 0, &AC, &I, DT);
+            unsigned TrailZ = std::min(Known.countMinTrailingZeros(),
+                                       +Value::MaxAlignmentExponent);
+            return Align(1ull << std::min(Known.getBitWidth() - 1, TrailZ));
+          });
+    }
+  }
+
+  // Compute alignment form assumptions.
   for (auto &AssumeVH : AC.assumptions())
     if (AssumeVH)
       Changed |= processAssumption(cast<CallInst>(AssumeVH));
