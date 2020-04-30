@@ -956,15 +956,10 @@ Instruction *InstCombiner::visitLoadInst(LoadInst &LI) {
     return Res;
 
   // Attempt to improve the alignment.
-  Align KnownAlign = getOrEnforceKnownAlignment(
-      Op, DL.getPrefTypeAlign(LI.getType()), DL, &LI, &AC, &DT);
   MaybeAlign LoadAlign = LI.getAlign();
   Align EffectiveLoadAlign =
       LoadAlign ? *LoadAlign : DL.getABITypeAlign(LI.getType());
-
-  if (KnownAlign > EffectiveLoadAlign)
-    LI.setAlignment(KnownAlign);
-  else if (LoadAlign == 0)
+  if (LoadAlign == 0)
     LI.setAlignment(EffectiveLoadAlign);
 
   // Replace GEP indices if possible.
@@ -1361,15 +1356,10 @@ Instruction *InstCombiner::visitStoreInst(StoreInst &SI) {
     return eraseInstFromFunction(SI);
 
   // Attempt to improve the alignment.
-  const Align KnownAlign = getOrEnforceKnownAlignment(
-      Ptr, DL.getPrefTypeAlign(Val->getType()), DL, &SI, &AC, &DT);
   const MaybeAlign StoreAlign = SI.getAlign();
   const Align EffectiveStoreAlign =
       StoreAlign ? *StoreAlign : DL.getABITypeAlign(Val->getType());
-
-  if (KnownAlign > EffectiveStoreAlign)
-    SI.setAlignment(KnownAlign);
-  else if (!StoreAlign)
+  if (!StoreAlign)
     SI.setAlignment(EffectiveStoreAlign);
 
   // Try to canonicalize the stored type.
