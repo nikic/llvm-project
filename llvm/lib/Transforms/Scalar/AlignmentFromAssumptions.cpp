@@ -35,6 +35,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
 
 STATISTIC(NumLoadAlignChanged,
@@ -396,6 +397,37 @@ bool AlignmentFromAssumptionsPass::runImpl(Function &F, AssumptionCache &AC,
   DT = DT_;
 
   bool Changed = false;
+
+  // Compute alignment from known bits.
+  const DataLayout &DL = F.getParent()->getDataLayout();
+  for (BasicBlock &BB : F) {
+    for (Instruction &I : BB) {
+      if (auto *LI = dyn_cast<LoadInst>(&I)) {
+        Value *PtrOp = LI->getPointerOperand();
+        Align KnownAlign = getOrEnforceKnownAlignment(
+            PtrOp, DL.getPrefTypeAlign(LI->getType()), DL, LI, &AC, DT);
+        Align LoadAlign =
+            DL.getValueOrABITypeAlignment(LI->getAlign(), LI->getType());
+        if (KnownAlign > LoadAlign) {
+          LI->setAlignment(KnownAlign);
+          Changed = true;
+        }
+      } else if (auto *SI = dyn_cast<StoreInst>(&I)) {
+        Value *PtrOp = SI->getPointerOperand();
+        Value *ValOp = SI->getValueOperand();
+        Align KnownAlign = getOrEnforceKnownAlignment(
+            PtrOp, DL.getPrefTypeAlign(ValOp->getType()), DL, SI, &AC, DT);
+        Align StoreAlign =
+            DL.getValueOrABITypeAlignment(SI->getAlign(), ValOp->getType());
+        if (KnownAlign > StoreAlign) {
+          SI->setAlignment(KnownAlign);
+          Changed = true;
+        }
+      }
+    }
+  }
+
+  // Compute alignment form assumptions.
   for (auto &AssumeVH : AC.assumptions())
     if (AssumeVH)
       Changed |= processAssumption(cast<CallInst>(AssumeVH));
