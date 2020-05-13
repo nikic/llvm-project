@@ -376,28 +376,35 @@ static bool runImpl(Function &F, const TargetTransformInfo &TTI,
     return false;
 
   bool MadeChange = false;
-  for (BasicBlock &BB : F) {
-    // Ignore unreachable basic blocks.
-    if (!DT.isReachableFromEntry(&BB))
-      continue;
-    // Do not delete instructions under here and invalidate the iterator.
-    // Walk the block backwards for efficiency. We're matching a chain of
-    // use->defs, so we're more likely to succeed by starting from the bottom.
-    // TODO: It could be more efficient to remove dead instructions
-    //       iteratively in this loop rather than waiting until the end.
-    for (Instruction &I : make_range(BB.rbegin(), BB.rend())) {
-      if (isa<DbgInfoIntrinsic>(I))
-        continue;
-      MadeChange |= foldExtractExtract(I, TTI);
-      MadeChange |= foldBitcastShuf(I, TTI);
-      MadeChange |= scalarizeBinop(I, TTI);
-    }
-  }
 
-  // We're done with transforms, so remove dead instructions.
-  if (MadeChange)
-    for (BasicBlock &BB : F)
-      SimplifyInstructionsInBlock(&BB);
+  // Iterate until there are no more changes. Transforms can build on each
+  // other's improvements.
+  bool IterationChange;
+  do {
+    IterationChange = false;
+    for (BasicBlock &BB : F) {
+      // Ignore unreachable basic blocks.
+      if (!DT.isReachableFromEntry(&BB))
+        continue;
+
+      // Walk the block backwards for efficiency. We are matching a chain of
+      // use->defs, so we're more likely to succeed by starting from the bottom.
+      for (Instruction &I : make_range(BB.rbegin(), BB.rend())) {
+        if (isa<DbgInfoIntrinsic>(I))
+          continue;
+        IterationChange |= foldExtractExtract(I, TTI);
+        IterationChange |= foldBitcastShuf(I, TTI);
+        IterationChange |= scalarizeBinop(I, TTI);
+      }
+    }
+    // Remove dead instructions before iterating.
+    if (IterationChange)
+      for (BasicBlock &BB : F)
+        SimplifyInstructionsInBlock(&BB);
+
+    // Set overall changed flag.
+    MadeChange |= IterationChange;
+  } while (IterationChange);
 
   return MadeChange;
 }
