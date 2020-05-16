@@ -465,9 +465,8 @@ bool AlignmentFromAssumptionsPass::runImpl(Function &F, AssumptionCache &AC,
     for (Instruction &I : BB) {
       Changed |= tryToImproveAlign(DL, &I,
           [&](Value *PtrOp, Align OldAlign, Align PrefAlign) {
-            // TODO: We might want to run this calculation without context
-            // instruction, and let assumptions be handled by the loop below.
-            KnownBits Known = computeKnownBits(PtrOp, DL, 0, &AC, &I, DT);
+            // TODO: We might want to run cache the result.
+            KnownBits Known = computeKnownBits(PtrOp, DL, 0, &AC, nullptr, DT);
             unsigned TrailZ = std::min(Known.countMinTrailingZeros(),
                                        +Value::MaxAlignmentExponent);
             return Align(1ull << std::min(Known.getBitWidth() - 1, TrailZ));
