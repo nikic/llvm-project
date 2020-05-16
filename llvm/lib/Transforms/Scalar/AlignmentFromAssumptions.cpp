@@ -460,16 +460,24 @@ bool AlignmentFromAssumptionsPass::runImpl(Function &F, AssumptionCache &AC,
     }
   }
 
-  // Compute alignment from known bits.
+  // Compute alignment from known bits. We perform this calculation without
+  // context instruction, and let alignment assumptions be handled separately
+  // below. This allows us to cache the known alignment as well.
+  DenseMap<Value *, Align> KnownAligns;
   for (BasicBlock &BB : F) {
     for (Instruction &I : BB) {
       Changed |= tryToImproveAlign(DL, &I,
           [&](Value *PtrOp, Align OldAlign, Align PrefAlign) {
-            // TODO: We might want to run cache the result.
+            auto It = KnownAligns.find(PtrOp);
+            if (It != KnownAligns.end())
+              return It->second;
+
             KnownBits Known = computeKnownBits(PtrOp, DL, 0, &AC, nullptr, DT);
             unsigned TrailZ = std::min(Known.countMinTrailingZeros(),
                                        +Value::MaxAlignmentExponent);
-            return Align(1ull << std::min(Known.getBitWidth() - 1, TrailZ));
+            Align KnownAlign(1ull << std::min(Known.getBitWidth() - 1, TrailZ));
+            KnownAligns.insert({PtrOp, KnownAlign});
+            return KnownAlign;
           });
     }
   }
