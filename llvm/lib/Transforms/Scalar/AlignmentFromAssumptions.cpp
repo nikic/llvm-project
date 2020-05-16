@@ -19,6 +19,7 @@
 #define AA_NAME "alignment-from-assumptions"
 #define DEBUG_TYPE AA_NAME
 #include "llvm/Transforms/Scalar/AlignmentFromAssumptions.h"
+#include "llvm/Support/KnownBits.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -393,6 +394,31 @@ bool AlignmentFromAssumptions::runOnFunction(Function &F) {
   return Impl.runImpl(F, AC, SE, DT);
 }
 
+static bool tryToImproveAlign(
+    const DataLayout &DL, Instruction *I,
+    llvm::function_ref<Align(Value *PtrOp, Align OldAlign,
+                             Align PrefAlign)> Fn) {
+  if (auto *LI = dyn_cast<LoadInst>(I)) {
+    Value *PtrOp = LI->getPointerOperand();
+    Align OldAlign = LI->getAlign();
+    Align NewAlign = Fn(PtrOp, OldAlign, DL.getPrefTypeAlign(LI->getType()));
+    if (NewAlign > OldAlign) {
+      LI->setAlignment(NewAlign);
+      return true;
+    }
+  } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+    Value *PtrOp = SI->getPointerOperand();
+    Value *ValOp = SI->getValueOperand();
+    Align OldAlign = SI->getAlign();
+    Align NewAlign = Fn(PtrOp, OldAlign, DL.getPrefTypeAlign(ValOp->getType()));
+    if (NewAlign > OldAlign) {
+      SI->setAlignment(NewAlign);
+      return true;
+    }
+  }
+  return false;
+}
+
 bool AlignmentFromAssumptionsPass::runImpl(Function &F, AssumptionCache &AC,
                                            ScalarEvolution *SE_,
                                            DominatorTree *DT_) {
@@ -400,29 +426,31 @@ bool AlignmentFromAssumptionsPass::runImpl(Function &F, AssumptionCache &AC,
   DT = DT_;
 
   bool Changed = false;
-
-  // Compute alignment from known bits.
   const DataLayout &DL = F.getParent()->getDataLayout();
+
+  // Enforce preferred type alignment if possible. We do this as a separate
+  // pass first, because it may improve the alignments we infer below.
   for (BasicBlock &BB : F) {
     for (Instruction &I : BB) {
-      if (auto *LI = dyn_cast<LoadInst>(&I)) {
-        Value *PtrOp = LI->getPointerOperand();
-        Align KnownAlign = getOrEnforceKnownAlignment(
-            PtrOp, DL.getPrefTypeAlign(LI->getType()), DL, LI, &AC, DT);
-        if (KnownAlign > LI->getAlign()) {
-          LI->setAlignment(KnownAlign);
-          Changed = true;
-        }
-      } else if (auto *SI = dyn_cast<StoreInst>(&I)) {
-        Value *PtrOp = SI->getPointerOperand();
-        Value *ValOp = SI->getValueOperand();
-        Align KnownAlign = getOrEnforceKnownAlignment(
-            PtrOp, DL.getPrefTypeAlign(ValOp->getType()), DL, SI, &AC, DT);
-        if (KnownAlign > SI->getAlign()) {
-          SI->setAlignment(KnownAlign);
-          Changed = true;
-        }
-      }
+      Changed |= tryToImproveAlign(DL, &I,
+          [&](Value *PtrOp, Align OldAlign, Align PrefAlign) {
+            if (PrefAlign > OldAlign)
+              return enforceKnownAlignment(PtrOp, OldAlign, PrefAlign, DL);
+            return OldAlign;
+          });
+    }
+  }
+
+  // Compute alignment from known bits.
+  for (BasicBlock &BB : F) {
+    for (Instruction &I : BB) {
+      Changed |= tryToImproveAlign(DL, &I,
+          [&](Value *PtrOp, Align OldAlign, Align PrefAlign) {
+            KnownBits Known = computeKnownBits(PtrOp, DL, 0, &AC, &I, DT);
+            unsigned TrailZ = std::min(Known.countMinTrailingZeros(),
+                                       +Value::MaxAlignmentExponent);
+            return Align(1ull << std::min(Known.getBitWidth() - 1, TrailZ));
+          });
     }
   }
 

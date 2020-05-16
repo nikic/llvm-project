@@ -1168,8 +1168,8 @@ bool llvm::EliminateDuplicatePHINodes(BasicBlock *BB) {
 /// often possible though. If alignment is important, a more reliable approach
 /// is to simply align all global variables and allocation instructions to
 /// their preferred alignment from the beginning.
-static Align enforceKnownAlignment(Value *V, Align Alignment, Align PrefAlign,
-                                   const DataLayout &DL) {
+Align llvm::enforceKnownAlignment(Value *V, Align Alignment, Align PrefAlign,
+                                  const DataLayout &DL) {
   assert(PrefAlign > Alignment);
 
   V = V->stripPointerCasts();
