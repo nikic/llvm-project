@@ -398,13 +398,14 @@ static bool tryToImproveAlign(
     const DataLayout &DL, Instruction *I,
     llvm::function_ref<Align(Value *PtrOp, Align OldAlign,
                              Align PrefAlign)> Fn) {
+  bool Changed = false;
   if (auto *LI = dyn_cast<LoadInst>(I)) {
     Value *PtrOp = LI->getPointerOperand();
     Align OldAlign = LI->getAlign();
     Align NewAlign = Fn(PtrOp, OldAlign, DL.getPrefTypeAlign(LI->getType()));
     if (NewAlign > OldAlign) {
       LI->setAlignment(NewAlign);
-      return true;
+      Changed = true;
     }
   } else if (auto *SI = dyn_cast<StoreInst>(I)) {
     Value *PtrOp = SI->getPointerOperand();
@@ -413,10 +414,28 @@ static bool tryToImproveAlign(
     Align NewAlign = Fn(PtrOp, OldAlign, DL.getPrefTypeAlign(ValOp->getType()));
     if (NewAlign > OldAlign) {
       SI->setAlignment(NewAlign);
-      return true;
+      Changed = true;
+    }
+  } else if (auto *MI = dyn_cast<MemIntrinsic>(I)) {
+    Value *PtrOp = MI->getDest();
+    Align OldAlign = *MI->getDestAlign();
+    Align NewAlign = Fn(PtrOp, OldAlign, Align(1));
+    if (NewAlign > OldAlign) {
+      MI->setDestAlignment(NewAlign);
+      Changed = true;
+    }
+
+    if (auto *MTI = dyn_cast<MemTransferInst>(I)) {
+      Value *PtrOp = MTI->getSource();
+      Align OldAlign = *MTI->getSourceAlign();
+      Align NewAlign = Fn(PtrOp, OldAlign, Align(1));
+      if (NewAlign > OldAlign) {
+        MTI->setSourceAlignment(NewAlign);
+        Changed = true;
+      }
     }
   }
-  return false;
+  return Changed;
 }
 
 bool AlignmentFromAssumptionsPass::runImpl(Function &F, AssumptionCache &AC,
@@ -446,6 +465,8 @@ bool AlignmentFromAssumptionsPass::runImpl(Function &F, AssumptionCache &AC,
     for (Instruction &I : BB) {
       Changed |= tryToImproveAlign(DL, &I,
           [&](Value *PtrOp, Align OldAlign, Align PrefAlign) {
+            // TODO: We might want to run this calculation without context
+            // instruction, and let assumptions be handled by the loop below.
             KnownBits Known = computeKnownBits(PtrOp, DL, 0, &AC, &I, DT);
             unsigned TrailZ = std::min(Known.countMinTrailingZeros(),
                                        +Value::MaxAlignmentExponent);
