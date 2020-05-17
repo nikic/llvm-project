@@ -460,15 +460,15 @@ bool AlignmentFromAssumptionsPass::runImpl(Function &F, AssumptionCache &AC,
     }
   }
 
-  // Compute alignment from known bits.
+  // Compute alignment from SCEV (including known bits).
   for (BasicBlock &BB : F) {
     for (Instruction &I : BB) {
       Changed |= tryToImproveAlign(DL, &I,
           [&](Value *PtrOp, Align OldAlign, Align PrefAlign) {
-            KnownBits Known = computeKnownBits(PtrOp, DL, 0, &AC, &I, DT);
-            unsigned TrailZ = std::min(Known.countMinTrailingZeros(),
+            const SCEV *PtrOpSCEV = SE->getSCEV(PtrOp);
+            unsigned TrailZ = std::min(SE->GetMinTrailingZeros(PtrOpSCEV),
                                        +Value::MaxAlignmentExponent);
-            return Align(1ull << std::min(Known.getBitWidth() - 1, TrailZ));
+            return Align(1ull << TrailZ);
           });
     }
   }
