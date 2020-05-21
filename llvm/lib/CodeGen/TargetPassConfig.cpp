@@ -729,14 +729,16 @@ void TargetPassConfig::addPassesToHandleExceptions() {
     LLVM_FALLTHROUGH;
   case ExceptionHandling::DwarfCFI:
   case ExceptionHandling::ARM:
-    addPass(createDwarfEHPass());
+    addPass(createDwarfEHPass(
+        /* PruneUnreachableResumes */ getOptLevel() != CodeGenOpt::None));
     break;
   case ExceptionHandling::WinEH:
     // We support using both GCC-style and MSVC-style exceptions on Windows, so
     // add both preparation passes. Each pass will only actually run if it
     // recognizes the personality function.
     addPass(createWinEHPass());
-    addPass(createDwarfEHPass());
+    addPass(createDwarfEHPass(
+        /* PruneUnreachableResumes */ getOptLevel() != CodeGenOpt::None));
     break;
   case ExceptionHandling::Wasm:
     // Wasm EH uses Windows EH instructions, but it does not need to demote PHIs
