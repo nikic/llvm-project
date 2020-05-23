@@ -529,6 +529,8 @@ public:
 
   bool runOnModule(Module &M) override;
 
+  bool hasDescriptors() const { return Impl.hasDescriptors(); }
+
 private:
   RewriteSymbolPass Impl;
 };
@@ -578,7 +580,11 @@ INITIALIZE_PASS(RewriteSymbolsLegacyPass, "rewrite-symbols", "Rewrite Symbols",
                 false, false)
 
 ModulePass *llvm::createRewriteSymbolsPass() {
-  return new RewriteSymbolsLegacyPass();
+  auto *Pass = new RewriteSymbolsLegacyPass();
+  if (Pass->hasDescriptors())
+    return Pass;
+  delete Pass;
+  return nullptr;
 }
 
 ModulePass *

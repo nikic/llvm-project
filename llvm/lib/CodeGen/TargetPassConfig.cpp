@@ -760,7 +760,8 @@ void TargetPassConfig::addPassesToHandleExceptions() {
 void TargetPassConfig::addCodeGenPrepare() {
   if (getOptLevel() != CodeGenOpt::None && !DisableCGP)
     addPass(createCodeGenPreparePass());
-  addPass(createRewriteSymbolsPass());
+  if (auto *Pass = createRewriteSymbolsPass())
+    addPass(Pass);
 }
 
 /// Add common passes that perform LLVM IR to IR transforms in preparation for

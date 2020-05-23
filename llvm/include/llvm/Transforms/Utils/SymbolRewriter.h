@@ -130,6 +130,8 @@ public:
   // Glue for old PM
   bool runImpl(Module &M);
 
+  bool hasDescriptors() const { return !Descriptors.empty(); }
+
 private:
   void loadAndParseMapFiles();
 
