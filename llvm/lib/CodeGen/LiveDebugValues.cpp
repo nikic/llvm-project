@@ -483,8 +483,7 @@ private:
     }
   };
 
-  using VarLocInMBB =
-      SmallDenseMap<const MachineBasicBlock *, std::unique_ptr<VarLocSet>>;
+  using VarLocInMBB = SmallDenseMap<const MachineBasicBlock *, VarLocSet>;
   struct TransferDebugPair {
     MachineInstr *TransferInst; ///< Instruction where this transfer occurs.
     LocIndex LocationID;        ///< Location number for the transfer dest.
@@ -575,17 +574,15 @@ private:
                    SmallVectorImpl<uint32_t> &UsedRegs) const;
 
   VarLocSet &getVarLocsInMBB(const MachineBasicBlock *MBB, VarLocInMBB &Locs) {
-    std::unique_ptr<VarLocSet> &VLS = Locs[MBB];
-    if (!VLS)
-      VLS = std::make_unique<VarLocSet>(Alloc);
-    return *VLS.get();
+    auto Result = Locs.try_emplace(MBB, Alloc);
+    return Result.first->second;
   }
 
   const VarLocSet &getVarLocsInMBB(const MachineBasicBlock *MBB,
                                    const VarLocInMBB &Locs) const {
     auto It = Locs.find(MBB);
     assert(It != Locs.end() && "MBB not in map");
-    return *It->second.get();
+    return It->second;
   }
 
   /// Tests whether this instruction is a spill to a stack location.
@@ -1485,11 +1482,10 @@ bool LiveDebugValues::join(
 
     // Just copy over the Out locs to incoming locs for the first visited
     // predecessor, and for all other predecessors join the Out locs.
-    VarLocSet &OutLocVLS = *OL->second.get();
     if (!NumVisited)
-      InLocsT = OutLocVLS;
+      InLocsT = OL->second;
     else
-      InLocsT &= OutLocVLS;
+      InLocsT &= OL->second;
 
     LLVM_DEBUG({
       if (!InLocsT.empty()) {
@@ -1561,7 +1557,7 @@ void LiveDebugValues::flushPendingLocs(VarLocInMBB &PendingInLocs,
   for (auto &Iter : PendingInLocs) {
     // Map is keyed on a constant pointer, unwrap it so we can insert insts.
     auto &MBB = const_cast<MachineBasicBlock &>(*Iter.first);
-    VarLocSet &Pending = *Iter.second.get();
+    VarLocSet &Pending = Iter.second;
 
     for (uint64_t ID : Pending) {
       // The ID location is live-in to MBB -- work out what kind of machine
@@ -1706,7 +1702,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   // Initialize per-block structures and scan for fragment overlaps.
   for (auto &MBB : MF) {
-    PendingInLocs[&MBB] = std::make_unique<VarLocSet>(Alloc);
+    PendingInLocs.try_emplace(&MBB, Alloc);
 
     for (auto &MI : MBB) {
       if (MI.isDebugValue())
