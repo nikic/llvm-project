@@ -31,6 +31,11 @@ bool elementsMatch(const UBitVec &BV, std::initializer_list<unsigned> List) {
   return true;
 }
 
+bool rangesMatch(iterator_range<UBitVec::const_iterator> R,
+                 std::initializer_list<unsigned> List) {
+  return std::equal(R.begin(), R.end(), List.begin(), List.end());
+}
+
 TEST(CoalescingBitVectorTest, Set) {
   UBitVec::Allocator Alloc;
   UBitVec BV1(Alloc);
@@ -484,6 +489,39 @@ TEST(CoalescingBitVectorTest, AdvanceToLowerBound) {
   EXPECT_TRUE(It == BV.end());
   It.advanceToLowerBound(100);
   EXPECT_TRUE(It == BV.end());
+}
+
+TEST(CoalescingBitVectorTest, HalfOpenRange) {
+  UBitVec::Allocator Alloc;
+
+  {
+    UBitVec BV(Alloc);
+    BV.set({1, 2, 3});
+
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(0, 5), {1, 2, 3}));
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(1, 4), {1, 2, 3}));
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(1, 3), {1, 2}));
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(2, 3), {2}));
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(2, 4), {2, 3}));
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(4, 5), {}));
+  }
+
+  {
+    UBitVec BV(Alloc);
+    BV.set({1, 2, 11, 12});
+
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(0, 15), {1, 2, 11, 12}));
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(1, 13), {1, 2, 11, 12}));
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(1, 12), {1, 2, 11}));
+
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(0, 5), {1, 2}));
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(1, 5), {1, 2}));
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(2, 5), {2}));
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(1, 2), {1}));
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(13, 14), {}));
+
+    EXPECT_TRUE(rangesMatch(BV.half_open_range(2, 10), {2}));
+  }
 }
 
 TEST(CoalescingBitVectorTest, Print) {
