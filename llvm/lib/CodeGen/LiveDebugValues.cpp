@@ -1547,7 +1547,7 @@ bool LiveDebugValues::join(
   VarLocSet &ILS = getVarLocsInMBB(&MBB, InLocs);
   bool Changed = false;
   if (ILS != InLocsT) {
-    ILS = InLocsT;
+    ILS = std::move(InLocsT);
     Changed = true;
   }
 

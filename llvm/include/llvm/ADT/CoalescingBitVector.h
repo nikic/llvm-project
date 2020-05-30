@@ -69,8 +69,8 @@ public:
     return *this;
   }
 
-  CoalescingBitVector(ThisT &&Other) = delete;
-  ThisT &operator=(ThisT &&Other) = delete;
+  CoalescingBitVector(ThisT &&Other) = default;
+  ThisT &operator=(ThisT &&Other) = default;
 
   /// @}
 
