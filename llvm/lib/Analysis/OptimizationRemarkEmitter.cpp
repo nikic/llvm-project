@@ -22,10 +22,12 @@
 
 using namespace llvm;
 
-OptimizationRemarkEmitter::OptimizationRemarkEmitter(const Function *F)
-    : F(F), BFI(nullptr) {
-  if (!F->getContext().getDiagnosticsHotnessRequested())
-    return;
+BlockFrequencyInfo *OptimizationRemarkEmitter::getBFI() {
+  if (BFI)
+    return BFI;
+
+  if (!HotnessRequested)
+    return nullptr;
 
   // First create a dominator tree.
   DominatorTree DT;
@@ -41,6 +43,7 @@ OptimizationRemarkEmitter::OptimizationRemarkEmitter(const Function *F)
   // Finally compute BFI.
   OwnedBFI = std::make_unique<BlockFrequencyInfo>(*F, BPI, LI);
   BFI = OwnedBFI.get();
+  return BFI;
 }
 
 bool OptimizationRemarkEmitter::invalidate(
@@ -60,6 +63,7 @@ bool OptimizationRemarkEmitter::invalidate(
 }
 
 Optional<uint64_t> OptimizationRemarkEmitter::computeHotness(const Value *V) {
+  BlockFrequencyInfo *BFI = getBFI();
   if (!BFI)
     return None;
 

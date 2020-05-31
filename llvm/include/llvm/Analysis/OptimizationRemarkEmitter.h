@@ -33,29 +33,26 @@ class Value;
 class OptimizationRemarkEmitter {
 public:
   OptimizationRemarkEmitter(const Function *F, BlockFrequencyInfo *BFI)
-      : F(F), BFI(BFI) {}
+      : F(F), BFI(BFI), HotnessRequested(BFI != nullptr) {}
 
   /// This variant can be used to generate ORE on demand (without the
   /// analysis pass).
   ///
   /// Note that this ctor has a very different cost depending on whether
-  /// F->getContext().getDiagnosticsHotnessRequested() is on or not.  If it's off
-  /// the operation is free.
+  /// F->getContext().getDiagnosticsHotnessRequested() is on or not.  If it's
+  /// off the operation is free.
   ///
   /// Whereas if DiagnosticsHotnessRequested is on, it is fairly expensive
   /// operation since BFI and all its required analyses are computed.  This is
   /// for example useful for CGSCC passes that can't use function analyses
   /// passes in the old PM.
-  OptimizationRemarkEmitter(const Function *F);
+  OptimizationRemarkEmitter(const Function *F)
+      : F(F), BFI(nullptr),
+        HotnessRequested(F->getContext().getDiagnosticsHotnessRequested()) { }
 
-  OptimizationRemarkEmitter(OptimizationRemarkEmitter &&Arg)
-      : F(Arg.F), BFI(Arg.BFI) {}
-
-  OptimizationRemarkEmitter &operator=(OptimizationRemarkEmitter &&RHS) {
-    F = RHS.F;
-    BFI = RHS.BFI;
-    return *this;
-  }
+  OptimizationRemarkEmitter(OptimizationRemarkEmitter &&Arg) = default;
+  OptimizationRemarkEmitter &operator=(OptimizationRemarkEmitter &&RHS)
+      = default;
 
   /// Handle invalidation events in the new pass manager.
   bool invalidate(Function &F, const PreservedAnalyses &PA,
@@ -100,6 +97,11 @@ private:
   /// If we generate BFI on demand, we need to free it when ORE is freed.
   std::unique_ptr<BlockFrequencyInfo> OwnedBFI;
 
+  bool HotnessRequested;
+
+  /// Get or compute block frequency info if hotness is requested.
+  BlockFrequencyInfo *getBFI();
+
   /// Compute hotness from IR value (currently assumed to be a block) if PGO is
   /// available.
   Optional<uint64_t> computeHotness(const Value *V);
@@ -109,7 +111,7 @@ private:
 
   /// Only allow verbose messages if we know we're filtering by hotness
   /// (BFI is only set in this case).
-  bool shouldEmitVerbose() { return BFI != nullptr; }
+  bool shouldEmitVerbose() { return HotnessRequested; }
 
   OptimizationRemarkEmitter(const OptimizationRemarkEmitter &) = delete;
   void operator=(const OptimizationRemarkEmitter &) = delete;
