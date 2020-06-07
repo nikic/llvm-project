@@ -18,6 +18,8 @@
 #include "llvm-c/Types.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Config/llvm-config.h"
@@ -722,7 +724,7 @@ template <> struct DenseMapInfo<AttributeList> {
 /// equality, presence of attributes, etc.
 class AttrBuilder {
   std::bitset<Attribute::EndAttrKinds> Attrs;
-  std::map<std::string, std::string, std::less<>> TargetDepAttrs;
+  StringMap<SmallString<16>> TargetDepAttrs;
   MaybeAlign Alignment;
   MaybeAlign StackAlignment;
   uint64_t DerefBytes = 0;
@@ -866,7 +868,7 @@ public:
   bool empty() const { return Attrs.none(); }
 
   // Iterators for target-dependent attributes.
-  using td_type = std::pair<std::string, std::string>;
+  using td_type = std::pair<StringRef, StringRef>;
   using td_iterator = decltype(TargetDepAttrs)::iterator;
   using td_const_iterator = decltype(TargetDepAttrs)::const_iterator;
   using td_range = iterator_range<td_iterator>;

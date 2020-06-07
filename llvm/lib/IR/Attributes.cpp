@@ -876,8 +876,9 @@ AttributeSetNode *AttributeSetNode::get(LLVMContext &C, const AttrBuilder &B) {
 
   // Add target-dependent (string) attributes.
   for (const auto &TDA : B.td_attrs())
-    Attrs.emplace_back(Attribute::get(C, TDA.first, TDA.second));
+    Attrs.emplace_back(Attribute::get(C, TDA.first(), TDA.second));
 
+  llvm::sort(Attrs);
   return getSorted(C, Attrs);
 }
 
@@ -1571,7 +1572,7 @@ AttrBuilder &AttrBuilder::addAttribute(Attribute Attr) {
 }
 
 AttrBuilder &AttrBuilder::addAttribute(StringRef A, StringRef V) {
-  TargetDepAttrs[std::string(A)] = std::string(V);
+  TargetDepAttrs[A] = V;
   return *this;
 }
 
@@ -1706,8 +1707,8 @@ AttrBuilder &AttrBuilder::merge(const AttrBuilder &B) {
 
   Attrs |= B.Attrs;
 
-  for (auto I : B.td_attrs())
-    TargetDepAttrs[I.first] = I.second;
+  for (auto &I : B.td_attrs())
+    TargetDepAttrs[I.first()] = I.second;
 
   return *this;
 }
@@ -1737,8 +1738,8 @@ AttrBuilder &AttrBuilder::remove(const AttrBuilder &B) {
 
   Attrs &= ~B.Attrs;
 
-  for (auto I : B.td_attrs())
-    TargetDepAttrs.erase(I.first);
+  for (auto &I : B.td_attrs())
+    TargetDepAttrs.erase(I.first());
 
   return *this;
 }
@@ -1750,7 +1751,7 @@ bool AttrBuilder::overlaps(const AttrBuilder &B) const {
 
   // Then check if any target dependent ones do.
   for (const auto &I : td_attrs())
-    if (B.contains(I.first))
+    if (B.contains(I.first()))
       return true;
 
   return false;
@@ -1790,7 +1791,7 @@ bool AttrBuilder::operator==(const AttrBuilder &B) {
 
   for (td_const_iterator I = TargetDepAttrs.begin(),
          E = TargetDepAttrs.end(); I != E; ++I)
-    if (B.TargetDepAttrs.find(I->first) == B.TargetDepAttrs.end())
+    if (B.TargetDepAttrs.find(I->first()) == B.TargetDepAttrs.end())
       return false;
 
   return Alignment == B.Alignment && StackAlignment == B.StackAlignment &&
