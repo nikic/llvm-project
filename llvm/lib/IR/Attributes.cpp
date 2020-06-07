@@ -875,8 +875,15 @@ AttributeSetNode *AttributeSetNode::get(LLVMContext &C, const AttrBuilder &B) {
   }
 
   // Add target-dependent (string) attributes.
+  unsigned NumStringAttrs = B.td_size();
+  Attrs.reserve(Attrs.size() + NumStringAttrs);
   for (const auto &TDA : B.td_attrs())
-    Attrs.emplace_back(Attribute::get(C, TDA.first, TDA.second));
+    Attrs.emplace_back(Attribute::get(C, TDA.first(), TDA.second));
+
+  // And sort string attributes only.
+  auto StringAttrs =
+      MutableArrayRef<Attribute>(Attrs).take_back(NumStringAttrs);
+  llvm::sort(StringAttrs.begin(), StringAttrs.end());
 
   return getSorted(C, Attrs);
 }
@@ -1571,7 +1578,7 @@ AttrBuilder &AttrBuilder::addAttribute(Attribute Attr) {
 }
 
 AttrBuilder &AttrBuilder::addAttribute(StringRef A, StringRef V) {
-  TargetDepAttrs[std::string(A)] = std::string(V);
+  TargetDepAttrs[A] = V;
   return *this;
 }
 
@@ -1603,9 +1610,7 @@ AttrBuilder &AttrBuilder::removeAttributes(AttributeList A, uint64_t Index) {
 }
 
 AttrBuilder &AttrBuilder::removeAttribute(StringRef A) {
-  auto I = TargetDepAttrs.find(A);
-  if (I != TargetDepAttrs.end())
-    TargetDepAttrs.erase(I);
+  TargetDepAttrs.erase(A);
   return *this;
 }
 
@@ -1706,8 +1711,8 @@ AttrBuilder &AttrBuilder::merge(const AttrBuilder &B) {
 
   Attrs |= B.Attrs;
 
-  for (auto I : B.td_attrs())
-    TargetDepAttrs[I.first] = I.second;
+  for (auto &I : B.td_attrs())
+    TargetDepAttrs[I.first()] = I.second;
 
   return *this;
 }
@@ -1737,8 +1742,8 @@ AttrBuilder &AttrBuilder::remove(const AttrBuilder &B) {
 
   Attrs &= ~B.Attrs;
 
-  for (auto I : B.td_attrs())
-    TargetDepAttrs.erase(I.first);
+  for (auto &I : B.td_attrs())
+    TargetDepAttrs.erase(I.first());
 
   return *this;
 }
@@ -1750,14 +1755,14 @@ bool AttrBuilder::overlaps(const AttrBuilder &B) const {
 
   // Then check if any target dependent ones do.
   for (const auto &I : td_attrs())
-    if (B.contains(I.first))
+    if (B.contains(I.first()))
       return true;
 
   return false;
 }
 
 bool AttrBuilder::contains(StringRef A) const {
-  return TargetDepAttrs.find(A) != TargetDepAttrs.end();
+  return TargetDepAttrs.count(A);
 }
 
 bool AttrBuilder::hasAttributes() const {
@@ -1790,7 +1795,7 @@ bool AttrBuilder::operator==(const AttrBuilder &B) {
 
   for (td_const_iterator I = TargetDepAttrs.begin(),
          E = TargetDepAttrs.end(); I != E; ++I)
-    if (B.TargetDepAttrs.find(I->first) == B.TargetDepAttrs.end())
+    if (!B.contains(I->first()))
       return false;
 
   return Alignment == B.Alignment && StackAlignment == B.StackAlignment &&
