@@ -577,19 +577,6 @@ bool LazyValueInfoImpl::solveBlockValue(Value *Val, BasicBlock *BB) {
 
 Optional<ValueLatticeElement> LazyValueInfoImpl::solveBlockValueImpl(
     Value *Val, BasicBlock *BB) {
-  // If this value is a nonnull pointer, record it's range and bailout.  Note
-  // that for all other pointer typed values, we terminate the search at the
-  // definition.  We could easily extend this to look through geps, bitcasts,
-  // and the like to prove non-nullness, but it's not clear that's worth it
-  // compile time wise.  The context-insensitive value walk done inside
-  // isKnownNonZero gets most of the profitable cases at much less expense.
-  // This does mean that we have a sensitivity to where the defining
-  // instruction is placed, even if it could legally be hoisted much higher.
-  // That is unfortunate.
-  PointerType *PT = dyn_cast<PointerType>(Val->getType());
-  if (PT && isKnownNonZero(Val, DL))
-    return ValueLatticeElement::getNot(ConstantPointerNull::get(PT));
-
   Instruction *BBI = dyn_cast<Instruction>(Val);
   if (!BBI || BBI->getParent() != BB)
     return solveBlockValueNonLocal(Val, BB);
@@ -599,6 +586,20 @@ Optional<ValueLatticeElement> LazyValueInfoImpl::solveBlockValueImpl(
 
   if (auto *SI = dyn_cast<SelectInst>(BBI))
     return solveBlockValueSelect(SI, BB);
+
+  // If this value is a nonnull pointer, record it's range and bailout.  Note
+  // that for all other pointer typed values, we terminate the search at the
+  // definition.  We could easily extend this to look through geps, bitcasts,
+  // and the like to prove non-nullness, but it's not clear that's worth it
+  // compile time wise.  The context-insensitive value walk done inside
+  // isKnownNonZero gets most of the profitable cases at much less expense.
+  // This does mean that we have a sensitivity to where the defining
+  // instruction is placed, even if it could legally be hoisted much higher.
+  // That is unfortunate.
+  PointerType *PT = dyn_cast<PointerType>(BBI->getType());
+  if (PT && isKnownNonZero(BBI, DL))
+    return ValueLatticeElement::getNot(ConstantPointerNull::get(PT));
+
 
   if (BBI->getType()->isIntegerTy()) {
     if (auto *CI = dyn_cast<CastInst>(BBI))
