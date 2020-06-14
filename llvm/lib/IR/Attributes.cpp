@@ -985,9 +985,13 @@ AttributeListImpl::AttributeListImpl(ArrayRef<AttributeSet> Sets)
   // There's memory after the node where we can store the entries in.
   llvm::copy(Sets, getTrailingObjects<AttributeSet>());
 
-  // Initialize AvailableFunctionAttrs summary bitset.
+  // Initialize AvailableFunctionAttrs and AvailableSomewhereAttrs
+  // summary bitsets.
   static_assert(Attribute::EndAttrKinds <=
                     sizeof(AvailableFunctionAttrs) * CHAR_BIT,
+                "Too many attributes");
+  static_assert(Attribute::EndAttrKinds <=
+                    sizeof(AvailableSomewhereAttrs) * CHAR_BIT,
                 "Too many attributes");
   static_assert(attrIdxToArrayIdx(AttributeList::FunctionIndex) == 0U,
                 "function should be stored in slot 0");
@@ -995,6 +999,14 @@ AttributeListImpl::AttributeListImpl(ArrayRef<AttributeSet> Sets)
     if (!I.isStringAttribute()) {
       Attribute::AttrKind Kind = I.getKindAsEnum();
       AvailableFunctionAttrs[Kind / 8] |= 1ULL << (Kind % 8);
+    }
+  }
+  for (const auto &Set : Sets) {
+    for (const auto &I : Set) {
+      if (!I.isStringAttribute()) {
+        Attribute::AttrKind Kind = I.getKindAsEnum();
+        AvailableSomewhereAttrs[Kind / 8] |= 1ULL << (Kind % 8);
+      }
     }
   }
 }
@@ -1008,6 +1020,26 @@ void AttributeListImpl::Profile(FoldingSetNodeID &ID,
   for (const auto &Set : Sets)
     ID.AddPointer(Set.SetNode);
 }
+
+bool AttributeListImpl::hasAttrSomewhere(Attribute::AttrKind Kind,
+                                        unsigned *Index) const {
+  bool IsAvailableSomewhere =
+      AvailableSomewhereAttrs[Kind / 8] & ((uint64_t)1) << (Kind % 8);
+  if (!IsAvailableSomewhere)
+    return false;
+
+  if (Index) {
+    for (unsigned I = 0, E = NumAttrSets; I != E; ++I) {
+      if (begin()[I].hasAttribute(Kind)) {
+        *Index = I - 1;
+        break;
+      }
+    }
+  }
+
+  return true;
+}
+
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void AttributeListImpl::dump() const {
@@ -1414,17 +1446,7 @@ bool AttributeList::hasParamAttribute(unsigned ArgNo,
 
 bool AttributeList::hasAttrSomewhere(Attribute::AttrKind Attr,
                                      unsigned *Index) const {
-  if (!pImpl) return false;
-
-  for (unsigned I = index_begin(), E = index_end(); I != E; ++I) {
-    if (hasAttribute(I, Attr)) {
-      if (Index)
-        *Index = I;
-      return true;
-    }
-  }
-
-  return false;
+  return pImpl && pImpl->hasAttrSomewhere(Attr, Index);
 }
 
 Attribute AttributeList::getAttribute(unsigned Index,
