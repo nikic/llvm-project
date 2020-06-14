@@ -42,7 +42,9 @@ const ValueLatticeElement *ValueLatticePool::getConstant(Constant *C) {
   if (It != ConstantElems.end())
     return It->second;
 
-  return getElement(ValueLatticeElement::get(C));
+  const ValueLatticeElement *Elem = getElement(ValueLatticeElement::get(C));
+  ConstantElems.insert({C, Elem});
+  return Elem;
 }
 
 const ValueLatticeElement *ValueLatticePool::getNotConstant(Constant *C) {
