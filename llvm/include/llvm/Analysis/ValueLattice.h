@@ -9,21 +9,21 @@
 #ifndef LLVM_ANALYSIS_VALUELATTICE_H
 #define LLVM_ANALYSIS_VALUELATTICE_H
 
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/Support/Allocator.h"
+
 //
 //===----------------------------------------------------------------------===//
 //                               ValueLatticeElement
 //===----------------------------------------------------------------------===//
 
-/// This class represents lattice values for constants.
-///
-/// FIXME: This is basically just for bringup, this can be made a lot more rich
-/// in the future.
-///
-
 namespace llvm {
+/// This class represents lattice values for constants.
 class ValueLatticeElement {
+  friend struct ValueLatticeMapInfo;
+
   enum ValueLatticeElementTy {
     /// This Value has no known value yet.  As a result, this implies the
     /// producing instruction is dead.  Caution: We use this as the starting
@@ -481,5 +481,77 @@ static_assert(sizeof(ValueLatticeElement) <= 40,
               "size of ValueLatticeElement changed unexpectedly");
 
 raw_ostream &operator<<(raw_ostream &OS, const ValueLatticeElement &Val);
+
+struct ValueLatticeMapInfo {
+  static inline ValueLatticeElement *getEmptyKey() {
+    return DenseMapInfo<ValueLatticeElement *>::getEmptyKey();
+  }
+  static inline ValueLatticeElement *getTombstoneKey() {
+    return DenseMapInfo<ValueLatticeElement *>::getTombstoneKey();
+  }
+
+  static unsigned getHashValue(const ValueLatticeElement *Elem) {
+    switch (Elem->Tag) {
+      case ValueLatticeElement::overdefined:
+      case ValueLatticeElement::unknown:
+      case ValueLatticeElement::undef:
+        return hash_combine(Elem->Tag);
+      case ValueLatticeElement::constant:
+      case ValueLatticeElement::notconstant:
+        return hash_combine(Elem->Tag, Elem->ConstVal);
+      case ValueLatticeElement::constantrange_including_undef:
+      case ValueLatticeElement::constantrange:
+        return hash_combine(Elem->Tag, Elem->Range.getLower(),
+                            Elem->Range.getUpper());
+    }
+    llvm_unreachable("Invalid tag");
+  }
+
+  static bool isEqual(const ValueLatticeElement *A,
+                      const ValueLatticeElement *B) {
+    if (A == getEmptyKey() || A == getTombstoneKey() ||
+        B == getEmptyKey() || B == getTombstoneKey())
+      return A == B;
+
+    if (A->Tag != B->Tag)
+      return false;
+
+    switch (A->Tag) {
+    case ValueLatticeElement::overdefined:
+    case ValueLatticeElement::unknown:
+    case ValueLatticeElement::undef:
+      return true;
+    case ValueLatticeElement::constant:
+    case ValueLatticeElement::notconstant:
+      return A->ConstVal == B->ConstVal;
+    case ValueLatticeElement::constantrange_including_undef:
+    case ValueLatticeElement::constantrange:
+      return A->Range.getBitWidth() == B->Range.getBitWidth() &&
+             A->Range == B->Range;
+    }
+    llvm_unreachable("Invalid tag");
+  }
+};
+
+class ValueLatticePool {
+  SpecificBumpPtrAllocator<ValueLatticeElement> BPA;
+  const ValueLatticeElement *Unknown;
+  const ValueLatticeElement *Overdefined;
+  DenseMap<Constant *, const ValueLatticeElement *> ConstantElems;
+  DenseSet<const ValueLatticeElement *, ValueLatticeMapInfo> Elems;
+
+public:
+  ValueLatticePool();
+
+  const ValueLatticeElement *getUnknown() const { return Unknown; }
+  const ValueLatticeElement *getOverdefined() const { return Overdefined; }
+
+  const ValueLatticeElement *getConstant(Constant *C);
+  const ValueLatticeElement *getNotConstant(Constant *C);
+  const ValueLatticeElement *getRange(const ConstantRange &CR,
+                                      bool MayIncludeUndef = false);
+  const ValueLatticeElement *getElement(const ValueLatticeElement &Elem);
+};
+
 } // end namespace llvm
 #endif
