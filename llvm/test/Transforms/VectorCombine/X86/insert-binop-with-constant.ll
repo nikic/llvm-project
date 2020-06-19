@@ -333,9 +333,7 @@ define <2 x i64> @urem_constant_op0_not_undef_lane(i64 %x) {
 
 define <2 x i64> @urem_constant_op1(i64 %x) {
 ; CHECK-LABEL: @urem_constant_op1(
-; CHECK-NEXT:    [[BO_SCALAR:%.*]] = urem i64 [[X:%.*]], 2
-; CHECK-NEXT:    [[BO:%.*]] = insertelement <2 x i64> <i64 undef, i64 0>, i64 [[BO_SCALAR]], i64 1
-; CHECK-NEXT:    ret <2 x i64> [[BO]]
+; CHECK-NEXT:    ret <2 x i64> undef
 ;
   %ins = insertelement <2 x i64> undef, i64 %x, i32 1
   %bo = urem <2 x i64> %ins, <i64 undef, i64 2>
@@ -377,9 +375,7 @@ define <2 x i64> @srem_constant_op0_not_undef_lane(i64 %x) {
 
 define <2 x i64> @srem_constant_op1(i64 %x) {
 ; CHECK-LABEL: @srem_constant_op1(
-; CHECK-NEXT:    [[BO_SCALAR:%.*]] = srem i64 [[X:%.*]], 2
-; CHECK-NEXT:    [[BO:%.*]] = insertelement <2 x i64> <i64 undef, i64 0>, i64 [[BO_SCALAR]], i64 1
-; CHECK-NEXT:    ret <2 x i64> [[BO]]
+; CHECK-NEXT:    ret <2 x i64> undef
 ;
   %ins = insertelement <2 x i64> undef, i64 %x, i32 1
   %bo = srem <2 x i64> %ins, <i64 undef, i64 2>
@@ -421,9 +417,7 @@ define <2 x i64> @udiv_constant_op0_not_undef_lane(i64 %x) {
 
 define <2 x i64> @udiv_constant_op1(i64 %x) {
 ; CHECK-LABEL: @udiv_constant_op1(
-; CHECK-NEXT:    [[BO_SCALAR:%.*]] = udiv i64 [[X:%.*]], 2
-; CHECK-NEXT:    [[BO:%.*]] = insertelement <2 x i64> <i64 undef, i64 0>, i64 [[BO_SCALAR]], i64 1
-; CHECK-NEXT:    ret <2 x i64> [[BO]]
+; CHECK-NEXT:    ret <2 x i64> undef
 ;
   %ins = insertelement <2 x i64> undef, i64 %x, i32 1
   %bo = udiv <2 x i64> %ins, <i64 undef, i64 2>
@@ -465,9 +459,7 @@ define <2 x i64> @sdiv_constant_op0_not_undef_lane(i64 %x) {
 
 define <2 x i64> @sdiv_constant_op1(i64 %x) {
 ; CHECK-LABEL: @sdiv_constant_op1(
-; CHECK-NEXT:    [[BO_SCALAR:%.*]] = sdiv exact i64 [[X:%.*]], 2
-; CHECK-NEXT:    [[BO:%.*]] = insertelement <2 x i64> <i64 undef, i64 0>, i64 [[BO_SCALAR]], i64 1
-; CHECK-NEXT:    ret <2 x i64> [[BO]]
+; CHECK-NEXT:    ret <2 x i64> undef
 ;
   %ins = insertelement <2 x i64> undef, i64 %x, i32 1
   %bo = sdiv exact <2 x i64> %ins, <i64 undef, i64 2>
@@ -725,4 +717,16 @@ define <2 x double> @frem_constant_op1_not_undef_lane(double %x) {
   %ins = insertelement <2 x double> undef, double %x, i32 0
   %bo = frem nnan <2 x double> %ins, <double 42.0, double -42.0>
   ret <2 x double> %bo
+}
+
+define i32 @constant_fold_crash(<4 x i32> %x) {
+; CHECK-LABEL: @constant_fold_crash(
+; CHECK-NEXT:    [[B:%.*]] = extractelement <4 x i32> [[X:%.*]], i32 0
+; CHECK-NEXT:    [[C:%.*]] = add i32 17, [[B]]
+; CHECK-NEXT:    ret i32 [[C]]
+;
+  %a = extractelement <4 x i32> <i32 16, i32 17, i32 18, i32 19>, i32 1
+  %b = extractelement <4 x i32> %x, i32 0
+  %c = add i32 %a, %b
+  ret i32 %c
 }

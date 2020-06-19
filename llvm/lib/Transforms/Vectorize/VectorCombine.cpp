@@ -416,6 +416,11 @@ static bool runImpl(Function &F, const TargetTransformInfo &TTI,
     // Ignore unreachable basic blocks.
     if (!DT.isReachableFromEntry(&BB))
       continue;
+
+    // Fold what can be folded, to avoid Constants showing up in unexpected
+    // places.
+    MadeChange |= SimplifyInstructionsInBlock(&BB);
+
     // Do not delete instructions under here and invalidate the iterator.
     // Walk the block forwards to enable simple iterative chains of transforms.
     // TODO: It could be more efficient to remove dead instructions
