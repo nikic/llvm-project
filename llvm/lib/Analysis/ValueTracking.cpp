@@ -2170,14 +2170,6 @@ static bool isGEPKnownNonNull(const GEPOperator *GEP, unsigned Depth,
       continue;
     }
 
-    // We post-increment Depth here because while isKnownNonZero increments it
-    // as well, when we pop back up that increment won't persist. We don't want
-    // to recurse 10k times just because we have 10k GEP operands. We don't
-    // bail completely out because we want to handle constant GEPs regardless
-    // of depth.
-    if (Depth++ >= MaxDepth)
-      continue;
-
     if (isKnownNonZero(GTI.getOperand(), Depth, Q))
       return true;
   }
