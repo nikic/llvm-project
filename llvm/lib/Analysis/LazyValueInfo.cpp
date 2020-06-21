@@ -162,7 +162,7 @@ namespace {
       SmallDenseSet<AssertingVH<Value>, 4> OverDefined;
       // None indicates that the nonnull pointers for this basic block
       // block have not been computed yet.
-      Optional<DenseSet<AssertingVH<Value>>> NonNullPointers;
+      Optional<SmallPtrSet<Value *, 4>> NonNullPointers;
     };
 
     /// Cached information per basic block.
@@ -226,7 +226,7 @@ namespace {
 
     bool isNonNullAtEndOfBlock(
         Value *V, BasicBlock *BB,
-        function_ref<DenseSet<AssertingVH<Value>>(BasicBlock *)> InitFn) {
+        function_ref<SmallPtrSet<Value *, 4>(BasicBlock *)> InitFn) {
       BlockCacheEntry *Entry = getOrCreateBlockEntry(BB);
       if (!Entry->NonNullPointers) {
         Entry->NonNullPointers = InitFn(BB);
@@ -626,7 +626,7 @@ Optional<ValueLatticeElement> LazyValueInfoImpl::solveBlockValueImpl(
 }
 
 static void AddNonNullPointer(
-    Value *Ptr, DenseSet<AssertingVH<Value>> &PtrSet, const DataLayout &DL) {
+    Value *Ptr, SmallPtrSet<Value *, 4> &PtrSet, const DataLayout &DL) {
   // TODO: Use NullPointerIsDefined instead.
   if (Ptr->getType()->getPointerAddressSpace() == 0) {
     Ptr = GetUnderlyingObject(Ptr, DL);
@@ -635,7 +635,7 @@ static void AddNonNullPointer(
 }
 
 static void AddNonNullPointersByInstruction(
-    Instruction *I, DenseSet<AssertingVH<Value>> &PtrSet,
+    Instruction *I, SmallPtrSet<Value *, 4> &PtrSet,
     const DataLayout &DL) {
   if (LoadInst *L = dyn_cast<LoadInst>(I)) {
     AddNonNullPointer(L->getPointerOperand(), PtrSet, DL);
@@ -666,7 +666,7 @@ bool LazyValueInfoImpl::isNonNullAtEndOfBlock(Value *Val, BasicBlock *BB) {
 
   Val = GetUnderlyingObject(Val, DL);
   return TheCache.isNonNullAtEndOfBlock(Val, BB, [this](BasicBlock *BB) {
-    DenseSet<AssertingVH<Value>> NonNullPointers;
+    SmallPtrSet<Value *, 4> NonNullPointers;
     for (Instruction &I : *BB)
       AddNonNullPointersByInstruction(&I, NonNullPointers, DL);
     return NonNullPointers;
