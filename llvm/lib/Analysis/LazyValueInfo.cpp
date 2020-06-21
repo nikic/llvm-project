@@ -160,9 +160,9 @@ namespace {
     struct BlockCacheEntry {
       SmallDenseMap<AssertingVH<Value>, ValueLatticeElement, 4> LatticeElements;
       SmallDenseSet<AssertingVH<Value>, 4> OverDefined;
-      // None indicates that the dereferenced pointers for this basic block
+      // None indicates that the nonnull pointers for this basic block
       // block have not been computed yet.
-      Optional<DenseSet<AssertingVH<Value>>> DereferencedPointers;
+      Optional<DenseSet<AssertingVH<Value>>> NonNullPointers;
     };
 
     /// Cached information per basic block.
@@ -224,17 +224,17 @@ namespace {
       return LatticeIt->second;
     }
 
-    bool isPointerDereferencedInBlock(
+    bool isNonNullAtEndOfBlock(
         Value *V, BasicBlock *BB,
         function_ref<DenseSet<AssertingVH<Value>>(BasicBlock *)> InitFn) {
       BlockCacheEntry *Entry = getOrCreateBlockEntry(BB);
-      if (!Entry->DereferencedPointers) {
-        Entry->DereferencedPointers = InitFn(BB);
-        for (Value *V : *Entry->DereferencedPointers)
+      if (!Entry->NonNullPointers) {
+        Entry->NonNullPointers = InitFn(BB);
+        for (Value *V : *Entry->NonNullPointers)
           addValueHandle(V);
       }
 
-      return Entry->DereferencedPointers->count(V);
+      return Entry->NonNullPointers->count(V);
     }
 
     /// clear - Empty the cache.
@@ -261,8 +261,8 @@ void LazyValueInfoCache::eraseValue(Value *V) {
   for (auto &Pair : BlockCache) {
     Pair.second->LatticeElements.erase(V);
     Pair.second->OverDefined.erase(V);
-    if (Pair.second->DereferencedPointers)
-      Pair.second->DereferencedPointers->erase(V);
+    if (Pair.second->NonNullPointers)
+      Pair.second->NonNullPointers->erase(V);
   }
 
   auto HandleIt = ValueHandles.find_as(V);
@@ -425,7 +425,7 @@ class LazyValueInfoImpl {
                                                          BasicBlock *BB);
   Optional<ValueLatticeElement> solveBlockValueExtractValue(
       ExtractValueInst *EVI, BasicBlock *BB);
-  bool isNonNullDueToDereferenceInBlock(Value *Val, BasicBlock *BB);
+  bool isNonNullAtEndOfBlock(Value *Val, BasicBlock *BB);
   void intersectAssumeOrGuardBlockValueConstantRange(Value *Val,
                                                      ValueLatticeElement &BBLV,
                                                      Instruction *BBI);
@@ -625,7 +625,7 @@ Optional<ValueLatticeElement> LazyValueInfoImpl::solveBlockValueImpl(
   return getFromRangeMetadata(BBI);
 }
 
-static void AddDereferencedPointer(
+static void AddNonNullPointer(
     Value *Ptr, DenseSet<AssertingVH<Value>> &PtrSet, const DataLayout &DL) {
   // TODO: Use NullPointerIsDefined instead.
   if (Ptr->getType()->getPointerAddressSpace() == 0) {
@@ -634,13 +634,13 @@ static void AddDereferencedPointer(
   }
 }
 
-static void AddPointersDereferencedByInstruction(
+static void AddNonNullPointersByInstruction(
     Instruction *I, DenseSet<AssertingVH<Value>> &PtrSet,
     const DataLayout &DL) {
   if (LoadInst *L = dyn_cast<LoadInst>(I)) {
-    AddDereferencedPointer(L->getPointerOperand(), PtrSet, DL);
+    AddNonNullPointer(L->getPointerOperand(), PtrSet, DL);
   } else if (StoreInst *S = dyn_cast<StoreInst>(I)) {
-    AddDereferencedPointer(S->getPointerOperand(), PtrSet, DL);
+    AddNonNullPointer(S->getPointerOperand(), PtrSet, DL);
   } else if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(I)) {
     if (MI->isVolatile()) return;
 
@@ -648,24 +648,23 @@ static void AddPointersDereferencedByInstruction(
     ConstantInt *Len = dyn_cast<ConstantInt>(MI->getLength());
     if (!Len || Len->isZero()) return;
 
-    AddDereferencedPointer(MI->getRawDest(), PtrSet, DL);
+    AddNonNullPointer(MI->getRawDest(), PtrSet, DL);
     if (MemTransferInst *MTI = dyn_cast<MemTransferInst>(MI))
-      AddDereferencedPointer(MTI->getRawSource(), PtrSet, DL);
+      AddNonNullPointer(MTI->getRawSource(), PtrSet, DL);
   }
 }
 
-bool LazyValueInfoImpl::isNonNullDueToDereferenceInBlock(
-    Value *Val, BasicBlock *BB) {
+bool LazyValueInfoImpl::isNonNullAtEndOfBlock(Value *Val, BasicBlock *BB) {
   if (NullPointerIsDefined(BB->getParent(),
                            Val->getType()->getPointerAddressSpace()))
     return false;
 
   Val = GetUnderlyingObject(Val, DL);
-  return TheCache.isPointerDereferencedInBlock(Val, BB, [this](BasicBlock *BB) {
-    DenseSet<AssertingVH<Value>> DereferencedPointers;
+  return TheCache.isNonNullAtEndOfBlock(Val, BB, [this](BasicBlock *BB) {
+    DenseSet<AssertingVH<Value>> NonNullPointers;
     for (Instruction &I : *BB)
-      AddPointersDereferencedByInstruction(&I, DereferencedPointers, DL);
-    return DereferencedPointers;
+      AddNonNullPointersByInstruction(&I, NonNullPointers, DL);
+    return NonNullPointers;
   });
 }
 
@@ -789,7 +788,7 @@ void LazyValueInfoImpl::intersectAssumeOrGuardBlockValueConstantRange(
     // been dereferenced in this block.
     PointerType *PTy = dyn_cast<PointerType>(Val->getType());
     if (PTy && BB->getTerminator() == BBI &&
-        isNonNullDueToDereferenceInBlock(Val, BB))
+        isNonNullAtEndOfBlock(Val, BB))
       BBLV = ValueLatticeElement::getNot(ConstantPointerNull::get(PTy));
   }
 }
