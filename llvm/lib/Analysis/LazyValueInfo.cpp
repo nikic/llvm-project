@@ -651,6 +651,11 @@ static void AddNonNullPointersByInstruction(
     AddNonNullPointer(MI->getRawDest(), PtrSet, DL);
     if (MemTransferInst *MTI = dyn_cast<MemTransferInst>(MI))
       AddNonNullPointer(MTI->getRawSource(), PtrSet, DL);
+  } else if (CallBase *CB = dyn_cast<CallBase>(I)) {
+    for (unsigned I = 0, NumArgs = CB->getNumArgOperands(); I < NumArgs; I++) {
+      if (CB->paramHasAttr(I, Attribute::NonNull))
+        AddNonNullPointer(CB->getArgOperand(I), PtrSet, DL);
+    }
   }
 }
 
