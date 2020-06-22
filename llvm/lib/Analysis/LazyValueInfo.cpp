@@ -365,8 +365,9 @@ class LazyValueInfoImpl {
 
   Optional<ValueLatticeElement> getBlockValue(Value *Val,
                                               BlockInfo *BI);
-  Optional<ValueLatticeElement> getEdgeValue(Value *V, BlockInfo *From,
-                                BlockInfo *To, Instruction *CxtI = nullptr);
+  Optional<ValueLatticeElement> getEdgeValue(Value *V, BlockInfo *FromInfo,
+                                             BasicBlock *ToBB,
+                                             Instruction *CxtI = nullptr);
 
   // These methods process one work item and may add more. A false value
   // returned means that the work item was not completely processed and must
@@ -677,7 +678,8 @@ Optional<ValueLatticeElement> LazyValueInfoImpl::solveBlockValueNonLocal(
   // accident.
   for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; ++PI) {
     BlockInfo *PredBI = TheCache.getBlockInfo(*PI);
-    Optional<ValueLatticeElement> EdgeResult = getEdgeValue(Val, PredBI, BI);
+    Optional<ValueLatticeElement> EdgeResult =
+        getEdgeValue(Val, PredBI, BI->getBasicBlock());
     if (!EdgeResult)
       // Explore that input, then return here
       return None;
@@ -721,7 +723,7 @@ Optional<ValueLatticeElement> LazyValueInfoImpl::solveBlockValuePHINode(
     // though the results will be cached, because PN is the value being used as
     // the cache key in the caller.
     Optional<ValueLatticeElement> EdgeResult =
-        getEdgeValue(PhiVal, PhiBI, BI, PN);
+        getEdgeValue(PhiVal, PhiBI, BI->getBasicBlock(), PN);
     if (!EdgeResult)
       // Explore that input, then return here
       return None;
@@ -1400,13 +1402,13 @@ static Optional<ValueLatticeElement> getEdgeValueLocal(Value *Val,
 /// Compute the value of Val on the edge BBFrom -> BBTo or the value at
 /// the basic block if the edge does not constrain Val.
 Optional<ValueLatticeElement> LazyValueInfoImpl::getEdgeValue(
-    Value *Val, BlockInfo *FromInfo, BlockInfo *ToInfo, Instruction *CxtI) {
+    Value *Val, BlockInfo *FromInfo, BasicBlock *ToBB, Instruction *CxtI) {
   // If already a constant, there is nothing to compute.
   if (Constant *VC = dyn_cast<Constant>(Val))
     return ValueLatticeElement::get(VC);
 
   ValueLatticeElement LocalResult =
-      getEdgeValueLocal(Val, FromInfo->getBasicBlock(), ToInfo->getBasicBlock())
+      getEdgeValueLocal(Val, FromInfo->getBasicBlock(), ToBB)
       .getValueOr(ValueLatticeElement::getOverdefined());
   if (hasSingleValue(LocalResult))
     // Can't get any more precise here
@@ -1477,12 +1479,10 @@ getValueOnEdge(Value *V, BasicBlock *FromBB, BasicBlock *ToBB,
                     << "'\n");
 
   BlockInfo *FromInfo = TheCache.getBlockInfo(FromBB);
-  BlockInfo *ToInfo = TheCache.getBlockInfo(ToBB);
-  Optional<ValueLatticeElement> Result = getEdgeValue(V, FromInfo, ToInfo,
-                                                      CxtI);
+  Optional<ValueLatticeElement> Result = getEdgeValue(V, FromInfo, ToBB, CxtI);
   if (!Result) {
     solve();
-    Result = getEdgeValue(V, FromInfo, ToInfo, CxtI);
+    Result = getEdgeValue(V, FromInfo, ToBB, CxtI);
     assert(Result && "More work to do after problem solved?");
   }
 
