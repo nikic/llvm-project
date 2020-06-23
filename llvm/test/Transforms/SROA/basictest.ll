@@ -103,14 +103,15 @@ L2:
 ; Avoid crashing when load/storing at at different offsets.
 define i64 @test2_addrspacecast_gep_offset(i64 %X) {
 ; CHECK-LABEL: @test2_addrspacecast_gep_offset(
-; CHECK: %A.sroa.0 = alloca [10 x i8]
-; CHECK: [[GEP0:%.*]] = getelementptr inbounds [10 x i8], [10 x i8]* %A.sroa.0, i16 0, i16 2
-; CHECK-NEXT: [[GEP1:%.*]] = addrspacecast i8* [[GEP0]] to i64 addrspace(1)*
-; CHECK-NEXT: store i64 %X, i64 addrspace(1)* [[GEP1]], align 1
+; CHECK:      %A.sroa.1.32.extract.trunc = trunc i64 %X to i48
+; CHECK-NEXT: %A.sroa.3.32.extract.shift = lshr i64 %X, 48
+; CHECK-NEXT: %A.sroa.3.32.extract.trunc = trunc i64 %A.sroa.3.32.extract.shift to i16
 ; CHECK: br
 
-; CHECK: [[BITCAST:%.*]] = bitcast [10 x i8]* %A.sroa.0 to i64*
-; CHECK: %A.sroa.0.0.A.sroa.0.30.Z = load i64, i64* [[BITCAST]], align 1
+; CHECK:      %Z.ext.0 = zext i16 undef to i64
+; CHECK-NEXT: %Z.ext.1 = zext i48 %A.sroa.1.32.extract.trunc to i64
+; CHECK-NEXT: %Z.shift = shl i64 %Z.ext.1, 16
+; CHECK-NEXT: %Z.or = or i64 %Z.ext.0, %Z.shift
 ; CHECK-NEXT: ret
 entry:
   %A = alloca [256 x i8]
@@ -134,10 +135,7 @@ entry:
 ; CHECK-NOT:  alloca
 ; CHECK:      %[[test3_a1:.*]] = alloca [42 x i8]
 ; CHECK-NEXT: %[[test3_a2:.*]] = alloca [99 x i8]
-; CHECK-NEXT: %[[test3_a3:.*]] = alloca [16 x i8]
 ; CHECK-NEXT: %[[test3_a4:.*]] = alloca [42 x i8]
-; CHECK-NEXT: %[[test3_a5:.*]] = alloca [7 x i8]
-; CHECK-NEXT: %[[test3_a6:.*]] = alloca [7 x i8]
 ; CHECK-NEXT: %[[test3_a7:.*]] = alloca [85 x i8]
 
   %b = getelementptr [300 x i8], [300 x i8]* %a, i64 0, i64 0
@@ -150,19 +148,86 @@ entry:
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds [99 x i8], [99 x i8]* %[[test3_a2]], i64 0, i64 0
 ; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 99, {{.*}}), !tbaa [[TAG_0:!.*]]
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 142
-; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds [16 x i8], [16 x i8]* %[[test3_a3]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 2 %[[gep_src]], i32 16, {{.*}}), !tbaa [[TAG_0:!.*]]
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 2, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 143
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 1, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 144
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 8, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 145
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 1, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 146
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 2, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 147
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 1, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 148
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 4, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 149
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 1, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 150
+; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep_src]] to i64*
+; CHECK-NEXT: %[[src150:.*]] = load i64, i64* %[[bitcast]], align 2, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[src150_trunc:.*]] = trunc i64 %[[src150]] to i56
+; CHECK-NEXT: %[[src150_trunc_trunc:.*]] = trunc i56 %[[src150_trunc]] to i48
+; CHECK-NEXT: %[[src150_trunc_trunc_trunc:.*]] = trunc i48 %[[src150_trunc_trunc]] to i40
+; CHECK-NEXT: %[[src150_trunc_trunc_trunc_trunc:.*]] = trunc i40 %[[src150_trunc_trunc_trunc]] to i32
+; CHECK-NEXT: %[[src150_trunc_trunc_trunc_trunc_trunc:.*]] = trunc i32 %[[src150_trunc_trunc_trunc_trunc]] to i24
+; CHECK-NEXT: %[[src150_trunc_trunc_trunc_trunc_trunc_trunc:.*]] = trunc i24 %[[src150_trunc_trunc_trunc_trunc_trunc]] to i16
+; CHECK-NEXT: %[[dummy:.*]] = trunc i16 %[[src150_trunc_trunc_trunc_trunc_trunc_trunc]] to i8
+; CHECK-NEXT: %[[src150_trunc_trunc_trunc_trunc_trunc_trunc_lshr:.*]] = lshr i16 %[[src150_trunc_trunc_trunc_trunc_trunc_trunc]], 8
+; CHECK-NEXT: %[[dummy:.*]] = trunc i16 %[[src150_trunc_trunc_trunc_trunc_trunc_trunc_lshr]] to i8
+; CHECK-NEXT: %[[src150_trunc_trunc_trunc_trunc_trunc_lshr:.*]] = lshr i24 %[[src150_trunc_trunc_trunc_trunc_trunc]], 16
+; CHECK-NEXT: %[[dummy:.*]] = trunc i24 %[[src150_trunc_trunc_trunc_trunc_trunc_lshr]] to i8
+; CHECK-NEXT: %[[src150_trunc_trunc_trunc_trunc_lshr:.*]] = lshr i32 %[[src150_trunc_trunc_trunc_trunc]], 24
+; CHECK-NEXT: %[[dummy:.*]] = trunc i32 %[[src150_trunc_trunc_trunc_trunc_lshr]] to i8
+; CHECK-NEXT: %[[src150_trunc_trunc_trunc_lshr:.*]] = lshr i40 %[[src150_trunc_trunc_trunc]], 32
+; CHECK-NEXT: %[[dummy:.*]] = trunc i40 %[[src150_trunc_trunc_trunc_lshr]] to i8
+; CHECK-NEXT: %[[src150_trunc_trunc_lshr:.*]] = lshr i48 %[[src150_trunc_trunc]], 40
+; CHECK-NEXT: %[[dummy:.*]] = trunc i48 %[[src150_trunc_trunc_lshr]] to i8
+; CHECK-NEXT: %[[src150_trunc_lshr:.*]] = lshr i56 %[[src150_trunc]], 48
+; CHECK-NEXT: %[[dummy:.*]] = trunc i56 %[[src150_trunc_lshr]] to i8
+; CHECK-NEXT: %[[src150_lshr:.*]] = lshr i64 %[[src150]], 56
+; CHECK-NEXT: %[[dummy:.*]] = trunc i64 %[[src150_lshr]] to i8
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 158
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds [42 x i8], [42 x i8]* %[[test3_a4]], i64 0, i64 0
 ; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 2 %[[gep_src]], i32 42, {{.*}}), !tbaa [[TAG_0:!.*]]
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 200
-; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a5]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 8 %[[gep_src]], i32 7, {{.*}}), !tbaa [[TAG_0:!.*]]
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 8, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 201
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 1, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 202
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 2, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 203
+; CHECK-NEXT: %[[bc_src:.*]] = bitcast i8* %[[gep_src]] to i32*
+; CHECK-NEXT: %[[i32_203:.*]] = load i32, i32* %[[bc_src]], align 1, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[i32_203_trunc:.*]] = trunc i32 %[[i32_203]] to i24
+; CHECK-NEXT: %[[i32_203_trunc_trunc:.*]] = trunc i24 %[[i32_203_trunc]] to i16
+; CHECK-NEXT: %[[dummy:.*]] = trunc i16 %[[i32_203_trunc_trunc]] to i8
+; CHECK-NEXT: %[[i32_203_trunc_trunc_lshr:.*]] = lshr i16 %[[i32_203_trunc_trunc]], 8
+; CHECK-NEXT: %[[dummy:.*]] = trunc i16 %[[i32_203_trunc_trunc_lshr]] to i8
+; CHECK-NEXT: %[[i32_203_trunc_lshr:.*]] = lshr i24 %[[i32_203_trunc]], 16
+; CHECK-NEXT: %[[dummy:.*]] = trunc i24 %[[i32_203_trunc_lshr]] to i8
+; CHECK-NEXT: %[[i32_203_lshr:.*]] = lshr i32 %[[i32_203]], 24
+; CHECK-NEXT: %[[dummy:.*]] = trunc i32 %[[i32_203_lshr]] to i8
 ; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds i8, i8* %src, i64 207
 ; CHECK-NEXT: %[[test3_r2:.*]] = load i8, i8* %[[gep]], {{.*}}, !tbaa [[TAG_0]]
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 208
-; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a6]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 8 %[[gep_src]], i32 7, {{.*}}), !tbaa [[TAG_0:!.*]]
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 8, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 209
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 1, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 210
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 2, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 211
+; CHECK-NEXT: %[[bc_src:.*]] = bitcast i8* %[[gep_src]] to i32*
+; CHECK-NEXT: %[[i32_211:.*]] = load i32, i32* %[[bc_src]], align 1, !tbaa [[TAG_0]]
+; CHECK-NEXT: %[[i32_211_trunc:.*]] = trunc i32 %[[i32_211]] to i24
+; CHECK-NEXT: %[[i32_211_trunc_trunc:.*]] = trunc i24 %[[i32_211_trunc]] to i16
+; CHECK-NEXT: %[[dummy:.*]] = trunc i16 %[[i32_211_trunc_trunc]] to i8
+; CHECK-NEXT: %[[i32_211_trunc_trunc_lshr:.*]] = lshr i16 %[[i32_211_trunc_trunc]], 8
+; CHECK-NEXT: %[[dummy:.*]] = trunc i16 %[[i32_211_trunc_trunc_lshr]] to i8
+; CHECK-NEXT: %[[i32_211_trunc_lshr:.*]] = lshr i24 %[[i32_211_trunc]], 16
+; CHECK-NEXT: %[[dummy:.*]] = trunc i24 %[[i32_211_trunc_lshr]] to i8
+; CHECK-NEXT: %[[i32_211_lshr:.*]] = lshr i32 %[[i32_211]], 24
+; CHECK-NEXT: %[[dummy:.*]] = trunc i32 %[[i32_211_lshr]] to i8
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 215
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds [85 x i8], [85 x i8]* %[[test3_a7]], i64 0, i64 0
 ; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 85, {{.*}}), !tbaa [[TAG_0:!.*]]
@@ -194,49 +259,17 @@ entry:
   %overlap.8.i64 = bitcast i8* %overlap.8.i8 to i64*
   %overlap.9.i64 = bitcast i8* %overlap.9.i8 to i64*
   store i8 1, i8* %overlap.1.i8, !tbaa !3
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [16 x i8], [16 x i8]* %[[test3_a3]], i64 0, i64 0
-; CHECK-NEXT: store i8 1, i8* %[[gep]], align 1, !tbaa [[TAG_3:!.*]]
   store i16 1, i16* %overlap.1.i16, !tbaa !5
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast [16 x i8]* %[[test3_a3]] to i16*
-; CHECK-NEXT: store i16 1, i16* %[[bitcast]], {{.*}}, !tbaa [[TAG_5:!.*]]
   store i32 1, i32* %overlap.1.i32, !tbaa !7
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast [16 x i8]* %[[test3_a3]] to i32*
-; CHECK-NEXT: store i32 1, i32* %[[bitcast]], {{.*}}, !tbaa [[TAG_7:!.*]]
   store i64 1, i64* %overlap.1.i64, !tbaa !9
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast [16 x i8]* %[[test3_a3]] to i64*
-; CHECK-NEXT: store i64 1, i64* %[[bitcast]], {{.*}}, !tbaa [[TAG_9:!.*]]
   store i64 2, i64* %overlap.2.i64, !tbaa !11
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [16 x i8], [16 x i8]* %[[test3_a3]], i64 0, i64 1
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i64*
-; CHECK-NEXT: store i64 2, i64* %[[bitcast]], {{.*}}, !tbaa [[TAG_11:!.*]]
   store i64 3, i64* %overlap.3.i64, !tbaa !13
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [16 x i8], [16 x i8]* %[[test3_a3]], i64 0, i64 2
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i64*
-; CHECK-NEXT: store i64 3, i64* %[[bitcast]], {{.*}}, !tbaa [[TAG_13:!.*]]
   store i64 4, i64* %overlap.4.i64, !tbaa !15
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [16 x i8], [16 x i8]* %[[test3_a3]], i64 0, i64 3
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i64*
-; CHECK-NEXT: store i64 4, i64* %[[bitcast]], {{.*}}, !tbaa [[TAG_15:!.*]]
   store i64 5, i64* %overlap.5.i64, !tbaa !17
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [16 x i8], [16 x i8]* %[[test3_a3]], i64 0, i64 4
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i64*
-; CHECK-NEXT: store i64 5, i64* %[[bitcast]], {{.*}}, !tbaa [[TAG_17:!.*]]
   store i64 6, i64* %overlap.6.i64, !tbaa !19
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [16 x i8], [16 x i8]* %[[test3_a3]], i64 0, i64 5
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i64*
-; CHECK-NEXT: store i64 6, i64* %[[bitcast]], {{.*}}, !tbaa [[TAG_19:!.*]]
   store i64 7, i64* %overlap.7.i64, !tbaa !21
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [16 x i8], [16 x i8]* %[[test3_a3]], i64 0, i64 6
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i64*
-; CHECK-NEXT: store i64 7, i64* %[[bitcast]], {{.*}}, !tbaa [[TAG_21:!.*]]
   store i64 8, i64* %overlap.8.i64, !tbaa !23
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [16 x i8], [16 x i8]* %[[test3_a3]], i64 0, i64 7
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i64*
-; CHECK-NEXT: store i64 8, i64* %[[bitcast]], {{.*}}, !tbaa [[TAG_23:!.*]]
   store i64 9, i64* %overlap.9.i64, !tbaa !25
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [16 x i8], [16 x i8]* %[[test3_a3]], i64 0, i64 8
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i64*
-; CHECK-NEXT: store i64 9, i64* %[[bitcast]], {{.*}}, !tbaa [[TAG_25:!.*]]
 
   ; Make two sequences of overlapping stores with more gaps and irregularities.
   %overlap2.1.0.i8 = getelementptr [300 x i8], [300 x i8]* %a, i64 0, i64 200
@@ -255,26 +288,11 @@ entry:
   %overlap2.1.2.i32 = bitcast i8* %overlap2.1.2.i8 to i32*
   %overlap2.1.3.i32 = bitcast i8* %overlap2.1.3.i8 to i32*
   store i8 1,  i8*  %overlap2.1.0.i8, !tbaa !27
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a5]], i64 0, i64 0
-; CHECK-NEXT: store i8 1, i8* %[[gep]], align 1, !tbaa [[TAG_27:!.*]]
   store i16 1, i16* %overlap2.1.0.i16, !tbaa !29
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast [7 x i8]* %[[test3_a5]] to i16*
-; CHECK-NEXT: store i16 1, i16* %[[bitcast]], {{.*}}, !tbaa [[TAG_29:!.*]]
   store i32 1, i32* %overlap2.1.0.i32, !tbaa !31
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast [7 x i8]* %[[test3_a5]] to i32*
-; CHECK-NEXT: store i32 1, i32* %[[bitcast]], {{.*}}, !tbaa [[TAG_31:!.*]]
   store i32 2, i32* %overlap2.1.1.i32, !tbaa !33
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a5]], i64 0, i64 1
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i32*
-; CHECK-NEXT: store i32 2, i32* %[[bitcast]], {{.*}}, !tbaa [[TAG_33:!.*]]
   store i32 3, i32* %overlap2.1.2.i32, !tbaa !35
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a5]], i64 0, i64 2
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i32*
-; CHECK-NEXT: store i32 3, i32* %[[bitcast]], {{.*}}, !tbaa [[TAG_35:!.*]]
   store i32 4, i32* %overlap2.1.3.i32, !tbaa !37
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a5]], i64 0, i64 3
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i32*
-; CHECK-NEXT: store i32 4, i32* %[[bitcast]], {{.*}}, !tbaa [[TAG_37:!.*]]
 
   %overlap2.2.0.i32 = bitcast i8* %overlap2.2.0.i8 to i32*
   %overlap2.2.1.i16 = bitcast i8* %overlap2.2.1.i8 to i16*
@@ -282,53 +300,62 @@ entry:
   %overlap2.2.2.i32 = bitcast i8* %overlap2.2.2.i8 to i32*
   %overlap2.2.3.i32 = bitcast i8* %overlap2.2.3.i8 to i32*
   store i32 1, i32* %overlap2.2.0.i32, !tbaa !39
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast [7 x i8]* %[[test3_a6]] to i32*
-; CHECK-NEXT: store i32 1, i32* %[[bitcast]], {{.*}}, !tbaa [[TAG_39:!.*]]
   store i8 1,  i8*  %overlap2.2.1.i8, !tbaa !41
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a6]], i64 0, i64 1
-; CHECK-NEXT: store i8 1, i8* %[[gep]], align 1, !tbaa [[TAG_41:!.*]]
   store i16 1, i16* %overlap2.2.1.i16, !tbaa !43
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a6]], i64 0, i64 1
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i16*
-; CHECK-NEXT: store i16 1, i16* %[[bitcast]], {{.*}}, !tbaa [[TAG_43:!.*]]
   store i32 1, i32* %overlap2.2.1.i32, !tbaa !45
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a6]], i64 0, i64 1
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i32*
-; CHECK-NEXT: store i32 1, i32* %[[bitcast]], {{.*}}, !tbaa [[TAG_45:!.*]]
   store i32 3, i32* %overlap2.2.2.i32, !tbaa !47
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a6]], i64 0, i64 2
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i32*
-; CHECK-NEXT: store i32 3, i32* %[[bitcast]], {{.*}}, !tbaa [[TAG_47:!.*]]
   store i32 4, i32* %overlap2.2.3.i32, !tbaa !49
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a6]], i64 0, i64 3
-; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i32*
-; CHECK-NEXT: store i32 4, i32* %[[bitcast]], {{.*}}, !tbaa [[TAG_49:!.*]]
 
   %overlap2.prefix = getelementptr i8, i8* %overlap2.1.1.i8, i64 -4
   call void @llvm.memcpy.p0i8.p0i8.i32(i8* %overlap2.prefix, i8* %src, i32 8, i1 false), !tbaa !51
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds [42 x i8], [42 x i8]* %[[test3_a4]], i64 0, i64 39
 ; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %src, i32 3, {{.*}}), !tbaa [[TAG_51:!.*]]
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 3
-; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a5]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 5, {{.*}}), !tbaa [[TAG_51]]
+; CHECK-NEXT: %[[i8_3:.*]] = load i8, i8* %[[gep_src]], align 1, !tbaa [[TAG_51]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 4
+; CHECK-NEXT: %[[i8_4:.*]] = load i8, i8* %[[gep_src]], align 1, !tbaa [[TAG_51]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 5
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 1, !tbaa [[TAG_51]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 6
+; CHECK-NEXT: %[[bc_src:.*]] = bitcast i8* %[[gep_src]] to i16*
+; CHECK-NEXT: %[[i16_6:.*]] = load i16, i16* %[[bc_src]], align 1, !tbaa [[TAG_51]]
+; CHECK-NEXT: %[[dummy:.*]] = trunc i16 %[[i16_6]] to i8
+; CHECK-NEXT: %[[i16_6_lshr:.*]] = lshr i16 %[[i16_6]], 8
+; CHECK-NEXT: %[[dummy:.*]] = trunc i16 %[[i16_6_lshr]] to i8
 
   ; Bridge between the overlapping areas
   call void @llvm.memset.p0i8.i32(i8* %overlap2.1.2.i8, i8 42, i32 8, i1 false), !tbaa !53
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a5]], i64 0, i64 2
-; CHECK-NEXT: call void @llvm.memset.p0i8.i32(i8* align 1 %[[gep]], i8 42, i32 5, {{.*}}), !tbaa [[TAG_53:!.*]]
-; ...promoted i8 store...
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a6]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memset.p0i8.i32(i8* align 1 %[[gep]], i8 42, i32 2, {{.*}}), !tbaa [[TAG_53]]
 
   ; Entirely within the second overlap.
   call void @llvm.memcpy.p0i8.p0i8.i32(i8* %overlap2.2.1.i8, i8* %src, i32 5, i1 false), !tbaa !55
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a6]], i64 0, i64 1
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep]], i8* align 1 %src, i32 5, {{.*}}), !tbaa [[TAG_55:!.*]]
+; CHECK-NEXT: %[[i8_0:.*]] = load i8, i8* %src, align 1, !tbaa [[TAG_55:!.*]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 1
+; CHECK-NEXT: %[[dummy:.*]] = load i8, i8* %[[gep_src]], align 1, !tbaa [[TAG_55:!.*]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 2
+; CHECK-NEXT: %[[bc_src:.*]] = bitcast i8* %[[gep_src]] to i24*
+; CHECK-NEXT: %[[i24_2:.*]] = load i24, i24* %[[bc_src]], align 1, !tbaa [[TAG_55]]
+; CHECK-NEXT: %[[i24_2_trunc:.*]] = trunc i24 %[[i24_2]] to i16
+; CHECK-NEXT: %[[dummy:.*]] = trunc i16 %[[i24_2_trunc]] to i8
+; CHECK-NEXT: %[[i24_2_trunc_lshr:.*]] = lshr i16 %[[i24_2_trunc]], 8
+; CHECK-NEXT: %[[dummy:.*]] = trunc i16 %[[i24_2_trunc_lshr]] to i8
+; CHECK-NEXT: %[[i24_2_lshr:.*]] = lshr i24 %[[i24_2]], 16
+; CHECK-NEXT: %[[dummy:.*]] = trunc i24 %[[i24_2_lshr]] to i8
 
   ; Trailing past the second overlap.
   call void @llvm.memcpy.p0i8.p0i8.i32(i8* %overlap2.2.2.i8, i8* %src, i32 8, i1 false), !tbaa !57
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a6]], i64 0, i64 2
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep]], i8* align 1 %src, i32 5, {{.*}}), !tbaa [[TAG_57:!.*]]
+; CHECK-NEXT: %[[i8_0_210:.*]] = load i8, i8* %src, align 1, !tbaa [[TAG_57:!.*]]
+; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 1
+; CHECK-NEXT: %[[bc_src:.*]] = bitcast i8* %[[gep_src]] to i32*
+; CHECK-NEXT: %[[i32_1:.*]] = load i32, i32* %[[bc_src]], align 1, !tbaa [[TAG_57]]
+; CHECK-NEXT: %[[i32_1_trunc:.*]] = trunc i32 %[[i32_1]] to i24
+; CHECK-NEXT: %[[i32_1_trunc_trunc:.*]] = trunc i24 %[[i32_1_trunc]] to i16
+; CHECK-NEXT: %[[i32_1_trunc_trunc_trunc:.*]] = trunc i16 %[[i32_1_trunc_trunc]] to i8
+; CHECK-NEXT: %[[i32_1_trunc_trunc_lshr:.*]] = lshr i16 %[[i32_1_trunc_trunc]], 8
+; CHECK-NEXT: %[[i32_1_trunc_trunc_lshr_trunc:.*]] = trunc i16 %[[i32_1_trunc_trunc_lshr]] to i8
+; CHECK-NEXT: %[[i32_1_trunc_lshr:.*]] = lshr i24 %[[i32_1_trunc]], 16
+; CHECK-NEXT: %[[i32_1_trunc_lshr_trunc:.*]] = trunc i24 %[[i32_1_trunc_lshr]] to i8
+; CHECK-NEXT: %[[i32_1_lshr:.*]] = lshr i32 %[[i32_1]], 24
+; CHECK-NEXT: %[[i32_1_lshr_trunc:.*]] = trunc i32 %[[i32_1_lshr]] to i8
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds i8, i8* %src, i64 5
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds [85 x i8], [85 x i8]* %[[test3_a7]], i64 0, i64 0
 ; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 3, {{.*}}), !tbaa [[TAG_57]]
@@ -342,19 +369,138 @@ entry:
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds [99 x i8], [99 x i8]* %[[test3_a2]], i64 0, i64 0
 ; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 99, {{.*}}), !tbaa [[TAG_59]]
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 142
-; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds [16 x i8], [16 x i8]* %[[test3_a3]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 16, {{.*}}), !tbaa [[TAG_59]]
+; CHECK-NEXT: store i8 1, i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 143
+; CHECK-NEXT: store i8 2, i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 144
+; CHECK-NEXT: store i8 3, i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 145
+; CHECK-NEXT: store i8 4, i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 146
+; CHECK-NEXT: store i8 5, i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 147
+; CHECK-NEXT: store i8 6, i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 148
+; CHECK-NEXT: store i8 7, i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 149
+; CHECK-NEXT: store i8 8, i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 150
+; CHECK-NEXT: %[[bc_dst:.*]] = bitcast i8* %[[gep_dst]] to i64*
+; CHECK-NEXT: %[[zero:.*]] = zext i8 0 to i16
+; CHECK-NEXT: %[[zero_shl:.*]] = shl i16 %[[zero]], 8
+; CHECK-NEXT: %[[undef16:.*]] = and i16 undef, 255
+; CHECK-NEXT: %[[low16:.*]] = or i16 %[[undef16]], %[[zero_shl]]
+; CHECK-NEXT: %[[nine:.*]] = zext i8 9 to i16
+; CHECK-NEXT: %[[low16_and:.*]] = and i16 %[[low16]], -256
+; CHECK-NEXT: %[[low16:.*]] = or i16 %[[low16_and]], %[[nine]]
+; CHECK-NEXT: %[[zero:.*]] = zext i8 0 to i24
+; CHECK-NEXT: %[[zero_shl:.*]] = shl i24 %[[zero]], 16
+; CHECK-NEXT: %[[undef24:.*]] = and i24 undef, 65535
+; CHECK-NEXT: %[[high24:.*]] = or i24 %[[undef24]], %[[zero_shl]]
+; CHECK-NEXT: %[[low16_zext:.*]] = zext i16 %[[low16]] to i24
+; CHECK-NEXT: %[[high24_and:.*]] = and i24 %[[high24]], -65536
+; CHECK-NEXT: %[[value24:.*]] = or i24 %[[high24_and]], %[[low16_zext]]
+; CHECK-NEXT: %[[zero:.*]] = zext i8 0 to i32
+; CHECK-NEXT: %[[zero_shl:.*]] = shl i32 %[[zero]], 24
+; CHECK-NEXT: %[[undef32:.*]] = and i32 undef, 16777215
+; CHECK-NEXT: %[[value32:.*]] = or i32 %[[undef32]], %[[zero_shl]]
+; CHECK-NEXT: %[[value24_zext:.*]] = zext i24 %[[value24]] to i32
+; CHECK-NEXT: %[[value32_and:.*]] = and i32 %[[value32]], -16777216
+; CHECK-NEXT: %[[value32:.*]] = or i32 %[[value32_and]], %[[value24_zext]]
+; CHECK-NEXT: %[[zero:.*]] = zext i8 0 to i40
+; CHECK-NEXT: %[[zero_shl:.*]] = shl i40 %[[zero]], 32
+; CHECK-NEXT: %[[undef40:.*]] = and i40 undef, 4294967295
+; CHECK-NEXT: %[[value40:.*]] = or i40 %[[undef40]], %[[zero_shl]]
+; CHECK-NEXT: %[[value32_zext:.*]] = zext i32 %[[value32]] to i40
+; CHECK-NEXT: %[[value40_and:.*]] = and i40 %[[value40]], -4294967296
+; CHECK-NEXT: %[[value40:.*]] = or i40 %[[value40_and]], %[[value32_zext]]
+; CHECK-NEXT: %[[zero:.*]] = zext i8 0 to i48
+; CHECK-NEXT: %[[zero_shl:.*]] = shl i48 %[[zero]], 40
+; CHECK-NEXT: %[[undef48:.*]] = and i48 undef, 1099511627775
+; CHECK-NEXT: %[[value48:.*]] = or i48 %[[undef48]], %[[zero_shl]]
+; CHECK-NEXT: %[[value40_zext:.*]] = zext i40 %[[value40]] to i48
+; CHECK-NEXT: %[[value48_and:.*]] = and i48 %[[value48]], -1099511627776
+; CHECK-NEXT: %[[value48:.*]] = or i48 %[[value48_and]], %[[value40_zext]]
+; CHECK-NEXT: %[[zero:.*]] = zext i8 0 to i56
+; CHECK-NEXT: %[[zero_shl:.*]] = shl i56 %[[zero]], 48
+; CHECK-NEXT: %[[undef56:.*]] = and i56 undef, 281474976710655
+; CHECK-NEXT: %[[value56:.*]] = or i56 %[[undef56]], %[[zero_shl]]
+; CHECK-NEXT: %[[value48_zext:.*]] = zext i48 %[[value48]] to i56
+; CHECK-NEXT: %[[value56_and:.*]] = and i56 %[[value56]], -281474976710656
+; CHECK-NEXT: %[[value56:.*]] = or i56 %[[value56_and]], %[[value48_zext]]
+; CHECK-NEXT: %[[zero:.*]] = zext i8 0 to i64
+; CHECK-NEXT: %[[zero_shl:.*]] = shl i64 %[[zero]], 56
+; CHECK-NEXT: %[[undef64:.*]] = and i64 undef, 72057594037927935
+; CHECK-NEXT: %[[value64:.*]] = or i64 %[[undef64]], %[[zero_shl]]
+; CHECK-NEXT: %[[value56_zext:.*]] = zext i56 %[[value56]] to i64
+; CHECK-NEXT: %[[value64_and:.*]] = and i64 %[[value64]], -72057594037927936
+; CHECK-NEXT: %[[value64:.*]] = or i64 %[[value64_and]], %[[value56_zext]]
+; CHECK-NEXT: store i64 %[[value64]], i64* %[[bc_dst]], align 1, !tbaa [[TAG_59]]
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 158
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds [42 x i8], [42 x i8]* %[[test3_a4]], i64 0, i64 0
 ; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 42, {{.*}}), !tbaa [[TAG_59]]
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 200
-; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a5]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 7, {{.*}}), !tbaa [[TAG_59]]
-; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds i8, i8* %dst, i64 207
-; CHECK-NEXT: store i8 42, i8* %[[gep]], {{.*}}, !tbaa [[TAG_59]]
+; CHECK-NEXT: store i8 %[[i8_3]], i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 201
+; CHECK-NEXT: store i8 %[[i8_4]], i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 202
+; CHECK-NEXT: store i8 42, i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 203
+; CHECK-NEXT: %[[bc_dst:.*]] = bitcast i8* %[[gep_dst]] to i32*
+; CHECK-NEXT: %[[byte:.*]] = zext i8 42 to i16
+; CHECK-NEXT: %[[byte_shl:.*]] = shl i16 %[[byte]], 8
+; CHECK-NEXT: %[[undef16:.*]] = and i16 undef, 255
+; CHECK-NEXT: %[[low16:.*]] = or i16 %[[undef16]], %[[byte_shl]]
+; CHECK-NEXT: %[[byte:.*]] = zext i8 42 to i16
+; CHECK-NEXT: %[[low16_and:.*]] = and i16 %[[low16]], -256
+; CHECK-NEXT: %[[low16:.*]] = or i16 %[[low16_and]], %[[byte]]
+; CHECK-NEXT: %[[byte:.*]] = zext i8 42 to i24
+; CHECK-NEXT: %[[byte_shl:.*]] = shl i24 %[[byte]], 16
+; CHECK-NEXT: %[[undef24:.*]] = and i24 undef, 65535
+; CHECK-NEXT: %[[high24:.*]] = or i24 %[[undef24]], %[[byte_shl]]
+; CHECK-NEXT: %[[low16_zext:.*]] = zext i16 %[[low16]] to i24
+; CHECK-NEXT: %[[high24_and:.*]] = and i24 %[[high24]], -65536
+; CHECK-NEXT: %[[value24:.*]] = or i24 %[[high24_and]], %[[low16_zext]]
+; CHECK-NEXT: %[[byte:.*]] = zext i8 42 to i32
+; CHECK-NEXT: %[[byte_shl:.*]] = shl i32 %[[byte]], 24
+; CHECK-NEXT: %[[undef32:.*]] = and i32 undef, 16777215
+; CHECK-NEXT: %[[value32:.*]] = or i32 %[[undef32]], %[[byte_shl]]
+; CHECK-NEXT: %[[value24_zext:.*]] = zext i24 %[[value24]] to i32
+; CHECK-NEXT: %[[value32_and:.*]] = and i32 %[[value32]], -16777216
+; CHECK-NEXT: %[[value32:.*]] = or i32 %[[value32_and]], %[[value24_zext]]
+; CHECK-NEXT: store i32 %[[value32]], i32* %[[bc_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 207
+; CHECK-NEXT: store i8 42, i8* %[[gep_dst]], {{.*}}, !tbaa [[TAG_59]]
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 208
-; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test3_a6]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 7, {{.*}}), !tbaa [[TAG_59]]
+; CHECK-NEXT: store i8 42, i8* %[[gep_dst]], {{.*}}, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 209
+; CHECK-NEXT: store i8 %[[i8_0]], i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 210
+; CHECK-NEXT: store i8 %[[i8_0_210]], i8* %[[gep_dst]], align 1, !tbaa [[TAG_59]]
+; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 211
+; CHECK-NEXT: %[[bc_dst:.*]] = bitcast i8* %[[gep_dst]] to i32*
+; CHECK-NEXT: %[[i32_1_trunc_trunc_lshr_trunc_zext:.*]] = zext i8 %[[i32_1_trunc_trunc_lshr_trunc]] to i16
+; CHECK-NEXT: %[[i32_1_trunc_trunc_lshr_trunc_zext_shl:.*]] = shl i16 %[[i32_1_trunc_trunc_lshr_trunc_zext]], 8
+; CHECK-NEXT: %[[undef16:.*]] = and i16 undef, 255
+; CHECK-NEXT: %[[second_byte:.*]] = or i16 %[[undef16]], %[[i32_1_trunc_trunc_lshr_trunc_zext_shl]]
+; CHECK-NEXT: %[[i32_1_trunc_trunc_trunc_zext:.*]] = zext i8 %[[i32_1_trunc_trunc_trunc]] to i16
+; CHECK-NEXT: %[[masked_second_byte:.*]] = and i16 %[[second_byte]], -256
+; CHECK-NEXT: %[[low16:.*]] = or i16 %[[masked_second_byte]], %[[i32_1_trunc_trunc_trunc_zext]]
+; CHECK-NEXT: %[[i32_1_trunc_lshr_trunc_zext:.*]] = zext i8 %[[i32_1_trunc_lshr_trunc]] to i24
+; CHECK-NEXT: %[[i32_1_trunc_lshr_trunc_zext_shl:.*]] = shl i24 %[[i32_1_trunc_lshr_trunc_zext]], 16
+; CHECK-NEXT: %[[undef24:.*]] = and i24 undef, 65535
+; CHECK-NEXT: %[[third_byte:.*]] = or i24 %[[undef24]], %[[i32_1_trunc_lshr_trunc_zext_shl]]
+; CHECK-NEXT: %[[low16_zext:.*]] = zext i16 %[[low16]] to i24
+; CHECK-NEXT: %[[masked_third_byte:.*]] = and i24 %[[third_byte]], -65536
+; CHECK-NEXT: %[[value24:.*]] = or i24 %[[masked_third_byte]], %[[low16_zext]]
+; CHECK-NEXT: %[[i32_1_lshr_trunc_zext:.*]] = zext i8 %[[i32_1_lshr_trunc]] to i32
+; CHECK-NEXT: %[[high_byte:.*]] = shl i32 %[[i32_1_lshr_trunc_zext]], 24
+; CHECK-NEXT: %[[undef32:.*]] = and i32 undef, 16777215
+; CHECK-NEXT: %[[value32:.*]] = or i32 %[[undef32]], %[[high_byte]]
+; CHECK-NEXT: %[[value24_zext:.*]] = zext i24 %[[value24]] to i32
+; CHECK-NEXT: %[[value32_and:.*]] = and i32 %[[value32]], -16777216
+; CHECK-NEXT: %[[value32:.*]] = or i32 %[[value32_and]], %[[value24_zext]]
+; CHECK-NEXT: store i32 %[[value32]], i32* %[[bc_dst]], align 1, !tbaa [[TAG_59]]
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds i8, i8* %dst, i64 215
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds [85 x i8], [85 x i8]* %[[test3_a7]], i64 0, i64 0
 ; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 85, {{.*}}), !tbaa [[TAG_59]]
@@ -415,7 +561,7 @@ entry:
   call void @llvm.memcpy.p0i8.p0i8.i32(i8* %a.dst.1, i8* %a.src.1, i32 10, i1 false), !tbaa !3
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test4_a4]], i64 0, i64 0
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test4_a2]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 7, {{.*}}), !tbaa [[TAG_3]]
+; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 7, {{.*}}), !tbaa [[TAG_3:!.*]]
 
   ; Clobber a single element of the array, this should be promotable, and be deleted.
   %c = getelementptr [100 x i8], [100 x i8]* %a, i64 0, i64 42
@@ -425,11 +571,11 @@ entry:
   call void @llvm.memmove.p0i8.p0i8.i32(i8* %a.dst.1, i8* %a.src.2, i32 10, i1 false), !tbaa !5
 ; CHECK-NEXT: %[[gep_dst:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test4_a4]], i64 0, i64 0
 ; CHECK-NEXT: %[[gep_src:.*]] = getelementptr inbounds [7 x i8], [7 x i8]* %[[test4_a5]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 7, {{.*}}), !tbaa [[TAG_5]]
+; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[gep_dst]], i8* align 1 %[[gep_src]], i32 7, {{.*}}), !tbaa [[TAG_5:!.*]]
 
   call void @llvm.memcpy.p0i8.p0i8.i32(i8* %dst, i8* %b, i32 100, i1 false), !tbaa !7
 ; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds [20 x i8], [20 x i8]* %[[test4_a1]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %dst, i8* align 1 %[[gep]], i32 20, {{.*}}), !tbaa [[TAG_7]]
+; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %dst, i8* align 1 %[[gep]], i32 20, {{.*}}), !tbaa [[TAG_7:!.*]]
 ; CHECK-NEXT: %[[gep:.*]] = getelementptr inbounds i8, i8* %dst, i64 20
 ; CHECK-NEXT: %[[bitcast:.*]] = bitcast i8* %[[gep]] to i16*
 ; CHECK-NEXT: store i16 %[[test4_r1]], i16* %[[bitcast]], {{.*}}, !tbaa [[TAG_7]]
@@ -862,12 +1008,12 @@ define void @test18(i8* %src, i8* %dst, i32 %size) {
 ; CHECK-NEXT: %[[agep2:.*]] = getelementptr inbounds [34 x i8], [34 x i8]* %[[a]], i64 0, i64 0
 ; CHECK-NEXT: call void @llvm.memset.p0i8.i32(i8* align 1 %[[agep2]], i8 42, i32 %size, {{.*}}), !tbaa [[TAG_5]]
 ; CHECK-NEXT: %[[dstcast1:.*]] = bitcast i8* %dst to i32*
-; CHECK-NEXT: store i32 42, i32* %[[dstcast1]], {{.*}}, !tbaa [[TAG_9]]
+; CHECK-NEXT: store i32 42, i32* %[[dstcast1]], {{.*}}, !tbaa [[TAG_9:!.*]]
 ; CHECK-NEXT: %[[dstgep1:.*]] = getelementptr inbounds i8, i8* %dst, i64 4
 ; CHECK-NEXT: %[[dstcast2:.*]] = bitcast i8* %[[dstgep1]] to i32*
 ; CHECK-NEXT: store i32 %[[srcload]], i32* %[[dstcast2]], {{.*}}, !tbaa [[TAG_9]]
 ; CHECK-NEXT: %[[agep3:.*]] = getelementptr inbounds [34 x i8], [34 x i8]* %[[a]], i64 0, i64 0
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* %dst, i8* align 1 %[[agep3]], i32 %size, {{.*}}), !tbaa [[TAG_11]]
+; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* %dst, i8* align 1 %[[agep3]], i32 %size, {{.*}}), !tbaa [[TAG_11:!.*]]
 ; CHECK-NEXT: ret void
 
 entry:
@@ -1970,48 +2116,8 @@ bb7:
 ; CHECK-DAG: [[TAG_9]] = !{[[TYPE_9]], [[TYPE_9]], i64 0, i64 1}
 ; CHECK-DAG: [[TYPE_11:!.*]] = !{{{.*}}, !"type_11"}
 ; CHECK-DAG: [[TAG_11]] = !{[[TYPE_11]], [[TYPE_11]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_13:!.*]] = !{{{.*}}, !"type_13"}
-; CHECK-DAG: [[TAG_13]] = !{[[TYPE_13]], [[TYPE_13]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_15:!.*]] = !{{{.*}}, !"type_15"}
-; CHECK-DAG: [[TAG_15]] = !{[[TYPE_15]], [[TYPE_15]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_17:!.*]] = !{{{.*}}, !"type_17"}
-; CHECK-DAG: [[TAG_17]] = !{[[TYPE_17]], [[TYPE_17]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_19:!.*]] = !{{{.*}}, !"type_19"}
-; CHECK-DAG: [[TAG_19]] = !{[[TYPE_19]], [[TYPE_19]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_21:!.*]] = !{{{.*}}, !"type_21"}
-; CHECK-DAG: [[TAG_21]] = !{[[TYPE_21]], [[TYPE_21]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_23:!.*]] = !{{{.*}}, !"type_23"}
-; CHECK-DAG: [[TAG_23]] = !{[[TYPE_23]], [[TYPE_23]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_25:!.*]] = !{{{.*}}, !"type_25"}
-; CHECK-DAG: [[TAG_25]] = !{[[TYPE_25]], [[TYPE_25]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_27:!.*]] = !{{{.*}}, !"type_27"}
-; CHECK-DAG: [[TAG_27]] = !{[[TYPE_27]], [[TYPE_27]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_29:!.*]] = !{{{.*}}, !"type_29"}
-; CHECK-DAG: [[TAG_29]] = !{[[TYPE_29]], [[TYPE_29]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_31:!.*]] = !{{{.*}}, !"type_31"}
-; CHECK-DAG: [[TAG_31]] = !{[[TYPE_31]], [[TYPE_31]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_33:!.*]] = !{{{.*}}, !"type_33"}
-; CHECK-DAG: [[TAG_33]] = !{[[TYPE_33]], [[TYPE_33]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_35:!.*]] = !{{{.*}}, !"type_35"}
-; CHECK-DAG: [[TAG_35]] = !{[[TYPE_35]], [[TYPE_35]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_37:!.*]] = !{{{.*}}, !"type_37"}
-; CHECK-DAG: [[TAG_37]] = !{[[TYPE_37]], [[TYPE_37]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_39:!.*]] = !{{{.*}}, !"type_39"}
-; CHECK-DAG: [[TAG_39]] = !{[[TYPE_39]], [[TYPE_39]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_41:!.*]] = !{{{.*}}, !"type_41"}
-; CHECK-DAG: [[TAG_41]] = !{[[TYPE_41]], [[TYPE_41]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_43:!.*]] = !{{{.*}}, !"type_43"}
-; CHECK-DAG: [[TAG_43]] = !{[[TYPE_43]], [[TYPE_43]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_45:!.*]] = !{{{.*}}, !"type_45"}
-; CHECK-DAG: [[TAG_45]] = !{[[TYPE_45]], [[TYPE_45]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_47:!.*]] = !{{{.*}}, !"type_47"}
-; CHECK-DAG: [[TAG_47]] = !{[[TYPE_47]], [[TYPE_47]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_49:!.*]] = !{{{.*}}, !"type_49"}
-; CHECK-DAG: [[TAG_49]] = !{[[TYPE_49]], [[TYPE_49]], i64 0, i64 1}
 ; CHECK-DAG: [[TYPE_51:!.*]] = !{{{.*}}, !"type_51"}
 ; CHECK-DAG: [[TAG_51]] = !{[[TYPE_51]], [[TYPE_51]], i64 0, i64 1}
-; CHECK-DAG: [[TYPE_53:!.*]] = !{{{.*}}, !"type_53"}
-; CHECK-DAG: [[TAG_53]] = !{[[TYPE_53]], [[TYPE_53]], i64 0, i64 1}
 ; CHECK-DAG: [[TYPE_55:!.*]] = !{{{.*}}, !"type_55"}
 ; CHECK-DAG: [[TAG_55]] = !{[[TYPE_55]], [[TYPE_55]], i64 0, i64 1}
 ; CHECK-DAG: [[TYPE_57:!.*]] = !{{{.*}}, !"type_57"}

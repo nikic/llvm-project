@@ -123,6 +123,7 @@ private:
                             AssumptionCache &RunAC);
 
   bool presplitLoadsAndStores(AllocaInst &AI, sroa::AllocaSlices &AS);
+  bool presplitOverlappedSlices(AllocaInst &AI, sroa::AllocaSlices &AS);
   AllocaInst *rewritePartition(AllocaInst &AI, sroa::AllocaSlices &AS,
                                sroa::Partition &P);
   bool splitAlloca(AllocaInst &AI, sroa::AllocaSlices &AS);
