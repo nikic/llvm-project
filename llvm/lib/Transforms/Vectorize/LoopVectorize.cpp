@@ -247,6 +247,12 @@ static cl::opt<bool> EnableLoadStoreRuntimeInterleave(
     cl::desc(
         "Enable runtime interleaving until load/store ports are saturated"));
 
+/// Interleave small loops with scalar reductions.
+static cl::opt<bool> InterleaveSmallLoopScalarReduction(
+    "interleave-small-loop-scalar-reduction", cl::init(true), cl::Hidden,
+    cl::desc("Enable interleaving for small loops with scalar reductions "
+             "to expose ILP."));
+
 /// The number of stores in a loop that are allowed to need predication.
 static cl::opt<unsigned> NumberOfStoresToPredicate(
     "vectorize-num-stores-pred", cl::init(1), cl::Hidden,
@@ -5250,10 +5256,18 @@ unsigned LoopVectorizationCostModel::selectInterleaveCount(unsigned VF,
   if (Legal->getMaxSafeDepDistBytes() != -1U)
     return 1;
 
-  // Do not interleave loops with a relatively small known or estimated trip
-  // count.
   auto BestKnownTC = getSmallBestKnownTC(*PSE.getSE(), TheLoop);
-  if (BestKnownTC && *BestKnownTC < TinyTripCountInterleaveThreshold)
+  const bool HasReductions = !Legal->getReductionVars().empty();
+  const bool ScalarReductionCond =
+      InterleaveSmallLoopScalarReduction && HasReductions && VF == 1;
+  // Do not interleave loops with a relatively small known or estimated trip
+  // count. But we will interleave when ScalarReductionCond is satisfied:
+  // i.e. InterleaveSmallLoopScalarReduction is enabled, and the code has
+  // scalar reductions(HasReductions && VF = 1), because with the above
+  // conditions interleaving can expose ILP, break cross iteration dependences
+  // for reductions, and will benefit SLP vectorizer in a later pass.
+  if (BestKnownTC && (*BestKnownTC < TinyTripCountInterleaveThreshold) &&
+      !ScalarReductionCond)
     return 1;
 
   RegisterUsage R = calculateRegisterUsage({VF})[0];
@@ -5338,7 +5352,7 @@ unsigned LoopVectorizationCostModel::selectInterleaveCount(unsigned VF,
 
   // Interleave if we vectorized this loop and there is a reduction that could
   // benefit from interleaving.
-  if (VF > 1 && !Legal->getReductionVars().empty()) {
+  if (VF > 1 && HasReductions) {
     LLVM_DEBUG(dbgs() << "LV: Interleaving because of reductions.\n");
     return IC;
   }
@@ -5350,7 +5364,11 @@ unsigned LoopVectorizationCostModel::selectInterleaveCount(unsigned VF,
 
   // We want to interleave small loops in order to reduce the loop overhead and
   // potentially expose ILP opportunities.
-  LLVM_DEBUG(dbgs() << "LV: Loop cost is " << LoopCost << '\n');
+  LLVM_DEBUG(dbgs() << "LV: Loop cost is " << LoopCost << '\n'
+                    << "LV: IC is " << IC << '\n'
+                    << "LV: VF is " << VF << '\n');
+  const bool AggressivelyInterleaveReductions =
+      TTI.enableAggressiveInterleaving(HasReductions);
   if (!InterleavingRequiresRuntimePointerCheck && LoopCost < SmallLoopCost) {
     // We assume that the cost overhead is 1 and we use the cost model
     // to estimate the cost of the loop and interleave until the cost of the
@@ -5369,7 +5387,7 @@ unsigned LoopVectorizationCostModel::selectInterleaveCount(unsigned VF,
     // by this point), we can increase the critical path length if the loop
     // we're interleaving is inside another loop. Limit, by default to 2, so the
     // critical path only gets increased by one reduction operation.
-    if (!Legal->getReductionVars().empty() && TheLoop->getLoopDepth() > 1) {
+    if (HasReductions && TheLoop->getLoopDepth() > 1) {
       unsigned F = static_cast<unsigned>(MaxNestedScalarReductionIC);
       SmallIC = std::min(SmallIC, F);
       StoresIC = std::min(StoresIC, F);
@@ -5383,14 +5401,23 @@ unsigned LoopVectorizationCostModel::selectInterleaveCount(unsigned VF,
       return std::max(StoresIC, LoadsIC);
     }
 
-    LLVM_DEBUG(dbgs() << "LV: Interleaving to reduce branch cost.\n");
-    return SmallIC;
+    // If there are scalar reductions and TTI has enabled aggressive
+    // interleaving for reductions, we will interleave to expose ILP.
+    if (InterleaveSmallLoopScalarReduction && VF == 1 &&
+        AggressivelyInterleaveReductions) {
+      LLVM_DEBUG(dbgs() << "LV: Interleaving to expose ILP.\n");
+      // Interleave no less than SmallIC but not as aggressive as the normal IC
+      // to satisfy the rare situation when resources are too limited.
+      return std::max(IC / 2, SmallIC);
+    } else {
+      LLVM_DEBUG(dbgs() << "LV: Interleaving to reduce branch cost.\n");
+      return SmallIC;
+    }
   }
 
   // Interleave if this is a large loop (small loops are already dealt with by
   // this point) that could benefit from interleaving.
-  bool HasReductions = !Legal->getReductionVars().empty();
-  if (TTI.enableAggressiveInterleaving(HasReductions)) {
+  if (AggressivelyInterleaveReductions) {
     LLVM_DEBUG(dbgs() << "LV: Interleaving to expose ILP.\n");
     return IC;
   }
