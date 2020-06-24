@@ -838,6 +838,10 @@ public:
                            const Optional<MemoryLocation> &OptLoc) {
     return AA.getModRefInfo(I, OptLoc, AAQI);
   }
+  ModRefInfo getModRefInfo(const Instruction *L, const Value *P,
+                           LocationSize Size) {
+    return getModRefInfo(L, MemoryLocation(P, Size));
+  }
   ModRefInfo getModRefInfo(Instruction *I, const CallBase *Call2) {
     return AA.getModRefInfo(I, Call2, AAQI);
   }

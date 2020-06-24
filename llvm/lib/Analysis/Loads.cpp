@@ -391,6 +391,10 @@ Value *llvm::FindAvailablePtrLoadStore(Value *Ptr, Type *AccessTy,
                                        unsigned MaxInstsToScan,
                                        AliasAnalysis *AA, bool *IsLoadCSE,
                                        unsigned *NumScanedInst) {
+  Optional<BatchAAResults> BatchAA;
+  if (AA)
+    BatchAA.emplace(*AA);
+
   if (MaxInstsToScan == 0)
     MaxInstsToScan = ~0U;
 
@@ -463,7 +467,7 @@ Value *llvm::FindAvailablePtrLoadStore(Value *Ptr, Type *AccessTy,
           StrippedPtr != StorePtr)
         continue;
 
-      if (!AA) {
+      if (!BatchAA) {
         // When AA isn't available, but if the load and the store have the same
         // base, constant offsets and non-overlapping access ranges, ignore the
         // store. This is a simple form of alias analysis that is used by the
@@ -475,7 +479,7 @@ Value *llvm::FindAvailablePtrLoadStore(Value *Ptr, Type *AccessTy,
       } else {
         // If we have alias analysis and it says the store won't modify the
         // loaded value, ignore the store.
-        if (!isModSet(AA->getModRefInfo(SI, StrippedPtr, AccessSize)))
+        if (!isModSet(BatchAA->getModRefInfo(SI, StrippedPtr, AccessSize)))
           continue;
       }
 
@@ -488,7 +492,8 @@ Value *llvm::FindAvailablePtrLoadStore(Value *Ptr, Type *AccessTy,
     if (Inst->mayWriteToMemory()) {
       // If alias analysis claims that it really won't modify the load,
       // ignore it.
-      if (AA && !isModSet(AA->getModRefInfo(Inst, StrippedPtr, AccessSize)))
+      if (BatchAA &&
+          !isModSet(BatchAA->getModRefInfo(Inst, StrippedPtr, AccessSize)))
         continue;
 
       // May modify the pointer, bail out.
