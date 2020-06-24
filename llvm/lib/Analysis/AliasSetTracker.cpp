@@ -198,7 +198,7 @@ void AliasSet::addUnknownInst(Instruction *I, AliasAnalysis &AA) {
 ///
 AliasResult AliasSet::aliasesPointer(const Value *Ptr, LocationSize Size,
                                      const AAMDNodes &AAInfo,
-                                     AliasAnalysis &AA) const {
+                                     BatchAAResults &AA) const {
   if (AliasAny)
     return MayAlias;
 
@@ -308,12 +308,13 @@ AliasSet *AliasSetTracker::mergeAliasSetsForPointer(const Value *Ptr,
                                                     bool &MustAliasAll) {
   AliasSet *FoundSet = nullptr;
   AliasResult AllAR = MustAlias;
+  BatchAAResults BatchAA(AA);
   for (iterator I = begin(), E = end(); I != E;) {
     iterator Cur = I++;
     if (Cur->Forward)
       continue;
 
-    AliasResult AR = Cur->aliasesPointer(Ptr, Size, AAInfo, AA);
+    AliasResult AR = Cur->aliasesPointer(Ptr, Size, AAInfo, BatchAA);
     if (AR == NoAlias)
       continue;
 

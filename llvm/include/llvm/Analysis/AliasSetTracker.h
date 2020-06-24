@@ -316,7 +316,7 @@ public:
   /// If the specified pointer "may" (or must) alias one of the members in the
   /// set return the appropriate AliasResult. Otherwise return NoAlias.
   AliasResult aliasesPointer(const Value *Ptr, LocationSize Size,
-                             const AAMDNodes &AAInfo, AliasAnalysis &AA) const;
+                             const AAMDNodes &AAInfo, BatchAAResults &AA) const;
   bool aliasesUnknownInst(const Instruction *Inst, AliasAnalysis &AA) const;
 };
 
