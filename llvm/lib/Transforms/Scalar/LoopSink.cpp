@@ -273,11 +273,12 @@ static bool sinkLoopInvariantInstructions(Loop &L, AAResults &AA, LoopInfo &LI,
 
   bool Changed = false;
   AliasSetTracker CurAST(AA);
+  BatchAAResults BatchAA(AA);
 
   // Compute alias set.
   for (BasicBlock *BB : L.blocks())
-    CurAST.add(*BB);
-  CurAST.add(*Preheader);
+    CurAST.add(*BB, BatchAA);
+  CurAST.add(*Preheader, BatchAA);
 
   // Sort loop's basic blocks by frequency
   SmallVector<BasicBlock *, 10> ColdLoopBBs;

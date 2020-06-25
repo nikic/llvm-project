@@ -508,13 +508,14 @@ public:
   AccessAnalysis(const DataLayout &Dl, Loop *TheLoop, AliasAnalysis *AA,
                  LoopInfo *LI, MemoryDepChecker::DepCandidates &DA,
                  PredicatedScalarEvolution &PSE)
-      : DL(Dl), TheLoop(TheLoop), AST(*AA), LI(LI), DepCands(DA),
+      : DL(Dl), TheLoop(TheLoop), AA(*AA), AST(*AA), LI(LI), DepCands(DA),
         IsRTCheckAnalysisNeeded(false), PSE(PSE) {}
 
   /// Register a load  and whether it is only read from.
   void addLoad(MemoryLocation &Loc, bool IsReadOnly) {
+    BatchAAResults BatchAA(AA);
     Value *Ptr = const_cast<Value*>(Loc.Ptr);
-    AST.add(Ptr, LocationSize::unknown(), Loc.AATags);
+    AST.add(Ptr, LocationSize::unknown(), Loc.AATags, BatchAA);
     Accesses.insert(MemAccessInfo(Ptr, false));
     if (IsReadOnly)
       ReadOnlyPtr.insert(Ptr);
@@ -522,8 +523,9 @@ public:
 
   /// Register a store.
   void addStore(MemoryLocation &Loc) {
+    BatchAAResults BatchAA(AA);
     Value *Ptr = const_cast<Value*>(Loc.Ptr);
-    AST.add(Ptr, LocationSize::unknown(), Loc.AATags);
+    AST.add(Ptr, LocationSize::unknown(), Loc.AATags, BatchAA);
     Accesses.insert(MemAccessInfo(Ptr, true));
   }
 
@@ -592,6 +594,8 @@ private:
 
   /// Set of pointers that are read only.
   SmallPtrSet<Value*, 16> ReadOnlyPtr;
+
+  AliasAnalysis &AA;
 
   /// An alias set tracker to partition the access set by underlying object and
   //intrinsic property (such as TBAA metadata).

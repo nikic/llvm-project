@@ -1169,7 +1169,8 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
     // there is exactly one write to the location and that write dominates an
     // arbitrary number of reads in the loop.
     if (CurAST) {
-      auto &AS = CurAST->getAliasSetFor(MemoryLocation::get(SI));
+      BatchAAResults BatchAA(*AA);
+      auto &AS = CurAST->getAliasSetFor(MemoryLocation::get(SI), BatchAA);
 
       if (AS.isRef() || !AS.isMustAlias())
         // Quick exit test, handled by the full path below as well.
@@ -2122,16 +2123,17 @@ std::unique_ptr<AliasSetTracker>
 LoopInvariantCodeMotion::collectAliasInfoForLoop(Loop *L, LoopInfo *LI,
                                                  AliasAnalysis *AA) {
   auto CurAST = std::make_unique<AliasSetTracker>(*AA);
+  BatchAAResults BatchAA(*AA);
 
   // Add everything from all the sub loops.
   for (Loop *InnerL : L->getSubLoops())
     for (BasicBlock *BB : InnerL->blocks())
-      CurAST->add(*BB);
+      CurAST->add(*BB, BatchAA);
 
   // And merge in this loop (without anything from inner loops).
   for (BasicBlock *BB : L->blocks())
     if (LI->getLoopFor(BB) == L)
-      CurAST->add(*BB);
+      CurAST->add(*BB, BatchAA);
 
   return CurAST;
 }
@@ -2139,9 +2141,10 @@ LoopInvariantCodeMotion::collectAliasInfoForLoop(Loop *L, LoopInfo *LI,
 std::unique_ptr<AliasSetTracker>
 LoopInvariantCodeMotion::collectAliasInfoForLoopWithMSSA(
     Loop *L, AliasAnalysis *AA, MemorySSAUpdater *MSSAU) {
+  BatchAAResults BatchAA(*AA);
   auto *MSSA = MSSAU->getMemorySSA();
   auto CurAST = std::make_unique<AliasSetTracker>(*AA, MSSA, L);
-  CurAST->addAllInstructionsInLoopUsingMSSA();
+  CurAST->addAllInstructionsInLoopUsingMSSA(BatchAA);
   return CurAST;
 }
 
@@ -2149,7 +2152,9 @@ static bool pointerInvalidatedByLoop(MemoryLocation MemLoc,
                                      AliasSetTracker *CurAST, Loop *CurLoop,
                                      AliasAnalysis *AA) {
   // First check to see if any of the basic blocks in CurLoop invalidate *V.
-  bool isInvalidatedAccordingToAST = CurAST->getAliasSetFor(MemLoc).isMod();
+  BatchAAResults BatchAA(*AA);
+  bool isInvalidatedAccordingToAST =
+    CurAST->getAliasSetFor(MemLoc, BatchAA).isMod();
 
   if (!isInvalidatedAccordingToAST || !LICMN2Theshold)
     return isInvalidatedAccordingToAST;

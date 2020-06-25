@@ -588,9 +588,10 @@ bool LoopVersioningLICM::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // Loop over the body of this loop, construct AST.
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  BatchAAResults BatchAA(*AA);
   for (auto *Block : L->getBlocks()) {
     if (LI->getLoopFor(Block) == L) // Ignore blocks in subloop.
-      CurAST->add(*Block);          // Incorporate the specified basic block
+      CurAST->add(*Block, BatchAA); // Incorporate the specified basic block
   }
 
   bool Changed = false;

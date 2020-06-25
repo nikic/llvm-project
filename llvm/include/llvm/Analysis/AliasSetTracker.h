@@ -215,7 +215,7 @@ public:
   bool isForwardingAliasSet() const { return Forward; }
 
   /// Merge the specified alias set into this alias set.
-  void mergeSetIn(AliasSet &AS, AliasSetTracker &AST);
+  void mergeSetIn(AliasSet &AS, AliasSetTracker &AST, BatchAAResults &BatchAA);
 
   // Alias Set iteration - Allow access to all of the pointers which are part of
   // this alias set.
@@ -296,9 +296,9 @@ private:
   void removeFromTracker(AliasSetTracker &AST);
 
   void addPointer(AliasSetTracker &AST, PointerRec &Entry, LocationSize Size,
-                  const AAMDNodes &AAInfo, bool KnownMustAlias = false,
-                  bool SkipSizeUpdate = false);
-  void addUnknownInst(Instruction *I, AliasAnalysis &AA);
+                  const AAMDNodes &AAInfo, BatchAAResults &BatchAA,
+                  bool KnownMustAlias = false, bool SkipSizeUpdate = false);
+  void addUnknownInst(Instruction *I);
 
   void removeUnknownInst(AliasSetTracker &AST, Instruction *I) {
     bool WasEmpty = UnknownInsts.empty();
@@ -317,7 +317,7 @@ public:
   /// set return the appropriate AliasResult. Otherwise return NoAlias.
   AliasResult aliasesPointer(const Value *Ptr, LocationSize Size,
                              const AAMDNodes &AAInfo, BatchAAResults &AA) const;
-  bool aliasesUnknownInst(const Instruction *Inst, AliasAnalysis &AA) const;
+  bool aliasesUnknownInst(const Instruction *Inst, BatchAAResults &AA) const;
 };
 
 inline raw_ostream& operator<<(raw_ostream &OS, const AliasSet &AS) {
@@ -374,17 +374,19 @@ public:
   /// These methods return true if inserting the instruction resulted in the
   /// addition of a new alias set (i.e., the pointer did not alias anything).
   ///
-  void add(Value *Ptr, LocationSize Size, const AAMDNodes &AAInfo); // Add a loc
-  void add(LoadInst *LI);
-  void add(StoreInst *SI);
-  void add(VAArgInst *VAAI);
-  void add(AnyMemSetInst *MSI);
-  void add(AnyMemTransferInst *MTI);
-  void add(Instruction *I);       // Dispatch to one of the other add methods...
-  void add(BasicBlock &BB);       // Add all instructions in basic block
-  void add(const AliasSetTracker &AST); // Add alias relations from another AST
-  void addUnknown(Instruction *I);
-  void addAllInstructionsInLoopUsingMSSA();
+  void add(Value *Ptr, LocationSize Size, const AAMDNodes &AAInfo,
+           BatchAAResults &BatchAA);
+  void add(LoadInst *LI, BatchAAResults &BatchAA);
+  void add(StoreInst *SI, BatchAAResults &BatchAA);
+  void add(VAArgInst *VAAI, BatchAAResults &BatchAA);
+  void add(AnyMemSetInst *MSI, BatchAAResults &BatchAA);
+  void add(AnyMemTransferInst *MTI, BatchAAResults &BatchAA);
+  void add(Instruction *I, BatchAAResults &BatchAA);
+  void add(BasicBlock &BB, BatchAAResults &BatchAA);
+  /// Add alias relations from another AST.
+  void add(const AliasSetTracker &AST, BatchAAResults &BatchAA);
+  void addUnknown(Instruction *I, BatchAAResults &BatchAA);
+  void addAllInstructionsInLoopUsingMSSA(BatchAAResults &BatchAA);
 
   void clear();
 
@@ -395,10 +397,8 @@ public:
   /// the memory location aliases two or more existing alias sets, will have
   /// the effect of merging those alias sets before the single resulting alias
   /// set is returned.
-  AliasSet &getAliasSetFor(const MemoryLocation &MemLoc);
-
-  /// Return the underlying alias analysis object used by this tracker.
-  AliasAnalysis &getAliasAnalysis() const { return AA; }
+  AliasSet &getAliasSetFor(const MemoryLocation &MemLoc,
+                           BatchAAResults &BatchAA);
 
   /// This method is used to remove a pointer value from the AliasSetTracker
   /// entirely. It should be used when an instruction is deleted from the
@@ -445,16 +445,19 @@ private:
     return *Entry;
   }
 
-  AliasSet &addPointer(MemoryLocation Loc, AliasSet::AccessLattice E);
+  AliasSet &addPointer(MemoryLocation Loc, AliasSet::AccessLattice E,
+                       BatchAAResults &BatchAA);
   AliasSet *mergeAliasSetsForPointer(const Value *Ptr, LocationSize Size,
                                      const AAMDNodes &AAInfo,
+                                     BatchAAResults &BatchAA,
                                      bool &MustAliasAll);
 
   /// Merge all alias sets into a single set that is considered to alias any
   /// pointer.
-  AliasSet &mergeAllAliasSets();
+  AliasSet &mergeAllAliasSets(BatchAAResults &BatchAA);
 
-  AliasSet *findAliasSetForUnknownInst(Instruction *Inst);
+  AliasSet *findAliasSetForUnknownInst(Instruction *Inst,
+                                       BatchAAResults &BatchAA);
 };
 
 inline raw_ostream& operator<<(raw_ostream &OS, const AliasSetTracker &AST) {

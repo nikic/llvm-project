@@ -241,8 +241,9 @@ namespace {
       llvm::TargetLibraryInfo TLI(TLII);
       llvm::AliasAnalysis AA(TLI);
       llvm::AliasSetTracker X(AA);
+      llvm::BatchAAResults BatchAA(AA);
       X.add(nullptr, llvm::LocationSize::unknown(),
-            llvm::AAMDNodes()); // for -print-alias-sets
+            llvm::AAMDNodes(), BatchAA); // for -print-alias-sets
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
     }
