@@ -14,6 +14,7 @@
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -1541,6 +1542,23 @@ Instruction *InstCombiner::foldICmpWithDominatingICmp(ICmpInst &Cmp) {
       return new ICmpInst(ICmpInst::ICMP_EQ, X, Builder.getInt(*EqC));
     if (const APInt *NeC = Difference.getSingleElement())
       return new ICmpInst(ICmpInst::ICMP_NE, X, Builder.getInt(*NeC));
+  }
+
+  return nullptr;
+}
+
+Instruction *InstCombiner::foldICmpWithDominatingAssume(ICmpInst &ICmp,
+                                                        Value *Op) {
+  for (auto &AssumeVH : AC.assumptionsFor(Op)) {
+    if (!AssumeVH)
+      continue;
+
+    CallInst *Assume = cast<CallInst>(AssumeVH);
+    if (Optional<bool> Imp = isImpliedCondition(Assume->getArgOperand(0), &ICmp,
+                                                DL))
+      if (isValidAssumeForContext(Assume, &ICmp, &DT))
+        return replaceInstUsesWith(ICmp,
+                                   ConstantInt::get(ICmp.getType(), *Imp));
   }
 
   return nullptr;
@@ -5710,6 +5728,11 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
   if (I.getType()->isVectorTy())
     if (Instruction *Res = foldVectorCmp(I, Builder))
       return Res;
+
+  if (Instruction *Res = foldICmpWithDominatingAssume(I, Op0))
+    return Res;
+  if (Instruction *Res = foldICmpWithDominatingAssume(I, Op1))
+    return Res;
 
   return Changed ? &I : nullptr;
 }
