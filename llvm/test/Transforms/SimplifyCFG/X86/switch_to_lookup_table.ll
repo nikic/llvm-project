@@ -1213,7 +1213,7 @@ define i8 @linearmap1(i32 %c) {
 ; CHECK-LABEL: @linearmap1(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SWITCH_TABLEIDX:%.*]] = sub i32 [[C:%.*]], 10
-; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 4
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 3
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[SWITCH_LOOKUP:%.*]], label [[RETURN:%.*]]
 ; CHECK:       switch.lookup:
 ; CHECK-NEXT:    [[SWITCH_IDX_CAST:%.*]] = trunc i32 [[SWITCH_TABLEIDX]] to i8
@@ -1304,7 +1304,7 @@ define i8 @linearmap4(i32 %c) {
 ; CHECK-LABEL: @linearmap4(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SWITCH_TABLEIDX:%.*]] = sub i32 [[C:%.*]], -2
-; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 4
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 3
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[SWITCH_LOOKUP:%.*]], label [[RETURN:%.*]]
 ; CHECK:       switch.lookup:
 ; CHECK-NEXT:    [[SWITCH_IDX_CAST:%.*]] = trunc i32 [[SWITCH_TABLEIDX]] to i8

@@ -123,10 +123,7 @@ define i32 @todo_sink_side_effect(i1 %cond_0, i1 %cond_1) {
 ; CHECK-NEXT:    ret i32 [[DEOPTRET]]
 ; CHECK:       guarded:
 ; CHECK-NEXT:    call void @unknown()
-; CHECK-NEXT:    br i1 [[COND_1:%.*]], label [[RETURN:%.*]], label [[DEOPT2:%.*]], !prof !0
-; CHECK:       deopt2:
-; CHECK-NEXT:    [[DEOPTRET2:%.*]] = call i32 (...) @llvm.experimental.deoptimize.i32() [ "deopt"() ]
-; CHECK-NEXT:    ret i32 [[DEOPTRET2]]
+; CHECK-NEXT:    br i1 [[COND_1:%.*]], label [[RETURN:%.*]], label [[DEOPT]], !prof !0
 ; CHECK:       return:
 ; CHECK-NEXT:    ret i32 0
 ;
@@ -163,10 +160,7 @@ define i32 @neg_unsinkable_side_effect(i1 %cond_0) {
 ; CHECK:       guarded:
 ; CHECK-NEXT:    [[V:%.*]] = call i32 @unknown_i32()
 ; CHECK-NEXT:    [[COND_1:%.*]] = icmp eq i32 [[V]], 0
-; CHECK-NEXT:    br i1 [[COND_1]], label [[RETURN:%.*]], label [[DEOPT2:%.*]], !prof !0
-; CHECK:       deopt2:
-; CHECK-NEXT:    [[DEOPTRET2:%.*]] = call i32 (...) @llvm.experimental.deoptimize.i32() [ "deopt"() ]
-; CHECK-NEXT:    ret i32 [[DEOPTRET2]]
+; CHECK-NEXT:    br i1 [[COND_1]], label [[RETURN:%.*]], label [[DEOPT]], !prof !0
 ; CHECK:       return:
 ; CHECK-NEXT:    ret i32 0
 ;
@@ -270,19 +264,15 @@ define i32 @neg_loop(i1 %cond_0, i1 %cond_1) {
 ; CHECK-LABEL: @neg_loop(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[GUARDED:%.*]]
-; CHECK:       loop:
-; CHECK-NEXT:    [[WIDENABLE_COND:%.*]] = call i1 @llvm.experimental.widenable.condition()
-; CHECK-NEXT:    [[EXIPLICIT_GUARD_COND:%.*]] = and i1 [[COND_0:%.*]], [[WIDENABLE_COND]]
-; CHECK-NEXT:    br i1 [[EXIPLICIT_GUARD_COND]], label [[GUARDED]], label [[DEOPT:%.*]], !prof !0
 ; CHECK:       deopt:
 ; CHECK-NEXT:    [[DEOPTRET:%.*]] = call i32 (...) @llvm.experimental.deoptimize.i32() [ "deopt"() ]
 ; CHECK-NEXT:    ret i32 [[DEOPTRET]]
 ; CHECK:       guarded:
 ; CHECK-NEXT:    call void @unknown()
-; CHECK-NEXT:    br i1 [[COND_1:%.*]], label [[LOOP:%.*]], label [[DEOPT2:%.*]], !prof !0
-; CHECK:       deopt2:
-; CHECK-NEXT:    [[DEOPTRET2:%.*]] = call i32 (...) @llvm.experimental.deoptimize.i32() [ "deopt"() ]
-; CHECK-NEXT:    ret i32 [[DEOPTRET2]]
+; CHECK-NEXT:    [[WIDENABLE_COND:%.*]] = call i1 @llvm.experimental.widenable.condition()
+; CHECK-NEXT:    [[EXIPLICIT_GUARD_COND:%.*]] = and i1 [[COND_0:%.*]], [[WIDENABLE_COND]]
+; CHECK-NEXT:    [[OR_COND:%.*]] = and i1 [[COND_1:%.*]], [[EXIPLICIT_GUARD_COND]]
+; CHECK-NEXT:    br i1 [[OR_COND]], label [[GUARDED]], label [[DEOPT:%.*]], !prof !2
 ;
 entry:
   br label %guarded
@@ -313,23 +303,16 @@ define i32 @neg_correlated(i1 %cond_0, i1 %cond_1, i32* %p) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[WIDENABLE_COND:%.*]] = call i1 @llvm.experimental.widenable.condition()
 ; CHECK-NEXT:    [[EXIPLICIT_GUARD_COND:%.*]] = and i1 [[COND_0:%.*]], [[WIDENABLE_COND]]
-; CHECK-NEXT:    br i1 [[EXIPLICIT_GUARD_COND]], label [[GUARDED:%.*]], label [[DEOPT:%.*]], !prof !0
+; CHECK-NEXT:    [[EXIPLICIT_GUARD_COND2:%.*]] = and i1 [[COND_1:%.*]], [[WIDENABLE_COND]]
+; CHECK-NEXT:    [[OR_COND:%.*]] = and i1 [[EXIPLICIT_GUARD_COND]], [[EXIPLICIT_GUARD_COND2]]
+; CHECK-NEXT:    br i1 [[OR_COND]], label [[GUARDED2:%.*]], label [[DEOPT:%.*]], !prof !2
 ; CHECK:       deopt:
 ; CHECK-NEXT:    [[DEOPTRET:%.*]] = call i32 (...) @llvm.experimental.deoptimize.i32() [ "deopt"() ]
 ; CHECK-NEXT:    ret i32 [[DEOPTRET]]
-; CHECK:       guarded:
-; CHECK-NEXT:    [[EXIPLICIT_GUARD_COND2:%.*]] = and i1 [[COND_1:%.*]], [[WIDENABLE_COND]]
-; CHECK-NEXT:    br i1 [[EXIPLICIT_GUARD_COND2]], label [[GUARDED2:%.*]], label [[DEOPT2:%.*]], !prof !0
-; CHECK:       deopt2:
-; CHECK-NEXT:    [[DEOPTRET2:%.*]] = call i32 (...) @llvm.experimental.deoptimize.i32() [ "deopt"() ]
-; CHECK-NEXT:    ret i32 [[DEOPTRET2]]
 ; CHECK:       guarded2:
 ; CHECK-NEXT:    [[V:%.*]] = load i32, i32* [[P:%.*]], align 4
 ; CHECK-NEXT:    [[COND_2:%.*]] = icmp eq i32 [[V]], 0
-; CHECK-NEXT:    br i1 [[COND_2]], label [[RETURN:%.*]], label [[DEOPT3:%.*]], !prof !0
-; CHECK:       deopt3:
-; CHECK-NEXT:    [[DEOPTRET3:%.*]] = call i32 (...) @llvm.experimental.deoptimize.i32() [ "deopt"() ]
-; CHECK-NEXT:    ret i32 [[DEOPTRET3]]
+; CHECK-NEXT:    br i1 [[COND_2]], label [[RETURN:%.*]], label [[DEOPT]], !prof !0
 ; CHECK:       return:
 ; CHECK-NEXT:    ret i32 0
 ;

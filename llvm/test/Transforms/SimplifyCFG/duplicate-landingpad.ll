@@ -10,14 +10,14 @@ define void @test1() personality i32 (...)* @__gxx_personality_v0 {
 ; CHECK-LABEL: @test1(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    invoke void @fn()
-; CHECK-NEXT:    to label [[INVOKE2:%.*]] unwind label [[LPAD2:%.*]]
+; CHECK-NEXT:    to label [[INVOKE2:%.*]] unwind label [[LPAD1:%.*]]
 ; CHECK:       invoke2:
 ; CHECK-NEXT:    invoke void @fn()
-; CHECK-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[LPAD2]]
+; CHECK-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[LPAD1]]
 ; CHECK:       invoke.cont:
 ; CHECK-NEXT:    ret void
-; CHECK:       lpad2:
-; CHECK-NEXT:    [[EXN2:%.*]] = landingpad { i8*, i32 }
+; CHECK:       lpad1:
+; CHECK-NEXT:    [[EXN:%.*]] = landingpad { i8*, i32 }
 ; CHECK-NEXT:    cleanup
 ; CHECK-NEXT:    call void @fn()
 ; CHECK-NEXT:    ret void
