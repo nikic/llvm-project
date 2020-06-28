@@ -66,6 +66,8 @@ static cl::opt<bool> UserSinkCommonInsts(
     "sink-common-insts", cl::Hidden, cl::init(false),
     cl::desc("Sink common instructions (default = false)"));
 
+/// Maximum number of candidate blocks with same hash to consider for merging.
+static const unsigned MaxBlockMergeCandidates = 32;
 
 STATISTIC(NumSimpl, "Number of blocks simplified");
 STATISTIC(NumBlocksMerged, "Number of blocks merged");
@@ -292,7 +294,7 @@ static bool mergeIdenticalBlocks(Function &F) {
     }
 
     Changed |= Merged;
-    if (!Merged)
+    if (!Merged && Blocks.size() < MaxBlockMergeCandidates)
       Blocks.push_back(BB);
   }
 
