@@ -20,6 +20,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -67,6 +68,21 @@ static cl::opt<bool> UserSinkCommonInsts(
 
 
 STATISTIC(NumSimpl, "Number of blocks simplified");
+STATISTIC(NumBlocksMerged, "Number of blocks merged");
+
+/// Check whether replacing BB with ReplacementBB would result in a CallBr
+/// instruction with a duplicate destination in one of the predecessors.
+// FIXME: See note in CodeGenPrepare.cpp.
+bool wouldDuplicateCallBrDest(const BasicBlock &BB,
+                              const BasicBlock &ReplacementBB) {
+  for (const BasicBlock *Pred : predecessors(&BB)) {
+    if (auto *CBI = dyn_cast<CallBrInst>(Pred->getTerminator()))
+      for (const BasicBlock *Succ : successors(CBI))
+        if (&ReplacementBB == Succ)
+          return true;
+  }
+  return false;
+}
 
 /// If we have more than one empty (other than phi node) return blocks,
 /// merge them together to promote recursive block merging.
@@ -104,19 +120,7 @@ static bool mergeEmptyReturnBlocks(Function &F) {
       continue;
     }
 
-    // Skip merging if this would result in a CallBr instruction with a
-    // duplicate destination. FIXME: See note in CodeGenPrepare.cpp.
-    bool SkipCallBr = false;
-    for (pred_iterator PI = pred_begin(&BB), E = pred_end(&BB);
-         PI != E && !SkipCallBr; ++PI) {
-      if (auto *CBI = dyn_cast<CallBrInst>((*PI)->getTerminator()))
-        for (unsigned i = 0, e = CBI->getNumSuccessors(); i != e; ++i)
-          if (RetBlock == CBI->getSuccessor(i)) {
-            SkipCallBr = true;
-            break;
-          }
-    }
-    if (SkipCallBr)
+    if (wouldDuplicateCallBrDest(BB, *RetBlock))
       continue;
 
     // Otherwise, we found a duplicate return block.  Merge the two.
@@ -158,6 +162,142 @@ static bool mergeEmptyReturnBlocks(Function &F) {
   return Changed;
 }
 
+class HashAccumulator64 {
+  uint64_t Hash;
+
+public:
+  HashAccumulator64() { Hash = 0x6acaa36bef8325c5ULL; }
+  void add(uint64_t V) { Hash = hashing::detail::hash_16_bytes(Hash, V); }
+  uint64_t getHash() { return Hash; }
+};
+
+static uint64_t hashBlock(const BasicBlock &BB) {
+  HashAccumulator64 Acc;
+  for (const Instruction &I : BB)
+    Acc.add(I.getOpcode());
+  return Acc.getHash();
+}
+
+static bool canMergeBlocks(const BasicBlock &BB1, const BasicBlock &BB2) {
+  // Map from instructions in one block to instructions in the other.
+  SmallDenseMap<const Instruction *, const Instruction *> Map;
+  auto ValuesEqual = [&Map](const Value *V1, const Value *V2) {
+    if (V1 == V2)
+      return true;;
+
+    if (const auto *I1 = dyn_cast<Instruction>(V1))
+      if (const auto *I2 = dyn_cast<Instruction>(V2))
+        if (const Instruction *Mapped = Map.lookup(I1))
+          if (Mapped == I2)
+            return true;
+
+    return false;
+  };
+
+  auto InstructionsEqual = [&](const Instruction &I1, const Instruction &I2) {
+    if (!I1.isSameOperationAs(&I2))
+      return false;
+
+    if (const auto *Call = dyn_cast<CallBase>(&I1))
+      if (Call->cannotMerge())
+        return false;
+
+    if (!std::equal(I1.op_begin(), I1.op_end(), I2.op_begin(), I2.op_end(),
+                    ValuesEqual))
+      return false;
+
+    if (const PHINode *PHI1 = dyn_cast<PHINode>(&I2)) {
+      const PHINode *PHI2 = cast<PHINode>(&I2);
+      return std::equal(PHI1->block_begin(), PHI1->block_end(),
+                        PHI2->block_begin(), PHI2->block_end());
+    }
+
+    if (!I1.use_empty())
+      Map.insert({&I1, &I2});
+    return true;
+  };
+  auto It1 = BB1.instructionsWithoutDebug();
+  auto It2 = BB2.instructionsWithoutDebug();
+  if (!std::equal(It1.begin(), It1.end(), It2.begin(), It2.end(),
+                  InstructionsEqual))
+    return false;
+
+  if (!std::equal(succ_begin(&BB1), succ_end(&BB1),
+                  succ_begin(&BB2), succ_end(&BB2)))
+    return false;
+
+  // Make sure phi values in successor blocks match.
+  for (const BasicBlock *Succ : successors(&BB1)) {
+    for (const PHINode &Phi : Succ->phis()) {
+      const Value *Incoming1 = Phi.getIncomingValueForBlock(&BB1);
+      const Value *Incoming2 = Phi.getIncomingValueForBlock(&BB2);
+      if (!ValuesEqual(Incoming1, Incoming2))
+        return false;
+    }
+  }
+
+  if (wouldDuplicateCallBrDest(BB1, BB2))
+    return false;
+
+  return true;
+}
+
+static bool tryMergeTwoBlocks(BasicBlock &BB1, BasicBlock &BB2) {
+  if (!canMergeBlocks(BB1, BB2))
+    return false;
+
+  // We will keep BB1 and drop BB2. Merge metadata and attributes.
+  for (auto Insts : llvm::zip(BB1, BB2)) {
+    Instruction &I1 = std::get<0>(Insts);
+    Instruction &I2 = std::get<1>(Insts);
+    I1.andIRFlags(&I2);
+    combineMetadataForCSE(&I1, &I2, true);
+    I1.applyMergedLocation(I1.getDebugLoc(), I2.getDebugLoc());
+  }
+
+  // Store predecessors, because they will be modified in this loop.
+  SmallVector<BasicBlock *, 4> Preds(predecessors(&BB2));
+  for (BasicBlock *Pred : Preds)
+    Pred->getTerminator()->replaceSuccessorWith(&BB2, &BB1);
+
+  for (BasicBlock *Succ : successors(&BB2))
+    Succ->removePredecessor(&BB2);
+
+  BB2.eraseFromParent();
+  return true;
+}
+
+static bool mergeIdenticalBlocks(Function &F) {
+  bool Changed = false;
+  SmallDenseMap<uint64_t, SmallVector<BasicBlock *, 2>> SameHashBlocks;
+
+  // Process blocks in post-order, because merging successors may enable to
+  // merge predecessors.
+  SmallVector<BasicBlock *, 8> PostOrder(post_order(&F));
+  for (BasicBlock *BB : PostOrder) {
+    // The entry block cannot be merged.
+    if (BB == &F.getEntryBlock())
+      continue;
+
+    // Identify potential merging candidates based on a basic block hash.
+    bool Merged = false;
+    auto &Blocks = SameHashBlocks.try_emplace(hashBlock(*BB)).first->second;
+    for (BasicBlock *Block : Blocks) {
+      if (tryMergeTwoBlocks(*Block, *BB)) {
+        Merged = true;
+        ++NumBlocksMerged;
+        break;
+      }
+    }
+
+    Changed |= Merged;
+    if (!Merged)
+      Blocks.push_back(BB);
+  }
+
+  return Changed;
+}
+
 /// Call SimplifyCFG on all the blocks in the function,
 /// iterating until no more changes are made.
 static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
@@ -190,6 +330,7 @@ static bool simplifyFunctionCFG(Function &F, const TargetTransformInfo &TTI,
                                 const SimplifyCFGOptions &Options) {
   bool EverChanged = removeUnreachableBlocks(F);
   EverChanged |= mergeEmptyReturnBlocks(F);
+  EverChanged |= mergeIdenticalBlocks(F);
   EverChanged |= iterativelySimplifyCFG(F, TTI, Options);
 
   // If neither pass changed anything, we're done.

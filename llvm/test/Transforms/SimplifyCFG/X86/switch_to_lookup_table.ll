@@ -300,20 +300,20 @@ lor.end:
 define i32 @overflow(i32 %type) {
 ; CHECK-LABEL: @overflow(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    switch i32 [[TYPE:%.*]], label [[IF_END:%.*]] [
+; CHECK-NEXT:    switch i32 [[TYPE:%.*]], label [[SW_DEFAULT:%.*]] [
 ; CHECK-NEXT:    i32 3, label [[SW_BB3:%.*]]
 ; CHECK-NEXT:    i32 -2147483645, label [[SW_BB3]]
-; CHECK-NEXT:    i32 1, label [[SW_BB1:%.*]]
+; CHECK-NEXT:    i32 1, label [[IF_END:%.*]]
 ; CHECK-NEXT:    i32 2, label [[SW_BB2:%.*]]
 ; CHECK-NEXT:    ]
-; CHECK:       sw.bb1:
-; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       sw.bb2:
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       sw.bb3:
 ; CHECK-NEXT:    br label [[IF_END]]
+; CHECK:       sw.default:
+; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
-; CHECK-NEXT:    [[DIRENT_TYPE_0:%.*]] = phi i32 [ 6, [[SW_BB3]] ], [ 5, [[SW_BB2]] ], [ 0, [[SW_BB1]] ], [ 3, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[DIRENT_TYPE_0:%.*]] = phi i32 [ 3, [[SW_DEFAULT]] ], [ 6, [[SW_BB3]] ], [ 5, [[SW_BB2]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[DIRENT_TYPE_0]]
 ;
 entry:
@@ -1213,7 +1213,7 @@ define i8 @linearmap1(i32 %c) {
 ; CHECK-LABEL: @linearmap1(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SWITCH_TABLEIDX:%.*]] = sub i32 [[C:%.*]], 10
-; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 4
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 3
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[SWITCH_LOOKUP:%.*]], label [[RETURN:%.*]]
 ; CHECK:       switch.lookup:
 ; CHECK-NEXT:    [[SWITCH_IDX_CAST:%.*]] = trunc i32 [[SWITCH_TABLEIDX]] to i8
@@ -1304,7 +1304,7 @@ define i8 @linearmap4(i32 %c) {
 ; CHECK-LABEL: @linearmap4(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SWITCH_TABLEIDX:%.*]] = sub i32 [[C:%.*]], -2
-; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 4
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 3
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[SWITCH_LOOKUP:%.*]], label [[RETURN:%.*]]
 ; CHECK:       switch.lookup:
 ; CHECK-NEXT:    [[SWITCH_IDX_CAST:%.*]] = trunc i32 [[SWITCH_TABLEIDX]] to i8
