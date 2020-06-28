@@ -179,6 +179,11 @@ static uint64_t hashBlock(const BasicBlock &BB) {
 }
 
 static bool canMergeBlocks(const BasicBlock &BB1, const BasicBlock &BB2) {
+  // Quickly bail out if successors don't match.
+  if (!std::equal(succ_begin(&BB1), succ_end(&BB1),
+                  succ_begin(&BB2), succ_end(&BB2)))
+    return false;
+
   // Map from instructions in one block to instructions in the other.
   SmallDenseMap<const Instruction *, const Instruction *> Map;
   auto ValuesEqual = [&Map](const Value *V1, const Value *V2) {
@@ -220,10 +225,6 @@ static bool canMergeBlocks(const BasicBlock &BB1, const BasicBlock &BB2) {
   auto It2 = BB2.instructionsWithoutDebug();
   if (!std::equal(It1.begin(), It1.end(), It2.begin(), It2.end(),
                   InstructionsEqual))
-    return false;
-
-  if (!std::equal(succ_begin(&BB1), succ_end(&BB1),
-                  succ_begin(&BB2), succ_end(&BB2)))
     return false;
 
   // Make sure phi values in successor blocks match.
