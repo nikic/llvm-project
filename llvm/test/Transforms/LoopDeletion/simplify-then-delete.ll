@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -indvars -loop-deletion -simplifycfg | FileCheck %s
+; RUN: opt < %s -S -indvars -loop-deletion -simplifycfg -instsimplify | FileCheck %s
 ; PR5794
 
 ; Indvars and loop deletion should be able to eliminate all looping
