@@ -1314,13 +1314,6 @@ int llvm::rewriteLoopExitValues(Loop *L, LoopInfo *LI, TargetLibraryInfo *TLI,
       if (!SE->isSCEVable(PN->getType()))
         continue;
 
-      // It's necessary to tell ScalarEvolution about this explicitly so that
-      // it can walk the def-use list and forget all SCEVs, as it may not be
-      // watching the PHI itself. Once the new exit value is in place, there
-      // may not be a def-use connection between the loop and every instruction
-      // which got a SCEVAddRecExpr for that loop.
-      SE->forgetValue(PN);
-
       // Iterate over all of the values in all the PHI nodes.
       for (unsigned i = 0; i != NumPreds; ++i) {
         // If the value being merged in is not integer or is not defined
@@ -1440,6 +1433,13 @@ int llvm::rewriteLoopExitValues(Loop *L, LoopInfo *LI, TargetLibraryInfo *TLI,
       DeadInsts.push_back(ExitVal);
       continue;
     }
+
+    // It's necessary to tell ScalarEvolution about this explicitly so that
+    // it can walk the def-use list and forget all SCEVs, as it may not be
+    // watching the PHI itself. Once the new exit value is in place, there
+    // may not be a def-use connection between the loop and every instruction
+    // which got a SCEVAddRecExpr for that loop.
+    SE->forgetValue(Phi.PN);
 
     NumReplaced++;
     Instruction *Inst = cast<Instruction>(PN->getIncomingValue(Phi.Ith));
