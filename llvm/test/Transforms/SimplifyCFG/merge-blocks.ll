@@ -275,10 +275,16 @@ exit:
 ; This requires merging bb3,4,5,6 before bb1,2.
 define i32 @two_level(i32 %x, i32 %y, i32 %z) {
 ; CHECK-LABEL: @two_level(
-; CHECK-NEXT:    [[SWITCH:%.*]] = icmp ult i32 [[Z:%.*]], 2
-; CHECK-NEXT:    [[SWITCH1:%.*]] = icmp ult i32 [[X:%.*]], 2
-; CHECK-NEXT:    [[OR_COND:%.*]] = and i1 [[SWITCH]], [[SWITCH1]]
-; CHECK-NEXT:    br i1 [[OR_COND]], label [[BB3:%.*]], label [[BB7:%.*]]
+; CHECK-NEXT:    switch i32 [[Z:%.*]], label [[BB7:%.*]] [
+; CHECK-NEXT:    i32 0, label [[BB1:%.*]]
+; CHECK-NEXT:    i32 1, label [[BB2:%.*]]
+; CHECK-NEXT:    ]
+; CHECK:       bb1:
+; CHECK-NEXT:    [[SWITCH:%.*]] = icmp ult i32 [[X:%.*]], 2
+; CHECK-NEXT:    br i1 [[SWITCH]], label [[BB3:%.*]], label [[BB7]]
+; CHECK:       bb2:
+; CHECK-NEXT:    [[SWITCH1:%.*]] = icmp ult i32 [[X]], 2
+; CHECK-NEXT:    br i1 [[SWITCH1]], label [[BB3]], label [[BB7]]
 ; CHECK:       bb3:
 ; CHECK-NEXT:    [[A:%.*]] = add i32 [[Y:%.*]], 1
 ; CHECK-NEXT:    br label [[EXIT:%.*]]

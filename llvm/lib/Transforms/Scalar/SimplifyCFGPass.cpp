@@ -20,7 +20,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -278,19 +277,16 @@ static bool mergeIdenticalBlocks(Function &F) {
   bool Changed = false;
   SmallDenseMap<uint64_t, SmallVector<BasicBlock *, 2>> SameHashBlocks;
 
-  // Process blocks in post-order, because merging successors may enable to
-  // merge predecessors.
-  SmallVector<BasicBlock *, 8> PostOrder(post_order(&F));
-  for (BasicBlock *BB : PostOrder) {
+  for (BasicBlock &BB : make_early_inc_range(F)) {
     // The entry block cannot be merged.
-    if (BB == &F.getEntryBlock())
+    if (&BB == &F.getEntryBlock())
       continue;
 
     // Identify potential merging candidates based on a basic block hash.
     bool Merged = false;
-    auto &Blocks = SameHashBlocks.try_emplace(hashBlock(*BB)).first->second;
+    auto &Blocks = SameHashBlocks.try_emplace(hashBlock(BB)).first->second;
     for (BasicBlock *Block : Blocks) {
-      if (tryMergeTwoBlocks(*Block, *BB)) {
+      if (tryMergeTwoBlocks(*Block, BB)) {
         Merged = true;
         ++NumBlocksMerged;
         break;
@@ -299,9 +295,10 @@ static bool mergeIdenticalBlocks(Function &F) {
 
     Changed |= Merged;
     if (!Merged && Blocks.size() < MaxBlockMergeCandidates)
-      Blocks.push_back(BB);
+      Blocks.push_back(&BB);
   }
 
+  // TODO: Merge iteratively.
   return Changed;
 }
 
