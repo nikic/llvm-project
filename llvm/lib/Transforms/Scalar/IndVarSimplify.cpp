@@ -1234,6 +1234,7 @@ Instruction *WidenIV::widenIVUse(NarrowIVDefUse DU, SCEVExpander &Rewriter) {
         WidePhi->addIncoming(DU.WideDef, UsePhi->getIncomingBlock(0));
         IRBuilder<> Builder(&*WidePhi->getParent()->getFirstInsertionPt());
         Value *Trunc = Builder.CreateTrunc(WidePhi, DU.NarrowDef->getType());
+        SE->forgetValue(UsePhi);
         UsePhi->replaceAllUsesWith(Trunc);
         DeadInsts.emplace_back(UsePhi);
         LLVM_DEBUG(dbgs() << "INDVARS: Widen lcssa phi " << *UsePhi << " to "
