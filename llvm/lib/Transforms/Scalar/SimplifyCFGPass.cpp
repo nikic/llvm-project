@@ -177,6 +177,8 @@ static uint64_t hashBlock(const BasicBlock &BB) {
   HashAccumulator64 Acc;
   for (const Instruction &I : BB)
     Acc.add(I.getOpcode());
+  for (const BasicBlock *Succ : successors(&BB))
+    Acc.add((uintptr_t)Succ);
   return Acc.getHash();
 }
 
