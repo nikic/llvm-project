@@ -1547,23 +1547,6 @@ Instruction *InstCombiner::foldICmpWithDominatingICmp(ICmpInst &Cmp) {
   return nullptr;
 }
 
-Instruction *InstCombiner::foldICmpWithDominatingAssume(ICmpInst &ICmp,
-                                                        Value *Op) {
-  for (auto &AssumeVH : AC.assumptionsFor(Op)) {
-    if (!AssumeVH)
-      continue;
-
-    CallInst *Assume = cast<CallInst>(AssumeVH);
-    if (Optional<bool> Imp = isImpliedCondition(Assume->getArgOperand(0), &ICmp,
-                                                DL))
-      if (isValidAssumeForContext(Assume, &ICmp, &DT))
-        return replaceInstUsesWith(ICmp,
-                                   ConstantInt::get(ICmp.getType(), *Imp));
-  }
-
-  return nullptr;
-}
-
 /// Fold icmp (trunc X, Y), C.
 Instruction *InstCombiner::foldICmpTruncConstant(ICmpInst &Cmp,
                                                  TruncInst *Trunc,
@@ -5728,11 +5711,6 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
   if (I.getType()->isVectorTy())
     if (Instruction *Res = foldVectorCmp(I, Builder))
       return Res;
-
-  if (Instruction *Res = foldICmpWithDominatingAssume(I, Op0))
-    return Res;
-  if (Instruction *Res = foldICmpWithDominatingAssume(I, Op1))
-    return Res;
 
   return Changed ? &I : nullptr;
 }
