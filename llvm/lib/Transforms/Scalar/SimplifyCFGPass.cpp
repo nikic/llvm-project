@@ -203,6 +203,9 @@ static bool canMergeBlocks(const BasicBlock &BB1, const BasicBlock &BB2) {
   };
 
   auto InstructionsEqual = [&](const Instruction &I1, const Instruction &I2) {
+    if (isa<PHINode>(&I1))
+      return false;
+
     if (!I1.isSameOperationAs(&I2))
       return false;
 
@@ -213,12 +216,6 @@ static bool canMergeBlocks(const BasicBlock &BB1, const BasicBlock &BB2) {
     if (!std::equal(I1.op_begin(), I1.op_end(), I2.op_begin(), I2.op_end(),
                     ValuesEqual))
       return false;
-
-    if (const PHINode *PHI1 = dyn_cast<PHINode>(&I2)) {
-      const PHINode *PHI2 = cast<PHINode>(&I2);
-      return std::equal(PHI1->block_begin(), PHI1->block_end(),
-                        PHI2->block_begin(), PHI2->block_end());
-    }
 
     if (!I1.use_empty())
       Map.insert({&I1, &I2});
