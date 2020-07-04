@@ -1485,7 +1485,8 @@ AliasResult BasicAAResult::aliasGEP(
       // Grab the least significant bit set in any of the scales. We
       // don't need std::abs here (even if the scale's negative) as we'll
       // be ^'ing Modulo with itself later.
-      Modulo |= DecompGEP1.VarIndices[i].Scale;
+      const APInt &Scale = DecompGEP1.VarIndices[i].Scale;
+      Modulo |= Scale;
 
       if (AllPositive) {
         // If the Value could change between cycles, then any reasoning about
@@ -1493,23 +1494,17 @@ AliasResult BasicAAResult::aliasGEP(
         // give up if we can't determine conditions that hold for every cycle:
         const Value *V = DecompGEP1.VarIndices[i].V;
 
-        KnownBits Known =
-            computeKnownBits(V, DL, 0, &AC, dyn_cast<Instruction>(GEP1), DT);
-        bool SignKnownZero = Known.isNonNegative();
-        bool SignKnownOne = Known.isNegative();
-
-        // Zero-extension widens the variable, and so forces the sign
-        // bit to zero.
-        bool IsZExt = DecompGEP1.VarIndices[i].ZExtBits > 0 || isa<ZExtInst>(V);
-        SignKnownZero |= IsZExt;
-        SignKnownOne &= !IsZExt;
-
-        // If the variable begins with a zero then we know it's
-        // positive, regardless of whether the value is signed or
-        // unsigned.
-        APInt Scale = DecompGEP1.VarIndices[i].Scale;
-        AllPositive =
-            (SignKnownZero && Scale.sge(0)) || (SignKnownOne && Scale.slt(0));
+        if (Scale.isNonNegative()) {
+          AllPositive = DecompGEP1.VarIndices[i].ZExtBits > 0 ||
+                        isa<ZExtInst>(V) ||
+                        isKnownNonNegative(V, DL, 0, &AC,
+                                           dyn_cast<Instruction>(GEP1), DT);
+        } else {
+          AllPositive = DecompGEP1.VarIndices[i].ZExtBits == 0 &&
+                        !isa<ZExtInst>(V) &&
+                        isKnownNegative(V, DL, 0, &AC,
+                                        dyn_cast<Instruction>(GEP1), DT);
+        }
       }
     }
 
