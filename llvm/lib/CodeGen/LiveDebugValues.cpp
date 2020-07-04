@@ -198,9 +198,7 @@ static bool isRegOtherThanSPAndFP(const MachineOperand &Op,
 
 namespace {
 
-// Max out the number of statically allocated elements in DefinedRegsSet, as
-// this prevents fallback to std::set::count() operations.
-using DefinedRegsSet = SmallSet<Register, 32>;
+using DefinedRegsSet = SmallDenseSet<Register, 32>;
 
 using VarLocSet = CoalescingBitVector<uint64_t>;
 
