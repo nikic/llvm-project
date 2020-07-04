@@ -203,8 +203,7 @@ static bool canMergeBlocks(const BasicBlock &BB1, const BasicBlock &BB2) {
   };
 
   auto InstructionsEqual = [&](const Instruction &I1, const Instruction &I2) {
-    if (isa<PHINode>(&I1))
-      return false;
+    assert(!isa<PHINode>(&I1) && "Should not even attempt merging");
 
     if (!I1.isSameOperationAs(&I2))
       return false;
@@ -277,6 +276,10 @@ static bool mergeIdenticalBlocks(Function &F) {
   for (BasicBlock &BB : make_early_inc_range(F)) {
     // The entry block cannot be merged.
     if (&BB == &F.getEntryBlock())
+      continue;
+
+    // Don't merge blocks with phi nodes.
+    if (!llvm::empty(BB.phis()))
       continue;
 
     // Identify potential merging candidates based on a basic block hash.
