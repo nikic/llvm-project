@@ -230,6 +230,8 @@ static bool canMergeBlocks(const BasicBlock &BB1, const BasicBlock &BB2,
       return false;
 
     if (const PHINode *PHI1 = dyn_cast<PHINode>(&I1)) {
+      return false;
+
       // Do not merge blocks with phi nodes, if we're merging a non-backedge
       // with a backedge. Consider the case where we have two blocks, where
       // bb1 dominates bb2.
