@@ -202,6 +202,9 @@ static bool isMergeWithBackedge(const BasicBlock &BB1, const BasicBlock &BB2,
 
 static bool canMergeBlocks(const BasicBlock &BB1, const BasicBlock &BB2,
                            bool IsMergeWithBackedge) {
+  if (IsMergeWithBackedge)
+    return false;
+
   // Quickly bail out if successors don't match.
   if (!std::equal(succ_begin(&BB1), succ_end(&BB1), succ_begin(&BB2),
                   succ_end(&BB2)))
