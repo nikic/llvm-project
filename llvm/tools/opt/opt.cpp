@@ -277,6 +277,10 @@ static cl::opt<std::string>
                     cl::desc("Specify time trace file destination"),
                     cl::value_desc("filename"));
 
+static cl::opt<bool> EnableCallGraphProfile(
+    "enable-call-graph-profile", cl::init(true), cl::Hidden,
+    cl::desc("Enable call graph profile pass (default = on)"));
+
 static cl::opt<bool> RemarksWithHotness(
     "pass-remarks-with-hotness",
     cl::desc("With PGO, include profile count in optimization remarks"),
@@ -412,6 +416,8 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
 
   Builder.SLPVectorize = OptLevel > 1 && SizeLevel < 2;
+
+  Builder.CallGraphProfile = EnableCallGraphProfile;
 
   if (TM)
     TM->adjustPassManager(Builder);
@@ -766,7 +772,8 @@ int main(int argc, char **argv) {
                            RemarksFile.get(), PassPipeline, Passes, OK, VK,
                            PreserveAssemblyUseListOrder,
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
-                           EmitModuleHash, EnableDebugify, Coroutines)
+                           EmitModuleHash, EnableDebugify, Coroutines,
+                           EnableCallGraphProfile)
                ? 0
                : 1;
   }
