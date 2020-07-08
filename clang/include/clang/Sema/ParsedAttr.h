@@ -21,6 +21,7 @@
 #include "clang/Sema/Ownership.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Registry.h"
@@ -63,7 +64,7 @@ struct ParsedAttrInfo {
   /// The syntaxes supported by this attribute and how they're spelled.
   struct Spelling {
     AttributeCommonInfo::Syntax Syntax;
-    const char *NormalizedFullName;
+    llvm::StringRef NormalizedFullName;
   };
   ArrayRef<Spelling> Spellings;
 
