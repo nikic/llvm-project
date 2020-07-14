@@ -1607,6 +1607,22 @@ ScalarEvolution::getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
     return getUDivExpr(getZeroExtendExpr(Div->getLHS(), Ty, Depth + 1),
                        getZeroExtendExpr(Div->getRHS(), Ty, Depth + 1));
 
+  // zext(umin(A, B)) --> umin(zext(A), zext(B))
+  if (auto *UMin = dyn_cast<SCEVUMinExpr>(Op)) {
+    SmallVector<const SCEV *, 4> Ops;
+    for (const auto *Op : UMin->operands())
+      Ops.push_back(getZeroExtendExpr(Op, Ty, Depth + 1));
+    return getUMinExpr(Ops);
+  }
+
+  // zext(umax(A, B)) --> umax(zext(A), zext(B))
+  if (auto *UMax = dyn_cast<SCEVUMaxExpr>(Op)) {
+    SmallVector<const SCEV *, 4> Ops;
+    for (const auto *Op : UMax->operands())
+      Ops.push_back(getZeroExtendExpr(Op, Ty, Depth + 1));
+    return getUMaxExpr(Ops);
+  }
+
   if (auto *SA = dyn_cast<SCEVAddExpr>(Op)) {
     // zext((A + B + ...)<nuw>) --> (zext(A) + zext(B) + ...)<nuw>
     if (SA->hasNoUnsignedWrap()) {
@@ -1737,6 +1753,22 @@ ScalarEvolution::getSignExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
     if (CR.truncate(TruncBits).signExtend(NewBits).contains(
             CR.sextOrTrunc(NewBits)))
       return getTruncateOrSignExtend(X, Ty, Depth);
+  }
+
+  // sext(smin(A, B)) --> smin(sext(A), sext(B))
+  if (auto *SMin = dyn_cast<SCEVSMinExpr>(Op)) {
+    SmallVector<const SCEV *, 4> Ops;
+    for (const auto *Op : SMin->operands())
+      Ops.push_back(getSignExtendExpr(Op, Ty, Depth + 1));
+    return getSMinExpr(Ops);
+  }
+
+  // sext(smax(A, B)) --> smax(sext(A), sext(B))
+  if (auto *SMax = dyn_cast<SCEVSMaxExpr>(Op)) {
+    SmallVector<const SCEV *, 4> Ops;
+    for (const auto *Op : SMax->operands())
+      Ops.push_back(getSignExtendExpr(Op, Ty, Depth + 1));
+    return getSMaxExpr(Ops);
   }
 
   if (auto *SA = dyn_cast<SCEVAddExpr>(Op)) {
