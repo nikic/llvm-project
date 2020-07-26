@@ -68,7 +68,7 @@ static cl::opt<bool>
 RunLoopRerolling("reroll-loops", cl::Hidden,
                  cl::desc("Run the loop rerolling pass"));
 
-static cl::opt<bool> RunNewGVN("enable-newgvn", cl::init(false), cl::Hidden,
+static cl::opt<bool> RunNewGVN("enable-newgvn", cl::init(true), cl::Hidden,
                                cl::desc("Run the NewGVN pass"));
 
 // Experimental option to use CFL-AA
