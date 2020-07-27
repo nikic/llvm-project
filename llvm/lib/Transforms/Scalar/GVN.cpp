@@ -1347,6 +1347,8 @@ static void reportLoadElim(LoadInst *LI, Value *AvailableValue,
 /// Attempt to eliminate a load whose dependencies are
 /// non-local by performing PHI construction.
 bool GVN::processNonLocalLoad(LoadInst *LI) {
+  return false;
+
   // non-local speculations are not allowed under asan.
   if (LI->getParent()->getParent()->hasFnAttribute(
           Attribute::SanitizeAddress) ||
