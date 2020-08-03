@@ -151,7 +151,7 @@ struct SemiNCAInfo {
     }
   };
 
-  using NodeOrderMap = SmallDenseMap<NodePtr, unsigned, 16>;
+  using NodeOrderMap = SmallDenseMap<NodePtr, unsigned, 4>;
 
   // Custom DFS implementation which can skip nodes based on a provided
   // predicate. It also collects ReverseChildren so that we don't have to spend
