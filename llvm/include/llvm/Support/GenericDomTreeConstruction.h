@@ -151,6 +151,8 @@ struct SemiNCAInfo {
     }
   };
 
+  using NodeOrderMap = SmallDenseMap<NodePtr, unsigned, 16>;
+
   // Custom DFS implementation which can skip nodes based on a provided
   // predicate. It also collects ReverseChildren so that we don't have to spend
   // time getting predecessors in SemiNCA.
@@ -164,7 +166,7 @@ struct SemiNCAInfo {
   template <bool IsReverse = false, typename DescendCondition>
   unsigned runDFS(NodePtr V, unsigned LastNum, DescendCondition Condition,
                   unsigned AttachToNum,
-                  const DenseMap<NodePtr, unsigned> *SuccOrder = nullptr) {
+                  const NodeOrderMap *SuccOrder = nullptr) {
     assert(V);
     SmallVector<NodePtr, 64> WorkList = {V};
     if (NodeToInfo.count(V) != 0) NodeToInfo[V].Parent = AttachToNum;
@@ -389,9 +391,9 @@ struct SemiNCAInfo {
       // immune to swap successors transformation (e.g. canonicalizing branch
       // predicates). SuccOrder is initialized lazily only for successors of
       // reverse unreachable nodes.
-      Optional<DenseMap<NodePtr, unsigned>> SuccOrder;
+      Optional<NodeOrderMap> SuccOrder;
       auto InitSuccOrderOnce = [&]() {
-        SuccOrder = DenseMap<NodePtr, unsigned>();
+        SuccOrder = NodeOrderMap();
         for (const auto Node : nodes(DT.Parent))
           if (SNCA.NodeToInfo.count(Node) == 0)
             for (const auto Succ : getChildren<false>(Node, SNCA.BatchUpdates))
