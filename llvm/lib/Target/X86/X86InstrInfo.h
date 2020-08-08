@@ -443,7 +443,7 @@ public:
   /// a few instructions in each direction it assumes it's not safe.
   bool isSafeToClobberEFLAGS(MachineBasicBlock &MBB,
                              MachineBasicBlock::iterator I) const {
-    return MBB.computeRegisterLiveness(&RI, X86::EFLAGS, I, 4) ==
+    return MBB.computeRegisterLiveness(&RI, X86::EFLAGS, I, 10) ==
            MachineBasicBlock::LQR_Dead;
   }
 
