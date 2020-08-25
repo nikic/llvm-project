@@ -467,15 +467,18 @@ bool CGPassManager::RunAllPassesOnSCC(CallGraphSCC &CurSCC, CallGraph &CG,
     initializeAnalysisImpl(P);
 
     // Actually run this pass on the current SCC.
-    Changed |= RunPassOnSCC(P, CurSCC, CG,
-                            CallGraphUpToDate, DevirtualizedCall);
+    bool LocalChanged =
+        RunPassOnSCC(P, CurSCC, CG, CallGraphUpToDate, DevirtualizedCall);
 
-    if (Changed)
+    Changed |= LocalChanged;
+
+    if (LocalChanged)
       dumpPassInfo(P, MODIFICATION_MSG, ON_CG_MSG, "");
     dumpPreservedSet(P);
 
     verifyPreservedAnalysis(P);
-    removeNotPreservedAnalysis(P);
+    if (LocalChanged)
+      removeNotPreservedAnalysis(P);
     recordAvailableAnalysis(P);
     removeDeadPasses(P, "", ON_CG_MSG);
   }
