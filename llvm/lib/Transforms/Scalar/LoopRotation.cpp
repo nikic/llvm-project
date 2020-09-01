@@ -66,23 +66,29 @@ namespace {
 
 class LoopRotateLegacyPass : public LoopPass {
   unsigned MaxHeaderSize;
+  bool RequiresMSSA;
 
 public:
   static char ID; // Pass ID, replacement for typeid
-  LoopRotateLegacyPass(int SpecifiedMaxHeaderSize = -1) : LoopPass(ID) {
+  LoopRotateLegacyPass(int SpecifiedMaxHeaderSize = -1, bool ReqMSSA = false)
+      : LoopPass(ID) {
     initializeLoopRotateLegacyPassPass(*PassRegistry::getPassRegistry());
     if (SpecifiedMaxHeaderSize == -1)
       MaxHeaderSize = DefaultRotationThreshold;
     else
       MaxHeaderSize = unsigned(SpecifiedMaxHeaderSize);
+    RequiresMSSA = ReqMSSA;
   }
 
   // LCSSA form makes instruction renaming easier.
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
-    if (EnableMSSALoopDependency)
+    if (EnableMSSALoopDependency) {
+      if (RequiresMSSA)
+        AU.addRequired<MemorySSAWrapperPass>();
       AU.addPreserved<MemorySSAWrapperPass>();
+    }
     getLoopAnalysisUsage(AU);
   }
 
@@ -99,8 +105,6 @@ public:
     const SimplifyQuery SQ = getBestSimplifyQuery(*this, F);
     Optional<MemorySSAUpdater> MSSAU;
     if (EnableMSSALoopDependency) {
-      // Not requiring MemorySSA and getting it only if available will split
-      // the loop pass pipeline when LoopRotate is being run first.
       auto *MSSAA = getAnalysisIfAvailable<MemorySSAWrapperPass>();
       if (MSSAA)
         MSSAU = MemorySSAUpdater(&MSSAA->getMSSA());
@@ -122,6 +126,6 @@ INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
 INITIALIZE_PASS_END(LoopRotateLegacyPass, "loop-rotate", "Rotate Loops", false,
                     false)
 
-Pass *llvm::createLoopRotatePass(int MaxHeaderSize) {
-  return new LoopRotateLegacyPass(MaxHeaderSize);
+Pass *llvm::createLoopRotatePass(int MaxHeaderSize, bool RequiresMSSA) {
+  return new LoopRotateLegacyPass(MaxHeaderSize, RequiresMSSA);
 }
