@@ -1210,6 +1210,15 @@ bool TargetLowering::SimplifyDemandedBits(
       return true;
     assert(!Known2.hasConflict() && "Bits known to be one AND zero?");
 
+    // If we have learned that some more bits of Op1 are not demanded due to
+    // known bits in Op0, try simplifying Op1 again.
+    APInt Op1DemandedBits = ~Known2.Zero & DemandedBits;
+    if (Op1DemandedBits != DemandedBits &&
+        SimplifyDemandedBits(Op1, Op1DemandedBits, DemandedElts, Known, TLO,
+                             Depth + 1))
+      return true;
+    assert(!Known.hasConflict() && "Bits known to be one AND zero?");
+
     // Attempt to avoid multi-use ops if we don't need anything from them.
     if (!DemandedBits.isAllOnesValue() || !DemandedElts.isAllOnesValue()) {
       SDValue DemandedOp0 = SimplifyMultipleUseDemandedBits(
@@ -1256,6 +1265,15 @@ bool TargetLowering::SimplifyDemandedBits(
                              Known2, TLO, Depth + 1))
       return true;
     assert(!Known2.hasConflict() && "Bits known to be one AND zero?");
+
+    // If we have learned that some more bits of Op1 are not demanded due to
+    // known bits in Op0, try simplifying Op1 again.
+    APInt Op1DemandedBits = ~Known2.One & DemandedBits;
+    if (Op1DemandedBits != DemandedBits &&
+        SimplifyDemandedBits(Op1, Op1DemandedBits, DemandedElts, Known, TLO,
+                             Depth + 1))
+      return true;
+    assert(!Known.hasConflict() && "Bits known to be one AND zero?");
 
     // Attempt to avoid multi-use ops if we don't need anything from them.
     if (!DemandedBits.isAllOnesValue() || !DemandedElts.isAllOnesValue()) {
