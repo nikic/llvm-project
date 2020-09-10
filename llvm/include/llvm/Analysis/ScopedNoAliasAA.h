@@ -20,6 +20,7 @@
 #include <memory>
 
 namespace llvm {
+class DominatorTree;
 
 class Function;
 class MDNode;
@@ -30,6 +31,8 @@ class ScopedNoAliasAAResult : public AAResultBase<ScopedNoAliasAAResult> {
   friend AAResultBase<ScopedNoAliasAAResult>;
 
 public:
+  ScopedNoAliasAAResult(DominatorTree *DT) : AAResultBase(), DT(DT) {}
+
   /// Handle invalidation events from the new pass manager.
   ///
   /// By definition, this result is stateless and so remains valid.
@@ -45,8 +48,24 @@ public:
   ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2,
                            AAQueryInfo &AAQI);
 
+  // FIXME: This interface can be removed once the legacy-pass-manager support
+  // is removed.
+  void setDT(DominatorTree *DT) { this->DT = DT; }
+
 private:
   bool mayAliasInScopes(const MDNode *Scopes, const MDNode *NoAlias) const;
+
+  bool findCompatibleNoAlias(const Value *P, const MDNode *ANoAlias,
+                             const MDNode *BNoAlias, const DataLayout &DL,
+                             SmallPtrSetImpl<const Value *> &Visited,
+                             SmallVectorImpl<Instruction *> &CompatibleSet,
+                             int Depth = 0);
+  bool noAliasByIntrinsic(const MDNode *ANoAlias, const Value *APtr,
+                          const MDNode *BNoAlias, const Value *BPtr,
+                          const CallBase *CallA, const CallBase *CallB,
+                          AAQueryInfo &AAQI);
+
+  DominatorTree *DT;
 };
 
 /// Analysis pass providing a never-invalidated alias analysis result.
@@ -70,12 +89,18 @@ public:
 
   ScopedNoAliasAAWrapperPass();
 
-  ScopedNoAliasAAResult &getResult() { return *Result; }
+  ScopedNoAliasAAResult &getResult() {
+    setDT();
+    return *Result;
+  }
   const ScopedNoAliasAAResult &getResult() const { return *Result; }
 
   bool doInitialization(Module &M) override;
   bool doFinalization(Module &M) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+private:
+  void setDT();
 };
 
 //===--------------------------------------------------------------------===//

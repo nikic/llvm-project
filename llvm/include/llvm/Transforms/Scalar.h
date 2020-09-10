@@ -26,6 +26,12 @@ class Pass;
 
 //===----------------------------------------------------------------------===//
 //
+// ConnectNoAliasDecl - Connects llvm.noalias.XX intrinsics to llvm.noalias.decl
+//
+FunctionPass *createConnectNoAliasDeclPass();
+
+//===----------------------------------------------------------------------===//
+//
 // AlignmentFromAssumptions - Use assume intrinsics to set load/store
 // alignments.
 //
@@ -433,6 +439,10 @@ FunctionPass *createSpeculativeExecutionPass();
 // Same as createSpeculativeExecutionPass, but does nothing unless
 // TargetTransformInfo::hasBranchDivergence() is true.
 FunctionPass *createSpeculativeExecutionIfHasBranchDivergencePass();
+
+// PropagateAndConvertNoAlias: move noalias intrinsics into a provenance of
+// load/store instructions
+FunctionPass *createPropagateAndConvertNoAliasPass();
 
 //===----------------------------------------------------------------------===//
 //

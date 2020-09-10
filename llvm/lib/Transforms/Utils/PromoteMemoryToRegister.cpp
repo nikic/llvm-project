@@ -25,7 +25,6 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/IteratedDominanceFrontier.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -35,6 +34,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
@@ -45,6 +45,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/User.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include <algorithm>
 #include <cassert>
@@ -61,41 +62,216 @@ STATISTIC(NumSingleStore,   "Number of alloca's promoted with a single store");
 STATISTIC(NumDeadAlloca,    "Number of dead alloca's removed");
 STATISTIC(NumPHIInsert,     "Number of PHI nodes inserted");
 
-bool llvm::isAllocaPromotable(const AllocaInst *AI) {
+class PromotableChecker {
+public:
+  bool check(bool c) { return c; }
+  void trackRemovable(const Instruction *I) {}
+  void trackDroppableUse(const Use *U) {}
+  void trackOperandToZero(const Instruction *I, int operand) {}
+  void trackNoAliasDecl(const IntrinsicInst *II) {}
+
+  void trackRemovableOrDroppableUses(const Instruction *I) {}
+};
+
+class PromotableTracker {
+public:
+  bool check(bool c) {
+    assert(!c && "PromotableTracker::check failed");
+    return false;
+  }
+  void trackRemovable(Instruction *I) {
+    // FIXME: Performance Warning: linear search - might become slow (?)
+    if (std::find(Removables.begin(), Removables.end(), I) == Removables.end())
+      Removables.push_back(I);
+  }
+  void trackDroppableUse(Use *U) { DroppableUses.push_back(U); }
+  void trackOperandToZero(Instruction *I, int operand) {
+    ZeroOperands.emplace_back(I, operand);
+  }
+  void trackNoAliasDecl(IntrinsicInst *II) { NoAliasDecls.push_back(II); }
+
+  void trackRemovableOrDroppableUses(Instruction *I) {
+    for (auto &U_ : I->uses()) {
+      if (U_.getUser()->isDroppable())
+        trackDroppableUse(&U_);
+      else
+        trackRemovable(cast<Instruction>(U_.getUser()));
+    }
+  }
+
+public:
+  SmallVector<Instruction *, 4> Removables;
+  SmallVector<Use *, 4> DroppableUses;
+  SmallVector<std::pair<Instruction *, int>, 4> ZeroOperands;
+  SmallVector<IntrinsicInst *, 2> NoAliasDecls;
+};
+
+// Return true if the only usage of this pointer is as identifyP argument for
+// llvm.noalias or llvm.provenance.noalias (either direct or recursive)
+// Look through bitcast, getelementptr, llvm.noalias, llvm.provenance.noalias
+
+template <typename PT>
+bool onlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(Value *V, PT &pt);
+
+template <typename PT>
+bool isAndOnlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(IntrinsicInst *II,
+                                                           unsigned OpNo,
+                                                           PT &pt) {
+  if (II->getIntrinsicID() == Intrinsic::provenance_noalias) {
+    if (OpNo == 0) {
+      if (!onlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(II, pt))
+        return false;
+      pt.trackRemovable(II);
+    } else if (OpNo == Intrinsic::ProvenanceNoAliasIdentifyPArg) {
+      pt.trackOperandToZero(II, OpNo);
+    } else if (OpNo == Intrinsic::ProvenanceNoAliasIdentifyPProvenanceArg) {
+      pt.trackOperandToZero(II, OpNo);
+    } else {
+      assert(false && "Unexpected llvm.provenance.noalias dependency");
+    }
+    return true;
+  } else if (II->getIntrinsicID() == Intrinsic::noalias) {
+    if (OpNo == 0) {
+      if (!onlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(II, pt))
+        return false;
+      pt.trackRemovable(II);
+    } else if (OpNo == Intrinsic::NoAliasIdentifyPArg) {
+      pt.trackOperandToZero(II, OpNo);
+    } else {
+      assert(false && "Unexpected llvm.provenance.noalias dependency");
+    }
+    return true;
+  }
+
+  return false;
+}
+
+template <typename PT>
+bool onlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(Value *V, PT &pt) {
+  for (Use &U_ : V->uses()) {
+    unsigned OpNo = U_.getOperandNo();
+    User *U = U_.getUser();
+    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
+      if (isAndOnlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(II, OpNo, pt))
+        continue;
+      return false;
+    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+      if (!onlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(BCI, pt))
+        return false;
+      pt.trackRemovable(BCI);
+    } else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      if (!onlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(GEPI, pt))
+        return false;
+      pt.trackRemovable(GEPI);
+    } else if (AddrSpaceCastInst *ASCI = dyn_cast<AddrSpaceCastInst>(U)) {
+      if (!onlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(ASCI, pt))
+        return false;
+      pt.trackRemovable(ASCI);
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+template <typename PT> bool trackAllocaPromotable(AllocaInst *AI, PT &pt) {
   // Only allow direct and non-volatile loads and stores...
-  for (const User *U : AI->users()) {
-    if (const LoadInst *LI = dyn_cast<LoadInst>(U)) {
+  for (Use &U_ : AI->uses()) {
+    unsigned OpNo = U_.getOperandNo();
+    User *U = U_.getUser();
+
+    if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
       // Note that atomic loads can be transformed; atomic semantics do
       // not have any meaning for a local alloca.
-      if (LI->isVolatile())
+      if (pt.check(LI->isVolatile()))
         return false;
-    } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      if (SI->getOperand(0) == AI)
+      if (OpNo == LI->getNoaliasProvenanceOperandIndex()) {
+        // Load will be removed. Disconnect provenance.noalias dependency
+        pt.trackOperandToZero(LI, OpNo);
+      }
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      if (pt.check(OpNo == 0))
         return false; // Don't allow a store OF the AI, only INTO the AI.
       // Note that atomic stores can be transformed; atomic semantics do
       // not have any meaning for a local alloca.
-      if (SI->isVolatile())
+      if (pt.check(SI->isVolatile()))
         return false;
-    } else if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
-      if (!II->isLifetimeStartOrEnd() && !II->isDroppable())
+      if (OpNo == SI->getNoaliasProvenanceOperandIndex()) {
+        // Store will be removed. Disconnect provenance.noalias dependency
+        pt.trackOperandToZero(SI, OpNo);
+      }
+    } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
+      switch (II->getIntrinsicID()) {
+      case Intrinsic::lifetime_start:
+      case Intrinsic::lifetime_end:
+        pt.trackRemovable(II);
+        break;
+      case Intrinsic::noalias_decl:
+        pt.trackNoAliasDecl(II);
+        break;
+      case Intrinsic::noalias:
+      case Intrinsic::provenance_noalias:
+        if (!isAndOnlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(II, OpNo,
+                                                                   pt))
+          return false;
+        break;
+      default:
+        if (II->isDroppable()) {
+          pt.trackDroppableUse(&U_);
+          break;
+        }
         return false;
-    } else if (const BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      if (!onlyUsedByLifetimeMarkersOrDroppableInsts(BCI))
+      }
+    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+      if (onlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(BCI, pt)) {
+        pt.trackRemovable(BCI);
+        continue;
+      }
+      if (pt.check(!onlyUsedByLifetimeMarkersOrDroppableInsts(BCI)))
         return false;
-    } else if (const GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(U)) {
-      if (!GEPI->hasAllZeroIndices())
+
+      pt.trackRemovableOrDroppableUses(BCI);
+      pt.trackRemovable(BCI);
+    } else if (AddrSpaceCastInst *ACI = dyn_cast<AddrSpaceCastInst>(U)) {
+      if (onlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(ACI, pt)) {
+        pt.trackRemovable(ACI);
+        continue;
+      }
+      if (pt.check(!onlyUsedByLifetimeMarkersOrDroppableInsts(ACI)))
         return false;
-      if (!onlyUsedByLifetimeMarkersOrDroppableInsts(GEPI))
+
+      pt.trackRemovableOrDroppableUses(ACI);
+      pt.trackRemovable(ACI);
+    } else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      if (onlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(GEPI, pt)) {
+        pt.trackRemovable(GEPI);
+        continue;
+      }
+      if (pt.check(!GEPI->hasAllZeroIndices()))
         return false;
-    } else if (const AddrSpaceCastInst *ASCI = dyn_cast<AddrSpaceCastInst>(U)) {
-      if (!onlyUsedByLifetimeMarkers(ASCI))
+      if (pt.check(!onlyUsedByLifetimeMarkersOrDroppableInsts(GEPI)))
         return false;
+
+      pt.trackRemovableOrDroppableUses(GEPI);
+      pt.trackRemovable(GEPI);
+    } else if (AddrSpaceCastInst *ASCI = dyn_cast<AddrSpaceCastInst>(U)) {
+      if (onlyUsedByNoaliasOrProvenanceNoAliasIdentifyPArg(ASCI, pt)) {
+        pt.trackRemovable(ASCI);
+        continue;
+      }
+
+      return false;
     } else {
       return false;
     }
   }
 
   return true;
+}
+
+bool llvm::isAllocaPromotable(const AllocaInst *AI) {
+  PromotableChecker pc;
+  return trackAllocaPromotable(const_cast<AllocaInst *>(AI), pc);
 }
 
 namespace {
@@ -309,38 +485,196 @@ static void addAssumeNonNull(AssumptionCache *AC, LoadInst *LI) {
 
 static void removeIntrinsicUsers(AllocaInst *AI) {
   // Knowing that this alloca is promotable, we know that it's safe to kill all
-  // instructions except for load and store.
+  // instructions except for load and store and noalias intrinsics.
 
-  for (auto UI = AI->use_begin(), UE = AI->use_end(); UI != UE;) {
-    Instruction *I = cast<Instruction>(UI->getUser());
-    Use &U = *UI;
-    ++UI;
-    if (isa<LoadInst>(I) || isa<StoreInst>(I))
-      continue;
+  // Track the possible intrinsics. If we do not have a noalias.decl or we do
+  // not have an unknown function scope, no extra modificiations are needed. If
+  // both are there, we need to propagate the MetadataValue from the declaration
+  // to those intrinsics that are using the unknown scope.
+  PromotableTracker pt;
 
-    // Drop the use of AI in droppable instructions.
-    if (I->isDroppable()) {
-      I->dropDroppableUse(U);
-      continue;
-    }
+  if (!trackAllocaPromotable(AI, pt)) {
+    assert(false && "trackAllocaPromotable not consistent");
+  }
 
-    if (!I->getType()->isVoidTy()) {
-      // The only users of this bitcast/GEP instruction are lifetime intrinsics.
-      // Follow the use/def chain to erase them now instead of leaving it for
-      // dead code elimination later.
-      for (auto UUI = I->use_begin(), UUE = I->use_end(); UUI != UUE;) {
-        Instruction *Inst = cast<Instruction>(UUI->getUser());
-        Use &UU = *UUI;
-        ++UUI;
+  // Propagate NoaliasDecl
+  MDNode *NoAliasUnknownScopeMD =
+      AI->getParent()->getParent()->getMetadata("noalias");
+  Instruction *NoAliasDecl = nullptr;
+  if (pt.NoAliasDecls.size() == 1)
+    NoAliasDecl = pt.NoAliasDecls[0];
 
-        // Drop the use of I in droppable instructions.
-        if (Inst->isDroppable()) {
-          Inst->dropDroppableUse(UU);
-          continue;
+  if (NoAliasUnknownScopeMD) {
+    if (NoAliasDecl) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "- Propagating " << *NoAliasDecl << " scope to:\n");
+      auto NoAliasDeclScope =
+          NoAliasDecl->getOperand(Intrinsic::NoAliasDeclScopeArg);
+      for (auto PairIO : pt.ZeroOperands) {
+        Instruction *I = PairIO.first;
+        auto OpNo = PairIO.second;
+        (void)OpNo; // Silence not used warning in Release builds.
+        if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+          auto ID = II->getIntrinsicID();
+          if (ID == Intrinsic::noalias || ID == Intrinsic::provenance_noalias) {
+            // If we get here, we can assume the identifyP or its provenance
+            // are dependencies
+            assert(
+                (ID == Intrinsic::noalias)
+                    ? (OpNo == Intrinsic::NoAliasIdentifyPArg)
+                    : (OpNo == Intrinsic::ProvenanceNoAliasIdentifyPArg ||
+                       OpNo ==
+                           Intrinsic::ProvenanceNoAliasIdentifyPProvenanceArg));
+            unsigned ScopeArg = (ID == Intrinsic::noalias
+                                     ? Intrinsic::NoAliasScopeArg
+                                     : Intrinsic::ProvenanceNoAliasScopeArg);
+            unsigned DeclArg =
+                (ID == Intrinsic::noalias
+                     ? Intrinsic::NoAliasNoAliasDeclArg
+                     : Intrinsic::ProvenanceNoAliasNoAliasDeclArg);
+            MetadataAsValue *MV =
+                cast<MetadataAsValue>(I->getOperand(ScopeArg));
+            if (NoAliasUnknownScopeMD == MV->getMetadata()) {
+              // Propagate the declaration scope
+              // Note: splitting already took care of updating the ObjId
+              LLVM_DEBUG(llvm::dbgs() << "-- " << *I << "\n");
+              II->setOperand(ScopeArg, NoAliasDeclScope);
+
+              // also update the noalias declaration
+              II->setOperand(DeclArg, NoAliasDecl);
+            }
+          }
         }
-        Inst->eraseFromParent();
+      }
+    } else if (pt.NoAliasDecls.empty()) {
+      for (auto PairIO : pt.ZeroOperands) {
+        Instruction *I = PairIO.first;
+        auto OpNo = PairIO.second;
+        (void)OpNo; // Silence not used warning in Release builds.
+        if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+          auto ID = II->getIntrinsicID();
+          if (ID == Intrinsic::noalias || ID == Intrinsic::provenance_noalias) {
+            // If we get here, we can assume the identifyP or its provenance
+            // are dependencies
+            assert(
+                (ID == Intrinsic::noalias)
+                    ? (OpNo == Intrinsic::NoAliasIdentifyPArg)
+                    : (OpNo == Intrinsic::ProvenanceNoAliasIdentifyPArg ||
+                       OpNo ==
+                           Intrinsic::ProvenanceNoAliasIdentifyPProvenanceArg));
+            unsigned ScopeArg = (ID == Intrinsic::noalias
+                                     ? Intrinsic::NoAliasScopeArg
+                                     : Intrinsic::ProvenanceNoAliasScopeArg);
+            MetadataAsValue *MV =
+                cast<MetadataAsValue>(I->getOperand(ScopeArg));
+            if (NoAliasUnknownScopeMD == MV->getMetadata()) {
+              // Propagate a more or less unique id
+              LLVM_DEBUG(llvm::dbgs()
+                         << "-- No llvm.noalias.decl, looking through: " << *I
+                         << "\n");
+              II->replaceAllUsesWith(II->getOperand(0));
+            }
+          }
+        }
       }
     }
+  }
+
+  if (NoAliasDecl) {
+    // Check if we need to split up llvm.noalias.decl with unique ObjId's
+    // This is needed to differentiate restrict pointers, once the alloca is
+    // removed. NOTE: we might as well have depended on 'constant propagation of
+    // null' and work with a 'constant pointer'
+    //   for IdentifyP. Not sure what mechanism would be the best.
+    const DataLayout &DL = AI->getParent()->getModule()->getDataLayout();
+    std::map<uint64_t, Instruction *> ObjId2NoAliasDecl;
+
+    auto BaseObjId = cast<ConstantInt>(NoAliasDecl->getOperand(
+                                           Intrinsic::NoAliasDeclObjIdArg))
+                         ->getZExtValue();
+    ObjId2NoAliasDecl[BaseObjId] = NoAliasDecl;
+
+    for (auto PairIO : pt.ZeroOperands) {
+      IntrinsicInst *II = dyn_cast<IntrinsicInst>(PairIO.first);
+      if (II && ((II->getIntrinsicID() == Intrinsic::noalias) ||
+                 (II->getIntrinsicID() == Intrinsic::provenance_noalias))) {
+        auto OpNo = PairIO.second;
+        unsigned IdentifyPArg = (II->getIntrinsicID() == Intrinsic::noalias)
+                                    ? Intrinsic::NoAliasIdentifyPArg
+                                    : Intrinsic::ProvenanceNoAliasIdentifyPArg;
+        unsigned ObjIdArg = (II->getIntrinsicID() == Intrinsic::noalias)
+                                ? Intrinsic::NoAliasIdentifyPObjIdArg
+                                : Intrinsic::ProvenanceNoAliasIdentifyPObjIdArg;
+        unsigned NoAliasDeclArg =
+            (II->getIntrinsicID() == Intrinsic::noalias)
+                ? Intrinsic::NoAliasNoAliasDeclArg
+                : Intrinsic::ProvenanceNoAliasNoAliasDeclArg;
+
+        if ((unsigned)OpNo != IdentifyPArg)
+          continue;
+
+        auto CurrentObjId =
+            cast<ConstantInt>(II->getOperand(ObjIdArg))->getZExtValue();
+
+        assert(CurrentObjId == BaseObjId &&
+               "Initial object id difference detected.");
+
+        APInt PPointerOffset(DL.getPointerSizeInBits(), 0ull);
+        assert(AI == II->getOperand(IdentifyPArg)
+                         ->stripAndAccumulateInBoundsConstantOffsets(
+                             DL, PPointerOffset) &&
+               "hmm.. expected stripped P to map to alloca");
+        if (!PPointerOffset.isNullValue()) {
+          CurrentObjId += PPointerOffset.getZExtValue();
+          auto &NewNoAliasDecl = ObjId2NoAliasDecl[CurrentObjId];
+          if (NewNoAliasDecl == nullptr) {
+            LLVM_DEBUG(llvm::dbgs()
+                       << "Creating llvm.noalias.decl for IdentifyPObjId "
+                       << CurrentObjId << "\n");
+            IRBuilder<ConstantFolder> NoAliasDeclBuilder(NoAliasDecl);
+            NewNoAliasDecl = NoAliasDeclBuilder.CreateNoAliasDeclaration(
+                ConstantPointerNull::get(cast<PointerType>(AI->getType())),
+                CurrentObjId,
+                NoAliasDecl->getOperand(Intrinsic::NoAliasDeclScopeArg));
+            LLVM_DEBUG(llvm::dbgs() << "- " << *NewNoAliasDecl << "\n");
+          }
+          II->setOperand(NoAliasDeclArg, NewNoAliasDecl);
+          II->setOperand(ObjIdArg,
+                         ConstantInt::get(II->getOperand(ObjIdArg)->getType(),
+                                          CurrentObjId));
+          LLVM_DEBUG(llvm::dbgs()
+                     << "Remapping noalias.decl dependency: " << *II << "\n");
+        }
+      }
+    }
+  }
+
+  // set args to zero
+  for (auto II : pt.NoAliasDecls) {
+    LLVM_DEBUG(llvm::dbgs() << "Zeoring noalias.decl dep: " << *II << "\n");
+    assert(II->getIntrinsicID() == Intrinsic::noalias_decl);
+    II->setOperand(Intrinsic::NoAliasDeclAllocaArg,
+                   ConstantPointerNull::get(cast<PointerType>(AI->getType())));
+  }
+  for (auto PairIO : pt.ZeroOperands) {
+    Instruction *I = PairIO.first;
+    auto OpNo = PairIO.second;
+    LLVM_DEBUG(llvm::dbgs()
+               << "Zeroing operand " << OpNo << " of " << *I << "\n");
+    I->setOperand(OpNo, ConstantPointerNull::get(
+                            cast<PointerType>(I->getOperand(OpNo)->getType())));
+  }
+
+  // Drop droppables
+  for (auto U : pt.DroppableUses) {
+    LLVM_DEBUG(llvm::dbgs() << "Dropping use from " << *U->getUser() << "\n");
+    assert(U->getUser()->isDroppable());
+    U->getUser()->dropDroppableUse(*U);
+  }
+
+  // remove
+  for (auto I : pt.Removables) {
+    LLVM_DEBUG(llvm::dbgs() << "Removing " << *I << "\n");
     I->eraseFromParent();
   }
 }
@@ -366,6 +700,9 @@ static bool rewriteSingleStoreAlloca(AllocaInst *AI, AllocaInfo &Info,
 
   for (auto UI = AI->user_begin(), E = AI->user_end(); UI != E;) {
     Instruction *UserInst = cast<Instruction>(*UI++);
+    // load/store can have a provenance
+    if ((UI != E) && (*UI == UserInst))
+      ++UI;
     if (UserInst == OnlyStore)
       continue;
     LoadInst *LI = cast<LoadInst>(UserInst);
@@ -476,6 +813,9 @@ static bool promoteSingleBlockAlloca(AllocaInst *AI, const AllocaInfo &Info,
   // store above them, if any.
   for (auto UI = AI->user_begin(), E = AI->user_end(); UI != E;) {
     LoadInst *LI = dyn_cast<LoadInst>(*UI++);
+    // load/store can have a provenance
+    if ((UI != E) && (*UI == LI))
+      ++UI;
     if (!LI)
       continue;
 

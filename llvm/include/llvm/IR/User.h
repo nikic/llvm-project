@@ -167,12 +167,12 @@ public:
   }
 
   Value *getOperand(unsigned i) const {
-    assert(i < NumUserOperands && "getOperand() out of range!");
+    assert(i < getNumOperands() && "getOperand() out of range!");
     return getOperandList()[i];
   }
 
   void setOperand(unsigned i, Value *Val) {
-    assert(i < NumUserOperands && "setOperand() out of range!");
+    assert(i < getNumOperands() && "setOperand() out of range!");
     assert((!isa<Constant>((const Value*)this) ||
             isa<GlobalValue>((const Value*)this)) &&
            "Cannot mutate a constant with setOperand!");
@@ -180,15 +180,17 @@ public:
   }
 
   const Use &getOperandUse(unsigned i) const {
-    assert(i < NumUserOperands && "getOperandUse() out of range!");
+    assert(i < getNumOperands() && "getOperandUse() out of range!");
     return getOperandList()[i];
   }
   Use &getOperandUse(unsigned i) {
-    assert(i < NumUserOperands && "getOperandUse() out of range!");
+    assert(i < getNumOperands() && "getOperandUse() out of range!");
     return getOperandList()[i];
   }
 
-  unsigned getNumOperands() const { return NumUserOperands; }
+  unsigned getNumOperands() const {
+    return NumUserOperands - NumUserOperandsDelta;
+  }
 
   /// Returns the descriptor co-allocated with this User instance.
   ArrayRef<const uint8_t> getDescriptor() const;
@@ -207,6 +209,24 @@ public:
   void setGlobalVariableNumOperands(unsigned NumOps) {
     assert(NumOps <= 1 && "GlobalVariable can only have 0 or 1 operands");
     NumUserOperands = NumOps;
+  }
+
+  /// FIXME: As that the number of operands is used to find the start of
+  /// the allocated memory in operator delete, we need to always think we have
+  /// 3 operand before delete.
+  void setStoreInstNumOperands(unsigned NumOps) {
+    assert((2 <= NumOps) && (NumOps <= 3) &&
+           "StoreInst can only have 2 or 3 operands");
+    NumUserOperandsDelta = 3 - NumOps;
+  }
+
+  /// FIXME: As that the number of operands is used to find the start of
+  /// the allocated memory in operator delete, we need to always think we have
+  /// 2 operand before delete.
+  void setLoadInstNumOperands(unsigned NumOps) {
+    assert((1 <= NumOps) && (NumOps <= 2) &&
+           "LoadInst can only have 1 or 2 operands");
+    NumUserOperandsDelta = 2 - NumOps;
   }
 
   /// Subclasses with hung off uses need to manage the operand count
@@ -234,10 +254,10 @@ public:
   op_iterator       op_begin()       { return getOperandList(); }
   const_op_iterator op_begin() const { return getOperandList(); }
   op_iterator       op_end()         {
-    return getOperandList() + NumUserOperands;
+    return getOperandList() + NumUserOperands - NumUserOperandsDelta;
   }
   const_op_iterator op_end()   const {
-    return getOperandList() + NumUserOperands;
+    return getOperandList() + NumUserOperands - NumUserOperandsDelta;
   }
   op_range operands() {
     return op_range(op_begin(), op_end());

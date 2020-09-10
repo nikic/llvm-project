@@ -5072,6 +5072,87 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
 
     break;
   }
+  case Intrinsic::noalias_decl: {
+    Assert(
+        (isa<ConstantPointerNull>(
+             Call.getArgOperand(Intrinsic::NoAliasDeclAllocaArg)) ||
+         isa<AllocaInst>(Call.getArgOperand(Intrinsic::NoAliasDeclAllocaArg))),
+        "llvm.noalias.decl must refer to a null-ptr or an alloca instruction",
+        Call);
+    break;
+  }
+  case Intrinsic::noalias: {
+    auto *DA = Call.getArgOperand(Intrinsic::NoAliasNoAliasDeclArg);
+    if (!isa<ConstantPointerNull>(DA) && !isa<UndefValue>(DA)) {
+      auto *DeclSite = dyn_cast<CallBase>(DA);
+      Assert(DeclSite, "llvm.noalias arg1 must refer to a llvm.noalias.decl",
+             Call);
+      Assert((DeclSite->getArgOperand(Intrinsic::NoAliasDeclObjIdArg) ==
+              Call.getArgOperand(Intrinsic::NoAliasIdentifyPObjIdArg)),
+             "llvm.noalias objId arg must match with llvm.noalias.decl", Call);
+      Assert((DeclSite->getArgOperand(Intrinsic::NoAliasDeclScopeArg) ==
+              Call.getArgOperand(Intrinsic::NoAliasScopeArg)),
+             "llvm.noalias scope arg must match with llvm.noalias.decl", Call);
+    }
+    break;
+  }
+  case Intrinsic::provenance_noalias: {
+    auto *DA = Call.getArgOperand(Intrinsic::ProvenanceNoAliasNoAliasDeclArg);
+    if (!isa<ConstantPointerNull>(DA) && !isa<UndefValue>(DA)) {
+      // JumpThreading can duplicate llvm.noalias.decl.
+      // I do not think we should prohibit that.
+      SmallVector<CallBase *, 4> NoAliasDeclarations;
+      {
+        DenseSet<Value *> Handled;
+        SmallVector<Value *, 4> Worklist = {DA};
+        while (!Worklist.empty()) {
+          auto *V = Worklist.pop_back_val();
+          if (Handled.insert(V).second) {
+            if (isa<CallBase>(V)) {
+              NoAliasDeclarations.push_back(cast<CallBase>(V));
+            } else if (PHINode *PHI = dyn_cast<PHINode>(V)) {
+              auto OV = PHI->operand_values();
+              Worklist.insert(Worklist.end(), OV.begin(), OV.end());
+            } else if (isa<UndefValue>(V)) {
+              // ignore undefs
+            } else if (isa<ConstantPointerNull>(V)) {
+              // ignore nullptr
+            } else {
+              Assert(
+                  false,
+                  "llvm.provenance.noalias depends on something that is not a "
+                  "llvm.noalias.decl",
+                  Call);
+            }
+          }
+        }
+      }
+
+      Assert(!NoAliasDeclarations.empty(),
+             "llvm.provenance.noalias should depend on a llvm.noalias.decl",
+             Call);
+      for (auto *CB : NoAliasDeclarations) {
+        Assert(CB,
+               "llvm.provenance.noalias arg1 must refer to a llvm.noalias.decl",
+               Call);
+        Assert(CB->getIntrinsicID() == Intrinsic::noalias_decl,
+               "llvm.provenance.noalias arg1 must refer to a llvm.noalias.decl",
+               Call);
+        Assert(
+            (CB->getArgOperand(Intrinsic::NoAliasDeclObjIdArg) ==
+             Call.getArgOperand(Intrinsic::ProvenanceNoAliasIdentifyPObjIdArg)),
+            "llvm.provenance.noalias objId arg must match with "
+            "llvm.noalias.decl",
+            Call);
+        Assert((CB->getArgOperand(Intrinsic::NoAliasDeclScopeArg) ==
+                Call.getArgOperand(Intrinsic::ProvenanceNoAliasScopeArg)),
+               "llvm.provenance.noalias scope arg must match with "
+               "llvm.noalias.decl",
+               Call);
+      }
+    }
+    break;
+  }
   };
 }
 

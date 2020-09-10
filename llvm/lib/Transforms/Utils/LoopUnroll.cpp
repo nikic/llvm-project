@@ -62,6 +62,7 @@
 #include "llvm/Transforms/Utils/LoopPeel.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/NoAliasUtils.h"
 #include "llvm/Transforms/Utils/SimplifyIndVar.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -585,6 +586,51 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
                          << DIL->getFilename() << " Line: " << DIL->getLine());
           }
 
+  // Phase1: Identify what noalias metadata is inside the loop: if it is inside
+  // the loop, the associated metadata must be cloned for each iteration.
+  SmallVector<MetadataAsValue *, 6> LoopLocalNoAliasDeclScopes;
+  llvm::identifyNoAliasScopesToClone(L->getBlocks(),
+                                     LoopLocalNoAliasDeclScopes);
+
+  if (!LoopLocalNoAliasDeclScopes.empty() && (ULO.Count > 1)) {
+    // We have loop local llvm.noalias.decl. If they are used by code that is
+    // considered to be outside the loop, the must go through the latch block.
+    // We duplicate the llvm.noalias.decl to the latch block, so that migrated
+    // code can still locally benefit from the noalias information. But it will
+    // get disconnected from the information inside the loop body itself.
+    SmallVector<BasicBlock *, 4> UniqueExitBlocks;
+    L->getUniqueExitBlocks(UniqueExitBlocks);
+    for (auto *EB : UniqueExitBlocks) {
+      SmallVector<std::pair<Instruction *, PHINode *>, 6> ClonedNoAlias;
+
+      for (auto &PN : EB->phis()) {
+        Value *V = PN.getIncomingValue(0);
+        while (true) {
+          if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(V)) {
+            if (II->getIntrinsicID() == Intrinsic::noalias_decl) {
+              ClonedNoAlias.emplace_back(II->clone(), &PN);
+            }
+          } else if (PHINode *PN2 = dyn_cast<PHINode>(V)) {
+            if (PN2->getNumIncomingValues() == 1) {
+              // look through phi ( phi (.. ) ) in case of nested loops
+              V = PN2->getIncomingValue(0);
+              continue;
+            }
+          }
+          break;
+        }
+      }
+
+      auto IP = EB->getFirstInsertionPt();
+      for (auto P : ClonedNoAlias) {
+        EB->getInstList().insert(IP, P.first);
+      }
+      for (auto P : ClonedNoAlias) {
+        P.second->replaceAllUsesWith(P.first);
+      }
+    }
+  }
+
   for (unsigned It = 1; It != ULO.Count; ++It) {
     SmallVector<BasicBlock *, 8> NewBlocks;
     SmallDenseMap<const Loop *, Loop *, 4> NewLoops;
@@ -678,6 +724,25 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
             AC->registerAssumption(II);
       }
     }
+
+    {
+      // Phase2: identify what other metadata depends on the cloned version
+      // Phase3: after cloning, replace the metadata with the corrected version
+      // for both memory instructions and noalias intrinsics
+      std::string ext = (Twine("It") + Twine(It)).str();
+      cloneAndAdaptNoAliasScopes(LoopLocalNoAliasDeclScopes, NewBlocks,
+                                 Header->getContext(), ext);
+    }
+  }
+
+  if (!LoopLocalNoAliasDeclScopes.empty() && (ULO.Count > 1)) {
+    // Also adapt the scopes of the first iteration to avoid any
+    // conflicts with instructions outside the loop using the
+    // scopes. Those have already been taken care of by
+    // duplicating the llvm.noalias.decl.
+    std::vector<BasicBlock *> OldBlocks(BlockBegin, BlockEnd);
+    cloneAndAdaptNoAliasScopes(LoopLocalNoAliasDeclScopes, OldBlocks,
+                               Header->getContext(), "It0");
   }
 
   // Loop over the PHI nodes in the original block, setting incoming values.

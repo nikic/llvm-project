@@ -52,6 +52,7 @@ add_llvm_component_library(LLVMTransformUtils
   MisExpect.cpp
   ModuleUtils.cpp
   NameAnonGlobals.cpp
+  NoAliasUtils.cpp
   PredicateInfo.cpp
   PromoteMemoryToRegister.cpp
   ScalarEvolutionExpander.cpp

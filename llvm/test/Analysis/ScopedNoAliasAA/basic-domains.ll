@@ -52,4 +52,3 @@ attributes #0 = { nounwind uwtable }
 ; CHECK: NoAlias:   store float %1, float* %arrayidx.i2, align 4, !noalias !6 <->   store float %0, float* %arrayidx.i, align 4, !noalias !6
 ; CHECK: NoAlias:   store float %2, float* %arrayidx.i3, align 4, !noalias !7 <->   store float %0, float* %arrayidx.i, align 4, !noalias !6
 ; CHECK: NoAlias:   store float %2, float* %arrayidx.i3, align 4, !noalias !7 <->   store float %1, float* %arrayidx.i2, align 4, !noalias !6
-

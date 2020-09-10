@@ -1,4 +1,5 @@
-; RUN: opt -always-inline -globalopt -S < %s | FileCheck %s
+; RUN: opt -always-inline -globalopt --use-noalias-intrinsic-during-inlining=0 -S < %s | FileCheck %s --check-prefixes=CHECK,CHECK_SCOPE
+; RUN: opt -always-inline -globalopt --use-noalias-intrinsic-during-inlining=1 -S < %s | FileCheck %s --check-prefixes=CHECK,CHECK_NOALIAS
 ;
 ; static void __attribute__((always_inline)) callee(long n, double A[static const restrict n], long i) {
 ;   for (long j = 0; j < n; j += 1)
@@ -64,14 +65,21 @@ for.end:
 !11 = distinct !{!11, !12} ; LoopID
 !12 = !{!"llvm.loop.parallel_accesses", !10}
 
+; There is a small reordering when noalias intrinsics are introduced
 
 ; CHECK: store double 4.200000e+01, {{.*}} !llvm.access.group ![[ACCESS_GROUP_LIST_3:[0-9]+]]
 ; CHECK: br label %for.cond.i, !llvm.loop ![[LOOP_INNER:[0-9]+]]
 ; CHECK: br label %for.cond, !llvm.loop ![[LOOP_OUTER:[0-9]+]]
 
-; CHECK: ![[ACCESS_GROUP_LIST_3]] = !{![[ACCESS_GROUP_INNER:[0-9]+]], ![[ACCESS_GROUP_OUTER:[0-9]+]]}
-; CHECK: ![[ACCESS_GROUP_INNER]] = distinct !{}
-; CHECK: ![[ACCESS_GROUP_OUTER]] = distinct !{}
+
+; CHECK_SCOPE: ![[ACCESS_GROUP_LIST_3]] = !{![[ACCESS_GROUP_INNER:[0-9]+]], ![[ACCESS_GROUP_OUTER:[0-9]+]]}
+; CHECK_SCOPE: ![[ACCESS_GROUP_INNER]] = distinct !{}
+; CHECK_SCOPE: ![[ACCESS_GROUP_OUTER]] = distinct !{}
+
+; CHECK_NOALIAS: ![[ACCESS_GROUP_OUTER:[0-9]+]] = distinct !{}
+; CHECK_NOALIAS: ![[ACCESS_GROUP_LIST_3]] = !{![[ACCESS_GROUP_INNER:[0-9]+]], ![[ACCESS_GROUP_OUTER]]}
+; CHECK_NOALIAS: ![[ACCESS_GROUP_INNER]] = distinct !{}
+
 ; CHECK: ![[LOOP_INNER]] = distinct !{![[LOOP_INNER]], ![[ACCESSES_INNER:[0-9]+]]}
 ; CHECK: ![[ACCESSES_INNER]] = !{!"llvm.loop.parallel_accesses", ![[ACCESS_GROUP_INNER]]}
 ; CHECK: ![[LOOP_OUTER]] = distinct !{![[LOOP_OUTER]], ![[ACCESSES_OUTER:[0-9]+]]}

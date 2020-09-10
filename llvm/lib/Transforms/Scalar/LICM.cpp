@@ -1603,6 +1603,9 @@ static bool sink(Instruction &I, LoopInfo *LI, DominatorTree *DT,
   // Clones of this instruction. Don't create more than one per exit block!
   SmallDenseMap<BasicBlock *, Instruction *, 32> SunkCopies;
 
+  AAMDNodes AAMetadata;
+  I.getAAMetadata(AAMetadata);
+
   // If this instruction is only used outside of the loop, then all users are
   // PHI nodes in exit blocks due to LCSSA form. Just RAUW them with clones of
   // the instruction.
@@ -1619,6 +1622,8 @@ static bool sink(Instruction &I, LoopInfo *LI, DominatorTree *DT,
     // The PHI must be trivially replaceable.
     Instruction *New = sinkThroughTriviallyReplaceablePHI(
         PN, &I, LI, SunkCopies, SafetyInfo, CurLoop, MSSAU);
+    New->setAAMetadata(AAMetadata);
+    New->setAAMetadataNoAliasProvenance(AAMetadata);
     PN->replaceAllUsesWith(New);
     eraseInstruction(*PN, *SafetyInfo, nullptr, nullptr);
     Changed = true;
@@ -1774,6 +1779,8 @@ public:
       NewSI->setDebugLoc(DL);
       if (AATags)
         NewSI->setAAMetadata(AATags);
+      // Note: ptr_provenance propagation is not done here. A dependend
+      // provenance should be migrated first !
 
       if (MSSAU) {
         MemoryAccess *MSSAInsertPoint = MSSAInsertPts[i];
@@ -1927,7 +1934,9 @@ bool llvm::promoteLoopAccessesToScalars(
     if (SomePtr->getType() != ASIV->getType())
       return false;
 
-    for (User *U : ASIV->users()) {
+    for (auto U_it = ASIV->user_begin(), U_it_end = ASIV->user_end();
+         U_it != U_it_end; ++U_it) {
+      User *U = *U_it;
       // Ignore instructions that are outside the loop.
       Instruction *UI = dyn_cast<Instruction>(U);
       if (!UI || !CurLoop->contains(UI))
@@ -1936,6 +1945,9 @@ bool llvm::promoteLoopAccessesToScalars(
       // If there is an non-load/store instruction in the loop, we can't promote
       // it.
       if (LoadInst *Load = dyn_cast<LoadInst>(UI)) {
+        if (U_it.getUse().getOperandNo() ==
+            Load->getNoaliasProvenanceOperandIndex())
+          continue;
         if (!Load->isUnordered())
           return false;
 
@@ -1955,6 +1967,10 @@ bool llvm::promoteLoopAccessesToScalars(
             Alignment = std::max(Alignment, InstAlignment);
           }
       } else if (const StoreInst *Store = dyn_cast<StoreInst>(UI)) {
+        if (U_it.getUse().getOperandNo() ==
+            Store->getNoaliasProvenanceOperandIndex())
+          continue;
+
         // Stores *of* the pointer are not interesting, only stores *to* the
         // pointer.
         if (UI->getOperand(1) != ASIV)
@@ -1999,8 +2015,18 @@ bool llvm::promoteLoopAccessesToScalars(
               Store->getPointerOperand(), Store->getValueOperand()->getType(),
               Store->getAlign(), MDL, Preheader->getTerminator(), DT);
         }
-      } else
-        return false; // Not a load or store.
+      } else {
+        // Not a load or store.
+        if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(UI)) {
+          if (II->getIntrinsicID() == Intrinsic::provenance_noalias ||
+              II->getIntrinsicID() == Intrinsic::noalias_arg_guard ||
+              II->getIntrinsicID() == Intrinsic::noalias_copy_guard) {
+            // those must not block promotion.
+            continue;
+          }
+        }
+        return false;
+      }
 
       // Merge the AA tags.
       if (LoopUses.empty()) {
@@ -2085,8 +2111,11 @@ bool llvm::promoteLoopAccessesToScalars(
     PreheaderLoad->setOrdering(AtomicOrdering::Unordered);
   PreheaderLoad->setAlignment(Alignment);
   PreheaderLoad->setDebugLoc(DebugLoc());
-  if (AATags)
+  if (AATags) {
     PreheaderLoad->setAAMetadata(AATags);
+    // Note: ptr_provenance propagation is not done here. A dependend provenance
+    // should be migrated first !
+  }
   SSA.AddAvailableValue(Preheader, PreheaderLoad);
 
   if (MSSAU) {

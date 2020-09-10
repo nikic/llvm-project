@@ -606,6 +606,11 @@ bool llvm::isAssumeLikeIntrinsic(const Instruction *I) {
       case Intrinsic::invariant_end:
       case Intrinsic::lifetime_start:
       case Intrinsic::lifetime_end:
+      case Intrinsic::noalias_decl:
+      case Intrinsic::noalias:
+      case Intrinsic::provenance_noalias:
+      case Intrinsic::noalias_arg_guard:
+      case Intrinsic::noalias_copy_guard:
       case Intrinsic::objectsize:
       case Intrinsic::ptr_annotation:
       case Intrinsic::var_annotation:
@@ -4125,6 +4130,8 @@ bool llvm::isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(
     const CallBase *Call, bool MustPreserveNullness) {
   switch (Call->getIntrinsicID()) {
   case Intrinsic::launder_invariant_group:
+  case Intrinsic::noalias_arg_guard:
+  case Intrinsic::noalias_copy_guard:
   case Intrinsic::strip_invariant_group:
   case Intrinsic::aarch64_irg:
   case Intrinsic::aarch64_tagp:
@@ -4163,7 +4170,8 @@ static bool isSameUnderlyingObjectInLoop(const PHINode *PN,
   return true;
 }
 
-Value *llvm::getUnderlyingObject(Value *V, unsigned MaxLookup) {
+Value *llvm::getUnderlyingObject(Value *V, unsigned MaxLookup,
+                                 SmallVectorImpl<Instruction *> *NoAlias) {
   if (!V->getType()->isPointerTy())
     return V;
   for (unsigned Count = 0; MaxLookup == 0 || Count < MaxLookup; ++Count) {
@@ -4186,6 +4194,29 @@ Value *llvm::getUnderlyingObject(Value *V, unsigned MaxLookup) {
           continue;
         }
       } else if (auto *Call = dyn_cast<CallBase>(V)) {
+        if (NoAlias) {
+          // We are gathering information for ScopedAANoAlias -
+          // Look through noalias and provenance.noalias intrinsic
+          if (Call->getIntrinsicID() == Intrinsic::provenance_noalias ||
+              Call->getIntrinsicID() == Intrinsic::noalias) {
+            NoAlias->push_back(Call);
+            V = Call->getArgOperand(0);
+            continue;
+          }
+          // Look trough noalias.arg.guard, and follow the ptr_provenance
+          if (Call->getIntrinsicID() == Intrinsic::noalias_arg_guard) {
+            V = Call->getArgOperand(1);
+            continue;
+          }
+        } else {
+          // We are not gathering information for SCopedAANoAlias -
+          // Look through noalias.arg.guard and follow the pointer path
+          if (Call->getIntrinsicID() == Intrinsic::noalias_arg_guard) {
+            V = Call->getArgOperand(0);
+            continue;
+          }
+        }
+
         // CaptureTracking can know about special capturing properties of some
         // intrinsics like launder.invariant.group, that can't be expressed with
         // the attributes, but have properties like returning aliasing pointer.
@@ -4210,13 +4241,14 @@ Value *llvm::getUnderlyingObject(Value *V, unsigned MaxLookup) {
 
 void llvm::getUnderlyingObjects(const Value *V,
                                 SmallVectorImpl<const Value *> &Objects,
-                                LoopInfo *LI, unsigned MaxLookup) {
+                                LoopInfo *LI, unsigned MaxLookup,
+                                SmallVectorImpl<Instruction *> *NoAlias) {
   SmallPtrSet<const Value *, 4> Visited;
   SmallVector<const Value *, 4> Worklist;
   Worklist.push_back(V);
   do {
     const Value *P = Worklist.pop_back_val();
-    P = getUnderlyingObject(P, MaxLookup);
+    P = getUnderlyingObject(P, MaxLookup, NoAlias);
 
     if (!Visited.insert(P).second)
       continue;

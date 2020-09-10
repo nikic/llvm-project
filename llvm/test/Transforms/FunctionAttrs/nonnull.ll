@@ -770,5 +770,15 @@ define void @PR43833_simple(i32* %0, i32 %1) {
   br i1 %11, label %7, label %8
 }
 
+; Return a pointer trivially nonnull (argument attribute) through a llvm.noalias.arg.guard
+; FNATTR: define nonnull i8* @test_noalias_arg_guard
+define i8* @test_noalias_arg_guard(i8* nonnull %p) {
+  %ret = tail call i8* @llvm.noalias.arg.guard.p0i8.p0i8(i8* %p, i8* %p)
+  ret i8* %p
+}
+
+; Function Attrs: nounwind readnone
+declare i8* @llvm.noalias.arg.guard.p0i8.p0i8(i8*, i8*) nounwind readnone
+
 attributes #0 = { null_pointer_is_valid }
 attributes #1 = { nounwind willreturn}

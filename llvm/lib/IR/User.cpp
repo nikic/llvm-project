@@ -177,20 +177,19 @@ LLVM_NO_SANITIZE_MEMORY_ATTRIBUTE void User::operator delete(void *Usr) {
 
     Use **HungOffOperandList = static_cast<Use **>(Usr) - 1;
     // drop the hung off uses.
-    Use::zap(*HungOffOperandList, *HungOffOperandList + Obj->NumUserOperands,
+    Use::zap(*HungOffOperandList, *HungOffOperandList + Obj->getNumOperands(),
              /* Delete */ true);
     ::operator delete(HungOffOperandList);
   } else if (Obj->HasDescriptor) {
     Use *UseBegin = static_cast<Use *>(Usr) - Obj->NumUserOperands;
-    Use::zap(UseBegin, UseBegin + Obj->NumUserOperands, /* Delete */ false);
+    Use::zap(UseBegin, UseBegin + Obj->getNumOperands(), /* Delete */ false);
 
     auto *DI = reinterpret_cast<DescriptorInfo *>(UseBegin) - 1;
     uint8_t *Storage = reinterpret_cast<uint8_t *>(DI) - DI->SizeInBytes;
     ::operator delete(Storage);
   } else {
     Use *Storage = static_cast<Use *>(Usr) - Obj->NumUserOperands;
-    Use::zap(Storage, Storage + Obj->NumUserOperands,
-             /* Delete */ false);
+    Use::zap(Storage, Storage + Obj->getNumOperands(), /* Delete */ false);
     ::operator delete(Storage);
   }
 }

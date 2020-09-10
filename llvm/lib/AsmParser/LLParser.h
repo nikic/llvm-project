@@ -281,6 +281,9 @@ namespace llvm {
     bool ParseOrdering(AtomicOrdering &Ordering);
     bool ParseOptionalStackAlignment(unsigned &Alignment);
     bool ParseOptionalCommaAlign(MaybeAlign &Alignment, bool &AteExtraComma);
+    bool ParseOptionalCommaNoaliasProvenance(Value *&V, LocTy &Loc,
+                                             PerFunctionState &PFS,
+                                             bool &AteExtraComma);
     bool ParseOptionalCommaAddrSpace(unsigned &AddrSpace, LocTy &Loc,
                                      bool &AteExtraComma);
     bool ParseOptionalCommaInAlloca(bool &IsInAlloca);

@@ -390,6 +390,28 @@ bool CodeGenFunction::EmitSimpleStmt(const Stmt *S) {
   return true;
 }
 
+bool CodeGenFunction::hasLocalRestrictVars(const CompoundStmt &S,
+                                           FunctionArgList *Args) {
+  // We may have restrict-qualified variables, but if we're not optimizing, we
+  // don't do anything special with them.
+  if (CGM.getCodeGenOpts().OptimizationLevel == 0)
+    return false;
+
+  if (Args)
+    for (const auto *VD : *Args)
+      if (VD->getType().isRestrictOrContainsRestrictMembers())
+        return true;
+
+  for (const auto *C : S.body())
+    if (const auto *DS = dyn_cast<DeclStmt>(C))
+      for (const auto *I : DS->decls())
+        if (const auto *VD = dyn_cast<VarDecl>(I))
+          if (VD->getType().isRestrictOrContainsRestrictMembers())
+            return true;
+
+  return false;
+}
+
 /// EmitCompoundStmt - Emit a compound statement {..} node.  If GetLast is true,
 /// this captures the expression result of the last sub-statement and returns it
 /// (for use by the statement expression extension).
@@ -399,7 +421,7 @@ Address CodeGenFunction::EmitCompoundStmt(const CompoundStmt &S, bool GetLast,
                              "LLVM IR generation of compound statement ('{}')");
 
   // Keep track of the current cleanup stack depth, including debug scopes.
-  LexicalScope Scope(*this, S.getSourceRange());
+  LexicalScope Scope(*this, S.getSourceRange(), hasLocalRestrictVars(S));
 
   return EmitCompoundStmtWithoutScope(S, GetLast, AggSlot);
 }
@@ -603,6 +625,24 @@ void CodeGenFunction::LexicalScope::rescopeLabels() {
   }
 }
 
+// For all of the instructions generated for this lexical scope that access
+// memory, add the noalias metadata associated with any block-local
+// restrict-qualified pointers from this scope.
+void CodeGenFunction::LexicalNoAliasInfo::addNoAliasMD() {
+  if (MemoryInsts.empty() || NoAliasScopes.empty())
+    return;
+
+  llvm::MDNode *NewScopeList = llvm::MDNode::get(
+      MemoryInsts[0]->getParent()->getContext(), NoAliasScopes);
+
+  for (auto &I : MemoryInsts)
+    I->setMetadata(
+        llvm::LLVMContext::MD_noalias,
+        llvm::MDNode::concatenate(I->getMetadata(llvm::LLVMContext::MD_noalias),
+                                  NewScopeList));
+
+  MemoryInsts.clear();
+}
 
 void CodeGenFunction::EmitLabelStmt(const LabelStmt &S) {
   EmitLabel(S.getDecl());

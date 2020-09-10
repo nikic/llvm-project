@@ -167,7 +167,7 @@ public:
   RetTy visitICmpInst(ICmpInst &I)                { DELEGATE(CmpInst);}
   RetTy visitFCmpInst(FCmpInst &I)                { DELEGATE(CmpInst);}
   RetTy visitAllocaInst(AllocaInst &I)            { DELEGATE(UnaryInstruction);}
-  RetTy visitLoadInst(LoadInst     &I)            { DELEGATE(UnaryInstruction);}
+  RetTy visitLoadInst(LoadInst &I)                { DELEGATE(Instruction); }
   RetTy visitStoreInst(StoreInst   &I)            { DELEGATE(Instruction);}
   RetTy visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) { DELEGATE(Instruction);}
   RetTy visitAtomicRMWInst(AtomicRMWInst &I)      { DELEGATE(Instruction);}

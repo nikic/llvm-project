@@ -100,6 +100,65 @@ bool QualType::mayBeNotDynamicClass() const {
   return !ClassDecl || ClassDecl->mayBeNonDynamicClass();
 }
 
+bool QualType::isRestrictOrContainsRestrictMembers() const {
+  if (isRestrictQualified()) {
+    return true;
+  }
+
+  const Type *BaseElementType = getCanonicalType()->getBaseElementTypeUnsafe();
+  assert(!isa<ArrayType>(BaseElementType));
+
+  if (const RecordType *RecTy = dyn_cast<RecordType>(BaseElementType)) {
+    RecordDecl *RD = RecTy->getDecl();
+    for (FieldDecl *FD : RD->fields()) {
+      if (FD->getType().isRestrictOrContainsRestrictMembers()) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+std::vector<int64_t> QualType::getRestrictIndices() const {
+  // -1 represents an unbounded array
+  std::vector<int64_t> EncodedIndices;
+  SmallVector<int64_t, 10> BaseIndices = {-1};
+
+  getRestrictIndices(EncodedIndices, BaseIndices);
+
+  return EncodedIndices;
+}
+
+void QualType::getRestrictIndices(
+    std::vector<int64_t> &OutEncodedIndices,
+    SmallVector<int64_t, 10> &InCurrentIndices) const {
+  if (isRestrictQualified()) {
+    OutEncodedIndices.push_back(InCurrentIndices.size());
+    OutEncodedIndices.insert(OutEncodedIndices.end(), InCurrentIndices.begin(),
+                             InCurrentIndices.end());
+
+    return;
+  }
+
+  QualType CannonTy = getCanonicalType();
+  if (const auto *RecTy = CannonTy->getAs<RecordType>()) {
+    RecordDecl *RD = RecTy->getDecl();
+    InCurrentIndices.push_back(0);
+    for (FieldDecl *FD : RD->fields()) {
+      FD->getType().getRestrictIndices(OutEncodedIndices, InCurrentIndices);
+      InCurrentIndices.back()++;
+    }
+    InCurrentIndices.pop_back();
+  } else if (const auto *ArrayTy = dyn_cast<ArrayType>(CannonTy)) {
+    // Note: we use -1 for bounded and unbounded arrays
+    InCurrentIndices.push_back(-1); // -1 indicates that any index is fine
+    ArrayTy->getElementType().getRestrictIndices(OutEncodedIndices,
+                                                 InCurrentIndices);
+    InCurrentIndices.pop_back();
+  }
+}
+
 bool QualType::isConstant(QualType T, const ASTContext &Ctx) {
   if (T.isConstQualified())
     return true;

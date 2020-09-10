@@ -75,16 +75,23 @@ entry:
 ; CHECK-LABEL: define i32 @main
 ; CHECK-NEXT:  entry:
 ; CHECK:         [[BUFFER:%.*]] = alloca [8 x i8], align 4
+; CHECK:         [[SUB:%.*]] = getelementptr inbounds [8 x i8], [8 x i8]* [[BUFFER]], i64 0, i64 0
 ; CHECK:         [[SLOT:%.*]] = bitcast [8 x i8]* [[BUFFER]] to i32*
 ; CHECK-NEXT:    store i32 4, i32* [[SLOT]], align 4
 ; CHECK-NEXT:    call void @print(i32 4)
-; CHECK-NEXT:    [[LOAD:%.*]] = load i32, i32* [[SLOT]], align 4
+; CHECK-NEXT:    [[SUB_0_DECL:%.*]] = call i8* @llvm.noalias.decl.p0i8.p0p0i8.i64(i8** null, i64 0, metadata [[SUB_0_META:!.*]])
+; CHECK-NEXT:    [[SUB_0_PROVENANCE:%.*]] = call i8* @llvm.provenance.noalias.p0i8.p0i8.p0p0i8.p0p0i8.i64(i8* nonnull [[SUB]], i8* [[SUB_0_DECL]], i8** null, i8** undef, i64 0, metadata [[SUB_0_META]])
+; CHECK-NEXT:    [[SUB_0_PROVENANCE_I32:%.*]] = bitcast i8* [[SUB_0_PROVENANCE]] to i32*
+; CHECK-NEXT:    [[LOAD:%.*]] = load i32, i32* [[SLOT]], ptr_provenance i32* [[SUB_0_PROVENANCE_I32]], align 4, !noalias [[SUB_0_META]]
 ; CHECK-NEXT:    [[INC:%.*]] = add i32 [[LOAD]], 1
-; CHECK-NEXT:    store i32 [[INC]], i32* [[SLOT]], align 4
+; CHECK-NEXT:    store i32 [[INC]], i32* [[SLOT]], ptr_provenance i32* [[SUB_0_PROVENANCE_I32]], align 4, !noalias [[SUB_0_META]]
 ; CHECK-NEXT:    call void @print(i32 [[INC]])
-; CHECK-NEXT:    [[LOAD:%.*]] = load i32, i32* [[SLOT]], align 4
+; CHECK-NEXT:    [[SUB_1_DECL:%.*]] = call i8* @llvm.noalias.decl.p0i8.p0p0i8.i64(i8** null, i64 0, metadata [[SUB_1_META:!.*]])
+; CHECK-NEXT:    [[SUB_1_PROVENANCE:%.*]] = call i8* @llvm.provenance.noalias.p0i8.p0i8.p0p0i8.p0p0i8.i64(i8* nonnull [[SUB]], i8* [[SUB_1_DECL]], i8** null, i8** undef, i64 0, metadata [[SUB_1_META]])
+; CHECK-NEXT:    [[SUB_1_PROVENANCE_I32:%.*]] = bitcast i8* [[SUB_1_PROVENANCE]] to i32*
+; CHECK-NEXT:    [[LOAD:%.*]] = load i32, i32* [[SLOT]], ptr_provenance i32* [[SUB_1_PROVENANCE_I32]], align 4, !noalias [[SUB_1_META]]
 ; CHECK-NEXT:    [[INC:%.*]] = add i32 [[LOAD]], 1
-; CHECK-NEXT:    store i32 [[INC]], i32* [[SLOT]], align 4
+; CHECK-NEXT:    store i32 [[INC]], i32* [[SLOT]], ptr_provenance i32* [[SUB_1_PROVENANCE_I32]], align 4, !noalias [[SUB_1_META]]
 ; CHECK-NEXT:    call void @print(i32 [[INC]])
 ; CHECK-NEXT:    ret i32 0
 

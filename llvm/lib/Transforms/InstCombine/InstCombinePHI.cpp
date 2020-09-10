@@ -692,11 +692,8 @@ Instruction *InstCombinerImpl::foldPHIArgLoadIntoPHI(PHINode &PN) {
       new LoadInst(FirstLI->getType(), NewPN, "", isVolatile, LoadAlignment);
 
   unsigned KnownIDs[] = {
-    LLVMContext::MD_tbaa,
     LLVMContext::MD_range,
     LLVMContext::MD_invariant_load,
-    LLVMContext::MD_alias_scope,
-    LLVMContext::MD_noalias,
     LLVMContext::MD_nonnull,
     LLVMContext::MD_align,
     LLVMContext::MD_dereferenceable,
@@ -708,14 +705,19 @@ Instruction *InstCombinerImpl::foldPHIArgLoadIntoPHI(PHINode &PN) {
     NewLI->setMetadata(ID, FirstLI->getMetadata(ID));
 
   // Add all operands to the new PHI and combine TBAA metadata.
+  AAMDNodes AAInfo;
+  FirstLI->getAAMetadata(AAInfo);
   for (unsigned i = 1, e = PN.getNumIncomingValues(); i != e; ++i) {
     LoadInst *LI = cast<LoadInst>(PN.getIncomingValue(i));
     combineMetadata(NewLI, LI, KnownIDs, true);
+    LI->getAAMetadata(AAInfo, true);
     Value *NewInVal = LI->getOperand(0);
     if (NewInVal != InVal)
       InVal = nullptr;
     NewPN->addIncoming(NewInVal, PN.getIncomingBlock(i));
   }
+  NewLI->setAAMetadata(AAInfo);
+  NewLI->setAAMetadataNoAliasProvenance(AAInfo);
 
   if (InVal) {
     // The new PHI unions all of the same values together.  This is really

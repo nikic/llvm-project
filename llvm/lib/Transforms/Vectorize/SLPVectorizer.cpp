@@ -1528,6 +1528,53 @@ private:
       }
     }
 
+    /// Set the operands of this bundle of load or store instructions in their
+    /// original order.
+    void setLoadStoreOperandsInOrder() {
+      assert(Operands.empty() && "Already initialized?");
+      auto *I0 = cast<Instruction>(Scalars[0]);
+      assert((isa<LoadInst>(I0) || isa<StoreInst>(I0)) &&
+             "Expect a load or store instruction");
+      unsigned NumBaseOperands = isa<LoadInst>(I0) ? 1 : 2;
+
+      // Check if any instruction has a ptr_provenance
+      bool HasProvenance = llvm::any_of(Scalars, [&](auto *V) {
+        return cast<Instruction>(V)->getNumOperands() != NumBaseOperands;
+      });
+
+      Operands.resize(NumBaseOperands + HasProvenance);
+      unsigned NumLanes = Scalars.size();
+      for (unsigned OpIdx = 0; OpIdx != NumBaseOperands; ++OpIdx) {
+        auto &Op = Operands[OpIdx];
+        Op.resize(NumLanes);
+        for (unsigned Lane = 0; Lane != NumLanes; ++Lane) {
+          auto *I = cast<Instruction>(Scalars[Lane]);
+          assert(((I->getNumOperands() == NumBaseOperands) ||
+                  (I->getNumOperands() == NumBaseOperands + 1)) &&
+                 "Expected same number of operands (ignoring the "
+                 "ptr_provenance");
+          Op[Lane] = I->getOperand(OpIdx);
+        }
+      }
+
+      if (HasProvenance) {
+        // At least one instruction has a ptr_provenance.
+        // Keep track of the dependencies brought in by it. Later on we will
+        // omit the noalias information.
+        auto &Op = Operands[NumBaseOperands];
+        Op.resize(NumLanes);
+        for (unsigned Lane = 0; Lane != NumLanes; ++Lane) {
+          auto *I = cast<Instruction>(Scalars[Lane]);
+          if (I->getNumOperands() != NumBaseOperands) {
+            Op[Lane] = I->getOperand(NumBaseOperands);
+          } else {
+            Op[Lane] =
+                UndefValue::get(I->getOperand(NumBaseOperands - 1)->getType());
+          }
+        }
+      }
+    }
+
     /// \returns the \p OpIdx operand of this TreeEntry.
     ValueList &getOperand(unsigned OpIdx) {
       assert(OpIdx < Operands.size() && "Off bounds");
@@ -1723,7 +1770,7 @@ private:
   /// Maps a specific scalar to its tree entry.
   SmallDenseMap<Value*, TreeEntry *> ScalarToTreeEntry;
 
-  /// Maps a value to the proposed vectorizable size.
+  /// Maps a value to the proposed vectorizable size.
   SmallDenseMap<Value *, unsigned> InstrElementSize;
 
   /// A list of scalars that we found that we need to keep as scalars.
@@ -2047,6 +2094,7 @@ private:
           auto *In = TE->getMainOp();
           assert(In &&
                  (isa<ExtractValueInst>(In) || isa<ExtractElementInst>(In) ||
+                  isa<LoadInst>(In) || isa<StoreInst>(In) ||
                   In->getNumOperands() == TE->getNumOperands()) &&
                  "Missed TreeEntry operands?");
           (void)In; // fake use to avoid build failure when assertions disabled
@@ -2742,7 +2790,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
             ++NumOpsWantToKeepOriginalOrder;
             TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S,
                                          UserTreeIdx, ReuseShuffleIndicies);
-            TE->setOperandsInOrder();
+            TE->setLoadStoreOperandsInOrder();
             LLVM_DEBUG(dbgs() << "SLP: added a vector of loads.\n");
           } else {
             // Need to reorder.
@@ -2751,7 +2799,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
             TreeEntry *TE =
                 newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                              ReuseShuffleIndicies, I->getFirst());
-            TE->setOperandsInOrder();
+            TE->setLoadStoreOperandsInOrder();
             LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled loads.\n");
           }
           return;
@@ -3004,7 +3052,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
             ++NumOpsWantToKeepOriginalOrder;
             TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S,
                                          UserTreeIdx, ReuseShuffleIndicies);
-            TE->setOperandsInOrder();
+            TE->setLoadStoreOperandsInOrder();
             buildTree_rec(Operands, Depth + 1, {TE, 0});
             LLVM_DEBUG(dbgs() << "SLP: added a vector of stores.\n");
           } else {
@@ -3014,7 +3062,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
             TreeEntry *TE =
                 newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                              ReuseShuffleIndicies, I->getFirst());
-            TE->setOperandsInOrder();
+            TE->setLoadStoreOperandsInOrder();
             buildTree_rec(Operands, Depth + 1, {TE, 0});
             LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled stores.\n");
           }
@@ -4250,7 +4298,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
           PointerType::get(VecTy, LI->getPointerAddressSpace());
       Value *Ptr = Builder.CreateBitCast(LI->getOperand(0), PtrTy);
       LoadInst *V = Builder.CreateAlignedLoad(VecTy, Ptr, LI->getAlign());
-      Value *NewV = propagateMetadata(V, E->Scalars);
+      Value *NewV = propagateMetadata(V, E->Scalars, true);
       if (!E->ReorderIndices.empty()) {
         SmallVector<int, 4> Mask;
         inversePermutation(E->ReorderIndices, Mask);
@@ -4431,7 +4479,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         ExternalUses.push_back(ExternalUser(PO, cast<User>(VecPtr), 0));
 
       LI = Builder.CreateAlignedLoad(VecTy, VecPtr, LI->getAlign());
-      Value *V = propagateMetadata(LI, E->Scalars);
+      Value *V = propagateMetadata(LI, E->Scalars, (E->getNumOperands() == 2));
       if (IsReorder) {
         SmallVector<int, 4> Mask;
         inversePermutation(E->ReorderIndices, Mask);
@@ -4475,7 +4523,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       if (getTreeEntry(ScalarPtr))
         ExternalUses.push_back(ExternalUser(ScalarPtr, cast<User>(VecPtr), 0));
 
-      Value *V = propagateMetadata(ST, E->Scalars);
+      Value *V = propagateMetadata(ST, E->Scalars, (E->getNumOperands() == 3));
       if (NeedToShuffleReuses) {
         V = Builder.CreateShuffleVector(V, UndefValue::get(VecTy),
                                         E->ReuseShuffleIndices, "shuffle");

@@ -268,6 +268,11 @@ void updateProfileCallee(
     Function *Callee, int64_t entryDelta,
     const ValueMap<const Value *, WeakTrackingVH> *VMap = nullptr);
 
+/// Connects noalias, provenance.noalias, noalias.copy.guard intrinsics to the
+/// corresponding llvm.noalias.decl, based on the alloca of the underlying
+/// p.addr.
+/// \returns true when the function was modified.
+bool propagateAndConnectNoAliasDecl(Function *F);
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_UTILS_CLONING_H

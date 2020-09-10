@@ -272,7 +272,7 @@ int main() {
   return a;
 }
 // CHECK: define internal i32 [[TASK_ENTRY1]](i32 %0, [[KMP_TASK_T]]{{.*}}* noalias %1)
-// CHECK: store i32 15, i32* [[A_PTR:@.+]]
+// CHECK: store i32 15, i32* [[A_PTR:@.+]], align 4
 // CHECK: [[A_VAL:%.+]] = load i32, i32* [[A_PTR]]
 // CHECK: [[A_VAL_I8:%.+]] = trunc i32 [[A_VAL]] to i8
 // CHECK: store i8 [[A_VAL_I8]], i8* %{{.+}}

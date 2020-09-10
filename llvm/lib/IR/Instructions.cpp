@@ -1413,8 +1413,11 @@ LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
 LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
                    Align Align, AtomicOrdering Order, SyncScope::ID SSID,
                    Instruction *InsertBef)
-    : UnaryInstruction(Ty, Load, Ptr, InsertBef) {
+    : Instruction(Ty, Load, OperandTraits<LoadInst>::op_begin(this), 2,
+                  InsertBef) {
   assert(Ty == cast<PointerType>(Ptr->getType())->getElementType());
+  Op<0>() = Ptr;
+  setLoadInstNumOperands(1);
   setVolatile(isVolatile);
   setAlignment(Align);
   setAtomic(Order, SSID);
@@ -1425,7 +1428,10 @@ LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
 LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
                    Align Align, AtomicOrdering Order, SyncScope::ID SSID,
                    BasicBlock *InsertAE)
-    : UnaryInstruction(Ty, Load, Ptr, InsertAE) {
+    : Instruction(Ty, Load, OperandTraits<LoadInst>::op_begin(this), 2,
+                  InsertAE) {
+  Op<0>() = Ptr;
+  setLoadInstNumOperands(1);
   assert(Ty == cast<PointerType>(Ptr->getType())->getElementType());
   setVolatile(isVolatile);
   setAlignment(Align);
@@ -1481,10 +1487,10 @@ StoreInst::StoreInst(Value *val, Value *addr, bool isVolatile, Align Align,
                      AtomicOrdering Order, SyncScope::ID SSID,
                      Instruction *InsertBefore)
     : Instruction(Type::getVoidTy(val->getContext()), Store,
-                  OperandTraits<StoreInst>::op_begin(this),
-                  OperandTraits<StoreInst>::operands(this), InsertBefore) {
+                  OperandTraits<StoreInst>::op_begin(this), 3, InsertBefore) {
   Op<0>() = val;
   Op<1>() = addr;
+  setStoreInstNumOperands(2);
   setVolatile(isVolatile);
   setAlignment(Align);
   setAtomic(Order, SSID);
@@ -1495,10 +1501,10 @@ StoreInst::StoreInst(Value *val, Value *addr, bool isVolatile, Align Align,
                      AtomicOrdering Order, SyncScope::ID SSID,
                      BasicBlock *InsertAtEnd)
     : Instruction(Type::getVoidTy(val->getContext()), Store,
-                  OperandTraits<StoreInst>::op_begin(this),
-                  OperandTraits<StoreInst>::operands(this), InsertAtEnd) {
+                  OperandTraits<StoreInst>::op_begin(this), 3, InsertAtEnd) {
   Op<0>() = val;
   Op<1>() = addr;
+  setStoreInstNumOperands(2);
   setVolatile(isVolatile);
   setAlignment(Align);
   setAtomic(Order, SSID);
@@ -4307,13 +4313,32 @@ AllocaInst *AllocaInst::cloneImpl() const {
 }
 
 LoadInst *LoadInst::cloneImpl() const {
-  return new LoadInst(getType(), getOperand(0), Twine(), isVolatile(),
-                      getAlign(), getOrdering(), getSyncScopeID());
+  LoadInst *Result =
+      new LoadInst(getType(), getOperand(0), Twine(), isVolatile(), getAlign(),
+                   getOrdering(), getSyncScopeID());
+  // - we must keep the same number of arguments (for vector optimizations)
+  // - if we duplicate the provenance, we can get into problems with passes
+  //   that don't know how to handle it (Like MergeLoadStoreMotion shows)
+  // - safe alternative: keep the argument, but map it to undef.
+  if (hasNoaliasProvenanceOperand())
+    Result->setNoaliasProvenanceOperand(
+        UndefValue::get(getNoaliasProvenanceOperand()->getType()));
+  return Result;
 }
 
 StoreInst *StoreInst::cloneImpl() const {
-  return new StoreInst(getOperand(0), getOperand(1), isVolatile(), getAlign(),
-                       getOrdering(), getSyncScopeID());
+  StoreInst *Result =
+      new StoreInst(getOperand(0), getOperand(1), isVolatile(), getAlign(),
+                    getOrdering(), getSyncScopeID());
+
+  // we must keep the same number of arguments (for vector optimizations)
+  // - if we duplicate the provenance, we can get into problems with passes
+  //   that don't know how to handle it (Like MergeLoadStoreMotion shows)
+  // - safe alternative: keep the argument, but map it to undef.
+  if (hasNoaliasProvenanceOperand())
+    Result->setNoaliasProvenanceOperand(
+        UndefValue::get(getNoaliasProvenanceOperand()->getType()));
+  return Result;
 }
 
 AtomicCmpXchgInst *AtomicCmpXchgInst::cloneImpl() const {

@@ -164,24 +164,26 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
       for (User *U : I->users()) {
         Instruction *UI = cast<Instruction>(U);
         Type *SrcTy;
-        if (LoadInst *L = dyn_cast<LoadInst>(UI))
+        IndicesVector Indices;
+        LoadInst *L = dyn_cast<LoadInst>(UI);
+        if (L)
           SrcTy = L->getType();
         else
           SrcTy = cast<GetElementPtrInst>(UI)->getSourceElementType();
-        IndicesVector Indices;
-        Indices.reserve(UI->getNumOperands() - 1);
-        // Since loads will only have a single operand, and GEPs only a single
-        // non-index operand, this will record direct loads without any indices,
-        // and gep+loads with the GEP indices.
-        for (User::op_iterator II = UI->op_begin() + 1, IE = UI->op_end();
-             II != IE; ++II)
-          Indices.push_back(cast<ConstantInt>(*II)->getSExtValue());
-        // GEPs with a single 0 index can be merged with direct loads
-        if (Indices.size() == 1 && Indices.front() == 0)
-          Indices.clear();
+        if (L == nullptr) { // not a direct load (loads can have 2 operands)
+          Indices.reserve(UI->getNumOperands() - 1);
+          // This will record direct loads without any indices, and gep+loads
+          // with the GEP indices.
+          for (User::op_iterator II = UI->op_begin() + 1, IE = UI->op_end();
+               II != IE; ++II)
+            Indices.push_back(cast<ConstantInt>(*II)->getSExtValue());
+          // GEPs with a single 0 index can be merged with direct loads
+          if (Indices.size() == 1 && Indices.front() == 0)
+            Indices.clear();
+        }
         ArgIndices.insert(std::make_pair(SrcTy, Indices));
         LoadInst *OrigLoad;
-        if (LoadInst *L = dyn_cast<LoadInst>(UI))
+        if (L)
           OrigLoad = L;
         else
           // Take any load, we will use it only to update Alias Analysis
@@ -305,6 +307,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
           AAMDNodes AAInfo;
           OrigLoad->getAAMetadata(AAInfo);
           newLoad->setAAMetadata(AAInfo);
+          newLoad->setAAMetadataNoAliasProvenance(AAInfo);
 
           Args.push_back(newLoad);
           ArgAttrVec.push_back(AttributeSet());

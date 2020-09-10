@@ -78,7 +78,9 @@
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O2-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O2-NEXT: Running analysis: LazyValueAnalysis
+; CHECK-O2-NEXT: Running pass: ConnectNoAliasDeclPass
 ; CHECK-O2-NEXT: Running pass: SROA on foo
+; CHECK-O2-NEXT: Running pass: PropagateAndConvertNoAliasPass
 ; CHECK-O2-NEXT: Running pass: TailCallElimPass on foo
 ; CHECK-O2-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O2-NEXT: Running pass: PostOrderFunctionAttrsPass

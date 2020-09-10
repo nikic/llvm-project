@@ -61,6 +61,7 @@ class BasicAAResult : public AAResultBase<BasicAAResult> {
   DominatorTree *DT;
   LoopInfo *LI;
   PhiValues *PV;
+  unsigned RecurseLevel = 0;
 
 public:
   BasicAAResult(const DataLayout &DL, const Function &F,

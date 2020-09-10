@@ -110,7 +110,7 @@ protected:
   ///
   /// Note, this should *NOT* be used directly by any class other than User.
   /// User uses this value to find the Use list.
-  enum : unsigned { NumUserOperandsBits = 28 };
+  enum : unsigned { NumUserOperandsBits = 27 };
   unsigned NumUserOperands : NumUserOperandsBits;
 
   // Use the same type as the bitfield above so that MSVC will pack them.
@@ -118,6 +118,7 @@ protected:
   unsigned HasName : 1;
   unsigned HasHungOffUses : 1;
   unsigned HasDescriptor : 1;
+  unsigned NumUserOperandsDelta : 1;
 
 private:
   template <typename UseT> // UseT == 'Use' or 'const Use'
@@ -317,6 +318,13 @@ public:
   /// Unlike replaceAllUsesWith() this function does not support basic block
   /// values or constant users.
   void replaceUsesOutsideBlock(Value *V, BasicBlock *BB);
+
+  /// replaceUsesInsideBlock - Go through the uses list for this definition and
+  /// make each use point to "V" instead of "this" when the use is inside the
+  /// block.
+  /// Unlike replaceAllUsesWith this function does not support basic block
+  /// values or constant users.
+  void replaceUsesInsideBlock(Value *V, BasicBlock *BB);
 
   //----------------------------------------------------------------------
   // Methods for handling the chain of uses of this Value.
@@ -596,6 +604,18 @@ public:
   Value *stripPointerCastsAndInvariantGroups() {
     return const_cast<Value *>(static_cast<const Value *>(this)
                                    ->stripPointerCastsAndInvariantGroups());
+  }
+
+  /// Strip off pointer casts, all-zero GEPs, aliases, invariant group
+  /// info and noalias intrinsics.
+  ///
+  /// Returns the original uncasted value.  If this is called on a non-pointer
+  /// value, it returns 'this'.
+  const Value *stripPointerCastsAndInvariantGroupsAndNoAliasIntr() const;
+  Value *stripPointerCastsAndInvariantGroupsAndNoAliasIntr() {
+    return const_cast<Value *>(
+        static_cast<const Value *>(this)
+            ->stripPointerCastsAndInvariantGroupsAndNoAliasIntr());
   }
 
   /// Strip off pointer casts and all-constant inbounds GEPs.

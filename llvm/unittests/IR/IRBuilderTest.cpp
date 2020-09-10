@@ -12,6 +12,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsAArch64.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
@@ -357,6 +358,203 @@ TEST_F(IRBuilderTest, ConstrainedFPFunctionCall) {
 
   Builder.CreateRetVoid();
   EXPECT_FALSE(verifyModule(*M));
+}
+
+TEST_F(IRBuilderTest, NoAlias) {
+  IRBuilder<> Builder(BB);
+  AllocaInst *Var1 = Builder.CreateAlloca(Builder.getInt8Ty());
+
+  AllocaInst *VarP = Builder.CreateAlloca(Builder.getInt8PtrTy());
+  Builder.CreateStore(Var1, VarP);
+
+  MDBuilder MDB(BB->getContext());
+  MDNode *NewDomain = MDB.createAnonymousAliasScopeDomain("Test Domain");
+  MDNode *AScope = MDB.createAnonymousAliasScope(NewDomain, "Test Scope");
+
+  CallInst *NAD =
+      cast<CallInst>(Builder.CreateNoAliasDeclaration(VarP, AScope));
+  Value *Pointer = Builder.CreateLoad(VarP);
+  CallInst *NAP =
+      cast<CallInst>(Builder.CreateNoAliasPointer(Pointer, NAD, VarP, AScope));
+
+  // llvm.noalias.decl
+  EXPECT_EQ(NAD->getArgOperand(Intrinsic::NoAliasDeclAllocaArg), VarP);
+  EXPECT_EQ(
+      cast<ConstantInt>(NAD->getArgOperand(Intrinsic::NoAliasDeclObjIdArg))
+          ->getZExtValue(),
+      0ull);
+  EXPECT_EQ(
+      cast<MetadataAsValue>(NAD->getArgOperand(Intrinsic::NoAliasDeclScopeArg))
+          ->getMetadata(),
+      AScope);
+
+  IntrinsicInst *II_NAD = dyn_cast<IntrinsicInst>(NAD);
+  ASSERT_TRUE(II_NAD != nullptr);
+  EXPECT_EQ(II_NAD->getIntrinsicID(), Intrinsic::noalias_decl);
+
+  EXPECT_TRUE(NAD->onlyAccessesArgMemory());
+  EXPECT_TRUE(NAD->doesNotThrow());
+
+  // llvm.noalias
+  EXPECT_EQ(NAP->getArgOperand(0), Pointer);
+  EXPECT_EQ(NAP->getArgOperand(Intrinsic::NoAliasNoAliasDeclArg), NAD);
+  EXPECT_EQ(NAP->getArgOperand(Intrinsic::NoAliasIdentifyPArg), VarP);
+  EXPECT_EQ(
+      cast<MetadataAsValue>(NAP->getArgOperand(Intrinsic::NoAliasScopeArg))
+          ->getMetadata(),
+      AScope);
+  EXPECT_EQ(
+      cast<ConstantInt>(NAP->getArgOperand(Intrinsic::NoAliasIdentifyPObjIdArg))
+          ->getZExtValue(),
+      0ull); // default object id is 0
+
+  IntrinsicInst *II_NAP = dyn_cast<IntrinsicInst>(NAP);
+  ASSERT_TRUE(II_NAP != nullptr);
+  EXPECT_EQ(II_NAP->getIntrinsicID(), Intrinsic::noalias);
+
+  EXPECT_TRUE(NAP->onlyAccessesArgMemory());
+  EXPECT_TRUE(NAP->doesNotThrow());
+}
+
+TEST_F(IRBuilderTest, ProvenanceNoAliasAndArgGuard) {
+  IRBuilder<> Builder(BB);
+  AllocaInst *Var1 = Builder.CreateAlloca(Builder.getInt8Ty());
+
+  AllocaInst *VarP = Builder.CreateAlloca(Builder.getInt8PtrTy());
+  Builder.CreateStore(Var1, VarP);
+
+  MDBuilder MDB(BB->getContext());
+  MDNode *NewDomain = MDB.createAnonymousAliasScopeDomain("Test Domain");
+  MDNode *AScope = MDB.createAnonymousAliasScope(NewDomain, "Test Scope");
+
+  CallInst *NAD =
+      cast<CallInst>(Builder.CreateNoAliasDeclaration(VarP, AScope));
+  Value *Pointer = Builder.CreateLoad(VarP);
+  CallInst *SNAP = cast<CallInst>(Builder.CreateProvenanceNoAliasPlain(
+      Pointer, NAD, VarP, llvm::ConstantPointerNull::get(VarP->getType()),
+      NAD->getArgOperand(Intrinsic::NoAliasDeclObjIdArg), AScope));
+
+  CallInst *NAG = cast<CallInst>(Builder.CreateNoAliasArgGuard(Pointer, SNAP));
+
+  // create load on Pointer, with SNAP provenance
+
+  // llvm.provenance.noalias
+  EXPECT_EQ(SNAP->getArgOperand(0), Pointer);
+  EXPECT_EQ(SNAP->getArgOperand(Intrinsic::ProvenanceNoAliasNoAliasDeclArg),
+            NAD);
+  EXPECT_EQ(SNAP->getArgOperand(Intrinsic::ProvenanceNoAliasIdentifyPArg),
+            VarP);
+  EXPECT_EQ(cast<MetadataAsValue>(
+                SNAP->getArgOperand(Intrinsic::ProvenanceNoAliasScopeArg))
+                ->getMetadata(),
+            AScope);
+  ASSERT_TRUE(cast<ConstantPointerNull>(
+      SNAP->getArgOperand(Intrinsic::ProvenanceNoAliasIdentifyPProvenanceArg)));
+  EXPECT_EQ(
+      cast<ConstantInt>(
+          SNAP->getArgOperand(Intrinsic::ProvenanceNoAliasIdentifyPObjIdArg))
+          ->getZExtValue(),
+      0ull); // default object id is 0
+
+  IntrinsicInst *II_SNAP = dyn_cast<IntrinsicInst>(SNAP);
+  ASSERT_TRUE(II_SNAP != nullptr);
+  EXPECT_EQ(II_SNAP->getIntrinsicID(), Intrinsic::provenance_noalias);
+
+  EXPECT_TRUE(SNAP->doesNotAccessMemory());
+  EXPECT_TRUE(SNAP->doesNotThrow());
+
+  // llvm.noalias.arg.guard
+  EXPECT_EQ(NAG->getArgOperand(0), Pointer);
+  EXPECT_EQ(NAG->getArgOperand(1), SNAP);
+
+  EXPECT_TRUE(NAG->doesNotAccessMemory());
+  EXPECT_TRUE(NAG->doesNotThrow());
+}
+
+TEST_F(IRBuilderTest, NoAliasCopyGuard) {
+  // // roughly equivalent code for:
+  // struct FOO { char* __reststrict p; }
+  // char copy_restrict(struct FOO* p) {
+  //   struct FOO local=*p; // Introduces llvm.noalias.copy.guard
+  //   return *local.p; // NOTE: this part is omitted
+  //  }
+
+  IRBuilder<> Builder(BB);
+  StructType *ST =
+      StructType::create(BB->getContext(), {Builder.getInt8PtrTy()});
+
+  // pointer to incoming struct
+  AllocaInst *VarIn = Builder.CreateAlloca(ST->getPointerTo());
+
+  // local struct
+  AllocaInst *Var1 = Builder.CreateAlloca(ST);
+  // pointer to local struct
+  AllocaInst *VarP = Builder.CreateAlloca(ST->getPointerTo());
+  Builder.CreateStore(Var1, VarP);
+
+  MDBuilder MDB(BB->getContext());
+  MDNode *NewDomain = MDB.createAnonymousAliasScopeDomain("Test Domain");
+  MDNode *AScope = MDB.createAnonymousAliasScope(NewDomain, "Test Scope");
+
+  CallInst *NAD =
+      cast<CallInst>(Builder.CreateNoAliasDeclaration(VarP, AScope));
+  (void)NAD; // not used as we don't do the 'return *local.p' here
+
+  auto *SrcPointer = Builder.CreateLoad(VarIn);
+  // one entry of length 2, containing {-1, 0} :
+  const int64_t Indices[] = {2, -1, 0};
+  auto Int8PtrNull = ConstantPointerNull::get(Builder.getInt8PtrTy());
+  CallInst *GP = cast<CallInst>(Builder.CreateNoAliasCopyGuard(
+      SrcPointer,
+      Int8PtrNull, // out-of-function __restrict declaration
+      Indices, // For struct FOO* f, all f[X].p (X ~ -1, .p ~ 0) are restrict
+      AScope));
+  auto *Copy = Builder.CreateMemCpy(
+      Var1, Align(4), GP, Align(4),
+      BB->getParent()->getParent()->getDataLayout().getTypeStoreSize(ST));
+  (void)Copy;
+
+  // llvm.provenance.noalias
+  EXPECT_EQ(GP->getArgOperand(Intrinsic::NoAliasCopyGuardIdentifyPBaseObject),
+            SrcPointer);
+  EXPECT_EQ(GP->getArgOperand(Intrinsic::NoAliasCopyGuardNoAliasDeclArg),
+            Int8PtrNull);
+
+  // hmm. how to easily check that we are pointing to a { { -1, 0 } } array ?
+  EXPECT_TRUE(cast<MetadataAsValue>(GP->getArgOperand(
+                  Intrinsic::NoAliasCopyGuardIndicesArg)) != nullptr);
+  EXPECT_EQ(cast<MetadataAsValue>(
+                GP->getArgOperand(Intrinsic::NoAliasCopyGuardScopeArg))
+                ->getMetadata(),
+            AScope);
+
+  EXPECT_TRUE(GP->doesNotAccessMemory());
+  EXPECT_TRUE(GP->doesNotThrow());
+}
+
+TEST_F(IRBuilderTest, Provenance) {
+  IRBuilder<> Builder(BB);
+
+  auto *L = Builder.CreateLoad(GV->getValueType(), GV);
+  EXPECT_TRUE(!L->hasNoaliasProvenanceOperand());
+
+  auto *S = Builder.CreateStore(L, GV);
+  EXPECT_TRUE(!S->hasNoaliasProvenanceOperand());
+
+  L->setNoaliasProvenanceOperand(GV);
+  EXPECT_TRUE(L->hasNoaliasProvenanceOperand());
+
+  S->setNoaliasProvenanceOperand(GV);
+  EXPECT_TRUE(S->hasNoaliasProvenanceOperand());
+
+  EXPECT_EQ(L->getNoaliasProvenanceOperand(), GV);
+  EXPECT_EQ(S->getNoaliasProvenanceOperand(), GV);
+
+  L->removeNoaliasProvenanceOperand();
+  EXPECT_TRUE(!L->hasNoaliasProvenanceOperand());
+
+  S->removeNoaliasProvenanceOperand();
+  EXPECT_TRUE(!S->hasNoaliasProvenanceOperand());
 }
 
 TEST_F(IRBuilderTest, Lifetime) {

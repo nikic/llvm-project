@@ -43,6 +43,7 @@ intermediate LLVM representation.
    MergeFunctions
    MCJITDesignAndImplementation
    NVPTXUsage
+   NoAliasInfo
    Phabricator
    Passes
    ReportingGuide
@@ -120,6 +121,10 @@ Optimizations
 :doc:`AliasAnalysis`
    Information on how to write a new alias analysis implementation or how to
    use existing analyses.
+
+:doc:`NoAliasInfo`
+   Information on how provenance based alias analysis, used to implement C99
+   restrict, works.
 
 :doc:`MemorySSA`
    Information about the MemorySSA utility in LLVM, as well as how to use it.

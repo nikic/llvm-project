@@ -39,6 +39,13 @@ public:
     return Pointer;
   }
 
+  /// Replace the current pointer of the addres with a new pointer.
+  void adaptPointer(llvm::Value *newPointer) {
+    assert(Pointer->getType() == newPointer->getType() &&
+           "Address: changing the pointer must not change the type");
+    Pointer = newPointer;
+  }
+
   /// Return the type of the pointer value.
   llvm::PointerType *getType() const {
     return llvm::cast<llvm::PointerType>(getPointer()->getType());

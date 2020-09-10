@@ -690,6 +690,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   CurFn = Fn;
   CurFnInfo = &FnInfo;
   assert(CurFn->isDeclaration() && "Function already has body?");
+  NoAliasUnknownScope = nullptr; // make sure we start without a function scope
+
+  // Always track memory instructions. When a restrict usage is encountered,
+  // they will be annotated with the necessary scopes.
+  FnNoAliasInfo.recordMemoryInsts();
 
   // If this function has been blacklisted for any of the enabled sanitizers,
   // disable the sanitizer for the function.
@@ -1143,10 +1148,15 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
 
 void CodeGenFunction::EmitFunctionBody(const Stmt *Body) {
   incrementProfileCounter(Body);
-  if (const CompoundStmt *S = dyn_cast<CompoundStmt>(Body))
+  if (const CompoundStmt *S = dyn_cast<CompoundStmt>(Body)) {
     EmitCompoundStmtWithoutScope(*S);
-  else
+
+    // Now that we're done with the block, add noalias metadata if we had any
+    // block-local restrict-qualified pointers.
+    FnNoAliasInfo.addNoAliasMD();
+  } else {
     EmitStmt(Body);
+  }
 }
 
 /// When instrumenting to collect profile data, the counts for some blocks
@@ -2235,10 +2245,18 @@ CodeGenFunction::SanitizerScope::~SanitizerScope() {
 void CodeGenFunction::InsertHelper(llvm::Instruction *I,
                                    const llvm::Twine &Name,
                                    llvm::BasicBlock *BB,
-                                   llvm::BasicBlock::iterator InsertPt) const {
+                                   llvm::BasicBlock::iterator InsertPt) {
   LoopStack.InsertHelper(I);
   if (IsSanitizerScope)
     CGM.getSanitizerMetadata()->disableSanitizerForInstruction(I);
+
+  // When we have block-local restrict-qualified pointers, we need to record
+  // all memory-accessing instructions (i.e. any kind of instruction for which
+  // AA::getModRefInfo might return something other than NoModRef) so that they
+  // can be tagged with noalias metadata with noalias scopes corresponding to
+  // the applicable restrict-qualified pointers.
+  if (I->mayReadOrWriteMemory())
+    recordMemoryInstruction(I);
 }
 
 void CGBuilderInserter::InsertHelper(

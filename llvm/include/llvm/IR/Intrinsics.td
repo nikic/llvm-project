@@ -523,6 +523,179 @@ def int_readcyclecounter : Intrinsic<[llvm_i64_ty]>;
 def int_assume        : Intrinsic<[], [llvm_i1_ty], [IntrWillReturn,
                                                      NoUndef<ArgIndex<0>>]>;
 
+// The 'noalias intrinsics' allow to track dependencies so that the C99 restrict
+// rules can be implemented.
+//
+// - llvm.noalias.decl
+// - llvm.noalias
+// - llvm.provenance.noalias
+// - llvm.noalias.arg.guard
+// - llvm.noalias.copy.guard
+//
+//
+// Following arguments are typically used in the various intrinsics:
+// - p: the value of the restrict pointer
+// - p.addr: identifyP: the address of P: either a real object or a constant
+//   where the value is relative to 0: different 'identifyP' represent
+//   different restrict pointers, pointing to disjunct objects.
+// - p.objId: when an alloca-object is split by SROA, multiple versions,
+//   representing the same variable declaration (=scope) can exist.
+//   This objId allows to differentiate between them. This is useful
+//   when later on, the alloca's are optimized away.
+// - p.scope: metadata argument that refers to a list of alias.scope metadata
+//   entries that contains exactly one element. It represents the variable
+//   declaration that contains one or more restrict pointers.
+// - p.decl: points to the @llvm.noalias.decl intrinsic associated with the
+//   declaration of a restrict variable.
+// - p.alloca: points to the alloca associated with the declaration of a
+//  restrict variable
+// - prov.p: the noalias pointer provenance associated with 'p'.
+// - prov.p.addr: the noalias pointer provenance associated with 'p.addr'.
+// - p.indices: metadata argument that refers to a list of metadata references.
+//   each reference points to a metadata array of indices. At the specified
+//   location, a restrict pointer is located. A '-1' indicates any index.
+//   (see llvm.noalias.copy.guard for an example)
+//
+// {p.addr, p.objId, p.scope} represent different ways of tracking the
+// 'underlying P' object. A unique triplet represents a unique 'object P'
+//
+// NOTE: future enhancements might relax/enhance this notion for supporting
+// an implementation of n4150 (alias sets). It is likely that an extra
+// parameter should be introduced to differentiate p.addr from the p.universe.
+// As far as C99 is concerned, p.addr == p.universe
+//
+// Also see:
+// - LangRef.rst (Scoped NoAlias Related Intrinsics)
+// - [llvm-dev] RFC: Full 'restrict' support in LLVM
+//   https://lists.llvm.org/pipermail/llvm-dev/2019-March/131127.html
+
+// 'llvm.noalias.decl' intrinsic: Inserted at the location of a restrict
+// pointer declaration. Makes it possible to identify that a restrict scope is
+// only valid inside the body of a loop.
+//
+// Purpose of the different arguments:
+// - arg0: p.alloca: associates the restrict pointer declaration to an alloca.
+//   (can be 'null' if the alloca is optimized away). The alloca can be
+//   associated to multiple restrict pointers.
+// - arg1: p.objId: identifies different objects, associated to the same
+//   variable declaration. Is needed to track splitting of alloca's in SROA.
+// - arg2: p.scope: metadata representing the variable declaration.
+// - returns: a dummy i8 pointer that is used to track dependencies, so that cse
+//   is not migrating llvm.provenance.noalias over declarations
+def int_noalias_decl
+    : Intrinsic<[llvm_anyptr_ty],
+                [llvm_anyptr_ty, llvm_anyint_ty, llvm_metadata_ty],
+                [IntrArgMemOnly]>; // ArgMemOnly: blocks LICM and some more
+
+// 'llvm.noalias' intrinsic: Introduces noalias information in the pointer
+// computation path, normally right after the loading of the pointer value.
+// It also blocks a number of optimizations. Once it is transformed into
+// a llvm.provenance.noalias version, it can track noalias information and support
+// complex optimizations.
+//
+// Purpose of the different arguments:
+// - arg0: p: the incoming pointer value.
+// - arg1: p.decl: dependency on llvm.noalias.decl (if available). The
+//         dependency makes it easier to handle the loop-unrolling case.
+// - arg2: p.addr: identifyP: the address of P: either a real object or a
+//         constant where the value is relative to 0: different 'identifyP'
+//         represent different restrict pointers.
+// - arg3: p.objId: identifies different objects, associated to the same
+//         variable declaration. Is needed to track splitting of alloca's in
+//         SROA.
+// - arg4: p.scope: metadata representing the variable declaration.
+// - returns: returns arg0 (although this is hidden for most optimization
+//   passes)
+def int_noalias
+    : Intrinsic<[llvm_anyptr_ty],
+                [LLVMMatchType<0>,
+                 llvm_anyptr_ty, llvm_anyptr_ty,    // p.decl, p.addr
+                 llvm_anyint_ty, llvm_metadata_ty], // p.objId, p.scope
+                [IntrArgMemOnly, IntrSpeculatable]>;
+
+// 'llvm.provenance.noalias' intrinsic: Introduces the noalias information on the
+// provenance path. This intrinsic originates from a transformed
+// 'llvm.noalias' intrinsic.
+//
+// Purpose of the different arguments:
+// - arg0: p: the incoming ptr value.
+// - arg1: p.decl: dependency on llvm.noalias.decl (if available). The
+//         dependency makes it easier to handle the loop-unrolling case.
+// - arg2: p.addr: identifyP: the address of P: either a real object or a
+//         constant where the value is relative to 0: different 'identifyP'
+//         represent different restrict pointers.
+// - arg3: prov.p.addr: the ptr_provenance associated with the identifyP:
+//         this is needed to handle cases like: 'int* restrict* restrict rprpi;'
+// - arg4: p.objId: identifies different objects, associated to the same
+//         variable declaration. Is needed to track splitting of alloca's in
+//         SROA.
+// - arg5: p.scope: metadata representing the variable declaration.
+// - returns: returns arg0 (although this is hidden for most optimization
+//         passes)
+//
+// NOTES:
+// - prov.p.addr (together with the other metadata set on the intrinsic), can be
+// used to check if there are other reasons why this 'underlying P' object is
+// different from another 'underlying P' (using tbaa, noalias annotations, ...)
+// - p.decl, p.scope: it is possible that there initially is no
+//   llvm.noalias.decl dependency. For 'unknown-scope' scopes, it is possible
+//   that a later analysis connects the right scope and llvm.noalias.decl
+//   dependency.
+// NOTE: Returned<0> must not be used here, or some optimizations (INDVARS)
+//   will be too optimistic as they see through the annotations, resulting in
+//   wrong code.
+def int_provenance_noalias
+    : Intrinsic<[llvm_anyptr_ty],
+                [LLVMMatchType<0>,
+                 llvm_anyptr_ty, llvm_anyptr_ty, llvm_anyptr_ty,
+                 llvm_anyint_ty, llvm_metadata_ty],
+                [IntrNoMem, IntrSpeculatable]>;
+
+// 'llvm.noalias.arg.guard' intrinsic: helps tracking the ptr_provenance.
+// It guards pointers that escape through function arguments or are returned.
+// After inlining, the noalias information can still be propagated
+//
+// Purpose of the different arguments:
+// - arg0: p: the incoming ptr value.
+// - arg1: prov.p: the ptr_provenance, associated with this pointer
+//         computation.
+// - returns: arg0 (hidden for most optimization passes)
+def int_noalias_arg_guard
+    : Intrinsic<[llvm_anyptr_ty],
+                [LLVMMatchType<0>, llvm_anyptr_ty],
+                [IntrNoMem, IntrSpeculatable]>; // NOTE: Returned<0> must not be used here
+
+// 'llvm.noalias.copy.guard' intrinsic: a guard that allows to track
+// restrict pointers through a memcpy or a structured load/store. When such a
+// memcpy or load/store pair is optimized away, the noalias dependency chain can
+// be reconstructed.
+//
+// Purpose of the different arguments:
+//   %p.guard =
+//      llvm.noalias.copy.guard %p.alloca, %p.decl, !metadata !99, !metadata !98
+// - arg0: p.alloca: block of memory with potential restrict variables.
+// - arg1: p.decl: associated llvm.noalias.decl instruction (if available)
+// - arg2: p.indices: metadata list of list of indices, indicating where in the
+//         memory restrict pointers are located.
+// - arg3: p.scope: metadata representing the variable declaration.
+// - returns: arg0 (hidden for most optimization passes)
+//
+// Example of p.indices:
+//   struct FOO {
+//     int* restrict p1;
+//     int* p0;
+//     int* restrict p2;
+//   };
+// results in '!10' refering to:
+//   !10 = {!11, !12}
+//   !11 = { -1, 0 }
+//   !12 = { -1, 2 }
+def int_noalias_copy_guard
+    : Intrinsic<[llvm_anyptr_ty],
+                [LLVMMatchType<0>, llvm_anyptr_ty, llvm_metadata_ty,
+                 llvm_metadata_ty],
+                [IntrNoMem]>;
+
 // Stack Protector Intrinsic - The stackprotector intrinsic writes the stack
 // guard to the correct place on the stack frame.
 def int_stackprotector : Intrinsic<[], [llvm_ptr_ty, llvm_ptrptr_ty], []>;

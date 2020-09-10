@@ -125,7 +125,8 @@ Intrinsic::ID llvm::getVectorIntrinsicIDForCall(const CallInst *CI,
 
   if (isTriviallyVectorizable(ID) || ID == Intrinsic::lifetime_start ||
       ID == Intrinsic::lifetime_end || ID == Intrinsic::assume ||
-      ID == Intrinsic::sideeffect)
+      ID == Intrinsic::sideeffect || ID == Intrinsic::noalias ||
+      ID == Intrinsic::provenance_noalias)
     return ID;
   return Intrinsic::not_intrinsic;
 }
@@ -703,7 +704,8 @@ MDNode *llvm::intersectAccessGroups(const Instruction *Inst1,
 }
 
 /// \returns \p I after propagating metadata from \p VL.
-Instruction *llvm::propagateMetadata(Instruction *Inst, ArrayRef<Value *> VL) {
+Instruction *llvm::propagateMetadata(Instruction *Inst, ArrayRef<Value *> VL,
+                                     bool RemoveNoAlias) {
   Instruction *I0 = cast<Instruction>(VL[0]);
   SmallVector<std::pair<unsigned, MDNode *>, 4> Metadata;
   I0->getAllMetadataOtherThanDebugLoc(Metadata);
@@ -714,6 +716,8 @@ Instruction *llvm::propagateMetadata(Instruction *Inst, ArrayRef<Value *> VL) {
                     LLVMContext::MD_access_group}) {
     MDNode *MD = I0->getMetadata(Kind);
 
+    if (RemoveNoAlias && (Kind == LLVMContext::MD_noalias))
+      MD = nullptr;
     for (int J = 1, E = VL.size(); MD && J != E; ++J) {
       const Instruction *IJ = cast<Instruction>(VL[J]);
       MDNode *IMD = IJ->getMetadata(Kind);
@@ -739,7 +743,6 @@ Instruction *llvm::propagateMetadata(Instruction *Inst, ArrayRef<Value *> VL) {
         llvm_unreachable("unhandled metadata");
       }
     }
-
     Inst->setMetadata(Kind, MD);
   }
 
