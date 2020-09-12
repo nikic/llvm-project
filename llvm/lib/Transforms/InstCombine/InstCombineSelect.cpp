@@ -1049,7 +1049,7 @@ static Instruction *canonicalizeMinMaxWithConstant(SelectInst &Sel,
 /// Canonicalize select-based abs/nabs to llvm.abs() intrinsic.
 static Instruction *canonicalizeAbsNabs(SelectInst &Sel, ICmpInst &Cmp,
                                         InstCombinerImpl &IC) {
-  if (!Cmp.hasOneUse() || !isa<Constant>(Cmp.getOperand(1)))
+  if (!isa<Constant>(Cmp.getOperand(1)))
     return nullptr;
 
   Value *LHS, *RHS;
