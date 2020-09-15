@@ -62,6 +62,23 @@ protected:
   /// This function will report a fatal error if it cannot increase capacity.
   void grow_pod(void *FirstEl, size_t MinSize, size_t TSize);
 
+  size_t grow_size(size_t MinSize = 0) {
+    // Ensure we can fit the new capacity.
+    // This is only going to be applicable when the capacity is 32 bit.
+    if (MinSize > this->SizeTypeMax())
+      report_size_overflow(MinSize);
+
+    // Ensure we can meet the guarantee of space for at least one more element.
+    // The above check alone will not catch the case where grow is called with a
+    // default MinSize of 0, but the current capacity cannot be increased.
+    // This is only going to be applicable when the capacity is 32 bit.
+    if (capacity() == SizeTypeMax())
+      report_at_maximum_capacity();
+    // Always grow, even from zero.
+    size_t NewCapacity = size_t(NextPowerOf2(capacity() + 2));
+    return std::min(std::max(NewCapacity, MinSize), SizeTypeMax());
+  }
+
   /// Report that MinSize doesn't fit into this vector's size type. Throws
   /// std::length_error or calls report_fatal_error.
   LLVM_ATTRIBUTE_NORETURN static void report_size_overflow(size_t MinSize);
@@ -101,6 +118,10 @@ template <class T, typename = void> struct SmallVectorAlignmentAndSize {
   AlignedCharArrayUnion<T> FirstEl;
 };
 
+namespace detail {
+template <typename Size_T> class GrowBufferBase;
+} // namespace detail
+
 /// This is the part of SmallVectorTemplateBase which does not depend on whether
 /// the type T is a POD. The extra dummy template argument is used by ArrayRef
 /// to avoid unnecessarily requiring T to be complete.
@@ -108,6 +129,7 @@ template <typename T, typename = void>
 class SmallVectorTemplateCommon
     : public SmallVectorBase<SmallVectorSizeType<T>> {
   using Base = SmallVectorBase<SmallVectorSizeType<T>>;
+  friend class detail::GrowBufferBase<SmallVectorSizeType<T>>;
 
   /// Find the address of the first element.  For this pointer math to be valid
   /// with small-size of 0 for T with lots of alignment, it's important that
@@ -207,6 +229,223 @@ public:
   }
 };
 
+namespace detail {
+template <typename T>
+static constexpr bool
+    is_pod_like_v = (is_trivially_copy_constructible<T>::value) &&
+                    (is_trivially_move_constructible<T>::value) &&
+                    std::is_trivially_destructible<T>::value;
+
+template <typename Size_T> class GrowBufferBase {
+public:
+  GrowBufferBase(Size_T Size, Size_T Capacity, Size_T TSize)
+      : Size(Size), Capacity(Capacity) {
+    BeginX = llvm::safe_malloc(Capacity * TSize);
+  }
+
+  ~GrowBufferBase() {
+    assert(BeginX == nullptr && "Buffers haven't been swapped out");
+  }
+
+  Size_T size() const { return Size; }
+  Size_T capacity() const { return Capacity; }
+
+protected:
+  void *BeginX;
+  Size_T Size, Capacity;
+
+  void increaseSize(Size_T NumItems = 1) { Size += NumItems; }
+  void setSize(Size_T NewSize) { Size = NewSize; }
+
+  template <typename T> void take_buffers(SmallVectorTemplateCommon<T> &Vec) {
+    if (!Vec.isSmall())
+      free(Vec.begin());
+    Vec.BeginX = BeginX;
+    Vec.Size = Size;
+    Vec.Capacity = Capacity;
+    BeginX = nullptr;
+    Size = 0U;
+    Capacity = 0U;
+  }
+};
+
+template <typename T, bool = is_pod_like_v<T>>
+class GrowBuffer : public GrowBufferBase<SmallVectorSizeType<T>> {
+public:
+  using Size_T = SmallVectorSizeType<T>;
+  using Base = GrowBufferBase<Size_T>;
+
+  using Base::capacity;
+  using Base::increaseSize;
+  using Base::size;
+
+  GrowBuffer(Size_T Size, Size_T Capacity) : Base(Size, Capacity, sizeof(T)) {}
+
+  T *begin() { return static_cast<T *>(this->BeginX); }
+  T *end() { return begin() + size(); }
+
+  void default_construct_at_end(Size_T Count) {
+    assert((size() + Count) <= capacity() && "Overflowed GrowBuffer storage");
+    T *First = end();
+    increaseSize(Count);
+    T *Last = end();
+    for (; First != Last; ++First) {
+      ::new (static_cast<void *>(First)) T;
+    }
+  }
+
+  void push(const T &Elt) {
+    assert(size() < capacity() && "Overflowed GrowBuffer storage");
+    ::new (static_cast<void *>(end())) T(Elt);
+    increaseSize();
+  }
+
+  void push(T &&Elt) {
+    assert(size() < capacity() && "Overflowed GrowBuffer storage");
+    ::new (static_cast<void *>(end())) T(std::move(Elt));
+    increaseSize();
+  }
+
+  template <typename... ArgTypes> void emplace(ArgTypes &&...Args) {
+    assert(size() < capacity() && "Overflowed GrowBuffer storage");
+    ::new (static_cast<void *>(end())) T(std::forward<ArgTypes>(Args)...);
+    increaseSize();
+  }
+
+  void append(Size_T Count, const T &Elt) {
+    assert((size() + Count) <= capacity() && "Overflowed GrowBuffer storage");
+    std::uninitialized_fill_n(end(), Count, Elt);
+    increaseSize(Count);
+  }
+
+  template <typename in_iter,
+            typename = std::enable_if_t<std::is_convertible<
+                typename std::iterator_traits<in_iter>::iterator_category,
+                std::input_iterator_tag>::value>>
+  void append(in_iter Start, in_iter End) {
+    assert(size() + std::distance(Start, End) <= capacity() &&
+           "Overflowed GrowBuffer storage");
+    T *NewEnd = std::uninitialized_copy(Start, End, end());
+    this->setSize(NewEnd - begin());
+  }
+
+  void swap_out_buffer(SmallVectorTemplateCommon<T> &Vec);
+
+  void swap_out_split_buffer(SmallVectorTemplateCommon<T> &Vec,
+                             Size_T SplitIndex);
+};
+template <typename T>
+class GrowBuffer<T, true> : public GrowBufferBase<SmallVectorSizeType<T>> {
+public:
+  using Size_T = SmallVectorSizeType<T>;
+  using Base = GrowBufferBase<Size_T>;
+
+  using Base::capacity;
+  using Base::increaseSize;
+  using Base::size;
+
+  GrowBuffer(Size_T Size, Size_T Capacity) : Base(Size, Capacity, sizeof(T)) {}
+
+  T *begin() { return static_cast<T *>(this->BeginX); }
+  T *end() { return begin() + size(); }
+
+  void default_construct_at_end(Size_T Count) {
+    assert((size() + Count) <= capacity() && "Overflowed GrowBuffer storage");
+    // No need to do any construction here.
+    increaseSize(Count);
+  }
+
+  void push(const T &Elt) {
+    assert(size() < capacity() && "Overflowed GrowBuffer storage");
+    memcpy(end(), &Elt, sizeof(Elt));
+    increaseSize();
+  }
+
+  template <typename... ArgTypes> void emplace(ArgTypes &&...Args) {
+    assert(size() < capacity() && "Overflowed GrowBuffer storage");
+    ::new ((void *)end()) T(std::forward<ArgTypes>(Args)...);
+    increaseSize();
+  }
+
+  template <typename in_iter,
+            typename = std::enable_if_t<std::is_convertible<
+                typename std::iterator_traits<in_iter>::iterator_category,
+                std::input_iterator_tag>::value>>
+  void append(in_iter Start, in_iter End) {
+    assert(size() + std::distance(Start, End) <= capacity() &&
+           "Overflowed GrowBuffer storage");
+    T *NewEnd = std::uninitialized_copy(Start, End, end());
+    this->setSize(NewEnd - begin());
+  }
+
+  void append(T *Start, T *End) {
+    Size_T NumItems = End - Start;
+    assert(size() + NumItems <= capacity() && "Overflowed GrowBuffer storage");
+    memcpy(end(), Start, NumItems * sizeof(T));
+    increaseSize(NumItems);
+  }
+
+  void append(Size_T Count, const T &Elt) {
+    assert((size() + Count) <= capacity() && "Overflowed GrowBuffer storage");
+    T *First = end();
+    increaseSize(Count);
+    T *Last = end();
+    for (; First != Last; ++First) {
+      memcpy(First, &Elt, sizeof(Elt));
+    }
+  }
+
+  void swap_out_buffer(SmallVectorTemplateCommon<T> &Vec);
+
+  void swap_out_split_buffer(SmallVectorTemplateCommon<T> &Vec,
+                             Size_T SplitIndex);
+};
+
+template <typename T, bool TriviallyCopyable>
+void GrowBuffer<T, TriviallyCopyable>::swap_out_buffer(
+    SmallVectorTemplateCommon<T> &Vec) {
+  std::uninitialized_copy(std::make_move_iterator(Vec.rbegin()),
+                          std::make_move_iterator(Vec.rend()),
+                          std::reverse_iterator<T *>(begin() + Vec.size()));
+  // Destory the items in the old vector.
+  for (T &Item : Vec)
+    Item.~T();
+  this->take_buffers(Vec);
+}
+
+template <typename T, bool TriviallyCopyable>
+void GrowBuffer<T, TriviallyCopyable>::swap_out_split_buffer(
+    SmallVectorTemplateCommon<T> &Vec, Size_T SplitIndex) {
+  std::uninitialized_copy(std::make_move_iterator(std::reverse_iterator<T *>(
+                              Vec.begin() + SplitIndex)),
+                          std::make_move_iterator(Vec.rend()),
+                          std::reverse_iterator<T *>(begin() + SplitIndex));
+  std::uninitialized_copy(std::make_move_iterator(&Vec[SplitIndex]),
+                          std::make_move_iterator(Vec.end()), end());
+  increaseSize(Vec.size() - SplitIndex);
+  // Destory the items in the old vector.
+  for (T &Item : Vec)
+    Item.~T();
+  this->take_buffers(Vec);
+}
+
+template <typename T>
+void GrowBuffer<T, true>::swap_out_buffer(SmallVectorTemplateCommon<T> &Vec) {
+  memcpy(begin(), Vec.begin(), Vec.size_in_bytes());
+  this->take_buffers(Vec);
+}
+
+template <typename T>
+void GrowBuffer<T, true>::swap_out_split_buffer(
+    SmallVectorTemplateCommon<T> &Vec, Size_T SplitIndex) {
+  memcpy(begin(), Vec.begin(), SplitIndex * sizeof(T));
+  memcpy(end(), &Vec[SplitIndex], (Vec.size() - SplitIndex) * sizeof(T));
+  increaseSize(Vec.size() - SplitIndex);
+  this->take_buffers(Vec);
+}
+
+} // namespace detail
+
 /// SmallVectorTemplateBase<TriviallyCopyable = false> - This is where we put
 /// method implementations that are designed to work with non-trivial T's.
 ///
@@ -215,9 +454,7 @@ public:
 /// copy these types with memcpy, there is no way for the type to observe this.
 /// This catches the important case of std::pair<POD, POD>, which is not
 /// trivially assignable.
-template <typename T, bool = (is_trivially_copy_constructible<T>::value) &&
-                             (is_trivially_move_constructible<T>::value) &&
-                             std::is_trivially_destructible<T>::value>
+template <typename T, bool = detail::is_pod_like_v<T>>
 class SmallVectorTemplateBase : public SmallVectorTemplateCommon<T> {
 protected:
   SmallVectorTemplateBase(size_t Size) : SmallVectorTemplateCommon<T>(Size) {}
@@ -251,15 +488,23 @@ protected:
 
 public:
   void push_back(const T &Elt) {
-    if (LLVM_UNLIKELY(this->size() >= this->capacity()))
-      this->grow();
+    if (LLVM_UNLIKELY(this->size() >= this->capacity())) {
+      detail::GrowBuffer<T> Buffer(this->size(), this->grow_size());
+      Buffer.push(Elt);
+      Buffer.swap_out_buffer(*this);
+      return;
+    }
     ::new ((void*) this->end()) T(Elt);
     this->set_size(this->size() + 1);
   }
 
   void push_back(T &&Elt) {
-    if (LLVM_UNLIKELY(this->size() >= this->capacity()))
-      this->grow();
+    if (LLVM_UNLIKELY(this->size() >= this->capacity())) {
+      detail::GrowBuffer<T> Buffer(this->size(), this->grow_size());
+      Buffer.push(std::move(Elt));
+      Buffer.swap_out_buffer(*this);
+      return;
+    }
     ::new ((void*) this->end()) T(::std::move(Elt));
     this->set_size(this->size() + 1);
   }
@@ -273,21 +518,7 @@ public:
 // Define this out-of-line to dissuade the C++ compiler from inlining it.
 template <typename T, bool TriviallyCopyable>
 void SmallVectorTemplateBase<T, TriviallyCopyable>::grow(size_t MinSize) {
-  // Ensure we can fit the new capacity.
-  // This is only going to be applicable when the capacity is 32 bit.
-  if (MinSize > this->SizeTypeMax())
-    this->report_size_overflow(MinSize);
-
-  // Ensure we can meet the guarantee of space for at least one more element.
-  // The above check alone will not catch the case where grow is called with a
-  // default MinSize of 0, but the current capacity cannot be increased.
-  // This is only going to be applicable when the capacity is 32 bit.
-  if (this->capacity() == this->SizeTypeMax())
-    this->report_at_maximum_capacity();
-
-  // Always grow, even from zero.
-  size_t NewCapacity = size_t(NextPowerOf2(this->capacity() + 2));
-  NewCapacity = std::min(std::max(NewCapacity, MinSize), this->SizeTypeMax());
+  size_t NewCapacity = this->grow_size(MinSize);
   T *NewElts = static_cast<T*>(llvm::safe_malloc(NewCapacity*sizeof(T)));
 
   // Move the elements over.
@@ -353,8 +584,12 @@ protected:
 
 public:
   void push_back(const T &Elt) {
-    if (LLVM_UNLIKELY(this->size() >= this->capacity()))
-      this->grow();
+    if (LLVM_UNLIKELY(this->size() >= this->capacity())) {
+      detail::GrowBuffer<T> Buffer(this->size(), this->grow_size());
+      Buffer.push(Elt);
+      Buffer.swap_out_buffer(*this);
+      return;
+    }
     memcpy(reinterpret_cast<void *>(this->end()), &Elt, sizeof(T));
     this->set_size(this->size() + 1);
   }
@@ -412,8 +647,12 @@ public:
       this->destroy_range(this->begin()+N, this->end());
       this->set_size(N);
     } else if (N > this->size()) {
-      if (this->capacity() < N)
-        this->grow(N);
+      if (this->capacity() < N) {
+        detail::GrowBuffer<T> Buffer(this->size(), this->grow_size(N));
+        Buffer.append(N - this->size(), NV);
+        Buffer.swap_out_buffer(*this);
+        return;
+      }
       std::uninitialized_fill(this->end(), this->begin()+N, NV);
       this->set_size(N);
     }
@@ -439,8 +678,13 @@ public:
                 std::input_iterator_tag>::value>>
   void append(in_iter in_start, in_iter in_end) {
     size_type NumInputs = std::distance(in_start, in_end);
-    if (NumInputs > this->capacity() - this->size())
-      this->grow(this->size()+NumInputs);
+    if (NumInputs > this->capacity() - this->size()) {
+      detail::GrowBuffer<T> Buffer(this->size(),
+                                   this->grow_size(this->size() + NumInputs));
+      Buffer.append(in_start, in_end);
+      Buffer.swap_out_buffer(*this);
+      return;
+    }
 
     this->uninitialized_copy(in_start, in_end, this->end());
     this->set_size(this->size() + NumInputs);
@@ -448,8 +692,13 @@ public:
 
   /// Append \p NumInputs copies of \p Elt to the end.
   void append(size_type NumInputs, const T &Elt) {
-    if (NumInputs > this->capacity() - this->size())
-      this->grow(this->size()+NumInputs);
+    if (NumInputs > this->capacity() - this->size()) {
+      detail::GrowBuffer<T> Buffer(this->size(),
+                                   this->grow_size(this->size() + NumInputs));
+      Buffer.append(NumInputs, Elt);
+      Buffer.swap_out_buffer(*this);
+      return;
+    }
 
     std::uninitialized_fill_n(this->end(), NumInputs, Elt);
     this->set_size(this->size() + NumInputs);
@@ -463,11 +712,24 @@ public:
   // re-initializing them - for all assign(...) variants.
 
   void assign(size_type NumElts, const T &Elt) {
-    clear();
-    if (this->capacity() < NumElts)
-      this->grow(NumElts);
-    this->set_size(NumElts);
-    std::uninitialized_fill(this->begin(), this->end(), Elt);
+    if (this->capacity() < NumElts) {
+      detail::GrowBuffer<T> Buffer(0, this->grow_size(NumElts));
+      Buffer.append(NumElts, Elt);
+      this->clear();
+      Buffer.swap_out_buffer(*this);
+      return;
+    }
+    if (NumElts == this->size()) {
+      std::fill(this->begin(), this->end(), Elt);
+    } else if (NumElts < this->size()) {
+      this->destroy_range(this->begin() + NumElts, this->end());
+      this->set_size(NumElts);
+      std::fill(this->begin(), this->end(), Elt);
+    } else {
+      std::fill(this->begin(), this->end(), Elt);
+      std::uninitialized_fill_n(this->end(), NumElts - this->size(), Elt);
+      this->set_size(NumElts);
+    }
   }
 
   template <typename in_iter,
@@ -475,14 +737,29 @@ public:
                 typename std::iterator_traits<in_iter>::iterator_category,
                 std::input_iterator_tag>::value>>
   void assign(in_iter in_start, in_iter in_end) {
-    clear();
-    append(in_start, in_end);
+    size_type NumElts = std::distance(in_start, in_end);
+    if (this->capacity() < NumElts) {
+      detail::GrowBuffer<T> Buffer(0, this->grow_size(NumElts));
+      Buffer.append(in_start, in_end);
+      this->clear();
+      Buffer.swap_out_buffer(*this);
+      return;
+    }
+    if (NumElts == this->size()) {
+      std::copy(in_start, in_end, this->begin());
+    } else if (NumElts < this->size()) {
+      this->destroy_range(this->begin() + NumElts, this->end());
+      this->set_size(NumElts);
+      std::copy(in_start, in_end, this->begin());
+    } else {
+      for (auto &I : *this)
+        I = *in_start++;
+      this->uninitialized_copy(in_start, in_end, this->end());
+      this->set_size(NumElts);
+    }
   }
 
-  void assign(std::initializer_list<T> IL) {
-    clear();
-    append(IL);
-  }
+  void assign(std::initializer_list<T> IL) { assign(IL.begin(), IL.end()); }
 
   iterator erase(const_iterator CI) {
     // Just cast away constness because this is a non-const member function.
@@ -528,8 +805,10 @@ public:
 
     if (this->size() >= this->capacity()) {
       size_t EltNo = I-this->begin();
-      this->grow();
-      I = this->begin()+EltNo;
+      detail::GrowBuffer<T> Buffer(EltNo, this->grow_size());
+      Buffer.push(std::move(Elt));
+      Buffer.swap_out_split_buffer(*this, EltNo);
+      return this->begin() + EltNo;
     }
 
     ::new ((void*) this->end()) T(::std::move(this->back()));
@@ -558,8 +837,10 @@ public:
 
     if (this->size() >= this->capacity()) {
       size_t EltNo = I-this->begin();
-      this->grow();
-      I = this->begin()+EltNo;
+      detail::GrowBuffer<T> Buffer(EltNo, this->grow_size());
+      Buffer.push(Elt);
+      Buffer.swap_out_split_buffer(*this, EltNo);
+      return this->begin() + EltNo;
     }
     ::new ((void*) this->end()) T(std::move(this->back()));
     // Push everything else over.
@@ -588,11 +869,13 @@ public:
     assert(I >= this->begin() && "Insertion iterator is out of bounds.");
     assert(I <= this->end() && "Inserting past the end of the vector.");
 
-    // Ensure there is enough space.
-    reserve(this->size() + NumToInsert);
-
-    // Uninvalidate the iterator.
-    I = this->begin()+InsertElt;
+    if ((this->size() + NumToInsert) > this->capacity()) {
+      detail::GrowBuffer<T> Buffer(InsertElt,
+                                   this->grow_size(this->size() + NumToInsert));
+      Buffer.append(NumToInsert, Elt);
+      Buffer.swap_out_split_buffer(*this, InsertElt);
+      return this->begin() + InsertElt;
+    }
 
     // If there are more elements between the insertion point and the end of the
     // range than there are being inserted, we can use a simple approach to
@@ -645,11 +928,13 @@ public:
 
     size_t NumToInsert = std::distance(From, To);
 
-    // Ensure there is enough space.
-    reserve(this->size() + NumToInsert);
-
-    // Uninvalidate the iterator.
-    I = this->begin()+InsertElt;
+    if ((this->size() + NumToInsert) > this->capacity()) {
+      detail::GrowBuffer<T> Buffer(InsertElt,
+                                   this->grow_size(this->size() + NumToInsert));
+      Buffer.append(From, To);
+      Buffer.swap_out_split_buffer(*this, InsertElt);
+      return this->begin() + InsertElt;
+    }
 
     // If there are more elements between the insertion point and the end of the
     // range than there are being inserted, we can use a simple approach to
@@ -692,10 +977,14 @@ public:
   }
 
   template <typename... ArgTypes> reference emplace_back(ArgTypes &&... Args) {
-    if (LLVM_UNLIKELY(this->size() >= this->capacity()))
-      this->grow();
-    ::new ((void *)this->end()) T(std::forward<ArgTypes>(Args)...);
-    this->set_size(this->size() + 1);
+    if (LLVM_UNLIKELY(this->size() >= this->capacity())) {
+      detail::GrowBuffer<T> Buffer(this->size(), this->grow_size());
+      Buffer.emplace(std::forward<ArgTypes>(Args)...);
+      Buffer.swap_out_buffer(*this);
+    } else {
+      ::new ((void *)this->end()) T(std::forward<ArgTypes>(Args)...);
+      this->set_size(this->size() + 1);
+    }
     return this->back();
   }
 
