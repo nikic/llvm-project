@@ -459,8 +459,8 @@ define i32 @test16(i32 addrspace(1)* %pointer1, i32 %flag, i32* %pointer2)
 ; CHECK-LABEL: @test16(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[RETVAL:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[POINTER1_ADDR:%.*]] = alloca i32 addrspace(1)*, align 8
-; CHECK-NEXT:    [[POINTER2_ADDR:%.*]] = alloca i32*, align 8
+; CHECK-NEXT:    [[POINTER1_ADDR:%.*]] = alloca i32 addrspace(1)*, align 4
+; CHECK-NEXT:    [[POINTER2_ADDR:%.*]] = alloca i32*, align 4
 ; CHECK-NEXT:    store i32 addrspace(1)* [[POINTER1:%.*]], i32 addrspace(1)** [[POINTER1_ADDR]], align 8
 ; CHECK-NEXT:    store i32* [[POINTER2:%.*]], i32** [[POINTER2_ADDR]], align 8
 ; CHECK-NEXT:    [[TOBOOL_NOT:%.*]] = icmp eq i32 [[FLAG:%.*]], 0

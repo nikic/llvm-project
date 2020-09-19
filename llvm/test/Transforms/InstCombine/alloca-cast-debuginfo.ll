@@ -26,11 +26,11 @@ target triple = "x86_64-pc-windows-msvc19.11.25508"
 define void @f(%struct.Foo* %p) !dbg !11 {
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[LOCAL:%.*]] = alloca i64, align 8
+; CHECK-NEXT:    [[LOCAL:%.*]] = alloca i64, align 4
 ; CHECK-NEXT:    call void @llvm.dbg.declare(metadata i64* [[LOCAL]], [[META22:metadata !.*]], metadata !DIExpression()), [[DBG23:!dbg !.*]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast %struct.Foo* [[P:%.*]] to i64*, [[DBG24:!dbg !.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i64, i64* [[TMP0]], align 8, [[DBG24]], [[TBAA25:!tbaa !.*]]
-; CHECK-NEXT:    store i64 [[TMP1]], i64* [[LOCAL]], align 8, [[DBG29:!dbg !.*]], [[TBAA25]]
+; CHECK-NEXT:    store i64 [[TMP1]], i64* [[LOCAL]], align 4, [[DBG29:!dbg !.*]], [[TBAA25]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i64* [[LOCAL]] to i8*, [[DBG30:!dbg !.*]]
 ; CHECK-NEXT:    call void @escape(i8* nonnull [[TMP2]]), [[DBG31:!dbg !.*]]
 ; CHECK-NEXT:    ret void, [[DBG32:!dbg !.*]]

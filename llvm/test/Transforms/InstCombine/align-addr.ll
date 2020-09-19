@@ -21,7 +21,7 @@ define void @test0(i8* %b, i64 %n, i64 %u, i64 %y) nounwind  {
 ; CHECK-NEXT:    [[H:%.*]] = add i64 [[J]], [[Z]]
 ; CHECK-NEXT:    [[T8:%.*]] = getelementptr double, double* [[E]], i64 [[H]]
 ; CHECK-NEXT:    [[P:%.*]] = bitcast double* [[T8]] to <2 x double>*
-; CHECK-NEXT:    store <2 x double> zeroinitializer, <2 x double>* [[P]], align 16
+; CHECK-NEXT:    store <2 x double> zeroinitializer, <2 x double>* [[P]], align 8
 ; CHECK-NEXT:    [[INDVAR_NEXT]] = add i64 [[I]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[INDVAR_NEXT]], [[N]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[RETURN]], label [[BB]]
@@ -60,7 +60,7 @@ return:
 define <16 x i8> @test1(<2 x i64> %x) {
 ; CHECK-LABEL: @test1(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP:%.*]] = load <16 x i8>, <16 x i8>* bitcast ([4 x i32]* @GLOBAL to <16 x i8>*), align 16
+; CHECK-NEXT:    [[TMP:%.*]] = load <16 x i8>, <16 x i8>* bitcast ([4 x i32]* @GLOBAL to <16 x i8>*), align 1
 ; CHECK-NEXT:    ret <16 x i8> [[TMP]]
 ;
 entry:
@@ -72,7 +72,7 @@ entry:
 
 define <16 x i8> @test1_as1(<2 x i64> %x) {
 ; CHECK-LABEL: @test1_as1(
-; CHECK-NEXT:    [[TMP:%.*]] = load <16 x i8>, <16 x i8> addrspace(1)* bitcast ([4 x i32] addrspace(1)* @GLOBAL_as1 to <16 x i8> addrspace(1)*), align 16
+; CHECK-NEXT:    [[TMP:%.*]] = load <16 x i8>, <16 x i8> addrspace(1)* bitcast ([4 x i32] addrspace(1)* @GLOBAL_as1 to <16 x i8> addrspace(1)*), align 1
 ; CHECK-NEXT:    ret <16 x i8> [[TMP]]
 ;
   %tmp = load <16 x i8>, <16 x i8> addrspace(1)* bitcast ([4 x i32] addrspace(1)* @GLOBAL_as1 to <16 x i8> addrspace(1)*), align 1
@@ -83,7 +83,7 @@ define <16 x i8> @test1_as1(<2 x i64> %x) {
 
 define <16 x i8> @test1_as1_gep(<2 x i64> %x) {
 ; CHECK-LABEL: @test1_as1_gep(
-; CHECK-NEXT:    [[TMP:%.*]] = load <16 x i8>, <16 x i8> addrspace(1)* bitcast (i32 addrspace(1)* getelementptr inbounds ([8 x i32], [8 x i32] addrspace(1)* @GLOBAL_as1_gep, i32 0, i32 4) to <16 x i8> addrspace(1)*), align 16
+; CHECK-NEXT:    [[TMP:%.*]] = load <16 x i8>, <16 x i8> addrspace(1)* bitcast (i32 addrspace(1)* getelementptr inbounds ([8 x i32], [8 x i32] addrspace(1)* @GLOBAL_as1_gep, i32 0, i32 4) to <16 x i8> addrspace(1)*), align 1
 ; CHECK-NEXT:    ret <16 x i8> [[TMP]]
 ;
   %tmp = load <16 x i8>, <16 x i8> addrspace(1)* bitcast (i32 addrspace(1)* getelementptr ([8 x i32], [8 x i32] addrspace(1)* @GLOBAL_as1_gep, i16 0, i16 4) to <16 x i8> addrspace(1)*), align 1

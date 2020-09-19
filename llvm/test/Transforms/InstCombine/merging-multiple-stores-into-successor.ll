@@ -28,11 +28,11 @@ define void @_Z4testv() {
 ; CHECK-NEXT:    [[I11:%.*]] = trunc i64 [[I7]] to i32
 ; CHECK-NEXT:    br label [[BB12]]
 ; CHECK:       bb12:
-; CHECK-NEXT:    [[STOREMERGE1:%.*]] = phi i32 [ [[I11]], [[BB10]] ], [ 1, [[BB9]] ]
-; CHECK-NEXT:    store i32 [[STOREMERGE1]], i32* getelementptr inbounds ([0 x i32], [0 x i32]* @arr_2, i64 0, i64 0), align 4
+; CHECK-NEXT:    [[STOREMERGE:%.*]] = phi i32 [ 1, [[BB9]] ], [ [[I11]], [[BB10]] ]
+; CHECK-NEXT:    store i32 [[STOREMERGE]], i32* getelementptr inbounds ([0 x i32], [0 x i32]* @arr_2, i64 0, i64 0), align 4
 ; CHECK-NEXT:    store i16 [[I4]], i16* getelementptr inbounds ([0 x i16], [0 x i16]* @arr_4, i64 0, i64 0), align 2
-; CHECK-NEXT:    store i32 [[I8]], i32* getelementptr inbounds ([8 x i32], [8 x i32]* @arr_3, i64 0, i64 0), align 16
-; CHECK-NEXT:    store i32 [[STOREMERGE1]], i32* getelementptr inbounds ([0 x i32], [0 x i32]* @arr_2, i64 0, i64 1), align 4
+; CHECK-NEXT:    store i32 [[I8]], i32* getelementptr inbounds ([8 x i32], [8 x i32]* @arr_3, i64 0, i64 0), align 4
+; CHECK-NEXT:    store i32 [[STOREMERGE]], i32* getelementptr inbounds ([0 x i32], [0 x i32]* @arr_2, i64 0, i64 1), align 4
 ; CHECK-NEXT:    store i16 [[I4]], i16* getelementptr inbounds ([0 x i16], [0 x i16]* @arr_4, i64 0, i64 1), align 2
 ; CHECK-NEXT:    store i32 [[I8]], i32* getelementptr inbounds ([8 x i32], [8 x i32]* @arr_3, i64 0, i64 1), align 4
 ; CHECK-NEXT:    ret void

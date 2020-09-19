@@ -23,7 +23,7 @@ define void @foo() nounwind  {
 ; CHECK-NEXT:    [[J:%.*]] = phi i64 [ 0, [[BB7_OUTER]] ], [ [[INDVAR_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:    [[T4:%.*]] = getelementptr [1001 x [20000 x double]], [1001 x [20000 x double]]* @Nice, i64 0, i64 [[I]], i64 [[J]]
 ; CHECK-NEXT:    [[Q:%.*]] = bitcast double* [[T4]] to <2 x double>*
-; CHECK-NEXT:    store <2 x double> zeroinitializer, <2 x double>* [[Q]], align 16
+; CHECK-NEXT:    store <2 x double> zeroinitializer, <2 x double>* [[Q]], align 8
 ; CHECK-NEXT:    [[S4:%.*]] = getelementptr [1001 x [20001 x double]], [1001 x [20001 x double]]* @Awkward, i64 0, i64 [[I]], i64 [[J]]
 ; CHECK-NEXT:    [[R:%.*]] = bitcast double* [[S4]] to <2 x double>*
 ; CHECK-NEXT:    store <2 x double> zeroinitializer, <2 x double>* [[R]], align 8

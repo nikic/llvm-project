@@ -59,7 +59,7 @@ define i32 @test5(i1 %C) {
 
 define i32 @test7(i32 %X) {
 ; CHECK-LABEL: @test7(
-; CHECK-NEXT:    store i32 undef, i32* null, align 536870912
+; CHECK-NEXT:    store i32 undef, i32* null, align 4
 ; CHECK-NEXT:    ret i32 undef
 ;
   %V = getelementptr i32, i32* null, i32 %X		; <i32*> [#uses=1]
@@ -168,9 +168,9 @@ define i8 @test14(i8 %x, i32 %y) {
 ; CHECK-LABEL: @test14(
 ; CHECK-NEXT:    [[A:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[A_I8:%.*]] = bitcast i32* [[A]] to i8*
-; CHECK-NEXT:    store i8 [[X:%.*]], i8* [[A_I8]], align 4
+; CHECK-NEXT:    store i8 [[X:%.*]], i8* [[A_I8]], align 1
 ; CHECK-NEXT:    store i32 [[Y:%.*]], i32* [[A]], align 4
-; CHECK-NEXT:    [[R:%.*]] = load i8, i8* [[A_I8]], align 4
+; CHECK-NEXT:    [[R:%.*]] = load i8, i8* [[A_I8]], align 1
 ; CHECK-NEXT:    ret i8 [[R]]
 ;
   %a = alloca i32
@@ -187,9 +187,9 @@ define i8 @test14(i8 %x, i32 %y) {
 
 define i8 @test15(i8 %x, i32 %y) {
 ; CHECK-LABEL: @test15(
-; CHECK-NEXT:    store i8 [[X:%.*]], i8* bitcast (i32* @test15_global to i8*), align 4
+; CHECK-NEXT:    store i8 [[X:%.*]], i8* bitcast (i32* @test15_global to i8*), align 1
 ; CHECK-NEXT:    store i32 [[Y:%.*]], i32* @test15_global, align 4
-; CHECK-NEXT:    [[R:%.*]] = load i8, i8* bitcast (i32* @test15_global to i8*), align 4
+; CHECK-NEXT:    [[R:%.*]] = load i8, i8* bitcast (i32* @test15_global to i8*), align 1
 ; CHECK-NEXT:    ret i8 [[R]]
 ;
   %g.i8 = bitcast i32* @test15_global to i8*

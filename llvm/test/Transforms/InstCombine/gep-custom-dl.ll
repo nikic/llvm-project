@@ -64,7 +64,7 @@ define void @test_evaluate_gep_nested_as_ptrs(i32 addrspace(2)* %B) {
 
 define void @test_evaluate_gep_as_ptrs_array(i8 addrspace(2)* %B) {
 ; CHECK-LABEL: @test_evaluate_gep_as_ptrs_array(
-; CHECK-NEXT:    store i8 addrspace(2)* [[B:%.*]], i8 addrspace(2)* addrspace(1)* getelementptr inbounds ([4 x i8 addrspace(2)*], [4 x i8 addrspace(2)*] addrspace(1)* @arst, i32 0, i32 2), align 16
+; CHECK-NEXT:    store i8 addrspace(2)* [[B:%.*]], i8 addrspace(2)* addrspace(1)* getelementptr inbounds ([4 x i8 addrspace(2)*], [4 x i8 addrspace(2)*] addrspace(1)* @arst, i32 0, i32 2), align 8
 ; CHECK-NEXT:    ret void
 ;
 

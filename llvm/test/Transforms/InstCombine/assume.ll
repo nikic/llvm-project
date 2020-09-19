@@ -11,7 +11,7 @@ declare void @llvm.assume(i1) #1
 
 define i32 @foo1(i32* %a) #0 {
 ; CHECK-LABEL: @foo1(
-; CHECK-NEXT:    [[T0:%.*]] = load i32, i32* [[A:%.*]], align 32
+; CHECK-NEXT:    [[T0:%.*]] = load i32, i32* [[A:%.*]], align 4
 ; CHECK-NEXT:    [[PTRINT:%.*]] = ptrtoint i32* [[A]] to i64
 ; CHECK-NEXT:    [[MASKEDPTR:%.*]] = and i64 [[PTRINT]], 31
 ; CHECK-NEXT:    [[MASKCOND:%.*]] = icmp eq i64 [[MASKEDPTR]], 0
@@ -34,7 +34,7 @@ define i32 @foo2(i32* %a) #0 {
 ; CHECK-NEXT:    [[MASKEDPTR:%.*]] = and i64 [[PTRINT]], 31
 ; CHECK-NEXT:    [[MASKCOND:%.*]] = icmp eq i64 [[MASKEDPTR]], 0
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[MASKCOND]])
-; CHECK-NEXT:    [[T0:%.*]] = load i32, i32* [[A]], align 32
+; CHECK-NEXT:    [[T0:%.*]] = load i32, i32* [[A]], align 4
 ; CHECK-NEXT:    ret i32 [[T0]]
 ;
   %ptrint = ptrtoint i32* %a to i64

@@ -44,7 +44,7 @@ define i32 @gep_alloca_inbounds_vscale_zero() {
 ; CHECK-LABEL: @gep_alloca_inbounds_vscale_zero(
 ; CHECK-NEXT:    [[A:%.*]] = alloca <vscale x 4 x i32>, align 16
 ; CHECK-NEXT:    [[TMP:%.*]] = getelementptr inbounds <vscale x 4 x i32>, <vscale x 4 x i32>* [[A]], i64 0, i64 2
-; CHECK-NEXT:    [[LOAD:%.*]] = load i32, i32* [[TMP]], align 8
+; CHECK-NEXT:    [[LOAD:%.*]] = load i32, i32* [[TMP]], align 4
 ; CHECK-NEXT:    ret i32 [[LOAD]]
 ;
   %a = alloca <vscale x 4 x i32>
@@ -58,7 +58,7 @@ define i32 @gep_alloca_inbounds_vscale_nonzero() {
 ; CHECK-LABEL: @gep_alloca_inbounds_vscale_nonzero(
 ; CHECK-NEXT:    [[A:%.*]] = alloca <vscale x 4 x i32>, align 16
 ; CHECK-NEXT:    [[TMP:%.*]] = getelementptr <vscale x 4 x i32>, <vscale x 4 x i32>* [[A]], i64 1, i64 2
-; CHECK-NEXT:    [[LOAD:%.*]] = load i32, i32* [[TMP]], align 8
+; CHECK-NEXT:    [[LOAD:%.*]] = load i32, i32* [[TMP]], align 4
 ; CHECK-NEXT:    ret i32 [[LOAD]]
 ;
   %a = alloca <vscale x 4 x i32>

@@ -21,9 +21,9 @@ define void @f(i1 %cond) {
 ; CHECK:       bb2:
 ; CHECK-NEXT:    [[T9:%.*]] = load i16*, i16** @b, align 2
 ; CHECK-NEXT:    store i16 0, i16* [[T9]], align 2
-; CHECK-NEXT:    [[T10:%.*]] = load i32, i32* [[T12_SUB]], align 8
+; CHECK-NEXT:    [[T10:%.*]] = load i32, i32* [[T12_SUB]], align 4
 ; CHECK-NEXT:    [[T11:%.*]] = add i32 [[T10]], -1
-; CHECK-NEXT:    store i32 [[T11]], i32* [[T12_SUB]], align 8
+; CHECK-NEXT:    store i32 [[T11]], i32* [[T12_SUB]], align 4
 ; CHECK-NEXT:    ret void
 ;
 bb0:

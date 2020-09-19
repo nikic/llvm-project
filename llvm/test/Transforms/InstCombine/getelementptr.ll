@@ -92,7 +92,7 @@ define void @test5_as1(i8 %B) {
 ; This should be turned into a constexpr instead of being an instruction
 define void @test_evaluate_gep_nested_as_ptrs(i32 addrspace(2)* %B) {
 ; CHECK-LABEL: @test_evaluate_gep_nested_as_ptrs(
-; CHECK-NEXT:    store i32 addrspace(2)* [[B:%.*]], i32 addrspace(2)* addrspace(1)* getelementptr inbounds (%as2_ptr_struct, [[AS2_PTR_STRUCT:%.*]] addrspace(1)* @global_as1_as2_ptr, i16 0, i32 0), align 8
+; CHECK-NEXT:    store i32 addrspace(2)* [[B:%.*]], i32 addrspace(2)* addrspace(1)* getelementptr inbounds (%as2_ptr_struct, [[AS2_PTR_STRUCT:%.*]] addrspace(1)* @global_as1_as2_ptr, i16 0, i32 0), align 4
 ; CHECK-NEXT:    ret void
 ;
   %A = getelementptr %as2_ptr_struct, %as2_ptr_struct addrspace(1)* @global_as1_as2_ptr, i16 0, i32 0
@@ -457,7 +457,7 @@ define i32 @test21() {
 ; CHECK-LABEL: @test21(
 ; CHECK-NEXT:    [[PBOB1:%.*]] = alloca [[INTSTRUCT:%.*]], align 8
 ; CHECK-NEXT:    [[PBOBEL:%.*]] = getelementptr inbounds [[INTSTRUCT]], %intstruct* [[PBOB1]], i64 0, i32 0
-; CHECK-NEXT:    [[RVAL:%.*]] = load i32, i32* [[PBOBEL]], align 8
+; CHECK-NEXT:    [[RVAL:%.*]] = load i32, i32* [[PBOBEL]], align 4
 ; CHECK-NEXT:    ret i32 [[RVAL]]
 ;
   %pbob1 = alloca %intstruct
@@ -495,7 +495,7 @@ define i1 @test23() {
 define void @test25() {
 ; CHECK-LABEL: @test25(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    store i64 undef, i64* null, align 536870912
+; CHECK-NEXT:    store i64 undef, i64* null, align 4
 ; CHECK-NEXT:    tail call void @foo25(i32 0, i64 0)
 ; CHECK-NEXT:    unreachable
 ;
@@ -613,7 +613,7 @@ declare i32 @printf(i8*, ...)
 define i32 @test29(i8* %start, i32 %X) nounwind {
 ; CHECK-LABEL: @test29(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    store i64 undef, i64* null, align 536870912
+; CHECK-NEXT:    store i64 undef, i64* null, align 4
 ; CHECK-NEXT:    [[ADD_PTR:%.*]] = getelementptr i8, i8* [[START:%.*]], i64 undef
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[X:%.*]] to i64
 ; CHECK-NEXT:    [[ADD_PTR212:%.*]] = getelementptr i8, i8* [[START]], i64 [[TMP0]]
@@ -683,11 +683,11 @@ define i8* @test32(i8* %v) {
 ; CHECK-LABEL: @test32(
 ; CHECK-NEXT:    [[A:%.*]] = alloca [4 x i8*], align 16
 ; CHECK-NEXT:    [[B:%.*]] = getelementptr inbounds [4 x i8*], [4 x i8*]* [[A]], i64 0, i64 0
-; CHECK-NEXT:    store i8* null, i8** [[B]], align 16
+; CHECK-NEXT:    store i8* null, i8** [[B]], align 8
 ; CHECK-NEXT:    [[D:%.*]] = getelementptr inbounds [4 x i8*], [4 x i8*]* [[A]], i64 0, i64 1
 ; CHECK-NEXT:    store i8* [[V:%.*]], i8** [[D]], align 8
 ; CHECK-NEXT:    [[F:%.*]] = getelementptr inbounds [4 x i8*], [4 x i8*]* [[A]], i64 0, i64 2
-; CHECK-NEXT:    [[G:%.*]] = load i8*, i8** [[F]], align 16
+; CHECK-NEXT:    [[G:%.*]] = load i8*, i8** [[F]], align 8
 ; CHECK-NEXT:    ret i8* [[G]]
 ;
   %A = alloca [4 x i8*], align 16

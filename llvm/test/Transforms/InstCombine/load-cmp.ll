@@ -199,7 +199,7 @@ define i1 @test10_struct(i32 %x) {
 define i1 @test10_struct_noinbounds(i32 %x) {
 ; CHECK-LABEL: @test10_struct_noinbounds(
 ; CHECK-NEXT:    [[P:%.*]] = getelementptr [[FOO:%.*]], %Foo* @GS, i32 [[X:%.*]], i32 0
-; CHECK-NEXT:    [[Q:%.*]] = load i32, i32* [[P]], align 8
+; CHECK-NEXT:    [[Q:%.*]] = load i32, i32* [[P]], align 4
 ; CHECK-NEXT:    [[R:%.*]] = icmp eq i32 [[Q]], 9
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
@@ -237,7 +237,7 @@ define i1 @test10_struct_noinbounds_i16(i16 %x) {
 ; CHECK-LABEL: @test10_struct_noinbounds_i16(
 ; CHECK-NEXT:    [[TMP1:%.*]] = sext i16 [[X:%.*]] to i32
 ; CHECK-NEXT:    [[P:%.*]] = getelementptr [[FOO:%.*]], %Foo* @GS, i32 [[TMP1]], i32 0
-; CHECK-NEXT:    [[Q:%.*]] = load i32, i32* [[P]], align 8
+; CHECK-NEXT:    [[Q:%.*]] = load i32, i32* [[P]], align 4
 ; CHECK-NEXT:    [[R:%.*]] = icmp eq i32 [[Q]], 0
 ; CHECK-NEXT:    ret i1 [[R]]
 ;

@@ -13,11 +13,11 @@ define i32 @bar(i64 %key_token2) nounwind {
 ; CHECK-NEXT:    [[IOSPEC:%.*]] = alloca [[STRUCT_KEY:%.*]], align 8
 ; CHECK-NEXT:    [[RET:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds [[STRUCT_KEY]], %struct.Key* [[IOSPEC]], i32 0, i32 0, i32 0
-; CHECK-NEXT:    store i32 0, i32* [[TMP0]], align 8
+; CHECK-NEXT:    store i32 0, i32* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds [[STRUCT_KEY]], %struct.Key* [[IOSPEC]], i32 0, i32 0, i32 1
 ; CHECK-NEXT:    store i32 0, i32* [[TMP1]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast %struct.Key* [[IOSPEC]] to i64*
-; CHECK-NEXT:    store i64 [[KEY_TOKEN2:%.*]], i64* [[TMP2]], align 8
+; CHECK-NEXT:    store i64 [[KEY_TOKEN2:%.*]], i64* [[TMP2]], align 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = call i32 (...) @foo(%struct.Key* nonnull byval align 4 [[IOSPEC]], i32* nonnull [[RET]]) [[ATTR0:#.*]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* [[RET]], align 4
 ; CHECK-NEXT:    ret i32 [[TMP4]]

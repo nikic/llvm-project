@@ -143,7 +143,7 @@ define void @test6() {
 ; NODL-NEXT:    [[A:%.*]] = alloca { i32 }, align 8
 ; NODL-NEXT:    [[B:%.*]] = alloca i32, align 4
 ; NODL-NEXT:    [[A_1:%.*]] = getelementptr inbounds { i32 }, { i32 }* [[A]], i64 0, i32 0
-; NODL-NEXT:    store volatile i32 123, i32* [[A_1]], align 8
+; NODL-NEXT:    store volatile i32 123, i32* [[A_1]], align 4
 ; NODL-NEXT:    tail call void @f(i32* nonnull [[B]])
 ; NODL-NEXT:    ret void
 ;
@@ -212,15 +212,35 @@ declare i8* @llvm.stacksave()
 declare void @llvm.stackrestore(i8*)
 
 define void @test9(%struct_type* %a) {
-; ALL-LABEL: @test9(
-; ALL-NEXT:  entry:
-; ALL-NEXT:    [[ARGMEM:%.*]] = alloca inalloca i64, align 8
-; ALL-NEXT:    [[TMPCAST:%.*]] = bitcast i64* [[ARGMEM]] to <{ [[STRUCT_TYPE:%.*]] }>*
-; ALL-NEXT:    [[TMP0:%.*]] = bitcast %struct_type* [[A:%.*]] to i64*
-; ALL-NEXT:    [[TMP1:%.*]] = load i64, i64* [[TMP0]], align 4
-; ALL-NEXT:    store i64 [[TMP1]], i64* [[ARGMEM]], align 8
-; ALL-NEXT:    call void @test9_aux(<{ [[STRUCT_TYPE]] }>* inalloca nonnull [[TMPCAST]])
-; ALL-NEXT:    ret void
+; CHECK-LABEL: @test9(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[ARGMEM:%.*]] = alloca inalloca i64, align 1
+; CHECK-NEXT:    [[TMPCAST:%.*]] = bitcast i64* [[ARGMEM]] to <{ [[STRUCT_TYPE:%.*]] }>*
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast %struct_type* [[A:%.*]] to i64*
+; CHECK-NEXT:    [[TMP1:%.*]] = load i64, i64* [[TMP0]], align 4
+; CHECK-NEXT:    store i64 [[TMP1]], i64* [[ARGMEM]], align 4
+; CHECK-NEXT:    call void @test9_aux(<{ [[STRUCT_TYPE]] }>* inalloca nonnull [[TMPCAST]])
+; CHECK-NEXT:    ret void
+;
+; P32-LABEL: @test9(
+; P32-NEXT:  entry:
+; P32-NEXT:    [[ARGMEM:%.*]] = alloca inalloca i64, align 1
+; P32-NEXT:    [[TMPCAST:%.*]] = bitcast i64* [[ARGMEM]] to <{ [[STRUCT_TYPE:%.*]] }>*
+; P32-NEXT:    [[TMP0:%.*]] = bitcast %struct_type* [[A:%.*]] to i64*
+; P32-NEXT:    [[TMP1:%.*]] = load i64, i64* [[TMP0]], align 4
+; P32-NEXT:    store i64 [[TMP1]], i64* [[ARGMEM]], align 4
+; P32-NEXT:    call void @test9_aux(<{ [[STRUCT_TYPE]] }>* inalloca nonnull [[TMPCAST]])
+; P32-NEXT:    ret void
+;
+; NODL-LABEL: @test9(
+; NODL-NEXT:  entry:
+; NODL-NEXT:    [[ARGMEM:%.*]] = alloca inalloca i64, align 8
+; NODL-NEXT:    [[TMPCAST:%.*]] = bitcast i64* [[ARGMEM]] to <{ [[STRUCT_TYPE:%.*]] }>*
+; NODL-NEXT:    [[TMP0:%.*]] = bitcast %struct_type* [[A:%.*]] to i64*
+; NODL-NEXT:    [[TMP1:%.*]] = load i64, i64* [[TMP0]], align 4
+; NODL-NEXT:    store i64 [[TMP1]], i64* [[ARGMEM]], align 8
+; NODL-NEXT:    call void @test9_aux(<{ [[STRUCT_TYPE]] }>* inalloca nonnull [[TMPCAST]])
+; NODL-NEXT:    ret void
 ;
 entry:
   %inalloca.save = call i8* @llvm.stacksave()
