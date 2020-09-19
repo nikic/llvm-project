@@ -408,6 +408,13 @@ extern char &InferAddressSpacesID;
 
 //===----------------------------------------------------------------------===//
 //
+// Infer alignment for load, stores and other memory operations based on
+// trailing zero known bits information.
+//
+FunctionPass *createInferAlignmentLegacyPass();
+
+//===----------------------------------------------------------------------===//
+//
 // LowerExpectIntrinsics - Removes llvm.expect intrinsics and creates
 // "block_weights" metadata.
 FunctionPass *createLowerExpectIntrinsicPass();

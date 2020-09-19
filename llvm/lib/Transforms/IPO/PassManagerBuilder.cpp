@@ -814,6 +814,9 @@ void PassManagerBuilder::populateModulePassManager(
   addExtensionsToPM(EP_Peephole, MPM);
   MPM.add(createInstructionCombiningPass());
 
+  // Infer alignment before unrolling, which may obscure known bits information.
+  MPM.add(createInferAlignmentLegacyPass());
+
   if (EnableUnrollAndJam && !DisableUnrollLoops) {
     // Unroll and Jam. We do this before unroll but need to be in a separate
     // loop pass manager in order for the outer loop to be processed by
