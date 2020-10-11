@@ -176,6 +176,9 @@ static void moveInstructionBefore(Instruction &I, Instruction &Dest,
                                   ICFLoopSafetyInfo &SafetyInfo,
                                   MemorySSAUpdater *MSSAU, ScalarEvolution *SE);
 
+static SmallVector<SmallSetVector<Value *, 8>, 0>
+collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L);
+
 namespace {
 struct LoopInvariantCodeMotion {
   bool runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI, DominatorTree *DT,
@@ -194,9 +197,6 @@ private:
 
   std::unique_ptr<AliasSetTracker>
   collectAliasInfoForLoop(Loop *L, LoopInfo *LI, AAResults *AA);
-  std::unique_ptr<AliasSetTracker>
-  collectAliasInfoForLoopWithMSSA(Loop *L, AAResults *AA,
-                                  MemorySSAUpdater *MSSAU);
 };
 
 struct LegacyLICMPass : public LoopPass {
@@ -405,31 +405,35 @@ bool LoopInvariantCodeMotion::runOnLoop(
       PredIteratorCache PIC;
 
       bool Promoted = false;
+      if (CurAST.get()) {
+        // Loop over all of the alias sets in the tracker object.
+        for (AliasSet &AS : *CurAST) {
+          // We can promote this alias set if it has a store, if it is a "Must"
+          // alias set, if the pointer is loop invariant, and if we are not
+          // eliminating any volatile loads or stores.
+          if (AS.isForwardingAliasSet() || !AS.isMod() || !AS.isMustAlias() ||
+              !L->isLoopInvariant(AS.begin()->getValue()))
+            continue;
 
-      // Build an AST using MSSA.
-      if (!CurAST.get())
-        CurAST = collectAliasInfoForLoopWithMSSA(L, AA, MSSAU.get());
+          assert(
+              !AS.empty() &&
+              "Must alias set should have at least one pointer element in it!");
 
-      // Loop over all of the alias sets in the tracker object.
-      for (AliasSet &AS : *CurAST) {
-        // We can promote this alias set if it has a store, if it is a "Must"
-        // alias set, if the pointer is loop invariant, and if we are not
-        // eliminating any volatile loads or stores.
-        if (AS.isForwardingAliasSet() || !AS.isMod() || !AS.isMustAlias() ||
-            !L->isLoopInvariant(AS.begin()->getValue()))
-          continue;
+          SmallSetVector<Value *, 8> PointerMustAliases;
+          for (const auto &ASI : AS)
+            PointerMustAliases.insert(ASI.getValue());
 
-        assert(
-            !AS.empty() &&
-            "Must alias set should have at least one pointer element in it!");
-
-        SmallSetVector<Value *, 8> PointerMustAliases;
-        for (const auto &ASI : AS)
-          PointerMustAliases.insert(ASI.getValue());
-
-        Promoted |= promoteLoopAccessesToScalars(
-            PointerMustAliases, ExitBlocks, InsertPts, MSSAInsertPts, PIC, LI,
-            DT, TLI, L, CurAST.get(), MSSAU.get(), &SafetyInfo, ORE);
+          Promoted |= promoteLoopAccessesToScalars(
+              PointerMustAliases, ExitBlocks, InsertPts, MSSAInsertPts, PIC, LI,
+              DT, TLI, L, CurAST.get(), MSSAU.get(), &SafetyInfo, ORE);
+        }
+      } else {
+        for (const SmallSetVector<Value *, 8> &PointerMustAliases :
+             collectPromotionCandidates(MSSA, AA, L)) {
+          Promoted |= promoteLoopAccessesToScalars(
+              PointerMustAliases, ExitBlocks, InsertPts, MSSAInsertPts, PIC, LI,
+              DT, TLI, L, /*AST*/nullptr, MSSAU.get(), &SafetyInfo, ORE);
+        }
       }
 
       // Once we have promoted values across the loop body we have to
@@ -2188,6 +2192,64 @@ bool llvm::promoteLoopAccessesToScalars(
   return true;
 }
 
+static SmallVector<SmallSetVector<Value *, 8>, 0>
+collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L) {
+  AliasSetTracker AST(*AA);
+
+  auto IsPotentiallyPromotable = [L](const Instruction *I) {
+    if (const auto *SI = dyn_cast<StoreInst>(I))
+      return L->isLoopInvariant(SI->getPointerOperand());
+    if (const auto *LI = dyn_cast<LoadInst>(I))
+      return L->isLoopInvariant(LI->getPointerOperand());
+    return false;
+  };
+
+  // Populate AST with potentially promotable accesses.
+  for (const BasicBlock *BB : L->blocks())
+    if (const auto *Accesses = MSSA->getBlockAccesses(BB))
+      for (const auto &Access : *Accesses)
+        if (const auto *MUD = dyn_cast<MemoryUseOrDef>(&Access))
+          if (IsPotentiallyPromotable(MUD->getMemoryInst()))
+            AST.add(MUD->getMemoryInst());
+
+  // We're only interested in must-alias sets that contain a mod.
+  SmallVector<const AliasSet *, 8> Sets;
+  for (AliasSet &AS : AST)
+    if (!AS.isForwardingAliasSet() && AS.isMod() && AS.isMustAlias())
+      Sets.push_back(&AS);
+
+  // Discard any sets for which there is an aliasing non-promotable access.
+  auto CheckAccess = [&](Instruction *I) {
+    if (Optional<MemoryLocation> Loc = MemoryLocation::getOrNone(I)) {
+      Sets.erase(llvm::remove_if(Sets, [&](const AliasSet *AS) {
+        return AS->aliasesPointer(Loc->Ptr, Loc->Size, Loc->AATags, *AA)
+               != NoAlias;
+      }), Sets.end());
+    } else {
+      Sets.erase(llvm::remove_if(Sets, [&](const AliasSet *AS) {
+        return AS->aliasesUnknownInst(I, *AA);
+      }), Sets.end());
+    }
+  };
+
+  for (const BasicBlock *BB : L->blocks())
+    if (const auto *Accesses = MSSA->getBlockAccesses(BB))
+      for (const auto &Access : *Accesses)
+        if (const auto *MUD = dyn_cast<MemoryUseOrDef>(&Access))
+          if (!IsPotentiallyPromotable(MUD->getMemoryInst()))
+            CheckAccess(MUD->getMemoryInst());
+
+  SmallVector<SmallSetVector<Value *, 8>, 0> Result;
+  for (const AliasSet *Set : Sets) {
+    SmallSetVector<Value *, 8> PointerMustAliases;
+    for (const auto &ASI : *Set)
+      PointerMustAliases.insert(ASI.getValue());
+    Result.push_back(std::move(PointerMustAliases));
+  }
+
+  return Result;
+}
+
 /// Returns an owning pointer to an alias set which incorporates aliasing info
 /// from L and all subloops of L.
 std::unique_ptr<AliasSetTracker>
@@ -2205,15 +2267,6 @@ LoopInvariantCodeMotion::collectAliasInfoForLoop(Loop *L, LoopInfo *LI,
     if (LI->getLoopFor(BB) == L)
       CurAST->add(*BB);
 
-  return CurAST;
-}
-
-std::unique_ptr<AliasSetTracker>
-LoopInvariantCodeMotion::collectAliasInfoForLoopWithMSSA(
-    Loop *L, AAResults *AA, MemorySSAUpdater *MSSAU) {
-  auto *MSSA = MSSAU->getMemorySSA();
-  auto CurAST = std::make_unique<AliasSetTracker>(*AA, MSSA, L);
-  CurAST->addAllInstructionsInLoopUsingMSSA();
   return CurAST;
 }
 
