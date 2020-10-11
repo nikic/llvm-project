@@ -93,7 +93,7 @@ STATISTIC(NumPromoted, "Number of memory locations promoted to registers");
 
 /// Memory promotion is enabled by default.
 static cl::opt<bool>
-    DisablePromotion("disable-licm-promotion", cl::Hidden, cl::init(false),
+    DisablePromotion("disable-licm-promotion", cl::Hidden, cl::init(true),
                      cl::desc("Disable memory promotion in LICM pass"));
 
 static cl::opt<bool> ControlFlowHoisting(
