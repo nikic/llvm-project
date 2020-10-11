@@ -39,7 +39,7 @@ using namespace llvm;
 
 static cl::opt<unsigned>
     SaturationThreshold("alias-set-saturation-threshold", cl::Hidden,
-                        cl::init(250),
+                        cl::init(100),
                         cl::desc("The maximum number of pointers may-alias "
                                  "sets may contain before degradation"));
 
