@@ -238,6 +238,18 @@ bool AliasSet::aliasesUnknownInst(const Instruction *Inst,
   assert(Inst->mayReadOrWriteMemory() &&
          "Instruction must either read or write memory.");
 
+  if (Alias == SetMustAlias) {
+    assert(UnknownInsts.empty() && "Illegal must alias set!");
+
+    // If this is a set of MustAliases, only check to see if the pointer aliases
+    // SOME value in the set.
+    PointerRec *SomePtr = getSomePointer();
+    assert(SomePtr && "Empty must-alias set??");
+    return isModOrRefSet(AA.getModRefInfo(
+        Inst, MemoryLocation(SomePtr->getValue(), SomePtr->getSize(),
+                             SomePtr->getAAInfo())));
+  }
+
   for (unsigned i = 0, e = UnknownInsts.size(); i != e; ++i) {
     if (auto *UnknownInst = getUnknownInst(i)) {
       const auto *C1 = dyn_cast<CallBase>(UnknownInst);
