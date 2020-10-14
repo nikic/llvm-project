@@ -1,5 +1,4 @@
-; RUN: opt < %s -tbaa -licm -enable-mssa-loop-dependency=0 -S | FileCheck %s --check-prefixes=CHECK,AST
-; RUN: opt < %s -tbaa -licm -S | FileCheck %s --check-prefixes=CHECK,MSSA
+; RUN: opt < %s -tbaa -licm -S | FileCheck %s
 ; PR9634
 
 @g_58 = common global i32 0, align 4
@@ -9,11 +8,8 @@ define void @f() nounwind {
 
 ; CHECK: entry:
 ; CHECK: alloca [9 x i16]
-; AST: load i32, i32* @g_58
+; CHECK: load i32, i32* @g_58
 ; CHECK: br label %for.body
-; CHECK: for.end:
-; CHECK: store i32* @g_58, i32** @g_116
-; AST: store i32 %or.lcssa, i32* @g_58
 
 entry:
   %l_87.i = alloca [9 x i16], align 16

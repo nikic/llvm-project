@@ -176,8 +176,11 @@ static void moveInstructionBefore(Instruction &I, Instruction &Dest,
                                   ICFLoopSafetyInfo &SafetyInfo,
                                   MemorySSAUpdater *MSSAU, ScalarEvolution *SE);
 
+static void foreachMemoryAccess(MemorySSA *MSSA, Loop *L,
+                                function_ref<void(Instruction *)> Fn);
 static SmallVector<SmallSetVector<Value *, 8>, 0>
-collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L);
+collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L,
+                           SmallVectorImpl<Instruction *> &MaybePromotable);
 
 namespace {
 struct LoopInvariantCodeMotion {
@@ -428,12 +431,25 @@ bool LoopInvariantCodeMotion::runOnLoop(
               DT, TLI, L, CurAST.get(), MSSAU.get(), &SafetyInfo, ORE);
         }
       } else {
-        for (const SmallSetVector<Value *, 8> &PointerMustAliases :
-             collectPromotionCandidates(MSSA, AA, L)) {
-          Promoted |= promoteLoopAccessesToScalars(
-              PointerMustAliases, ExitBlocks, InsertPts, MSSAInsertPts, PIC, LI,
-              DT, TLI, L, /*AST*/nullptr, MSSAU.get(), &SafetyInfo, ORE);
-        }
+        SmallVector<Instruction *, 16> MaybePromotable;
+        foreachMemoryAccess(MSSA, L, [&](Instruction *I) {
+          MaybePromotable.push_back(I);
+        });
+
+        // Promoting one set of accesses may make the pointers for another set
+        // loop invariant, so run this in a loop (with the MaybePromotable set
+        // decreasing in size over time).
+        bool LocalPromoted;
+        do {
+          LocalPromoted = false;
+          for (const SmallSetVector<Value *, 8> &PointerMustAliases :
+               collectPromotionCandidates(MSSA, AA, L, MaybePromotable)) {
+            LocalPromoted |= promoteLoopAccessesToScalars(
+                PointerMustAliases, ExitBlocks, InsertPts, MSSAInsertPts, PIC,
+                LI, DT, TLI, L, /*AST*/nullptr, MSSAU.get(), &SafetyInfo, ORE);
+          }
+          Promoted |= LocalPromoted;
+        } while (LocalPromoted);
       }
 
       // Once we have promoted values across the loop body we have to
@@ -2192,8 +2208,18 @@ bool llvm::promoteLoopAccessesToScalars(
   return true;
 }
 
+static void foreachMemoryAccess(MemorySSA *MSSA, Loop *L,
+                                function_ref<void(Instruction *)> Fn) {
+  for (const BasicBlock *BB : L->blocks())
+    if (const auto *Accesses = MSSA->getBlockAccesses(BB))
+      for (const auto &Access : *Accesses)
+        if (const auto *MUD = dyn_cast<MemoryUseOrDef>(&Access))
+          Fn(MUD->getMemoryInst());
+}
+
 static SmallVector<SmallSetVector<Value *, 8>, 0>
-collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L) {
+collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L,
+                           SmallVectorImpl<Instruction *> &MaybePromotable) {
   AliasSetTracker AST(*AA);
 
   auto IsPotentiallyPromotable = [L](const Instruction *I) {
@@ -2204,13 +2230,17 @@ collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L) {
     return false;
   };
 
-  // Populate AST with potentially promotable accesses.
-  for (const BasicBlock *BB : L->blocks())
-    if (const auto *Accesses = MSSA->getBlockAccesses(BB))
-      for (const auto &Access : *Accesses)
-        if (const auto *MUD = dyn_cast<MemoryUseOrDef>(&Access))
-          if (IsPotentiallyPromotable(MUD->getMemoryInst()))
-            AST.add(MUD->getMemoryInst());
+  // Populate AST with potentially promotable accesses and remove them from
+  // MaybePromotable, so they will not be checked again on the next iteration.
+  SmallPtrSet<Value *, 16> AttemptingPromotion;
+  MaybePromotable.erase(llvm::remove_if(MaybePromotable, [&](Instruction *I) {
+    if (IsPotentiallyPromotable(I)) {
+      AttemptingPromotion.insert(I);
+      AST.add(I);
+      return true;
+    }
+    return false;
+  }), MaybePromotable.end());
 
   // We're only interested in must-alias sets that contain a mod.
   SmallVector<const AliasSet *, 8> Sets;
@@ -2218,8 +2248,14 @@ collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L) {
     if (!AS.isForwardingAliasSet() && AS.isMod() && AS.isMustAlias())
       Sets.push_back(&AS);
 
+  if (Sets.empty())
+    return {}; // Nothing to promote...
+
   // Discard any sets for which there is an aliasing non-promotable access.
-  auto CheckAccess = [&](Instruction *I) {
+  foreachMemoryAccess(MSSA, L, [&](Instruction *I) {
+    if (AttemptingPromotion.contains(I))
+      return;
+
     if (Optional<MemoryLocation> Loc = MemoryLocation::getOrNone(I)) {
       Sets.erase(llvm::remove_if(Sets, [&](const AliasSet *AS) {
         return AS->aliasesPointer(Loc->Ptr, Loc->Size, Loc->AATags, *AA)
@@ -2230,14 +2266,7 @@ collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L) {
         return AS->aliasesUnknownInst(I, *AA);
       }), Sets.end());
     }
-  };
-
-  for (const BasicBlock *BB : L->blocks())
-    if (const auto *Accesses = MSSA->getBlockAccesses(BB))
-      for (const auto &Access : *Accesses)
-        if (const auto *MUD = dyn_cast<MemoryUseOrDef>(&Access))
-          if (!IsPotentiallyPromotable(MUD->getMemoryInst()))
-            CheckAccess(MUD->getMemoryInst());
+  });
 
   SmallVector<SmallSetVector<Value *, 8>, 0> Result;
   for (const AliasSet *Set : Sets) {
