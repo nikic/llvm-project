@@ -1302,22 +1302,20 @@ AliasResult BasicAAResult::aliasGEP(
     if (!GEP1MaxLookupReached && !GEP2MaxLookupReached &&
         isGEPBaseAtNegativeOffset(GEP2, DecompGEP2, DecompGEP1, V1Size))
       return NoAlias;
+
+    // For GEPs with identical sizes and offsets, we can preserve the size
+    // and AAInfo when performing the alias check on the underlying objects.
+    if (V1Size == V2Size && GEP1BaseOffset == GEP2BaseOffset &&
+        DecompGEP1.VarIndices == DecompGEP2.VarIndices &&
+        !GEP1MaxLookupReached && !GEP2MaxLookupReached) {
+      return aliasCheck(
+          UnderlyingV1, V1Size, V1AAInfo, UnderlyingV2, V2Size, V2AAInfo, AAQI);
+    }
+
     // Do the base pointers alias?
     AliasResult BaseAlias =
         aliasCheck(UnderlyingV1, LocationSize::unknown(), AAMDNodes(),
                    UnderlyingV2, LocationSize::unknown(), AAMDNodes(), AAQI);
-
-    // For GEPs with identical sizes and offsets, we can preserve the size
-    // and AAInfo when performing the alias check on the underlying objects.
-    if (BaseAlias == MayAlias && V1Size == V2Size &&
-        GEP1BaseOffset == GEP2BaseOffset &&
-        DecompGEP1.VarIndices == DecompGEP2.VarIndices &&
-        !GEP1MaxLookupReached && !GEP2MaxLookupReached) {
-      AliasResult PreciseBaseAlias = aliasCheck(
-          UnderlyingV1, V1Size, V1AAInfo, UnderlyingV2, V2Size, V2AAInfo, AAQI);
-      if (PreciseBaseAlias == NoAlias)
-        return NoAlias;
-    }
 
     // If we get a No or May, then return it immediately, no amount of analysis
     // will improve this situation.
