@@ -2178,8 +2178,6 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
   // Sort by complexity, this groups all similar expression types together.
   GroupByComplexity(Ops, &LI, DT);
 
-  Flags = StrengthenNoWrapFlags(this, scAddExpr, Ops, Flags);
-
   // If there are any constants, fold them together.
   unsigned Idx = 0;
   if (const SCEVConstant *LHSC = dyn_cast<SCEVConstant>(Ops[0])) {
@@ -2202,14 +2200,16 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
     if (Ops.size() == 1) return Ops[0];
   }
 
+  if (SCEV *S = std::get<0>(findExistingSCEVInCache(scAddExpr, Ops))) {
+    //static_cast<SCEVAddExpr *>(S)->setNoWrapFlags(Flags);
+    return S;
+  }
+
+  Flags = StrengthenNoWrapFlags(this, scAddExpr, Ops, Flags);
+
   // Limit recursion calls depth.
   if (Depth > MaxArithDepth || hasHugeExpression(Ops))
     return getOrCreateAddExpr(Ops, Flags);
-
-  if (SCEV *S = std::get<0>(findExistingSCEVInCache(scAddExpr, Ops))) {
-    static_cast<SCEVAddExpr *>(S)->setNoWrapFlags(Flags);
-    return S;
-  }
 
   // Okay, check to see if the same value occurs in the operand list more than
   // once.  If so, merge them together into an multiply expression.  Since we
@@ -2684,6 +2684,11 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
   // Sort by complexity, this groups all similar expression types together.
   GroupByComplexity(Ops, &LI, DT);
 
+  if (SCEV *S = std::get<0>(findExistingSCEVInCache(scMulExpr, Ops))) {
+    //static_cast<SCEVMulExpr *>(S)->setNoWrapFlags(Flags);
+    return S;
+  }
+
   Flags = StrengthenNoWrapFlags(this, scMulExpr, Ops, Flags);
 
   // Limit recursion calls depth, but fold all-constant expressions.
@@ -2691,11 +2696,6 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
   if ((Depth > MaxArithDepth || hasHugeExpression(Ops)) &&
       !isa<SCEVConstant>(Ops.back()))
     return getOrCreateMulExpr(Ops, Flags);
-
-  if (SCEV *S = std::get<0>(findExistingSCEVInCache(scMulExpr, Ops))) {
-    static_cast<SCEVMulExpr *>(S)->setNoWrapFlags(Flags);
-    return S;
-  }
 
   // If there are any constants, fold them together.
   unsigned Idx = 0;
