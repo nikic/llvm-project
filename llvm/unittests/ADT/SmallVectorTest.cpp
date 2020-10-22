@@ -32,39 +32,45 @@ private:
   static int numAssignmentCalls;
   static int numMoveAssignmentCalls;
   static int numCopyAssignmentCalls;
+  enum class ObjectState { Destroyed = 0, Constructed, MovedFrom };
 
-  bool constructed;
+  ObjectState State;
   int value;
 
 public:
-  Constructable() : constructed(true), value(0) {
+  Constructable() : State(ObjectState::Constructed), value(0) {
     ++numConstructorCalls;
   }
 
-  Constructable(int val) : constructed(true), value(val) {
+  Constructable(int val) : State(ObjectState::Constructed), value(val) {
     ++numConstructorCalls;
   }
 
-  Constructable(const Constructable & src) : constructed(true) {
+  Constructable(const Constructable &src) : State(src.State) {
+    EXPECT_EQ(State, ObjectState::Constructed);
     value = src.value;
     ++numConstructorCalls;
     ++numCopyConstructorCalls;
   }
 
-  Constructable(Constructable && src) : constructed(true) {
+  Constructable(Constructable &&src) : State(src.State) {
+    EXPECT_EQ(State, ObjectState::Constructed);
     value = src.value;
+    src.State = ObjectState::MovedFrom;
     ++numConstructorCalls;
     ++numMoveConstructorCalls;
   }
 
   ~Constructable() {
-    EXPECT_TRUE(constructed);
+    EXPECT_NE(State, ObjectState::Destroyed);
     ++numDestructorCalls;
-    constructed = false;
+    State = ObjectState::Destroyed;
   }
 
   Constructable & operator=(const Constructable & src) {
-    EXPECT_TRUE(constructed);
+    EXPECT_NE(State, ObjectState::Destroyed);
+    EXPECT_EQ(src.State, ObjectState::Constructed);
+    State = src.State;
     value = src.value;
     ++numAssignmentCalls;
     ++numCopyAssignmentCalls;
@@ -72,14 +78,18 @@ public:
   }
 
   Constructable & operator=(Constructable && src) {
-    EXPECT_TRUE(constructed);
+    EXPECT_NE(State, ObjectState::Destroyed);
+    EXPECT_EQ(src.State, ObjectState::Constructed);
+    State = src.State;
     value = src.value;
+    src.State = ObjectState::MovedFrom;
     ++numAssignmentCalls;
     ++numMoveAssignmentCalls;
     return *this;
   }
 
   int getValue() const {
+    EXPECT_EQ(State, ObjectState::Constructed);
     return abs(value);
   }
 
@@ -462,8 +472,12 @@ TYPED_TEST(SmallVectorTest, AssignTest) {
   SCOPED_TRACE("AssignTest");
 
   this->theVector.push_back(Constructable(1));
+  Constructable::reset();
   this->theVector.assign(2, Constructable(77));
   this->assertValuesInOrder(this->theVector, 2u, 77, 77);
+  EXPECT_EQ(Constructable::getNumCopyAssignmentCalls() +
+                Constructable::getNumCopyConstructorCalls(),
+            2);
 }
 
 // Assign test
@@ -481,8 +495,12 @@ TYPED_TEST(SmallVectorTest, AssignNonIterTest) {
   SCOPED_TRACE("AssignTest");
 
   this->theVector.push_back(Constructable(1));
+  Constructable::reset();
   this->theVector.assign(2, 7);
   this->assertValuesInOrder(this->theVector, 2u, 7, 7);
+  EXPECT_EQ(Constructable::getNumCopyAssignmentCalls() +
+                Constructable::getNumCopyConstructorCalls(),
+            2);
 }
 
 // Move-assign test
@@ -564,21 +582,28 @@ TYPED_TEST(SmallVectorTest, InsertRepeatedTest) {
 
   this->makeSequence(this->theVector, 1, 4);
   Constructable::reset();
+  bool RequiresGrowth = this->theVector.capacity() < 6;
   auto I =
       this->theVector.insert(this->theVector.begin() + 1, 2, Constructable(16));
-  // Move construct the top element into newly allocated space, and optionally
-  // reallocate the whole buffer, move constructing into it.
-  // FIXME: This is inefficient, we shouldn't move things into newly allocated
-  // space, then move them up/around, there should only be 2 or 4 move
-  // constructions here.
-  EXPECT_TRUE(Constructable::getNumMoveConstructorCalls() == 2 ||
-              Constructable::getNumMoveConstructorCalls() == 6);
-  // Move assign the next two to shift them up and make a gap.
-  EXPECT_EQ(1, Constructable::getNumMoveAssignmentCalls());
-  // Copy construct the two new elements from the parameter.
-  EXPECT_EQ(2, Constructable::getNumCopyAssignmentCalls());
-  // All without any copy construction.
-  EXPECT_EQ(0, Constructable::getNumCopyConstructorCalls());
+
+  if (RequiresGrowth) {
+    // Moving [1] and [2,3,4] into the new storage.
+    EXPECT_EQ(4, Constructable::getNumMoveConstructorCalls());
+    // Copy construct the new elements directly into the new storage.
+    EXPECT_EQ(2, Constructable::getNumCopyConstructorCalls());
+    // Nothing is move or copy assigned in the growth case.
+    EXPECT_EQ(0, Constructable::getNumMoveAssignmentCalls());
+    EXPECT_EQ(0, Constructable::getNumCopyAssignmentCalls());
+  } else {
+    // Shifting [3,4] down 2 blocks into uninitialized storage.
+    EXPECT_EQ(2, Constructable::getNumMoveConstructorCalls());
+    // Shifting [2] into where [4] lived.
+    EXPECT_EQ(1, Constructable::getNumMoveAssignmentCalls());
+    // Copy assign the two new elements inside the buffer.
+    EXPECT_EQ(2, Constructable::getNumCopyAssignmentCalls());
+    EXPECT_EQ(0, Constructable::getNumCopyConstructorCalls());
+  }
+
   EXPECT_EQ(this->theVector.begin() + 1, I);
   this->assertValuesInOrder(this->theVector, 6u, 1, 16, 16, 2, 3, 4);
 }
@@ -635,18 +660,28 @@ TYPED_TEST(SmallVectorTest, InsertRangeTest) {
 
   this->makeSequence(this->theVector, 1, 3);
   Constructable::reset();
+  bool RequiresGrowth = this->theVector.capacity() < 6;
   auto I = this->theVector.insert(this->theVector.begin() + 1, Arr, Arr + 3);
-  // Move construct the top 3 elements into newly allocated space.
-  // Possibly move the whole sequence into new space first.
-  // FIXME: This is inefficient, we shouldn't move things into newly allocated
-  // space, then move them up/around, there should only be 2 or 3 move
-  // constructions here.
-  EXPECT_TRUE(Constructable::getNumMoveConstructorCalls() == 2 ||
-              Constructable::getNumMoveConstructorCalls() == 5);
-  // Copy assign the lower 2 new elements into existing space.
-  EXPECT_EQ(2, Constructable::getNumCopyAssignmentCalls());
-  // Copy construct the third element into newly allocated space.
-  EXPECT_EQ(1, Constructable::getNumCopyConstructorCalls());
+
+  if (RequiresGrowth) {
+    // Moving [1] and [2,3] into the new storage.
+    EXPECT_EQ(3, Constructable::getNumMoveConstructorCalls());
+    // Copy construct the 3 items from Arr into the new storage.
+    EXPECT_EQ(3, Constructable::getNumCopyConstructorCalls());
+    // Nothing is move or copy assigned in the growth case.
+    EXPECT_EQ(0, Constructable::getNumMoveAssignmentCalls());
+    EXPECT_EQ(0, Constructable::getNumCopyAssignmentCalls());
+  } else {
+    // Shifting [2,3] down 3 blocks into uninitialized storage.
+    EXPECT_EQ(2, Constructable::getNumMoveConstructorCalls());
+    // Copy assign the lower 2 new elements into existing storage.
+    EXPECT_EQ(2, Constructable::getNumCopyAssignmentCalls());
+    // Copy construct the third element into uninitialized storage.
+    EXPECT_EQ(1, Constructable::getNumCopyConstructorCalls());
+    // Nothing needs to be move assigned here as the only items that need
+    // shifting, are shifted into uninitialized storage.
+    EXPECT_EQ(0, Constructable::getNumMoveAssignmentCalls());
+  }
   EXPECT_EQ(this->theVector.begin() + 1, I);
   this->assertValuesInOrder(this->theVector, 6u, 1, 77, 77, 77, 2, 3);
 }

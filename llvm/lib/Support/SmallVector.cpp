@@ -69,10 +69,8 @@ template <class Size_T> void SmallVectorBase<Size_T>::report_at_maximum_capacity
 #endif
 }
 
-// Note: Moving this function into the header may cause performance regression.
 template <class Size_T>
-void SmallVectorBase<Size_T>::grow_pod(void *FirstEl, size_t MinSize,
-                                       size_t TSize) {
+size_t SmallVectorBase<Size_T>::grow_size(size_t MinSize) {
   // Ensure we can fit the new capacity.
   // This is only going to be applicable when the capacity is 32 bit.
   if (MinSize > SizeTypeMax())
@@ -88,8 +86,15 @@ void SmallVectorBase<Size_T>::grow_pod(void *FirstEl, size_t MinSize,
   // In theory 2*capacity can overflow if the capacity is 64 bit, but the
   // original capacity would never be large enough for this to be a problem.
   size_t NewCapacity = 2 * capacity() + 1; // Always grow.
-  NewCapacity = std::min(std::max(NewCapacity, MinSize), SizeTypeMax());
+  return std::min(std::max(NewCapacity, MinSize), SizeTypeMax());
+}
 
+// Note: Moving this function into the header may cause performance regression.
+template <class Size_T>
+void SmallVectorBase<Size_T>::grow_pod(void *FirstEl, size_t MinSize,
+                                       size_t TSize) {
+
+  size_t NewCapacity = grow_size(MinSize);
   void *NewElts;
   if (BeginX == FirstEl) {
     NewElts = safe_malloc(NewCapacity * TSize);
@@ -103,6 +108,35 @@ void SmallVectorBase<Size_T>::grow_pod(void *FirstEl, size_t MinSize,
 
   this->BeginX = NewElts;
   this->Capacity = NewCapacity;
+}
+
+template <class Size_T>
+GrowBufferBase<Size_T> SmallVectorBase<Size_T>::split_grow_impl(void *FirstEl,
+                                                                size_t MinSize,
+                                                                size_t TSize) {
+  size_t NewCapacity = grow_size(MinSize);
+
+  void *NewElts = safe_malloc(NewCapacity * TSize);
+
+  GrowBufferBase<Size_T> Buffer;
+  Buffer.setBegin(this->BeginX);
+  Buffer.setSize(this->Size);
+  Buffer.setNeedsFree(this->BeginX != FirstEl);
+
+  this->BeginX = NewElts;
+  this->Capacity = NewCapacity;
+
+  return Buffer;
+}
+
+template <class Size_T>
+void SmallVectorBase<Size_T>::finish_grow(const GrowBufferBase<Size_T> &Buffer,
+                                          size_t TSize) {
+  memcpy(this->BeginX, Buffer.getBegin(), Buffer.getSize() * TSize);
+
+  // If this wasn't grown from the inline copy, deallocate the old space.
+  if (Buffer.getNeedsFree())
+    free(Buffer.getBegin());
 }
 
 template class llvm::SmallVectorBase<uint32_t>;
