@@ -854,7 +854,7 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   // then the call can not mod/ref the pointer unless the call takes the pointer
   // as an argument, and itself doesn't capture it.
   if (!isa<Constant>(Object) && Call != Object &&
-      isNonEscapingLocalObject(Object, &AAQI.IsCapturedCache)) {
+      isNonEscapingLocalObject(Object, AAQI.IsCapturedCache)) {
 
     // Optimistically assume that call doesn't touch Object and check this
     // assumption in the following loop.
@@ -1664,7 +1664,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // If we inserted a block into VisitedPhiBBs, alias analysis results that
   // have been cached earlier may no longer be valid. Perform recursive queries
   // with a new AAQueryInfo.
-  AAQueryInfo NewAAQI;
+  AAQueryInfo NewAAQI(AAQI.IsCapturedCache);
   AAQueryInfo *UseAAQI = BlockInserted ? &NewAAQI : &AAQI;
 
   AliasResult Alias = aliasCheck(V2, V2Size, V2AAInfo, V1Srcs[0], PNSize,
@@ -1770,10 +1770,10 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // location if that memory location doesn't escape. Or it may pass a
     // nocapture value to other functions as long as they don't capture it.
     if (isEscapeSource(O1) &&
-        isNonEscapingLocalObject(O2, &AAQI.IsCapturedCache))
+        isNonEscapingLocalObject(O2, AAQI.IsCapturedCache))
       return NoAlias;
     if (isEscapeSource(O2) &&
-        isNonEscapingLocalObject(O1, &AAQI.IsCapturedCache))
+        isNonEscapingLocalObject(O1, AAQI.IsCapturedCache))
       return NoAlias;
   }
 

@@ -346,9 +346,29 @@ public:
   AliasCacheT AliasCache;
 
   using IsCapturedCacheT = SmallDenseMap<const Value *, bool, 8>;
-  IsCapturedCacheT IsCapturedCache;
+  IsCapturedCacheT OwnedIsCapturedCache;
+  IsCapturedCacheT *IsCapturedCache;
 
-  AAQueryInfo() : AliasCache(), IsCapturedCache() {}
+  AAQueryInfo() : AliasCache(), IsCapturedCache(&OwnedIsCapturedCache) {}
+  AAQueryInfo(IsCapturedCacheT *IsCapturedCache)
+      : IsCapturedCache(IsCapturedCache) {}
+
+  AAQueryInfo(const AAQueryInfo &Other)
+      : AliasCache(Other.AliasCache),
+        OwnedIsCapturedCache(Other.OwnedIsCapturedCache),
+        IsCapturedCache(Other.IsCapturedCache) {
+    if (IsCapturedCache == &Other.OwnedIsCapturedCache)
+      IsCapturedCache = &OwnedIsCapturedCache;
+  }
+  AAQueryInfo(AAQueryInfo &&Other)
+      : AliasCache(std::move(Other.AliasCache)),
+        OwnedIsCapturedCache(std::move(Other.OwnedIsCapturedCache)),
+        IsCapturedCache(std::move(Other.IsCapturedCache)) {
+    if (IsCapturedCache == &Other.OwnedIsCapturedCache)
+      IsCapturedCache = &OwnedIsCapturedCache;
+  }
+  AAQueryInfo &operator=(const AAQueryInfo &Other) = delete;
+  AAQueryInfo &operator=(AAQueryInfo &&Other) = delete;
 
   AliasResult updateResult(const LocPair &Locs, AliasResult Result) {
     auto It = AliasCache.find(Locs);
