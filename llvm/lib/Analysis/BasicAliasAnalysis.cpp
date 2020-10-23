@@ -1655,10 +1655,19 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // In the recursive alias queries below, we may compare values from two
   // different loop iterations. Keep track of visited phi blocks, which will
   // be used when determining value equivalence.
-  auto Pair = VisitedPhiBBs.insert(PN->getParent());
+  //
+  // If we inserted a block into VisitedPhiBBs, alias analysis results that
+  // have been cached earlier may no longer be valid, so perform recursive
+  // queries with an empty AliasCache.
+  bool BlockInserted = VisitedPhiBBs.insert(PN->getParent()).second;
+  AAQueryInfo::AliasCacheT NewCache;
+  if (BlockInserted)
+    AAQI.AliasCache.swap(NewCache);
   auto _ = make_scope_exit([&]() {
-    if (Pair.second)
+    if (BlockInserted) {
       VisitedPhiBBs.erase(PN->getParent());
+      AAQI.AliasCache.swap(NewCache);
+    }
   });
 
   AliasResult Alias = aliasCheck(V2, V2Size, V2AAInfo, V1Srcs[0], PNSize,
