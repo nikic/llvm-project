@@ -242,6 +242,84 @@ void llvm::simplifyLoopAfterUnroll(Loop *L, bool SimplifyIVs, LoopInfo *LI,
   // appropriate.
 }
 
+static SetVector<const MDNode *> collectAliasMetadata(
+    const std::vector<BasicBlock *> &Blocks) {
+  SetVector<const MDNode *> MD;
+  for (BasicBlock *BB : Blocks) {
+    for (const Instruction &I : *BB) {
+      if (const MDNode *M = I.getMetadata(LLVMContext::MD_alias_scope))
+        MD.insert(M);
+      if (const MDNode *M = I.getMetadata(LLVMContext::MD_noalias))
+        MD.insert(M);
+    }
+  }
+
+  // Walk the existing metadata, adding the complete (perhaps cyclic) chain
+  // to the set.
+  SmallVector<const Metadata *, 16> Queue(MD.begin(), MD.end());
+  while (!Queue.empty()) {
+    const MDNode *M = cast<MDNode>(Queue.pop_back_val());
+    for (unsigned i = 0, ie = M->getNumOperands(); i != ie; ++i)
+      if (const MDNode *M1 = dyn_cast<MDNode>(M->getOperand(i)))
+        if (MD.insert(M1))
+          Queue.push_back(M1);
+  }
+
+  return MD;
+}
+
+using AliasMetadataMap = DenseMap<const MDNode *, TrackingMDNodeRef>;
+
+static AliasMetadataMap cloneAliasMetadata(const SetVector<const MDNode *> MD) {
+  SmallVector<TempMDTuple, 16> DummyNodes;
+  AliasMetadataMap MDMap;
+  for (const MDNode *I : MD) {
+    DummyNodes.push_back(MDTuple::getTemporary(I->getContext(), None));
+    MDMap[I].reset(DummyNodes.back().get());
+  }
+
+  // Create new metadata nodes to replace the dummy nodes, replacing old
+  // metadata references with either a dummy node or an already-created new
+  // node.
+  for (const MDNode *I : MD) {
+    SmallVector<Metadata *, 4> NewOps;
+    for (unsigned i = 0, ie = I->getNumOperands(); i != ie; ++i) {
+      const Metadata *V = I->getOperand(i);
+      if (const MDNode *M = dyn_cast<MDNode>(V))
+        NewOps.push_back(MDMap[M]);
+      else
+        NewOps.push_back(const_cast<Metadata *>(V));
+    }
+
+    MDNode *NewM = MDNode::get(I->getContext(), NewOps);
+    MDTuple *TempM = cast<MDTuple>(MDMap[I]);
+    assert(TempM->isTemporary() && "Expected temporary node");
+
+    TempM->replaceAllUsesWith(NewM);
+  }
+
+  return MDMap;
+}
+
+static void remapAliasMetadata(AliasMetadataMap &MDMap,
+                               ValueToValueMapTy &VMap) {
+  for (ValueToValueMapTy::iterator VMI = VMap.begin(), VMIE = VMap.end();
+       VMI != VMIE; ++VMI) {
+    if (!VMI->second)
+      continue;
+
+    Instruction *NI = dyn_cast<Instruction>(VMI->second);
+    if (!NI)
+      continue;
+
+    if (MDNode *M = NI->getMetadata(LLVMContext::MD_alias_scope))
+      NI->setMetadata(LLVMContext::MD_alias_scope, MDMap[M]);
+
+    if (MDNode *M = NI->getMetadata(LLVMContext::MD_noalias))
+      NI->setMetadata(LLVMContext::MD_noalias, MDMap[M]);
+  }
+}
+
 /// Unroll the given loop by Count. The loop must be in LCSSA form.  Unrolling
 /// can only fail when the loop's latch block is not terminated by a conditional
 /// branch instruction. However, if the trip count (and multiple) are not known,
@@ -563,6 +641,8 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
 
   std::vector<BasicBlock*> UnrolledLoopBlocks = L->getBlocks();
 
+  SetVector<const MDNode *> AliasMD = collectAliasMetadata(UnrolledLoopBlocks);
+
   // Loop Unrolling might create new loops. While we do preserve LoopInfo, we
   // might break loop-simplified form for these loops (as they, e.g., would
   // share the same exit blocks). We'll keep track of loops for which we can
@@ -589,6 +669,8 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     SmallVector<BasicBlock *, 8> NewBlocks;
     SmallDenseMap<const Loop *, Loop *, 4> NewLoops;
     NewLoops[L] = L;
+
+    AliasMetadataMap AliasMDMap = cloneAliasMetadata(AliasMD);
 
     for (LoopBlocksDFS::RPOIterator BB = BlockBegin; BB != BlockEnd; ++BB) {
       ValueToValueMapTy VMap;
@@ -667,6 +749,8 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
               New, cast<BasicBlock>(LastValueMap[cast<Value>(OriginalBBIDom)]));
         }
       }
+
+      remapAliasMetadata(AliasMDMap, VMap);
     }
 
     // Remap all instructions in the most recent iteration
