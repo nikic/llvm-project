@@ -1523,10 +1523,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // on corresponding edges.
   if (const PHINode *PN2 = dyn_cast<PHINode>(V2))
     if (PN2->getParent() == PN->getParent()) {
-      AAQueryInfo::LocPair Locs(MemoryLocation(PN, PNSize),
-                                MemoryLocation(V2, V2Size));
-      if (PN > V2)
-        std::swap(Locs.first, Locs.second);
+      AAQueryInfo::LocPair Locs(PN, PNSize, V2, V2Size);
       // Analyse the PHIs' inputs under the assumption that the PHIs are
       // NoAlias.
       // If the PHIs are May/MustAlias there must be (recursively) an input
@@ -1768,10 +1765,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
 
   // Check the cache before climbing up use-def chains. This also terminates
   // otherwise infinitely recursive queries.
-  AAQueryInfo::LocPair Locs(MemoryLocation(V1, V1Size),
-                            MemoryLocation(V2, V2Size));
-  if (V1 > V2)
-    std::swap(Locs.first, Locs.second);
+  AAQueryInfo::LocPair Locs(V1, V1Size, V2, V2Size);
   std::pair<AAQueryInfo::AliasCacheT::iterator, bool> Pair =
       AAQI.AliasCache.try_emplace(Locs, MayAlias);
   if (!Pair.second)

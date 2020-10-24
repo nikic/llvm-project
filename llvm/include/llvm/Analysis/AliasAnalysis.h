@@ -331,6 +331,56 @@ createModRefInfo(const FunctionModRefBehavior FMRB) {
   return ModRefInfo(FMRB & static_cast<int>(ModRefInfo::ModRef));
 }
 
+/// Canonicalized location pair without AA metadata for used by the AAQueryInfo
+/// cache.
+class AAQueryLocPair {
+  friend struct DenseMapInfo<AAQueryLocPair>;
+
+  const Value *Ptr1;
+  LocationSize Size1;
+  const Value *Ptr2;
+  LocationSize Size2;
+
+public:
+  AAQueryLocPair(const Value *Ptr1, LocationSize Size1, const Value *Ptr2,
+                 LocationSize Size2)
+      : Ptr1(Ptr1), Size1(Size1), Ptr2(Ptr2), Size2(Size2) {
+    if (Ptr1 > Ptr2) {
+      std::swap(Ptr1, Ptr2);
+      std::swap(Size1, Size2);
+    }
+  }
+};
+
+template <> struct DenseMapInfo<AAQueryLocPair> {
+  static AAQueryLocPair getEmptyKey() {
+    return AAQueryLocPair(DenseMapInfo<const Value *>::getEmptyKey(),
+                          DenseMapInfo<LocationSize>::getEmptyKey(),
+                          DenseMapInfo<const Value *>::getEmptyKey(),
+                          DenseMapInfo<LocationSize>::getEmptyKey());
+  }
+
+  static AAQueryLocPair getTombstoneKey() {
+    return AAQueryLocPair(DenseMapInfo<const Value *>::getTombstoneKey(),
+                          DenseMapInfo<LocationSize>::getTombstoneKey(),
+                          DenseMapInfo<const Value *>::getTombstoneKey(),
+                          DenseMapInfo<LocationSize>::getTombstoneKey());
+  }
+
+  static unsigned getHashValue(const AAQueryLocPair &Val) {
+    return detail::combineHashValue(
+        DenseMapInfo<const Value *>::getHashValue(Val.Ptr1) ^
+        DenseMapInfo<LocationSize>::getHashValue(Val.Size1),
+        DenseMapInfo<const Value *>::getHashValue(Val.Ptr2) ^
+        DenseMapInfo<LocationSize>::getHashValue(Val.Size2));
+  }
+
+  static bool isEqual(const AAQueryLocPair &LHS, const AAQueryLocPair &RHS) {
+    return LHS.Ptr1 == RHS.Ptr1 && LHS.Size1 == RHS.Size1 &&
+           LHS.Ptr2 == RHS.Ptr2 && LHS.Size2 == RHS.Size2;
+  }
+};
+
 /// This class stores info we want to provide to or retain within an alias
 /// query. By default, the root query is stateless and starts with a freshly
 /// constructed info object. Specific alias analyses can use this query info to
@@ -341,7 +391,7 @@ createModRefInfo(const FunctionModRefBehavior FMRB) {
 /// caches used by BasicAA, but can further be extended to fit other AA needs.
 class AAQueryInfo {
 public:
-  using LocPair = std::pair<MemoryLocation, MemoryLocation>;
+  using LocPair = AAQueryLocPair;
   using AliasCacheT = SmallDenseMap<LocPair, AliasResult, 8>;
   AliasCacheT AliasCache;
 
