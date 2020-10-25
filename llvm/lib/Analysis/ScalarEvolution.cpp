@@ -882,6 +882,49 @@ static void GroupByComplexity(SmallVectorImpl<const SCEV *> &Ops,
   }
 }
 
+template <typename IsIdentityT, typename IsAbsorderT, typename ConstantFoldT,
+          typename IsMergeableT>
+static const SCEV *ConstantFoldMergeAndGroup(
+    ScalarEvolution *SE, LoopInfo &LI, DominatorTree &DT,
+    SmallVectorImpl<const SCEV *> &Ops, IsIdentityT IsIdentity,
+    IsAbsorderT IsAbsorber, ConstantFoldT ConstantFold,
+    IsMergeableT IsMergeable) {
+  const SCEVConstant *Folded = nullptr;
+  for (unsigned Idx = 0; Idx < Ops.size();) {
+    const SCEV *Op = Ops[Idx];
+    if (const SCEVConstant *C = dyn_cast<SCEVConstant>(Op)) {
+      if (!Folded)
+        Folded = C;
+      else
+        Folded = cast<SCEVConstant>(
+            SE->getConstant(ConstantFold(Folded->getAPInt(), C->getAPInt())));
+      Ops.erase(Ops.begin() + Idx);
+      continue; // Don't increment Idx.
+    }
+    if (IsMergeable(Op)) {
+      const SCEVNAryExpr *NAry = cast<SCEVNAryExpr>(Op);
+      Ops.erase(Ops.begin() + Idx);
+      Ops.append(NAry->op_begin(), NAry->op_end());
+      continue; // Don't increment Idx.
+    }
+    Idx++;
+  }
+
+  if (Ops.empty()) {
+    assert(Folded && "Must have folded value");
+    return Folded;
+  }
+
+  if (Folded && IsAbsorber(Folded->getAPInt()))
+    return Folded;
+
+  GroupByComplexity(Ops, &LI, DT);
+  if (Folded && !IsIdentity(Folded->getAPInt()))
+    Ops.insert(Ops.begin(), Folded);
+
+  return Ops.size() == 1 ? Ops[0] : nullptr;
+}
+
 /// Returns true if \p Ops contains a huge SCEV (the subtree of S contains at
 /// least HugeExprThreshold nodes).
 static bool hasHugeExpression(ArrayRef<const SCEV *> Ops) {
@@ -2309,30 +2352,31 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
            "SCEVAddExpr operand types don't match!");
 #endif
 
-  // Sort by complexity, this groups all similar expression types together.
-  GroupByComplexity(Ops, &LI, DT);
+  const SCEV *FullyFolded = ConstantFoldMergeAndGroup(this, LI, DT, Ops,
+      [](const APInt &N) {
+        return N.isNullValue(); // Add identity.
+      },
+      [](const APInt &) {
+        return false; // Add absorber does not exist.
+      },
+      [](const APInt &N1, const APInt &N2) {
+        return N1 + N2;
+      },
+      [&](const SCEV *S) {
+        if (const SCEVAddExpr *Add = dyn_cast<SCEVAddExpr>(S)) {
+          if (Ops.size() > AddOpsInlineThreshold ||
+              Add->getNumOperands() > AddOpsInlineThreshold)
+            return false;
+          // TODO: Intersect flags instead.
+          Flags = SCEV::FlagAnyWrap;
+          return true;
+        }
+        return false;
+      });
+  if (FullyFolded)
+    return FullyFolded;
 
-  // If there are any constants, fold them together.
-  unsigned Idx = 0;
-  if (const SCEVConstant *LHSC = dyn_cast<SCEVConstant>(Ops[0])) {
-    ++Idx;
-    assert(Idx < Ops.size());
-    while (const SCEVConstant *RHSC = dyn_cast<SCEVConstant>(Ops[Idx])) {
-      // We found two constants, fold them together!
-      Ops[0] = getConstant(LHSC->getAPInt() + RHSC->getAPInt());
-      if (Ops.size() == 2) return Ops[0];
-      Ops.erase(Ops.begin()+1);  // Erase the folded element
-      LHSC = cast<SCEVConstant>(Ops[0]);
-    }
-
-    // If we are left with a constant zero being added, strip it off.
-    if (LHSC->getValue()->isZero()) {
-      Ops.erase(Ops.begin());
-      --Idx;
-    }
-
-    if (Ops.size() == 1) return Ops[0];
-  }
+  unsigned Idx = isa<SCEVConstant>(Ops[0]) ? 1 : 0;
 
   Flags = StrengthenNoWrapFlags(this, scAddExpr, Ops, Flags);
 
@@ -2434,32 +2478,7 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
     }
   }
 
-  // Skip past any other cast SCEVs.
-  while (Idx < Ops.size() && Ops[Idx]->getSCEVType() < scAddExpr)
-    ++Idx;
-
-  // If there are add operands they would be next.
-  if (Idx < Ops.size()) {
-    bool DeletedAdd = false;
-    while (const SCEVAddExpr *Add = dyn_cast<SCEVAddExpr>(Ops[Idx])) {
-      if (Ops.size() > AddOpsInlineThreshold ||
-          Add->getNumOperands() > AddOpsInlineThreshold)
-        break;
-      // If we have an add, expand the add operands onto the end of the operands
-      // list.
-      Ops.erase(Ops.begin()+Idx);
-      Ops.append(Add->op_begin(), Add->op_end());
-      DeletedAdd = true;
-    }
-
-    // If we deleted at least one add, we added operands to the end of the list,
-    // and they are not necessarily sorted.  Recurse to resort and resimplify
-    // any operands we just acquired.
-    if (DeletedAdd)
-      return getAddExpr(Ops, SCEV::FlagAnyWrap, Depth + 1);
-  }
-
-  // Skip over the add expression until we get to a multiply.
+  // Skip over operands until we get to a multiply.
   while (Idx < Ops.size() && Ops[Idx]->getSCEVType() < scMulExpr)
     ++Idx;
 
@@ -2815,35 +2834,26 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
            "SCEVMulExpr operand types don't match!");
 #endif
 
-  // Sort by complexity, this groups all similar expression types together.
-  GroupByComplexity(Ops, &LI, DT);
-
-  // If there are any constants, fold them together.
-  unsigned Idx = 0;
-  if (const SCEVConstant *LHSC = dyn_cast<SCEVConstant>(Ops[0])) {
-    ++Idx;
-    assert(Idx < Ops.size());
-    while (const SCEVConstant *RHSC = dyn_cast<SCEVConstant>(Ops[Idx])) {
-      // We found two constants, fold them together!
-      Ops[0] = getConstant(LHSC->getAPInt() * RHSC->getAPInt());
-      if (Ops.size() == 2) return Ops[0];
-      Ops.erase(Ops.begin()+1);  // Erase the folded element
-      LHSC = cast<SCEVConstant>(Ops[0]);
-    }
-
-    // If we have a multiply of zero, it will always be zero.
-    if (LHSC->getValue()->isZero())
-      return LHSC;
-
-    // If we are left with a constant one being multiplied, strip it off.
-    if (LHSC->getValue()->isOne()) {
-      Ops.erase(Ops.begin());
-      --Idx;
-    }
-
-    if (Ops.size() == 1)
-      return Ops[0];
-  }
+  const SCEV *FullyFolded = ConstantFoldMergeAndGroup(this, LI, DT, Ops,
+      [](const APInt &N) {
+        return N.isOneValue(); // Mul identity.
+      },
+      [](const APInt &N) {
+        return N.isNullValue(); // Mul absorber.
+      },
+      [this](const APInt &N1, const APInt &N2) {
+        return N1 * N2;
+      },
+      [&](const SCEV *S) {
+        if (isa<SCEVMulExpr>(S) && Ops.size() <= MulOpsInlineThreshold) {
+          // TODO: Intersect flags instead.
+          Flags = SCEV::FlagAnyWrap;
+          return true;
+        }
+        return false;
+      });
+  if (FullyFolded)
+    return FullyFolded;
 
   Flags = StrengthenNoWrapFlags(this, scMulExpr, Ops, Flags);
 
@@ -2901,33 +2911,10 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
     }
   }
 
-  // Skip over the add expression until we get to a multiply.
-  while (Idx < Ops.size() && Ops[Idx]->getSCEVType() < scMulExpr)
-    ++Idx;
-
-  // If there are mul operands inline them all into this expression.
-  if (Idx < Ops.size()) {
-    bool DeletedMul = false;
-    while (const SCEVMulExpr *Mul = dyn_cast<SCEVMulExpr>(Ops[Idx])) {
-      if (Ops.size() > MulOpsInlineThreshold)
-        break;
-      // If we have an mul, expand the mul operands onto the end of the
-      // operands list.
-      Ops.erase(Ops.begin()+Idx);
-      Ops.append(Mul->op_begin(), Mul->op_end());
-      DeletedMul = true;
-    }
-
-    // If we deleted at least one mul, we added operands to the end of the
-    // list, and they are not necessarily sorted.  Recurse to resort and
-    // resimplify any operands we just acquired.
-    if (DeletedMul)
-      return getMulExpr(Ops, SCEV::FlagAnyWrap, Depth + 1);
-  }
-
   // If there are any add recurrences in the operands list, see if any other
   // added values are loop invariant.  If so, we can fold them into the
   // recurrence.
+  unsigned Idx = 0;
   while (Idx < Ops.size() && Ops[Idx]->getSCEVType() < scAddRecExpr)
     ++Idx;
 

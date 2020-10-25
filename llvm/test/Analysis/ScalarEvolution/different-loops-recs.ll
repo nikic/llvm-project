@@ -162,7 +162,7 @@ define void @test_02(i32 %a, i32 %b, i32* %p) {
 ; CHECK:       %is3 = add i32 %v1, %sum2
 ; CHECK-NEXT:  -->  ({(6 + %a + %b),+,6}<%loop1> + %v1)
 ; CHECK:       %ec2 = add i32 %is1, %is3
-; CHECK-NEXT:  -->  (2 * ({(6 + %a + %b),+,6}<%loop1> + %v1))
+; CHECK-NEXT:  -->  ((2 * %v1) + {(2 * (6 + %a + %b)),+,12}<%loop1>)
 ; CHECK:       %s1 = add i32 %phi1, %is1
 ; CHECK-NEXT:  -->  ({(6 + (2 * %a) + %b),+,7}<%loop1> + %v1)
 ; CHECK:       %s2 = add i32 %is2, %phi4
