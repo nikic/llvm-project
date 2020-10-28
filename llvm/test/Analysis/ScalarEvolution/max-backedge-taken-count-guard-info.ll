@@ -417,9 +417,9 @@ define void @test_guard_ult_ne(i32* nocapture readonly %data, i64 %count) {
 ; CHECK-NEXT:    %iv = phi i64 [ %iv.next, %loop ], [ 0, %guardbb ]
 ; CHECK-NEXT:    --> {0,+,1}<nuw><%loop> U: [0,4) S: [0,4) Exits: (-1 + %count) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %idx = getelementptr inbounds i32, i32* %data, i64 %iv
-; CHECK-NEXT:    --> {%data,+,4}<nw><%loop> U: full-set S: full-set Exits: (-4 + (4 * %count) + %data) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {%data,+,4}<nsw><%loop> U: full-set S: full-set Exits: (-4 + (4 * %count) + %data) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %iv.next = add nuw i64 %iv, 1
-; CHECK-NEXT:    --> {1,+,1}<nuw><%loop> U: [1,5) S: [1,5) Exits: %count LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,5) S: [1,5) Exits: %count LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @test_guard_ult_ne
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + %count)
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is 3
@@ -456,9 +456,9 @@ define void @test_guard_and_assume(i32* nocapture readonly %data, i64 %count) {
 ; CHECK-NEXT:    %iv = phi i64 [ %iv.next, %loop ], [ 0, %entry ]
 ; CHECK-NEXT:    --> {0,+,1}<nuw><%loop> U: [0,4) S: [0,4) Exits: (-1 + %count) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %idx = getelementptr inbounds i32, i32* %data, i64 %iv
-; CHECK-NEXT:    --> {%data,+,4}<nw><%loop> U: full-set S: full-set Exits: (-4 + (4 * %count) + %data) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {%data,+,4}<nsw><%loop> U: full-set S: full-set Exits: (-4 + (4 * %count) + %data) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %iv.next = add nuw i64 %iv, 1
-; CHECK-NEXT:    --> {1,+,1}<nuw><%loop> U: [1,5) S: [1,5) Exits: %count LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,5) S: [1,5) Exits: %count LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @test_guard_and_assume
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + %count)
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is 3
@@ -495,7 +495,7 @@ define void @guard_pessimizes_analysis(i1 %c, i32 %N) {
 ; CHECK-NEXT:    %iv = phi i32 [ %iv.next, %loop ], [ %init, %loop.ph ]
 ; CHECK-NEXT:    --> {%init,+,1}<%loop> U: [2,11) S: [2,11) Exits: 9 LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %iv.next = add i32 %iv, 1
-; CHECK-NEXT:    --> {(1 + %init)<nuw><nsw>,+,1}<%loop> U: [3,12) S: [3,12) Exits: 10 LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {(1 + %init)<nuw><nsw>,+,1}<nuw><nsw><%loop> U: [3,12) S: [3,12) Exits: 10 LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @guard_pessimizes_analysis
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (9 + (-1 * %init)<nsw>)<nsw>
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is 7

@@ -1449,10 +1449,8 @@ ScalarEvolution::getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
       unsigned BitWidth = getTypeSizeInBits(AR->getType());
       const Loop *L = AR->getLoop();
 
-      if (!AR->hasNoUnsignedWrap()) {
-        auto NewFlags = proveNoWrapViaConstantRanges(AR);
-        const_cast<SCEVAddRecExpr *>(AR)->setNoWrapFlags(NewFlags);
-      }
+      if (!AR->hasNoUnsignedWrap())
+        proveNoWrapViaConstantRanges(AR);
 
       // If we have special knowledge that this addrec won't overflow,
       // we don't need to do any further analysis.
@@ -1793,10 +1791,8 @@ ScalarEvolution::getSignExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
       unsigned BitWidth = getTypeSizeInBits(AR->getType());
       const Loop *L = AR->getLoop();
 
-      if (!AR->hasNoSignedWrap()) {
-        auto NewFlags = proveNoWrapViaConstantRanges(AR);
-        const_cast<SCEVAddRecExpr *>(AR)->setNoWrapFlags(NewFlags);
-      }
+      if (!AR->hasNoSignedWrap())
+        proveNoWrapViaConstantRanges(AR);
 
       // If we have special knowledge that this addrec won't overflow,
       // we don't need to do any further analysis.
@@ -4242,36 +4238,13 @@ private:
 
 } // end anonymous namespace
 
-SCEV::NoWrapFlags
-ScalarEvolution::proveNoWrapViaConstantRanges(const SCEVAddRecExpr *AR) {
+void ScalarEvolution::proveNoWrapViaConstantRanges(const SCEVAddRecExpr *AR) {
   if (!AR->isAffine())
-    return SCEV::FlagAnyWrap;
+    return;
 
-  using OBO = OverflowingBinaryOperator;
-
-  SCEV::NoWrapFlags Result = SCEV::FlagAnyWrap;
-
-  if (!AR->hasNoSignedWrap()) {
-    ConstantRange AddRecRange = getSignedRange(AR);
-    ConstantRange IncRange = getSignedRange(AR->getStepRecurrence(*this));
-
-    auto NSWRegion = ConstantRange::makeGuaranteedNoWrapRegion(
-        Instruction::Add, IncRange, OBO::NoSignedWrap);
-    if (NSWRegion.contains(AddRecRange))
-      Result = ScalarEvolution::setFlags(Result, SCEV::FlagNSW);
-  }
-
-  if (!AR->hasNoUnsignedWrap()) {
-    ConstantRange AddRecRange = getUnsignedRange(AR);
-    ConstantRange IncRange = getUnsignedRange(AR->getStepRecurrence(*this));
-
-    auto NUWRegion = ConstantRange::makeGuaranteedNoWrapRegion(
-        Instruction::Add, IncRange, OBO::NoUnsignedWrap);
-    if (NUWRegion.contains(AddRecRange))
-      Result = ScalarEvolution::setFlags(Result, SCEV::FlagNUW);
-  }
-
-  return Result;
+  // NUW/NSW flags will be updated during the range calculation.
+  // It does not matter whether we ask for the signed or unsigned range here.
+  ConstantRange _ = getUnsignedRange(AR);
 }
 
 namespace {
@@ -5515,17 +5488,20 @@ ScalarEvolution::getRangeRef(const SCEV *S,
       const SCEV *MaxBECount = getConstantMaxBackedgeTakenCount(AddRec->getLoop());
       if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
           getTypeSizeInBits(MaxBECount->getType()) <= BitWidth) {
-        auto RangeFromAffine = getRangeForAffineAR(
+        std::pair<ConstantRange, SCEV::NoWrapFlags> Res = getRangeForAffineAR(
             AddRec->getStart(), AddRec->getStepRecurrence(*this), MaxBECount,
             BitWidth);
+        std::pair<ConstantRange, SCEV::NoWrapFlags> ResFromFactoring =
+            getRangeViaFactoring(AddRec->getStart(),
+                                 AddRec->getStepRecurrence(*this), MaxBECount,
+                                 BitWidth);
         ConservativeResult =
-            ConservativeResult.intersectWith(RangeFromAffine, RangeType);
+            ConservativeResult.intersectWith(Res.first, RangeType);
+        ConservativeResult =
+            ConservativeResult.intersectWith(ResFromFactoring.first, RangeType);
 
-        auto RangeFromFactoring = getRangeViaFactoring(
-            AddRec->getStart(), AddRec->getStepRecurrence(*this), MaxBECount,
-            BitWidth);
-        ConservativeResult =
-            ConservativeResult.intersectWith(RangeFromFactoring, RangeType);
+        const_cast<SCEVAddRecExpr *>(AddRec)->setNoWrapFlags(
+            setFlags(Res.second, ResFromFactoring.second));
       }
     }
 
@@ -5599,24 +5575,26 @@ ScalarEvolution::getRangeRef(const SCEV *S,
   return setRange(S, SignHint, std::move(ConservativeResult));
 }
 
+using RangeAndFlags = std::pair<ConstantRange, SCEV::NoWrapFlags>;
+
 // Given a StartRange, Step and MaxBECount for an expression compute a range of
 // values that the expression can take. Initially, the expression has a value
 // from StartRange and then is changed by Step up to MaxBECount times. Signed
 // argument defines if we treat Step as signed or unsigned.
-static ConstantRange getRangeForAffineARHelper(APInt Step,
+static RangeAndFlags getRangeForAffineARHelper(APInt Step,
                                                const ConstantRange &StartRange,
                                                const APInt &MaxBECount,
                                                unsigned BitWidth, bool Signed) {
   // If either Step or MaxBECount is 0, then the expression won't change, and we
   // just need to return the initial range.
   if (Step == 0 || MaxBECount == 0)
-    return StartRange;
+    return {StartRange, (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW)};
 
   // If we don't know anything about the initial value (i.e. StartRange is
   // FullRange), then we don't know anything about the final range either.
   // Return FullRange.
   if (StartRange.isFullSet())
-    return ConstantRange::getFull(BitWidth);
+    return {ConstantRange::getFull(BitWidth), SCEV::FlagAnyWrap};
 
   // If Step is signed and negative, then we use its absolute value, but we also
   // note that we're moving in the opposite direction.
@@ -5632,11 +5610,15 @@ static ConstantRange getRangeForAffineARHelper(APInt Step,
   // Check if Offset is more than full span of BitWidth. If it is, the
   // expression is guaranteed to overflow.
   if (APInt::getMaxValue(StartRange.getBitWidth()).udiv(Step).ult(MaxBECount))
-    return ConstantRange::getFull(BitWidth);
+    return {ConstantRange::getFull(BitWidth), SCEV::FlagAnyWrap};
+
+  // Per the above check, we know that the addrec is not self-wrapping.
+  SCEV::NoWrapFlags Flags = SCEV::FlagNW;
 
   // Offset is by how much the expression can change. Checks above guarantee no
   // overflow here.
   APInt Offset = Step * MaxBECount;
+  bool IsOffsetNonNegative = Offset.isNonNegative();
 
   // Minimum value of the final range will match the minimal value of StartRange
   // if the expression is increasing and will be decreased by Offset otherwise.
@@ -5644,26 +5626,37 @@ static ConstantRange getRangeForAffineARHelper(APInt Step,
   // if the expression is decreasing and will be increased by Offset otherwise.
   APInt StartLower = StartRange.getLower();
   APInt StartUpper = StartRange.getUpper() - 1;
-  APInt MovedBoundary = Descending ? (StartLower - std::move(Offset))
-                                   : (StartUpper + std::move(Offset));
+  if (Descending) {
+    APInt MovedBoundary = StartLower - std::move(Offset);
 
-  // It's possible that the new minimum/maximum value will fall into the initial
-  // range (due to wrap around). This means that the expression can take any
-  // value in this bitwidth, and we have to return full range.
-  if (StartRange.contains(MovedBoundary))
-    return ConstantRange::getFull(BitWidth);
+    if (!StartRange.isSignWrappedSet() && MovedBoundary.sle(StartLower) &&
+        IsOffsetNonNegative)
+      Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNSW);
 
-  APInt NewLower =
-      Descending ? std::move(MovedBoundary) : std::move(StartLower);
-  APInt NewUpper =
-      Descending ? std::move(StartUpper) : std::move(MovedBoundary);
-  NewUpper += 1;
+    if (StartRange.contains(MovedBoundary))
+      return {ConstantRange::getFull(BitWidth), Flags};
+    return {ConstantRange::getNonEmpty(std::move(MovedBoundary),
+                                       std::move(StartUpper) + 1),
+            Flags};
+  } else {
+    APInt MovedBoundary = StartUpper + std::move(Offset);
 
-  // No overflow detected, return [StartLower, StartUpper + Offset + 1) range.
-  return ConstantRange::getNonEmpty(std::move(NewLower), std::move(NewUpper));
+    if (!StartRange.isWrappedSet() && MovedBoundary.uge(StartUpper))
+      Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNUW);
+
+    if (!StartRange.isSignWrappedSet() && MovedBoundary.sge(StartUpper) &&
+        IsOffsetNonNegative)
+      Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNSW);
+
+    if (StartRange.contains(MovedBoundary))
+      return {ConstantRange::getFull(BitWidth), Flags};
+    return {ConstantRange::getNonEmpty(std::move(StartLower),
+                                       std::move(MovedBoundary) + 1),
+            Flags};
+  }
 }
 
-ConstantRange ScalarEvolution::getRangeForAffineAR(const SCEV *Start,
+RangeAndFlags ScalarEvolution::getRangeForAffineAR(const SCEV *Start,
                                                    const SCEV *Step,
                                                    const SCEV *MaxBECount,
                                                    unsigned BitWidth) {
@@ -5680,23 +5673,27 @@ ConstantRange ScalarEvolution::getRangeForAffineAR(const SCEV *Start,
 
   // If Step can be both positive and negative, we need to find ranges for the
   // maximum absolute step values in both directions and union them.
-  ConstantRange SR =
+  RangeAndFlags SignedRes1 =
       getRangeForAffineARHelper(StepSRange.getSignedMin(), StartSRange,
                                 MaxBECountValue, BitWidth, /* Signed = */ true);
-  SR = SR.unionWith(getRangeForAffineARHelper(StepSRange.getSignedMax(),
-                                              StartSRange, MaxBECountValue,
-                                              BitWidth, /* Signed = */ true));
+  RangeAndFlags SignedRes2 =
+      getRangeForAffineARHelper(StepSRange.getSignedMax(), StartSRange,
+                                MaxBECountValue, BitWidth, /* Signed = */ true);
+  RangeAndFlags SignedRes(SignedRes1.first.unionWith(SignedRes2.first),
+                          maskFlags(SignedRes1.second, SignedRes2.second));
 
   // Next, consider step unsigned.
-  ConstantRange UR = getRangeForAffineARHelper(
+  RangeAndFlags UnsignedRes = getRangeForAffineARHelper(
       getUnsignedRangeMax(Step), getUnsignedRange(Start),
       MaxBECountValue, BitWidth, /* Signed = */ false);
 
   // Finally, intersect signed and unsigned ranges.
-  return SR.intersectWith(UR, ConstantRange::Smallest);
+  return {SignedRes.first.intersectWith(UnsignedRes.first,
+                                        ConstantRange::Smallest),
+          setFlags(SignedRes.second, UnsignedRes.second)};
 }
 
-ConstantRange ScalarEvolution::getRangeViaFactoring(const SCEV *Start,
+RangeAndFlags ScalarEvolution::getRangeViaFactoring(const SCEV *Start,
                                                     const SCEV *Step,
                                                     const SCEV *MaxBECount,
                                                     unsigned BitWidth) {
@@ -5777,17 +5774,17 @@ ConstantRange ScalarEvolution::getRangeViaFactoring(const SCEV *Start,
 
   SelectPattern StartPattern(*this, BitWidth, Start);
   if (!StartPattern.isRecognized())
-    return ConstantRange::getFull(BitWidth);
+    return {ConstantRange::getFull(BitWidth), SCEV::FlagAnyWrap};
 
   SelectPattern StepPattern(*this, BitWidth, Step);
   if (!StepPattern.isRecognized())
-    return ConstantRange::getFull(BitWidth);
+    return {ConstantRange::getFull(BitWidth), SCEV::FlagAnyWrap};
 
   if (StartPattern.Condition != StepPattern.Condition) {
     // We don't handle this case today; but we could, by considering four
     // possibilities below instead of two. I'm not sure if there are cases where
     // that will help over what getRange already does, though.
-    return ConstantRange::getFull(BitWidth);
+    return {ConstantRange::getFull(BitWidth), SCEV::FlagAnyWrap};
   }
 
   // NB! Calling ScalarEvolution::getConstant is fine, but we should not try to
@@ -5803,12 +5800,13 @@ ConstantRange ScalarEvolution::getRangeViaFactoring(const SCEV *Start,
   const SCEV *FalseStart = this->getConstant(StartPattern.FalseValue);
   const SCEV *FalseStep = this->getConstant(StepPattern.FalseValue);
 
-  ConstantRange TrueRange =
+  RangeAndFlags TrueRes =
       this->getRangeForAffineAR(TrueStart, TrueStep, MaxBECount, BitWidth);
-  ConstantRange FalseRange =
+  RangeAndFlags FalseRes =
       this->getRangeForAffineAR(FalseStart, FalseStep, MaxBECount, BitWidth);
 
-  return TrueRange.unionWith(FalseRange);
+  return {TrueRes.first.unionWith(FalseRes.first),
+          maskFlags(TrueRes.second, FalseRes.second)};
 }
 
 SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {

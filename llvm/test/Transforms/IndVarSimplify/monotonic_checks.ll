@@ -12,8 +12,7 @@ define i32 @test_01(i32* %p) {
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[LEN]], [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
 ; CHECK-NEXT:    [[IV_NEXT]] = add nsw i32 [[IV]], -1
-; CHECK-NEXT:    [[RC:%.*]] = icmp slt i32 [[IV_NEXT]], [[LEN]]
-; CHECK-NEXT:    br i1 [[RC]], label [[BACKEDGE]], label [[FAIL:%.*]]
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE]], label [[FAIL:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[LOOP_COND:%.*]] = icmp ne i32 [[IV]], 0
 ; CHECK-NEXT:    br i1 [[LOOP_COND]], label [[LOOP]], label [[EXIT:%.*]]
@@ -172,8 +171,7 @@ define i32 @test_03(i32* %p) {
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[LEN]], [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i32 [[IV]], 1
-; CHECK-NEXT:    [[RC:%.*]] = icmp ugt i32 [[IV_NEXT]], [[LEN]]
-; CHECK-NEXT:    br i1 [[RC]], label [[BACKEDGE]], label [[FAIL:%.*]]
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE]], label [[FAIL:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[LOOP_COND:%.*]] = icmp ne i32 [[IV]], 1000
 ; CHECK-NEXT:    br i1 [[LOOP_COND]], label [[LOOP]], label [[EXIT:%.*]]
@@ -211,8 +209,7 @@ define i32 @test_04(i32* %p) {
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[LEN]], [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
 ; CHECK-NEXT:    [[IV_NEXT]] = add nsw i32 [[IV]], -1
-; CHECK-NEXT:    [[RC:%.*]] = icmp slt i32 [[IV_NEXT]], [[LEN]]
-; CHECK-NEXT:    br i1 [[RC]], label [[BACKEDGE]], label [[FAIL:%.*]]
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE]], label [[FAIL:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[LOOP_COND:%.*]] = icmp ne i32 [[IV]], 0
 ; CHECK-NEXT:    br i1 [[LOOP_COND]], label [[LOOP]], label [[EXIT:%.*]]

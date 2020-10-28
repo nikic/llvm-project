@@ -1503,15 +1503,17 @@ private:
   const ConstantRange &getRangeRef(const SCEV *S, RangeSignHint Hint);
 
   /// Determines the range for the affine SCEVAddRecExpr {\p Start,+,\p Stop}.
-  /// Helper for \c getRange.
-  ConstantRange getRangeForAffineAR(const SCEV *Start, const SCEV *Stop,
-                                    const SCEV *MaxBECount, unsigned BitWidth);
+  /// Additionally determine which nowrap flags must hold based on range info.
+  std::pair<ConstantRange, SCEV::NoWrapFlags>
+  getRangeForAffineAR(const SCEV *Start, const SCEV *Stop,
+                      const SCEV *MaxBECount, unsigned BitWidth);
 
   /// Try to compute a range for the affine SCEVAddRecExpr {\p Start,+,\p
   /// Stop} by "factoring out" a ternary expression from the add recurrence.
   /// Helper called by \c getRange.
-  ConstantRange getRangeViaFactoring(const SCEV *Start, const SCEV *Stop,
-                                     const SCEV *MaxBECount, unsigned BitWidth);
+  std::pair<ConstantRange, SCEV::NoWrapFlags>
+  getRangeViaFactoring(const SCEV *Start, const SCEV *Stop,
+                       const SCEV *MaxBECount, unsigned BitWidth);
 
   /// We know that there is no SCEV for the specified value.  Analyze the
   /// expression.
@@ -1861,7 +1863,7 @@ private:
                                  const Loop *L);
 
   /// Try to prove NSW or NUW on \p AR relying on ConstantRange manipulation.
-  SCEV::NoWrapFlags proveNoWrapViaConstantRanges(const SCEVAddRecExpr *AR);
+  void proveNoWrapViaConstantRanges(const SCEVAddRecExpr *AR);
 
   bool isMonotonicPredicateImpl(const SCEVAddRecExpr *LHS,
                                 ICmpInst::Predicate Pred, bool &Increasing);

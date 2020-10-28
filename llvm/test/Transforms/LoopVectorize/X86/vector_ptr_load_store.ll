@@ -117,7 +117,7 @@ define i8 @test_consecutive_ptr_load() nounwind readonly ssp uwtable {
 
 ;; However, we should not take unconsecutive loads of pointers into account.
 ; CHECK: test_nonconsecutive_ptr_load
-; CHECK: LV: The Smallest and Widest types: 16 / 16 bits.
+; CHECK: LV: The Smallest and Widest types: 16 / 64 bits.
 define void @test_nonconsecutive_ptr_load() nounwind ssp uwtable {
   br label %1
 

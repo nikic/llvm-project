@@ -26,6 +26,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK-NOT: %wide.vec = load <8 x i32>, <8 x i32>* {{.*}}, align 4
 ; CHECK-NOT: shufflevector <8 x i32> %wide.vec, <8 x i32> undef, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
 
+; TODO: This is vectorized now, but it's not clear to me whether that's
+; a miscompile or not.
+
 define void @_Z4funcPjS_hh(i32* noalias nocapture readonly %a, i32* noalias nocapture %b, i8 zeroext %x, i8 zeroext %y) local_unnamed_addr {
 entry:
   %cmp9 = icmp eq i8 %y, 0
