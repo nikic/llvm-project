@@ -17,17 +17,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f3
 define i8 @rev8(i8 %v) {
 ; CHECK-LABEL: @rev8(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[OR:%.*]] = call i8 @llvm.fshl.i8(i8 [[V:%.*]], i8 [[V]], i8 4)
-; CHECK-NEXT:    [[SHR4_1:%.*]] = lshr i8 [[OR]], 2
-; CHECK-NEXT:    [[AND_1:%.*]] = and i8 [[SHR4_1]], 51
-; CHECK-NEXT:    [[SHL7_1:%.*]] = shl i8 [[OR]], 2
-; CHECK-NEXT:    [[AND9_1:%.*]] = and i8 [[SHL7_1]], -52
-; CHECK-NEXT:    [[OR_1:%.*]] = or i8 [[AND_1]], [[AND9_1]]
-; CHECK-NEXT:    [[SHR4_2:%.*]] = lshr i8 [[OR_1]], 1
-; CHECK-NEXT:    [[AND_2:%.*]] = and i8 [[SHR4_2]], 85
-; CHECK-NEXT:    [[SHL7_2:%.*]] = shl i8 [[OR_1]], 1
-; CHECK-NEXT:    [[AND9_2:%.*]] = and i8 [[SHL7_2]], -86
-; CHECK-NEXT:    [[OR_2:%.*]] = or i8 [[AND_2]], [[AND9_2]]
+; CHECK-NEXT:    [[OR_2:%.*]] = call i8 @llvm.bitreverse.i8(i8 [[V:%.*]])
 ; CHECK-NEXT:    ret i8 [[OR_2]]
 ;
 entry:
@@ -50,22 +40,7 @@ entry:
 define i16 @rev16(i16 %v) {
 ; CHECK-LABEL: @rev16(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[OR:%.*]] = call i16 @llvm.bswap.i16(i16 [[V:%.*]])
-; CHECK-NEXT:    [[SHR4_1:%.*]] = lshr i16 [[OR]], 4
-; CHECK-NEXT:    [[AND_1:%.*]] = and i16 [[SHR4_1]], 3855
-; CHECK-NEXT:    [[SHL7_1:%.*]] = shl i16 [[OR]], 4
-; CHECK-NEXT:    [[AND9_1:%.*]] = and i16 [[SHL7_1]], -3856
-; CHECK-NEXT:    [[OR_1:%.*]] = or i16 [[AND_1]], [[AND9_1]]
-; CHECK-NEXT:    [[SHR4_2:%.*]] = lshr i16 [[OR_1]], 2
-; CHECK-NEXT:    [[AND_2:%.*]] = and i16 [[SHR4_2]], 13107
-; CHECK-NEXT:    [[SHL7_2:%.*]] = shl i16 [[OR_1]], 2
-; CHECK-NEXT:    [[AND9_2:%.*]] = and i16 [[SHL7_2]], -13108
-; CHECK-NEXT:    [[OR_2:%.*]] = or i16 [[AND_2]], [[AND9_2]]
-; CHECK-NEXT:    [[SHR4_3:%.*]] = lshr i16 [[OR_2]], 1
-; CHECK-NEXT:    [[AND_3:%.*]] = and i16 [[SHR4_3]], 21845
-; CHECK-NEXT:    [[SHL7_3:%.*]] = shl i16 [[OR_2]], 1
-; CHECK-NEXT:    [[AND9_3:%.*]] = and i16 [[SHL7_3]], -21846
-; CHECK-NEXT:    [[OR_3:%.*]] = or i16 [[AND_3]], [[AND9_3]]
+; CHECK-NEXT:    [[OR_3:%.*]] = call i16 @llvm.bitreverse.i16(i16 [[V:%.*]])
 ; CHECK-NEXT:    ret i16 [[OR_3]]
 ;
 entry:
@@ -200,22 +175,8 @@ entry:
 
 define i8 @rev8_xor(i8 %0) {
 ; CHECK-LABEL: @rev8_xor(
-; CHECK-NEXT:    [[TMP2:%.*]] = and i8 [[TMP0:%.*]], 85
-; CHECK-NEXT:    [[TMP3:%.*]] = and i8 [[TMP0]], -86
-; CHECK-NEXT:    [[TMP4:%.*]] = shl i8 [[TMP2]], 2
-; CHECK-NEXT:    [[TMP5:%.*]] = lshr i8 [[TMP2]], 6
-; CHECK-NEXT:    [[TMP6:%.*]] = or i8 [[TMP5]], [[TMP3]]
-; CHECK-NEXT:    [[TMP7:%.*]] = or i8 [[TMP6]], [[TMP4]]
-; CHECK-NEXT:    [[TMP8:%.*]] = and i8 [[TMP7]], 102
-; CHECK-NEXT:    [[TMP9:%.*]] = and i8 [[TMP7]], 25
-; CHECK-NEXT:    [[TMP10:%.*]] = lshr i8 [[TMP8]], 4
-; CHECK-NEXT:    [[TMP11:%.*]] = or i8 [[TMP10]], [[TMP9]]
-; CHECK-NEXT:    [[TMP12:%.*]] = shl i8 [[TMP8]], 5
-; CHECK-NEXT:    [[TMP13:%.*]] = shl nuw nsw i8 [[TMP11]], 1
-; CHECK-NEXT:    [[TMP14:%.*]] = or i8 [[TMP12]], [[TMP13]]
-; CHECK-NEXT:    [[TMP15:%.*]] = lshr i8 [[TMP0]], 7
-; CHECK-NEXT:    [[TMP16:%.*]] = or i8 [[TMP14]], [[TMP15]]
-; CHECK-NEXT:    ret i8 [[TMP16]]
+; CHECK-NEXT:    [[TMP2:%.*]] = call i8 @llvm.bitreverse.i8(i8 [[TMP0:%.*]])
+; CHECK-NEXT:    ret i8 [[TMP2]]
 ;
   %2 = and i8 %0, 85
   %3 = xor i8 %0, %2
@@ -237,22 +198,8 @@ define i8 @rev8_xor(i8 %0) {
 
 define <2 x i8> @rev8_xor_vector(<2 x i8> %0) {
 ; CHECK-LABEL: @rev8_xor_vector(
-; CHECK-NEXT:    [[TMP2:%.*]] = and <2 x i8> [[TMP0:%.*]], <i8 85, i8 85>
-; CHECK-NEXT:    [[TMP3:%.*]] = and <2 x i8> [[TMP0]], <i8 -86, i8 -86>
-; CHECK-NEXT:    [[TMP4:%.*]] = shl <2 x i8> [[TMP2]], <i8 2, i8 2>
-; CHECK-NEXT:    [[TMP5:%.*]] = lshr <2 x i8> [[TMP2]], <i8 6, i8 6>
-; CHECK-NEXT:    [[TMP6:%.*]] = or <2 x i8> [[TMP5]], [[TMP3]]
-; CHECK-NEXT:    [[TMP7:%.*]] = or <2 x i8> [[TMP6]], [[TMP4]]
-; CHECK-NEXT:    [[TMP8:%.*]] = and <2 x i8> [[TMP7]], <i8 102, i8 102>
-; CHECK-NEXT:    [[TMP9:%.*]] = and <2 x i8> [[TMP7]], <i8 25, i8 25>
-; CHECK-NEXT:    [[TMP10:%.*]] = lshr <2 x i8> [[TMP8]], <i8 4, i8 4>
-; CHECK-NEXT:    [[TMP11:%.*]] = or <2 x i8> [[TMP10]], [[TMP9]]
-; CHECK-NEXT:    [[TMP12:%.*]] = shl <2 x i8> [[TMP8]], <i8 5, i8 5>
-; CHECK-NEXT:    [[TMP13:%.*]] = shl nuw nsw <2 x i8> [[TMP11]], <i8 1, i8 1>
-; CHECK-NEXT:    [[TMP14:%.*]] = or <2 x i8> [[TMP12]], [[TMP13]]
-; CHECK-NEXT:    [[TMP15:%.*]] = lshr <2 x i8> [[TMP0]], <i8 7, i8 7>
-; CHECK-NEXT:    [[TMP16:%.*]] = or <2 x i8> [[TMP14]], [[TMP15]]
-; CHECK-NEXT:    ret <2 x i8> [[TMP16]]
+; CHECK-NEXT:    [[TMP2:%.*]] = call <2 x i8> @llvm.bitreverse.v2i8(<2 x i8> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <2 x i8> [[TMP2]]
 ;
   %2 = and <2 x i8> %0, <i8 85, i8 85>
   %3 = xor <2 x i8> %0, %2
