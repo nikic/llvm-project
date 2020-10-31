@@ -2778,28 +2778,6 @@ static uint64_t Choose(uint64_t n, uint64_t k, bool &Overflow) {
   return r;
 }
 
-/// Determine if any of the operands in this SCEV are a constant or if
-/// any of the add or multiply expressions in this SCEV contain a constant.
-static bool containsConstantInAddMulChain(const SCEV *StartExpr) {
-  struct FindConstantInAddMulChain {
-    bool FoundConstant = false;
-
-    bool follow(const SCEV *S) {
-      FoundConstant |= isa<SCEVConstant>(S);
-      return isa<SCEVAddExpr>(S) || isa<SCEVMulExpr>(S);
-    }
-
-    bool isDone() const {
-      return FoundConstant;
-    }
-  };
-
-  FindConstantInAddMulChain F;
-  SCEVTraversal<FindConstantInAddMulChain> ST(F);
-  ST.visitAll(StartExpr);
-  return F.FoundConstant;
-}
-
 /// Get a canonical multiply expression, or something simpler if possible.
 const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
                                         SCEV::NoWrapFlags Flags,
@@ -2858,42 +2836,24 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
 
   if (const SCEVConstant *LHSC = dyn_cast<SCEVConstant>(Ops[0])) {
     if (Ops.size() == 2) {
-      // C1*(C2+V) -> C1*C2 + C1*V
-      if (const SCEVAddExpr *Add = dyn_cast<SCEVAddExpr>(Ops[1]))
-        // If any of Add's ops are Adds or Muls with a constant, apply this
-        // transformation as well.
-        //
-        // TODO: There are some cases where this transformation is not
-        // profitable; for example, Add = (C0 + X) * Y + Z.  Maybe the scope of
-        // this transformation should be narrowed down.
-        if (Add->getNumOperands() == 2 && containsConstantInAddMulChain(Add))
-          return getAddExpr(getMulExpr(LHSC, Add->getOperand(0),
-                                       SCEV::FlagAnyWrap, Depth + 1),
-                            getMulExpr(LHSC, Add->getOperand(1),
-                                       SCEV::FlagAnyWrap, Depth + 1),
-                            SCEV::FlagAnyWrap, Depth + 1);
+      // Distribute constant factor into add.
+      if (const SCEVAddExpr *Add = dyn_cast<SCEVAddExpr>(Ops[1])) {
+        SmallVector<const SCEV *, 4> NewOps;
+        for (const SCEV *AddOp : Add->operands())
+          NewOps.push_back(getMulExpr(Ops[0], AddOp, SCEV::FlagAnyWrap,
+                                      Depth + 1));
+        return getAddExpr(NewOps, SCEV::FlagAnyWrap, Depth + 1);
+      }
 
-      if (Ops[0]->isAllOnesValue()) {
-        // If we have a mul by -1 of an add, try distributing the -1 among the
-        // add operands.
-        if (const SCEVAddExpr *Add = dyn_cast<SCEVAddExpr>(Ops[1])) {
-          SmallVector<const SCEV *, 4> NewOps;
-          bool AnyFolded = false;
-          for (const SCEV *AddOp : Add->operands()) {
-            const SCEV *Mul = getMulExpr(Ops[0], AddOp, SCEV::FlagAnyWrap,
-                                         Depth + 1);
-            if (!isa<SCEVMulExpr>(Mul)) AnyFolded = true;
-            NewOps.push_back(Mul);
-          }
-          if (AnyFolded)
-            return getAddExpr(NewOps, SCEV::FlagAnyWrap, Depth + 1);
-        } else if (const auto *AddRec = dyn_cast<SCEVAddRecExpr>(Ops[1])) {
-          // Negation preserves a recurrence's no self-wrap property.
+      // Distribute -1 factor into addrec.
+      if (LHSC->isAllOnesValue()) {
+        if (const auto *AddRec = dyn_cast<SCEVAddRecExpr>(Ops[1])) {
           SmallVector<const SCEV *, 4> Operands;
           for (const SCEV *AddRecOp : AddRec->operands())
             Operands.push_back(getMulExpr(Ops[0], AddRecOp, SCEV::FlagAnyWrap,
                                           Depth + 1));
 
+          // Negation preserves a recurrence's no self-wrap property.
           return getAddRecExpr(Operands, AddRec->getLoop(),
                                AddRec->getNoWrapFlags(SCEV::FlagNW));
         }
