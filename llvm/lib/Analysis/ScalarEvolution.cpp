@@ -2866,22 +2866,26 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
       if (Ops[0]->isAllOnesValue()) {
         // If we have a mul by -1 of an add, try distributing the -1 among the
         // add operands.
+        const SCEV *MinusOne = Ops[0];
         if (const SCEVAddExpr *Add = dyn_cast<SCEVAddExpr>(Ops[1])) {
-          SmallVector<const SCEV *, 4> NewOps;
-          bool AnyFolded = false;
-          for (const SCEV *AddOp : Add->operands()) {
-            const SCEV *Mul = getMulExpr(Ops[0], AddOp, SCEV::FlagAnyWrap,
-                                         Depth + 1);
-            if (!isa<SCEVMulExpr>(Mul)) AnyFolded = true;
-            NewOps.push_back(Mul);
-          }
-          if (AnyFolded)
+          auto WillFold = [MinusOne](const SCEV *Op) {
+            if (const SCEVMulExpr *Mul = dyn_cast<SCEVMulExpr>(Op))
+              return Mul->getNumOperands() == 2 &&
+                     Mul->getOperand(0) == MinusOne;
+            return isa<SCEVAddRecExpr>(Op);
+          };
+          if (llvm::any_of(Add->operands(), WillFold)) {
+            SmallVector<const SCEV *, 4> NewOps;
+            for (const SCEV *AddOp : Add->operands())
+              NewOps.push_back(getMulExpr(MinusOne, AddOp, SCEV::FlagAnyWrap,
+                                          Depth + 1));
             return getAddExpr(NewOps, SCEV::FlagAnyWrap, Depth + 1);
+          }
         } else if (const auto *AddRec = dyn_cast<SCEVAddRecExpr>(Ops[1])) {
           // Negation preserves a recurrence's no self-wrap property.
           SmallVector<const SCEV *, 4> Operands;
           for (const SCEV *AddRecOp : AddRec->operands())
-            Operands.push_back(getMulExpr(Ops[0], AddRecOp, SCEV::FlagAnyWrap,
+            Operands.push_back(getMulExpr(MinusOne, AddRecOp, SCEV::FlagAnyWrap,
                                           Depth + 1));
 
           return getAddRecExpr(Operands, AddRec->getLoop(),
