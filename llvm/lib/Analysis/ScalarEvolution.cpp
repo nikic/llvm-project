@@ -3487,75 +3487,42 @@ const SCEV *ScalarEvolution::getMinMaxExpr(SCEVTypes Kind,
   bool IsSigned = Kind == scSMaxExpr || Kind == scSMinExpr;
   bool IsMax = Kind == scSMaxExpr || Kind == scUMaxExpr;
 
-  // Sort by complexity, this groups all similar expression types together.
-  GroupByComplexity(Ops, &LI, DT);
+  const SCEV *FullyFolded = ConstantFoldMergeAndGroup(this, LI, DT, Ops,
+      [IsMax, IsSigned](const APInt &N) {
+        if (IsMax)
+          return IsSigned ? N.isMinSignedValue() : N.isMinValue();
+        else
+          return IsSigned ? N.isMaxSignedValue() : N.isMaxValue();
+      },
+      [IsMax, IsSigned](const APInt &N) {
+        if (IsMax)
+          return IsSigned ? N.isMaxSignedValue() : N.isMaxValue();
+        else
+          return IsSigned ? N.isMinSignedValue() : N.isMinValue();
+      },
+      [Kind](const APInt &N1, const APInt &N2) {
+        switch (Kind) {
+        case scSMaxExpr:
+          return APIntOps::smax(N1, N2);
+        case scSMinExpr:
+          return APIntOps::smin(N1, N2);
+        case scUMaxExpr:
+          return APIntOps::umax(N1, N2);
+        case scUMinExpr:
+          return APIntOps::umin(N1, N2);
+        default:
+          llvm_unreachable("Unknown SCEV min/max opcode");
+        }
+      },
+      [Kind](const SCEV *S) {
+        return S->getSCEVType() == Kind;
+      });
+  if (FullyFolded)
+    return FullyFolded;
 
   // Check if we have created the same expression before.
-  if (const SCEV *S = std::get<0>(findExistingSCEVInCache(Kind, Ops))) {
+  if (const SCEV *S = std::get<0>(findExistingSCEVInCache(Kind, Ops)))
     return S;
-  }
-
-  // If there are any constants, fold them together.
-  unsigned Idx = 0;
-  if (const SCEVConstant *LHSC = dyn_cast<SCEVConstant>(Ops[0])) {
-    ++Idx;
-    assert(Idx < Ops.size());
-    auto FoldOp = [&](const APInt &LHS, const APInt &RHS) {
-      if (Kind == scSMaxExpr)
-        return APIntOps::smax(LHS, RHS);
-      else if (Kind == scSMinExpr)
-        return APIntOps::smin(LHS, RHS);
-      else if (Kind == scUMaxExpr)
-        return APIntOps::umax(LHS, RHS);
-      else if (Kind == scUMinExpr)
-        return APIntOps::umin(LHS, RHS);
-      llvm_unreachable("Unknown SCEV min/max opcode");
-    };
-
-    while (const SCEVConstant *RHSC = dyn_cast<SCEVConstant>(Ops[Idx])) {
-      // We found two constants, fold them together!
-      ConstantInt *Fold = ConstantInt::get(
-          getContext(), FoldOp(LHSC->getAPInt(), RHSC->getAPInt()));
-      Ops[0] = getConstant(Fold);
-      Ops.erase(Ops.begin()+1);  // Erase the folded element
-      if (Ops.size() == 1) return Ops[0];
-      LHSC = cast<SCEVConstant>(Ops[0]);
-    }
-
-    bool IsMinV = LHSC->getValue()->isMinValue(IsSigned);
-    bool IsMaxV = LHSC->getValue()->isMaxValue(IsSigned);
-
-    if (IsMax ? IsMinV : IsMaxV) {
-      // If we are left with a constant minimum(/maximum)-int, strip it off.
-      Ops.erase(Ops.begin());
-      --Idx;
-    } else if (IsMax ? IsMaxV : IsMinV) {
-      // If we have a max(/min) with a constant maximum(/minimum)-int,
-      // it will always be the extremum.
-      return LHSC;
-    }
-
-    if (Ops.size() == 1) return Ops[0];
-  }
-
-  // Find the first operation of the same kind
-  while (Idx < Ops.size() && Ops[Idx]->getSCEVType() < Kind)
-    ++Idx;
-
-  // Check to see if one of the operands is of the same kind. If so, expand its
-  // operands onto our operand list, and recurse to simplify.
-  if (Idx < Ops.size()) {
-    bool DeletedAny = false;
-    while (Ops[Idx]->getSCEVType() == Kind) {
-      const SCEVMinMaxExpr *SMME = cast<SCEVMinMaxExpr>(Ops[Idx]);
-      Ops.erase(Ops.begin()+Idx);
-      Ops.append(SMME->op_begin(), SMME->op_end());
-      DeletedAny = true;
-    }
-
-    if (DeletedAny)
-      return getMinMaxExpr(Kind, Ops);
-  }
 
   // Okay, check to see if the same value occurs in the operand list twice.  If
   // so, delete one.  Since we sorted the list, these values are required to
