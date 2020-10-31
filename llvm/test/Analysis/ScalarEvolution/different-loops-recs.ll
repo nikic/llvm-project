@@ -87,7 +87,7 @@ define void @test_01(i32 %a, i32 %b) {
 ; CHECK:       %is2 = add i32 %sum4, %b
 ; CHECK-NEXT:  -->  {(159 + %b),+,6}<%loop2>
 ; CHECK:       %ec2 = add i32 %is1, %is2
-; CHECK-NEXT:  -->  {{{{}}(165 + (2 * %a) + (2 * %b)),+,6}<%loop1>,+,6}<%loop2>
+; CHECK-NEXT:  -->  {{{{}}(165 + (2 * (%a + %b))),+,6}<%loop1>,+,6}<%loop2>
 ; CHECK:       %s1 = add i32 %phi1, %is1
 ; CHECK-NEXT:  -->  {(6 + (3 * %a) + %b),+,7}<%loop1>
 ; CHECK:       %s2 = add i32 %is2, %phi4
@@ -97,9 +97,9 @@ define void @test_01(i32 %a, i32 %b) {
 ; CHECK:       %s4 = add i32 %phi2, %is2
 ; CHECK-NEXT:  -->  {{{{}}(159 + (2 * %b)),+,2}<%loop1>,+,6}<%loop2>
 ; CHECK:       %s5 = add i32 %is1, %is2
-; CHECK-NEXT:  -->  {{{{}}(165 + (2 * %a) + (2 * %b)),+,6}<%loop1>,+,6}<%loop2>
+; CHECK-NEXT:  -->  {{{{}}(165 + (2 * (%a + %b))),+,6}<%loop1>,+,6}<%loop2>
 ; CHECK:       %s6 = add i32 %is2, %is1
-; CHECK-NEXT:  -->  {{{{}}(165 + (2 * %a) + (2 * %b)),+,6}<%loop1>,+,6}<%loop2>
+; CHECK-NEXT:  -->  {{{{}}(165 + (2 * (%a + %b))),+,6}<%loop1>,+,6}<%loop2>
 
 entry:
   br label %loop1
@@ -172,9 +172,9 @@ define void @test_02(i32 %a, i32 %b, i32* %p) {
 ; CHECK:       %s4 = add i32 %phi2, %is2
 ; CHECK-NEXT:  -->  ({{{{}}(43 + (2 * %b) + %a),+,2}<%loop1>,+,6}<%loop2> + %v2)
 ; CHECK:       %s5 = add i32 %is1, %is2
-; CHECK-NEXT:  -->  ({({(49 + (2 * %a) + (2 * %b)),+,6}<%loop1> + %v1),+,6}<%loop2> + %v2)
+; CHECK-NEXT:  -->  ({({(49 + (2 * (%a + %b))),+,6}<%loop1> + %v1),+,6}<%loop2> + %v2)
 ; CHECK:       %s6 = add i32 %is2, %is1
-; CHECK-NEXT:  -->  ({({(49 + (2 * %a) + (2 * %b)),+,6}<%loop1> + %v1),+,6}<%loop2> + %v2)
+; CHECK-NEXT:  -->  ({({(49 + (2 * (%a + %b))),+,6}<%loop1> + %v1),+,6}<%loop2> + %v2)
 
 entry:
   br label %loop1

@@ -18,9 +18,9 @@ define i8* @FSE_decompress_usingDTable(i8* %arg, i32 %arg1, i32 %arg2, i32 %arg3
 ; CHECK-NEXT:    %i7 = select i1 %i6, i32 %arg2, i32 %arg1
 ; CHECK-NEXT:    --> ((-1 * %arg) + (((-1 * %arg1) + %arg2 + %arg) umin %arg) + %arg1) U: full-set S: full-set
 ; CHECK-NEXT:    %i8 = sub i32 %arg3, %i7
-; CHECK-NEXT:    --> ((-1 * (((-1 * %arg1) + %arg2 + %arg) umin %arg)) + (-1 * %arg1) + %arg3 + %arg) U: full-set S: full-set
+; CHECK-NEXT:    --> ((-1 * ((((-1 * %arg1) + %arg2 + %arg) umin %arg) + %arg1)) + %arg3 + %arg) U: full-set S: full-set
 ; CHECK-NEXT:    %i9 = getelementptr inbounds i8, i8* %arg, i32 %i8
-; CHECK-NEXT:    --> ((2 * %arg) + (-1 * (((-1 * %arg1) + %arg2 + %arg) umin %arg)) + (-1 * %arg1) + %arg3) U: full-set S: full-set
+; CHECK-NEXT:    --> ((2 * %arg) + (-1 * ((((-1 * %arg1) + %arg2 + %arg) umin %arg) + %arg1)) + %arg3) U: full-set S: full-set
 ; CHECK-NEXT:  Determining loop execution counts for: @FSE_decompress_usingDTable
 ;
 bb:

@@ -11,11 +11,11 @@ define i32 @test_01(i32 %a, i32 %b) {
 ; CHECK-NEXT:    %iv.next = add i32 %iv, %b
 ; CHECK-NEXT:    -->  {(%a + %b),+,%b}<%loop> U: full-set S: full-set
 ; CHECK-NEXT:    %x1 = mul i32 %iv, %iv.next
-; CHECK-NEXT:    -->  {((%a + %b) * %a),+,(((2 * %a) + (2 * %b)) * %b),+,(2 * %b * %b)}<%loop> U: full-set S: full-set
+; CHECK-NEXT:    --> {((%a + %b) * %a),+,(2 * (%a + %b) * %b),+,(2 * %b * %b)}<%loop> U: full-set S: full-set
 ; CHECK-NEXT:    %x2 = mul i32 %x1, %x1
-; CHECK-NEXT:    -->  ({((%a + %b) * %a),+,(((2 * %a) + (2 * %b)) * %b),+,(2 * %b * %b)}<%loop> * {((%a + %b) * %a),+,(((2 * %a) + (2 * %b)) * %b),+,(2 * %b * %b)}<%loop>) U: full-set S: full-set
+; CHECK-NEXT:    --> ({((%a + %b) * %a),+,(2 * (%a + %b) * %b),+,(2 * %b * %b)}<%loop> * {((%a + %b) * %a),+,(2 * (%a + %b) * %b),+,(2 * %b * %b)}<%loop>) U: full-set S: full-set
 ; CHECK-NEXT:    %x3 = mul i32 %x2, %x1
-; CHECK-NEXT:    -->  ({((%a + %b) * %a),+,(((2 * %a) + (2 * %b)) * %b),+,(2 * %b * %b)}<%loop> * {((%a + %b) * %a),+,(((2 * %a) + (2 * %b)) * %b),+,(2 * %b * %b)}<%loop> * {((%a + %b) * %a),+,(((2 * %a) + (2 * %b)) * %b),+,(2 * %b * %b)}<%loop>) U: full-set S: full-set
+; CHECK-NEXT:    --> ({((%a + %b) * %a),+,(2 * (%a + %b) * %b),+,(2 * %b * %b)}<%loop> * {((%a + %b) * %a),+,(2 * (%a + %b) * %b),+,(2 * %b * %b)}<%loop> * {((%a + %b) * %a),+,(2 * (%a + %b) * %b),+,(2 * %b * %b)}<%loop>) U: full-set S: full-set
 
 entry:
   br label %loop

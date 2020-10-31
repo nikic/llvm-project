@@ -64,6 +64,7 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/FoldingSet.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
@@ -2503,80 +2504,57 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
     }
   }
 
-  // If we are adding something to a multiply expression, make sure the
-  // something is not already an operand of the multiply.  If so, merge it into
-  // the multiply.
-  for (; Idx < Ops.size() && isa<SCEVMulExpr>(Ops[Idx]); ++Idx) {
-    const SCEVMulExpr *Mul = cast<SCEVMulExpr>(Ops[Idx]);
-    for (unsigned MulOp = 0, e = Mul->getNumOperands(); MulOp != e; ++MulOp) {
-      const SCEV *MulOpSCEV = Mul->getOperand(MulOp);
-      if (isa<SCEVConstant>(MulOpSCEV))
-        continue;
-      for (unsigned AddOp = 0, e = Ops.size(); AddOp != e; ++AddOp)
-        if (MulOpSCEV == Ops[AddOp]) {
-          // Fold W + X + (X * Y * Z)  -->  W + (X * ((Y*Z)+1))
-          const SCEV *InnerMul = Mul->getOperand(MulOp == 0);
-          if (Mul->getNumOperands() != 2) {
-            // If the multiply has more than two operands, we must get the
-            // Y*Z term.
-            SmallVector<const SCEV *, 4> MulOps(Mul->op_begin(),
-                                                Mul->op_begin()+MulOp);
-            MulOps.append(Mul->op_begin()+MulOp+1, Mul->op_end());
-            InnerMul = getMulExpr(MulOps, SCEV::FlagAnyWrap, Depth + 1);
-          }
-          SmallVector<const SCEV *, 2> TwoOps = {getOne(Ty), InnerMul};
-          const SCEV *AddOne = getAddExpr(TwoOps, SCEV::FlagAnyWrap, Depth + 1);
-          const SCEV *OuterMul = getMulExpr(AddOne, MulOpSCEV,
-                                            SCEV::FlagAnyWrap, Depth + 1);
-          if (Ops.size() == 2) return OuterMul;
-          if (AddOp < Idx) {
-            Ops.erase(Ops.begin()+AddOp);
-            Ops.erase(Ops.begin()+Idx-1);
-          } else {
-            Ops.erase(Ops.begin()+Idx);
-            Ops.erase(Ops.begin()+AddOp-1);
-          }
-          Ops.push_back(OuterMul);
-          return getAddExpr(Ops, SCEV::FlagAnyWrap, Depth + 1);
-        }
+  while (Idx < Ops.size() && Ops[Idx]->getSCEVType() < scMulExpr)
+    ++Idx;
 
-      // Check this multiply against other multiplies being added together.
-      for (unsigned OtherMulIdx = Idx+1;
-           OtherMulIdx < Ops.size() && isa<SCEVMulExpr>(Ops[OtherMulIdx]);
-           ++OtherMulIdx) {
-        const SCEVMulExpr *OtherMul = cast<SCEVMulExpr>(Ops[OtherMulIdx]);
-        // If MulOp occurs in OtherMul, we can fold the two multiplies
-        // together.
-        for (unsigned OMulOp = 0, e = OtherMul->getNumOperands();
-             OMulOp != e; ++OMulOp)
-          if (OtherMul->getOperand(OMulOp) == MulOpSCEV) {
-            // Fold X + (A*B*C) + (A*D*E) --> X + (A*(B*C+D*E))
-            const SCEV *InnerMul1 = Mul->getOperand(MulOp == 0);
-            if (Mul->getNumOperands() != 2) {
-              SmallVector<const SCEV *, 4> MulOps(Mul->op_begin(),
-                                                  Mul->op_begin()+MulOp);
-              MulOps.append(Mul->op_begin()+MulOp+1, Mul->op_end());
-              InnerMul1 = getMulExpr(MulOps, SCEV::FlagAnyWrap, Depth + 1);
-            }
-            const SCEV *InnerMul2 = OtherMul->getOperand(OMulOp == 0);
-            if (OtherMul->getNumOperands() != 2) {
-              SmallVector<const SCEV *, 4> MulOps(OtherMul->op_begin(),
-                                                  OtherMul->op_begin()+OMulOp);
-              MulOps.append(OtherMul->op_begin()+OMulOp+1, OtherMul->op_end());
-              InnerMul2 = getMulExpr(MulOps, SCEV::FlagAnyWrap, Depth + 1);
-            }
-            SmallVector<const SCEV *, 2> TwoOps = {InnerMul1, InnerMul2};
-            const SCEV *InnerMulSum =
-                getAddExpr(TwoOps, SCEV::FlagAnyWrap, Depth + 1);
-            const SCEV *OuterMul = getMulExpr(MulOpSCEV, InnerMulSum,
-                                              SCEV::FlagAnyWrap, Depth + 1);
-            if (Ops.size() == 2) return OuterMul;
-            Ops.erase(Ops.begin()+Idx);
-            Ops.erase(Ops.begin()+OtherMulIdx-1);
-            Ops.push_back(OuterMul);
-            return getAddExpr(Ops, SCEV::FlagAnyWrap, Depth + 1);
-          }
+  if (Idx < Ops.size() && isa<SCEVMulExpr>(Ops[Idx])) {
+    // Collect how often a factor is used in multiply expressions. If a factor
+    // is used more than once, we'll want to fold (X*A + X*B) to X*(A+B).
+    SmallMapVector<const SCEV *, unsigned, 8> FactorCount;
+    for (const SCEV *Op : Ops) {
+      if (const SCEVMulExpr *Mul = dyn_cast<SCEVMulExpr>(Op)) {
+        const SCEV *PrevMulOp = nullptr;
+        for (const SCEV *MulOp : Mul->operands()) {
+          // Don't count the same op appearing multiple times in one mul.
+          if (MulOp != PrevMulOp)
+            FactorCount[MulOp]++;
+          PrevMulOp = MulOp;
+        }
+      } else if (!isa<SCEVConstant>(Op)) {
+        // Op can be interpreted as 1 * Op, but don't do this for constants.
+        FactorCount[Op]++;
       }
+    }
+
+    // Find the factor that is repeated the most often.
+    auto It = std::max_element(
+        FactorCount.begin(), FactorCount.end(),
+        [](const auto &A, const auto &B) { return A.second < B.second; });
+    if (It->second != 1) {
+      const SCEV *Factor = It->first;
+      SmallVector<const SCEV *, 8> OuterAddOps;
+      SmallVector<const SCEV *, 8> InnerAddOps;
+      for (const SCEV *Op : Ops) {
+        if (const SCEVMulExpr *Mul = dyn_cast<SCEVMulExpr>(Op)) {
+          auto It = std::find(Mul->op_begin(), Mul->op_end(), Factor);
+          if (It != Mul->op_end()) {
+            SmallVector<const SCEV *, 4> NewMulOps(Mul->op_begin(), It);
+            NewMulOps.append(It + 1, Mul->op_end());
+            InnerAddOps.push_back(getMulExpr(NewMulOps, SCEV::FlagAnyWrap,
+                                             Depth + 1));
+            continue;
+          }
+        } else if (Op == Factor && !isa<SCEVConstant>(Op)) {
+          InnerAddOps.push_back(getOne(Ty)); // Decompose as 1*X.
+          continue;
+        }
+        OuterAddOps.push_back(Op);
+      }
+      const SCEV *InnerAdd =
+          getAddExpr(InnerAddOps, SCEV::FlagAnyWrap, Depth + 1);
+      OuterAddOps.push_back(
+          getMulExpr(Factor, InnerAdd, SCEV::FlagAnyWrap, Depth + 1));
+      return getAddExpr(OuterAddOps, SCEV::FlagAnyWrap, Depth + 1);
     }
   }
 
