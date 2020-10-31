@@ -2579,10 +2579,9 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
   if (Instruction *FoldedLogic = foldBinOpIntoSelectOrPhi(I))
     return FoldedLogic;
 
-  // FIXME: Limit bitreverse matching to i16 or less to control recursion costs.
-  bool MatchBitReversals = I.getType()->getScalarSizeInBits() <= 16;
   if (Instruction *BSwap =
-          matchBSwapOrBitReverse(I, /*MatchBSwaps*/ true, MatchBitReversals))
+          matchBSwapOrBitReverse(I, /*MatchBSwaps*/ true,
+                                 /* MatchBitReversals */ true))
     return BSwap;
 
   if (Instruction *Funnel = matchFunnelShift(I, *this))
