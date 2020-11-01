@@ -2296,9 +2296,9 @@ bool ScalarEvolution::isAvailableAtLoopEntry(const SCEV *S, const Loop *L) {
 
 /// Get a canonical add expression, or something simpler if possible.
 const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
-                                        SCEV::NoWrapFlags Flags,
+                                        SCEV::NoWrapFlags OrigFlags,
                                         unsigned Depth) {
-  assert(!(Flags & ~(SCEV::FlagNUW | SCEV::FlagNSW)) &&
+  assert(!(OrigFlags & ~(SCEV::FlagNUW | SCEV::FlagNSW)) &&
          "only nuw or nsw allowed");
   assert(!Ops.empty() && "Cannot get empty add!");
   if (Ops.size() == 1) return Ops[0];
@@ -2334,14 +2334,23 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
     if (Ops.size() == 1) return Ops[0];
   }
 
-  Flags = StrengthenNoWrapFlags(this, scAddExpr, Ops, Flags);
+  // Strengthening the nowrap flags is expensive, so delay the calculation
+  // until they are actually needed.
+  Optional<SCEV::NoWrapFlags> StrengthenedFlags;
+  auto GetStrengthenedFlags = [&]() {
+    if (!StrengthenedFlags)
+      StrengthenedFlags =
+          StrengthenNoWrapFlags(this, scAddExpr, Ops, OrigFlags);
+    return *StrengthenedFlags;
+  };
+
 
   // Limit recursion calls depth.
   if (Depth > MaxArithDepth || hasHugeExpression(Ops))
-    return getOrCreateAddExpr(Ops, Flags);
+    return getOrCreateAddExpr(Ops, GetStrengthenedFlags());
 
   if (SCEV *S = std::get<0>(findExistingSCEVInCache(scAddExpr, Ops))) {
-    static_cast<SCEVAddExpr *>(S)->setNoWrapFlags(Flags);
+    static_cast<SCEVAddExpr *>(S)->setNoWrapFlags(GetStrengthenedFlags());
     return S;
   }
 
@@ -2367,7 +2376,7 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
       FoundMatch = true;
     }
   if (FoundMatch)
-    return getAddExpr(Ops, Flags, Depth + 1);
+    return getAddExpr(Ops, GetStrengthenedFlags(), Depth + 1);
 
   // Check for truncates. If all the operands are truncated from the same
   // type, see if factoring out the truncate would permit the result to be
@@ -2593,6 +2602,8 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
     SmallVector<const SCEV *, 8> LIOps;
     const SCEVAddRecExpr *AddRec = cast<SCEVAddRecExpr>(Ops[Idx]);
     const Loop *AddRecLoop = AddRec->getLoop();
+    // Strengthen flags before we modify Ops.
+    SCEV::NoWrapFlags Flags = GetStrengthenedFlags();
     for (unsigned i = 0, e = Ops.size(); i != e; ++i)
       if (isAvailableAtLoopEntry(Ops[i], AddRecLoop)) {
         LIOps.push_back(Ops[i]);
@@ -2676,7 +2687,7 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
 
   // Okay, it looks like we really DO need an add expr.  Check to see if we
   // already have one, otherwise create a new one.
-  return getOrCreateAddExpr(Ops, Flags);
+  return getOrCreateAddExpr(Ops, GetStrengthenedFlags());
 }
 
 const SCEV *
@@ -2802,9 +2813,9 @@ static bool containsConstantInAddMulChain(const SCEV *StartExpr) {
 
 /// Get a canonical multiply expression, or something simpler if possible.
 const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
-                                        SCEV::NoWrapFlags Flags,
+                                        SCEV::NoWrapFlags OrigFlags,
                                         unsigned Depth) {
-  assert(Flags == maskFlags(Flags, SCEV::FlagNUW | SCEV::FlagNSW) &&
+  assert(OrigFlags == maskFlags(OrigFlags, SCEV::FlagNUW | SCEV::FlagNSW) &&
          "only nuw or nsw allowed");
   assert(!Ops.empty() && "Cannot get empty mul!");
   if (Ops.size() == 1) return Ops[0];
@@ -2845,14 +2856,22 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
       return Ops[0];
   }
 
-  Flags = StrengthenNoWrapFlags(this, scMulExpr, Ops, Flags);
+  // Strengthening the nowrap flags is expensive, so delay the calculation
+  // until they are actually needed.
+  Optional<SCEV::NoWrapFlags> StrengthenedFlags;
+  auto GetStrengthenedFlags = [&]() {
+    if (!StrengthenedFlags)
+      StrengthenedFlags =
+          StrengthenNoWrapFlags(this, scMulExpr, Ops, OrigFlags);
+    return *StrengthenedFlags;
+  };
 
   // Limit recursion calls depth.
   if (Depth > MaxArithDepth || hasHugeExpression(Ops))
-    return getOrCreateMulExpr(Ops, Flags);
+    return getOrCreateMulExpr(Ops, GetStrengthenedFlags());
 
   if (SCEV *S = std::get<0>(findExistingSCEVInCache(scMulExpr, Ops))) {
-    static_cast<SCEVMulExpr *>(S)->setNoWrapFlags(Flags);
+    static_cast<SCEVMulExpr *>(S)->setNoWrapFlags(GetStrengthenedFlags());
     return S;
   }
 
@@ -2938,6 +2957,8 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
     SmallVector<const SCEV *, 8> LIOps;
     const SCEVAddRecExpr *AddRec = cast<SCEVAddRecExpr>(Ops[Idx]);
     const Loop *AddRecLoop = AddRec->getLoop();
+    // Strengthen flags before we modify Ops.
+    SCEV::NoWrapFlags Flags = GetStrengthenedFlags();
     for (unsigned i = 0, e = Ops.size(); i != e; ++i)
       if (isAvailableAtLoopEntry(Ops[i], AddRecLoop)) {
         LIOps.push_back(Ops[i]);
@@ -2960,8 +2981,8 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
       //
       // No self-wrap cannot be guaranteed after changing the step size, but
       // will be inferred if either NUW or NSW is true.
-      Flags = AddRec->getNoWrapFlags(clearFlags(Flags, SCEV::FlagNW));
-      const SCEV *NewRec = getAddRecExpr(NewOps, AddRecLoop, Flags);
+      const SCEV *NewRec = getAddRecExpr(
+          NewOps, AddRecLoop, AddRec->getNoWrapFlags(Flags));
 
       // If all of the other operands were loop invariant, we are done.
       if (Ops.size() == 1) return NewRec;
@@ -3054,7 +3075,7 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
 
   // Okay, it looks like we really DO need an mul expr.  Check to see if we
   // already have one, otherwise create a new one.
-  return getOrCreateMulExpr(Ops, Flags);
+  return getOrCreateMulExpr(Ops, GetStrengthenedFlags());
 }
 
 /// Represents an unsigned remainder expression based on unsigned division.
