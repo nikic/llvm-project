@@ -2350,7 +2350,9 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
     return getOrCreateAddExpr(Ops, GetStrengthenedFlags());
 
   if (SCEV *S = std::get<0>(findExistingSCEVInCache(scAddExpr, Ops))) {
-    static_cast<SCEVAddExpr *>(S)->setNoWrapFlags(GetStrengthenedFlags());
+    SCEVAddExpr *Add = static_cast<SCEVAddExpr *>(S);
+    if (Add->getNoWrapFlags(OrigFlags) != OrigFlags)
+      Add->setNoWrapFlags(GetStrengthenedFlags());
     return S;
   }
 
@@ -2871,7 +2873,9 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
     return getOrCreateMulExpr(Ops, GetStrengthenedFlags());
 
   if (SCEV *S = std::get<0>(findExistingSCEVInCache(scMulExpr, Ops))) {
-    static_cast<SCEVMulExpr *>(S)->setNoWrapFlags(GetStrengthenedFlags());
+    SCEVMulExpr *Mul = static_cast<SCEVMulExpr *>(S);
+    if (Mul->getNoWrapFlags(OrigFlags) != OrigFlags)
+      Mul->setNoWrapFlags(GetStrengthenedFlags());
     return S;
   }
 
