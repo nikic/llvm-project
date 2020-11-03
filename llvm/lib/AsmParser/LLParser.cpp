@@ -2213,20 +2213,45 @@ bool LLParser::ParseOptionalDerefAttrBytes(lltok::Kind AttrKind,
 /// end.
 bool LLParser::ParseOptionalCommaAlign(MaybeAlign &Alignment,
                                        bool &AteExtraComma) {
-  AteExtraComma = false;
-  while (EatIfPresent(lltok::comma)) {
+  while (AteExtraComma || EatIfPresent(lltok::comma)) {
+    AteExtraComma = false;
     // Metadata at the end is an early exit.
     if (Lex.getKind() == lltok::MetadataVar) {
       AteExtraComma = true;
       return false;
     }
 
-    if (Lex.getKind() != lltok::kw_align)
+    // if we get here, ptr_provenance must not be possible any more
+    if (Lex.getKind() == lltok::kw_ptr_provenance)
       return Error(Lex.getLoc(), "expected metadata or 'align'");
+    if (Lex.getKind() != lltok::kw_align)
+      return Error(Lex.getLoc(),
+                   "expected metadata or 'align' or 'ptr_provenance'");
 
     if (ParseOptionalAlignment(Alignment)) return true;
   }
 
+  return false;
+}
+
+/// ParseOptionalCommandNoaliasProvenance
+///   ::=
+///   ::= ',' ptr_provenance int* %3
+///
+/// This returns with AteExtraComma set to true if it ate an excess comma at the
+/// end.
+bool LLParser::ParseOptionalCommaNoaliasProvenance(
+    Value *&V, LLParser::LocTy &Loc, LLParser::PerFunctionState &PFS,
+    bool &AteExtraComma) {
+  assert(AteExtraComma == false);
+  if (EatIfPresent(lltok::comma)) {
+    if (Lex.getKind() == lltok::kw_ptr_provenance) {
+      Lex.Lex();
+      return ParseTypeAndValue(V, Loc, PFS);
+    }
+
+    AteExtraComma = true;
+  }
   return false;
 }
 
@@ -7125,6 +7150,8 @@ int LLParser::ParseAlloc(Instruction *&Inst, PerFunctionState &PFS) {
 ///       'singlethread'? AtomicOrdering (',' 'align' i32)?
 int LLParser::ParseLoad(Instruction *&Inst, PerFunctionState &PFS) {
   Value *Val; LocTy Loc;
+  Value *NoaliasProvenance = nullptr;
+  LocTy NoaliasProvenanceLoc;
   MaybeAlign Alignment;
   bool AteExtraComma = false;
   bool isAtomic = false;
@@ -7148,6 +7175,8 @@ int LLParser::ParseLoad(Instruction *&Inst, PerFunctionState &PFS) {
       ParseToken(lltok::comma, "expected comma after load's type") ||
       ParseTypeAndValue(Val, Loc, PFS) ||
       ParseScopeAndOrdering(isAtomic, SSID, Ordering) ||
+      ParseOptionalCommaNoaliasProvenance(
+          NoaliasProvenance, NoaliasProvenanceLoc, PFS, AteExtraComma) ||
       ParseOptionalCommaAlign(Alignment, AteExtraComma))
     return true;
 
@@ -7167,7 +7196,10 @@ int LLParser::ParseLoad(Instruction *&Inst, PerFunctionState &PFS) {
     return Error(ExplicitTypeLoc, "loading unsized types is not allowed");
   if (!Alignment)
     Alignment = M->getDataLayout().getABITypeAlign(Ty);
-  Inst = new LoadInst(Ty, Val, "", isVolatile, *Alignment, Ordering, SSID);
+  auto *LI = new LoadInst(Ty, Val, "", isVolatile, *Alignment, Ordering, SSID);
+  if (NoaliasProvenance)
+    LI->setNoaliasProvenanceOperand(NoaliasProvenance);
+  Inst = LI;
   return AteExtraComma ? InstExtraComma : InstNormal;
 }
 
@@ -7178,6 +7210,8 @@ int LLParser::ParseLoad(Instruction *&Inst, PerFunctionState &PFS) {
 ///       'singlethread'? AtomicOrdering (',' 'align' i32)?
 int LLParser::ParseStore(Instruction *&Inst, PerFunctionState &PFS) {
   Value *Val, *Ptr; LocTy Loc, PtrLoc;
+  Value *NoaliasProvenance = nullptr;
+  LocTy NoaliasProvenanceLoc;
   MaybeAlign Alignment;
   bool AteExtraComma = false;
   bool isAtomic = false;
@@ -7199,6 +7233,8 @@ int LLParser::ParseStore(Instruction *&Inst, PerFunctionState &PFS) {
       ParseToken(lltok::comma, "expected ',' after store operand") ||
       ParseTypeAndValue(Ptr, PtrLoc, PFS) ||
       ParseScopeAndOrdering(isAtomic, SSID, Ordering) ||
+      ParseOptionalCommaNoaliasProvenance(
+          NoaliasProvenance, NoaliasProvenanceLoc, PFS, AteExtraComma) ||
       ParseOptionalCommaAlign(Alignment, AteExtraComma))
     return true;
 
@@ -7219,7 +7255,11 @@ int LLParser::ParseStore(Instruction *&Inst, PerFunctionState &PFS) {
   if (!Alignment)
     Alignment = M->getDataLayout().getABITypeAlign(Val->getType());
 
-  Inst = new StoreInst(Val, Ptr, isVolatile, *Alignment, Ordering, SSID);
+  auto *SI = new StoreInst(Val, Ptr, isVolatile, *Alignment, Ordering, SSID);
+  if (NoaliasProvenance)
+    SI->setNoaliasProvenanceOperand(NoaliasProvenance);
+  Inst = SI;
+
   return AteExtraComma ? InstExtraComma : InstNormal;
 }
 

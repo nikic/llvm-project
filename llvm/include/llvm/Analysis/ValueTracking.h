@@ -369,11 +369,14 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
   /// the specified value, returning the original object being addressed. Note
   /// that the returned value has pointer type if the specified value does. If
   /// the MaxLookup value is non-zero, it limits the number of instructions to
-  /// be stripped off.
-  Value *getUnderlyingObject(Value *V, unsigned MaxLookup = 6);
-  inline const Value *getUnderlyingObject(const Value *V,
-                                          unsigned MaxLookup = 6) {
-    return getUnderlyingObject(const_cast<Value *>(V), MaxLookup);
+  /// be stripped off. If a NoAlias vector is provided, it is filled with any
+  /// llvm.noalias intrinsics looked through to find the underlying object.
+  Value *getUnderlyingObject(Value *V, unsigned MaxLookup = 6,
+                             SmallVectorImpl<Instruction *> *NoAlias = nullptr);
+  inline const Value *
+  getUnderlyingObject(const Value *V, unsigned MaxLookup = 6,
+                      SmallVectorImpl<Instruction *> *NoAlias = nullptr) {
+    return getUnderlyingObject(const_cast<Value *>(V), MaxLookup, NoAlias);
   }
 
   /// This method is similar to getUnderlyingObject except that it can
@@ -403,10 +406,13 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
   ///
   /// Since A[i] and A[i-1] are independent pointers, getUnderlyingObjects
   /// should not assume that Curr and Prev share the same underlying object thus
-  /// it shouldn't look through the phi above.
+  /// it shouldn't look through the phi above. If a NoAlias vector is provided,
+  /// it is filled with any llvm.noalias intrinsics looked through to find the
+  /// underlying objects.
   void getUnderlyingObjects(const Value *V,
                             SmallVectorImpl<const Value *> &Objects,
-                            LoopInfo *LI = nullptr, unsigned MaxLookup = 6);
+                            LoopInfo *LI = nullptr, unsigned MaxLookup = 6,
+                            SmallVectorImpl<Instruction *> *NoAlias = nullptr);
 
   /// This is a wrapper around getUnderlyingObjects and adds support for basic
   /// ptrtoint+arithmetic+inttoptr sequences.

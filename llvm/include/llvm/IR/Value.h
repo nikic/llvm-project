@@ -318,6 +318,13 @@ public:
   /// values or constant users.
   void replaceUsesOutsideBlock(Value *V, BasicBlock *BB);
 
+  /// replaceUsesInsideBlock - Go through the uses list for this definition and
+  /// make each use point to "V" instead of "this" when the use is inside the
+  /// block.
+  /// Unlike replaceAllUsesWith this function does not support basic block
+  /// values or constant users.
+  void replaceUsesInsideBlock(Value *V, BasicBlock *BB);
+
   //----------------------------------------------------------------------
   // Methods for handling the chain of uses of this Value.
   //
@@ -596,6 +603,18 @@ public:
   Value *stripPointerCastsAndInvariantGroups() {
     return const_cast<Value *>(static_cast<const Value *>(this)
                                    ->stripPointerCastsAndInvariantGroups());
+  }
+
+  /// Strip off pointer casts, all-zero GEPs, aliases, invariant group
+  /// info and noalias intrinsics.
+  ///
+  /// Returns the original uncasted value.  If this is called on a non-pointer
+  /// value, it returns 'this'.
+  const Value *stripPointerCastsAndInvariantGroupsAndNoAliasIntr() const;
+  Value *stripPointerCastsAndInvariantGroupsAndNoAliasIntr() {
+    return const_cast<Value *>(
+        static_cast<const Value *>(this)
+            ->stripPointerCastsAndInvariantGroupsAndNoAliasIntr());
   }
 
   /// Strip off pointer casts and all-constant inbounds GEPs.

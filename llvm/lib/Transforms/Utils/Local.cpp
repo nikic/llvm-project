@@ -447,6 +447,29 @@ bool llvm::wouldInstructionBeTriviallyDead(Instruction *I,
 
       return false;
     }
+
+    // noalias intrinsics are dead if they have no uses (they're tagged as
+    // writing, but that is only to maintain control dependencies, not because
+    // they actually write anything).
+    if (II->getIntrinsicID() == Intrinsic::noalias ||
+        II->getIntrinsicID() == Intrinsic::provenance_noalias ||
+        II->getIntrinsicID() == Intrinsic::noalias_copy_guard ||
+        II->getIntrinsicID() == Intrinsic::noalias_arg_guard)
+      return II->use_empty();
+
+    // llvm.noalias.decl which operand only has a single use are trivially dead.
+    // NOTE: this assumes that noalias intrinsics nodes are never combined !
+    if (II->getIntrinsicID() == Intrinsic::noalias_decl) {
+      auto *DAA = II->getOperand(Intrinsic::NoAliasDeclAllocaArg);
+      if (isa<Constant>(DAA)) {
+        // no associated alloca -> if there are no uses, it is trivially dead
+        return II->getNumUses() == 0;
+      } else {
+        return (DAA->getNumUses() == 1) &&
+               (II->getOperand(Intrinsic::NoAliasDeclScopeArg)->getNumUses() ==
+                1);
+      }
+    }
   }
 
   if (isAllocLikeFn(I, TLI))

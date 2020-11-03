@@ -545,6 +545,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(deplibs);             // FIXME: Remove in 4.0.
   KEYWORD(datalayout);
   KEYWORD(volatile);
+  KEYWORD(ptr_provenance);
   KEYWORD(atomic);
   KEYWORD(unordered);
   KEYWORD(monotonic);

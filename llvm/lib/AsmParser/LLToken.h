@@ -90,6 +90,7 @@ enum Kind {
   kw_deplibs, // FIXME: Remove in 4.0
   kw_datalayout,
   kw_volatile,
+  kw_ptr_provenance,
   kw_atomic,
   kw_unordered,
   kw_monotonic,

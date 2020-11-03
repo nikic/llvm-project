@@ -117,6 +117,14 @@ static cl::opt<bool> SROAStrictInbounds("sroa-strict-inbounds", cl::init(false),
 
 namespace {
 
+static llvm::IntrinsicInst *getBaseAsCopyGuardOrNull(llvm::Value *V) {
+  llvm::IntrinsicInst *II = dyn_cast<IntrinsicInst>(V->stripInBoundsOffsets());
+  if (II && (II->getIntrinsicID() == Intrinsic::noalias_copy_guard))
+    return II;
+
+  return nullptr;
+}
+
 /// A custom IRBuilder inserter which prefixes all names, but only in
 /// Assert builds.
 class IRBuilderPrefixedInserter final : public IRBuilderDefaultInserter {
@@ -657,11 +665,24 @@ class AllocaSlices::SliceBuilder : public PtrUseVisitor<SliceBuilder> {
   /// Set to de-duplicate dead instructions found in the use walk.
   SmallPtrSet<Instruction *, 4> VisitedDeadInsts;
 
+  // llvm.noalias.copy.guard, offset
+  SmallVector<std::pair<IntrinsicInst *, uint64_t>, 4> PendingNoAliasCopyGuards;
+
 public:
   SliceBuilder(const DataLayout &DL, AllocaInst &AI, AllocaSlices &AS)
       : PtrUseVisitor<SliceBuilder>(DL),
         AllocSize(DL.getTypeAllocSize(AI.getAllocatedType()).getFixedSize()),
         AS(AS) {}
+
+  PtrInfo visitPtrAndNoAliasCopyGuards(Instruction &I) {
+    PtrInfo PI = visitPtr(I);
+    if (!PI.isAborted()) {
+      for (auto &CGAndOffset : PendingNoAliasCopyGuards)
+        visitPendingNoAliasCopyGuard(*CGAndOffset.first, CGAndOffset.second);
+    }
+
+    return PI;
+  }
 
 private:
   void markAsDead(Instruction &I) {
@@ -781,6 +802,13 @@ private:
     assert((!LI.isSimple() || LI.getType()->isSingleValueType()) &&
            "All simple FCA loads should have been pre-split");
 
+    if (U->getOperandNo() == LI.getNoaliasProvenanceOperandIndex()) {
+      // Skip provenance
+      assert(LI.hasNoaliasProvenanceOperand() &&
+             LI.getNoaliasProvenanceOperand() == *U);
+      return;
+    }
+
     if (!IsOffsetKnown)
       return PI.setAborted(&LI);
 
@@ -796,6 +824,13 @@ private:
   }
 
   void visitStoreInst(StoreInst &SI) {
+    if (U->getOperandNo() == SI.getNoaliasProvenanceOperandIndex()) {
+      // Skip provenance
+      assert(SI.hasNoaliasProvenanceOperand() &&
+             SI.getNoaliasProvenanceOperand() == *U);
+      return;
+    }
+
     Value *ValOp = SI.getValueOperand();
     if (ValOp == *U)
       return PI.setEscapedAndAborted(&SI);
@@ -830,6 +865,14 @@ private:
     assert((!SI.isSimple() || ValOp->getType()->isSingleValueType()) &&
            "All simple FCA stores should have been pre-split");
     handleLoadOrStore(ValOp->getType(), SI, Offset, Size, SI.isVolatile());
+
+    if (auto *LI = dyn_cast<LoadInst>(SI.getValueOperand())) {
+      // When we get here, the Store is based on an AllocaInst.
+      // Make sure to track any source dependencies on a llvm.noalias.copy.guard
+      // when the source was not based on the AllocaInst.
+      rememberIfBasedOnNoAliasCopyGuard(LI->getPointerOperand(),
+                                        Offset.getZExtValue());
+    }
   }
 
   void visitMemSetInst(MemSetInst &II) {
@@ -928,6 +971,141 @@ private:
     // Check that we ended up with a valid index in the map.
     assert(AS.Slices[PrevIdx].getUse()->getUser() == &II &&
            "Map index doesn't point back to a slice with this user.");
+
+    // When we get here, one of the operands is based on an AllocaInst.
+    // Make sure to track any source dependencies on a llvm.noalias.copy.guard
+    // when the source was not based on the AllocaInst.
+    rememberIfBasedOnNoAliasCopyGuard(II.getSource(), Offset.getZExtValue());
+  }
+
+  void gatherValidNoAliasPointerOffsets(
+      IRBuilderTy &IRB, IntrinsicInst &II,
+      SmallVectorImpl<std::pair<unsigned, unsigned>> &PtrOffsetSizes,
+      SmallVectorImpl<Value *> &Indices,
+      SmallVectorImpl<unsigned> &MinusOneIndices, uint64_t BaseOffset,
+      unsigned Index = 0) {
+    if (Index == MinusOneIndices.size()) {
+      // Check if the indices are compatible with the aggregate
+      auto PointeeType =
+          cast<PointerType>(II.getType()->getScalarType())->getElementType();
+      auto LeafType = GetElementPtrInst::getIndexedType(PointeeType, Indices);
+
+      if (LeafType == nullptr || !isa<PointerType>(LeafType)) {
+        LLVM_DEBUG(llvm::dbgs() << "gatherValidNoAliasPointerOffsets: "
+                                   "incompatible struct ? Is it a union?\n"
+                                << II << "\n");
+        return;
+      }
+
+      // don't know how to compute the offsets without creating a GEP
+      GetElementPtrInst *GEP =
+          cast<GetElementPtrInst>(IRB.CreateGEP(&II, Indices));
+      assert(isa<PointerType>(GEP->getType()->getPointerElementType()) &&
+             "noalias pointer is not a pointer?");
+      APInt GEPOffset(DL.getPointerSizeInBits(), 0);
+      if (GEP->accumulateConstantOffset(DL, GEPOffset)) {
+        auto Offset = GEPOffset.getZExtValue();
+        if (Offset >= BaseOffset && Offset < AllocSize) {
+          PtrOffsetSizes.push_back(
+              std::make_pair((unsigned)(Offset - BaseOffset),
+                             (unsigned)DL.getTypeAllocSize(
+                                 GEP->getType()->getPointerElementType())));
+        }
+      }
+      GEP->eraseFromParent();
+      return;
+    }
+
+    while (true) {
+      // Increment
+      ConstantInt *CI = cast<ConstantInt>(Indices[MinusOneIndices[Index]]);
+      Indices[MinusOneIndices[Index]] =
+          ConstantInt::get(CI->getType(), CI->getSExtValue() + 1, true);
+
+      unsigned CurrentSize = PtrOffsetSizes.size();
+      gatherValidNoAliasPointerOffsets(IRB, II, PtrOffsetSizes, Indices,
+                                       MinusOneIndices, BaseOffset, Index + 1);
+      if (CurrentSize == PtrOffsetSizes.size()) {
+        // no new entries - recurse back; prepare for next iteration
+        Indices[MinusOneIndices[Index]] =
+            ConstantInt::get(CI->getType(), -1, true);
+        break;
+      }
+    }
+  }
+
+  void rememberIfBasedOnNoAliasCopyGuard(Value *V, uint64_t TheOffset) {
+    if (auto II = getBaseAsCopyGuardOrNull(V)) {
+      for (auto CGOff : PendingNoAliasCopyGuards) {
+        if (CGOff.first == II && CGOff.second == TheOffset)
+          return;
+      }
+
+      PendingNoAliasCopyGuards.emplace_back(II, TheOffset);
+    }
+  }
+
+  void visitNoAliasCopyGuard(IntrinsicInst &II) {
+    assert(II.getIntrinsicID() == Intrinsic::noalias_copy_guard &&
+           "We need a llvm.noalias.copy.guard here");
+    rememberIfBasedOnNoAliasCopyGuard(&II, Offset.getZExtValue());
+    enqueueUsers(II);
+  }
+
+  void visitPendingNoAliasCopyGuard(IntrinsicInst &II, uint64_t BaseOffset) {
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "AllocaSlices::SliceBuilder: handling llvm.noalias.copy.guard:" << II
+        << ":@" << BaseOffset << ":" << AllocSize << "\n");
+    // Identify the usage, so that it can be split
+    if (II.use_empty())
+      return markAsDead(II);
+
+    SmallVector<std::pair<unsigned, unsigned>, 4> PtrOffsetSizes;
+
+    // Provide as many slices as we have restrict pointers
+    MDNode *CopyGuardIndices =
+        cast<MDNode>(cast<MetadataAsValue>(
+                         II.getOperand(Intrinsic::NoAliasCopyGuardIndicesArg))
+                         ->getMetadata());
+
+    IRBuilderTy IRB(II.getNextNode());
+    SmallVector<Value *, 8> Indices;
+    SmallVector<unsigned, 4> MinusOneIndices;
+    for (const MDOperand &MDOp : CopyGuardIndices->operands()) {
+      if (const MDNode *IMD = dyn_cast<MDNode>(MDOp)) {
+        Indices.clear();
+        MinusOneIndices.clear();
+
+        unsigned CGIndex = 0;
+
+        for (const MDOperand &MDIndex : IMD->operands()) {
+          ConstantInt *C =
+              cast<ConstantInt>(cast<ValueAsMetadata>(MDIndex)->getValue());
+          if (C->isMinusOne()) // accept any index at this place
+            MinusOneIndices.push_back(CGIndex);
+          Indices.push_back(C);
+          ++CGIndex;
+        }
+        gatherValidNoAliasPointerOffsets(IRB, II, PtrOffsetSizes, Indices,
+                                         MinusOneIndices, BaseOffset);
+      }
+    }
+
+    LLVM_DEBUG(llvm::dbgs() << "noalias pointers are at:\n";
+               for (auto &P
+                    : PtrOffsetSizes) {
+                 llvm::dbgs()
+                     << " - [" << P.first << "," << P.first + P.second << ")\n";
+               });
+
+    U = &II.getOperandUse(0);
+    unsigned AS = II.getOperand(0)->getType()->getPointerAddressSpace();
+    APInt TheBaseOffset(DL.getIndexSizeInBits(AS), BaseOffset);
+    for (auto &P : PtrOffsetSizes) {
+      APInt TheOffset = TheBaseOffset + P.first;
+      insertUse(II, TheOffset, P.second, false);
+    }
   }
 
   // Disable SRoA for any intrinsics except for lifetime invariants.
@@ -947,6 +1125,52 @@ private:
       uint64_t Size = std::min(AllocSize - Offset.getLimitedValue(),
                                Length->getLimitedValue());
       insertUse(II, Offset, Size, true);
+      return;
+    }
+    // look through noalias intrinsics
+    if (II.getIntrinsicID() == Intrinsic::noalias_decl) {
+      insertUse(II, Offset, AllocSize, true);
+      // do not enqueue direct users (?) They should be handled through a
+      // dependency on the original alloca
+      return;
+    }
+    if (II.getIntrinsicID() == Intrinsic::noalias) {
+      if (U->getOperandNo() == Intrinsic::NoAliasIdentifyPArg) {
+        insertUse(II, Offset,
+                  DL.getTypeStoreSize(
+                      II.getOperand(Intrinsic::NoAliasIdentifyPArg)->getType()),
+                  false);
+        return;
+      }
+      if (U->getOperandNo() == 0) {
+        assert(II.getOperand(0) == *U);
+        // _only_ look through the first argument
+        enqueueUsers(II);
+      }
+      return;
+    }
+    if (II.getIntrinsicID() == Intrinsic::provenance_noalias) {
+      if (U->getOperandNo() == Intrinsic::ProvenanceNoAliasIdentifyPArg) {
+        insertUse(II, Offset,
+                  DL.getTypeStoreSize(
+                      II.getOperand(Intrinsic::ProvenanceNoAliasIdentifyPArg)
+                          ->getType()),
+                  false);
+        return;
+      }
+      // hmmm - do not look through the first argument for a
+      // llvm.provenance.noalias
+      return;
+    }
+    if (II.getIntrinsicID() == Intrinsic::noalias_arg_guard) {
+      if (U->getOperandNo() == 0) {
+        // _only_ look through the first argument
+        enqueueUsers(II);
+      }
+      return;
+    }
+    if (II.getIntrinsicID() == Intrinsic::noalias_copy_guard) {
+      visitNoAliasCopyGuard(II);
       return;
     }
 
@@ -1066,7 +1290,7 @@ AllocaSlices::AllocaSlices(const DataLayout &DL, AllocaInst &AI)
 #endif
       PointerEscapingInstr(nullptr) {
   SliceBuilder PB(DL, AI, *this);
-  SliceBuilder::PtrInfo PtrI = PB.visitPtr(AI);
+  SliceBuilder::PtrInfo PtrI = PB.visitPtrAndNoAliasCopyGuards(AI);
   if (PtrI.isEscaped() || PtrI.isAborted()) {
     // FIXME: We should sink the escape vs. abort info into the caller nicely,
     // possibly by just storing the PtrInfo in the AllocaSlices.
@@ -1125,6 +1349,18 @@ LLVM_DUMP_METHOD void AllocaSlices::dump(const_iterator I) const {
 LLVM_DUMP_METHOD void AllocaSlices::dump() const { print(dbgs()); }
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+static IntrinsicInst *partitionRepresentsNoAliasPointer(Partition &P) {
+  // A partition that has a 'llvm.noalias.copy.guard' use, represents a
+  // noalias pointer
+  for (auto &I : P) {
+    Use *U = I.getUse();
+    if (auto *II = dyn_cast<IntrinsicInst>(U->getUser()))
+      if (II->getIntrinsicID() == Intrinsic::noalias_copy_guard)
+        return II;
+  }
+  return nullptr;
+}
 
 /// Walk the range of a partitioning looking for a common type to cover this
 /// sequence of slices.
@@ -1267,7 +1503,14 @@ static void speculatePHINodeLoads(PHINode &PN) {
   LLVM_DEBUG(dbgs() << "    original: " << PN << "\n");
 
   LoadInst *SomeLoad = cast<LoadInst>(PN.user_back());
-  Type *LoadTy = SomeLoad->getType();
+  if (SomeLoad->getPointerOperand() != &PN) {
+    // this must be the provenance -> ignore the speculation for now
+    LLVM_DEBUG(llvm::dbgs() << "    not speculating dependency on provenance: "
+                            << *SomeLoad << "\n");
+    return;
+  }
+
+  Type *LoadTy = cast<PointerType>(PN.getType())->getElementType();
   IRBuilderTy PHIBuilder(&PN);
   PHINode *NewPN = PHIBuilder.CreatePHI(LoadTy, PN.getNumIncomingValues(),
                                         PN.getName() + ".sroa.speculated");
@@ -2289,6 +2532,9 @@ class llvm::sroa::AllocaSliceRewriter
   const uint64_t NewAllocaBeginOffset, NewAllocaEndOffset;
   Type *NewAllocaTy;
 
+  IntrinsicInst *OldNoAliasDecl = nullptr;
+  IntrinsicInst *NewNoAliasDecl = nullptr;
+
   // This is a convenience and flag variable that will be null unless the new
   // alloca's integer operations should be widened to this integer type due to
   // passing isIntegerWideningViable above. If it is non-null, the desired
@@ -2320,6 +2566,7 @@ class llvm::sroa::AllocaSliceRewriter
   uint64_t SliceSize = 0;
   bool IsSplittable = false;
   bool IsSplit = false;
+  bool RepresentsNoAlias = false;
   Use *OldUse = nullptr;
   Instruction *OldPtr = nullptr;
 
@@ -2338,7 +2585,8 @@ public:
                       uint64_t NewAllocaEndOffset, bool IsIntegerPromotable,
                       VectorType *PromotableVecTy,
                       SmallSetVector<PHINode *, 8> &PHIUsers,
-                      SmallSetVector<SelectInst *, 8> &SelectUsers)
+                      SmallSetVector<SelectInst *, 8> &SelectUsers,
+                      bool ReprNoAlias)
       : DL(DL), AS(AS), Pass(Pass), OldAI(OldAI), NewAI(NewAI),
         NewAllocaBeginOffset(NewAllocaBeginOffset),
         NewAllocaEndOffset(NewAllocaEndOffset),
@@ -2353,14 +2601,15 @@ public:
         ElementTy(VecTy ? VecTy->getElementType() : nullptr),
         ElementSize(VecTy ? DL.getTypeSizeInBits(ElementTy).getFixedSize() / 8
                           : 0),
-        PHIUsers(PHIUsers), SelectUsers(SelectUsers),
-        IRB(NewAI.getContext(), ConstantFolder()) {
+        RepresentsNoAlias(ReprNoAlias), PHIUsers(PHIUsers),
+        SelectUsers(SelectUsers), IRB(NewAI.getContext(), ConstantFolder()) {
     if (VecTy) {
       assert((DL.getTypeSizeInBits(ElementTy).getFixedSize() % 8) == 0 &&
              "Only multiple-of-8 sized vector elements are viable");
       ++NumVectorized;
     }
     assert((!IntTy && !VecTy) || (IntTy && !VecTy) || (!IntTy && VecTy));
+    prepareNoAliasDecl();
   }
 
   bool visit(AllocaSlices::const_iterator I) {
@@ -2383,7 +2632,7 @@ public:
     SliceSize = NewEndOffset - NewBeginOffset;
 
     OldUse = I->getUse();
-    OldPtr = cast<Instruction>(OldUse->get());
+    OldPtr = dyn_cast<Instruction>(OldUse->get());
 
     Instruction *OldUserI = cast<Instruction>(OldUse->getUser());
     IRB.SetInsertPoint(OldUserI);
@@ -2899,6 +3148,77 @@ private:
     return !II.isVolatile();
   }
 
+  Instruction *detachFromNoAliasCopyGuard(Instruction *DepPtr,
+                                          Instruction *NACG) {
+    assert(getBaseAsCopyGuardOrNull(DepPtr) == NACG &&
+           "DepPtr must depend on NACG");
+
+    // Follow first arg until we hit the llvm.noalias.copy.guard
+    Instruction *Ptr = cast<Instruction>(DepPtr);
+    while (true) {
+      if (Ptr->getNumUses() != 1)
+        break;
+      Instruction *ParentPtr = cast<Instruction>(Ptr->getOperand(0));
+      if (ParentPtr == NACG) {
+        // we got here with only single uses - just remove the dependency
+        Ptr->setOperand(0, NACG->getOperand(0));
+        return DepPtr;
+      }
+      Ptr = ParentPtr;
+    }
+
+    assert(false && "Multiple use found - we should duplicate the chain");
+    return DepPtr;
+  }
+
+  Instruction *maybeIntroduceNoAlias(LoadInst *Load, Value *PtrOperand) {
+    if (!RepresentsNoAlias)
+      return Load;
+
+    auto NACG = getBaseAsCopyGuardOrNull(PtrOperand);
+    if (NACG == nullptr) {
+      // strange, but could happen
+      LLVM_DEBUG(llvm::dbgs()
+                 << "maybeIntroduceNoAlias: RepresentsNoAlias is true,"
+                    "but no copy.guard seen\n");
+      return Load;
+    }
+
+    Value *NoAliasDecl =
+        NACG->getOperand(Intrinsic::NoAliasCopyGuardNoAliasDeclArg);
+
+    auto ScopeArg = NACG->getOperand(Intrinsic::NoAliasCopyGuardScopeArg);
+
+    auto NewDepPtr = Load->getPointerOperand();
+    if (auto NACG2 = getBaseAsCopyGuardOrNull(NewDepPtr)) {
+      assert(NACG2 == NACG && "llvm.noalias.copy.guard dep must be identical");
+      (void)NACG2;
+      NewDepPtr = detachFromNoAliasCopyGuard(
+          cast<Instruction>(Load->getPointerOperand()), NACG);
+      Load->setOperand(Load->getPointerOperandIndex(), NewDepPtr);
+    }
+
+    if (Load->getType()->isPointerTy()) {
+      auto NoAlias = IRB.CreateNoAliasPointer(
+          Load, NoAliasDecl, NewDepPtr, ScopeArg, Load->getName() + ".noalias");
+      if (NoAliasDecl == OldNoAliasDecl) {
+        assert(NewNoAliasDecl->getOperand(Intrinsic::NoAliasDeclScopeArg) ==
+                   ScopeArg &&
+               "New llvm.noalias.decl must have same scope");
+        NoAlias->setOperand(
+            Intrinsic::NoAliasIdentifyPObjIdArg,
+            NewNoAliasDecl->getOperand(Intrinsic::NoAliasDeclObjIdArg));
+      }
+
+      LLVM_DEBUG(llvm::dbgs() << "   introduce: " << *NoAlias << "\n");
+
+      return NoAlias;
+    }
+
+    assert(false && "Need PtrToInt ?");
+    return Load;
+  }
+
   bool visitMemTransferInst(MemTransferInst &II) {
     // Rewriting of memory transfer instructions can be a bit tricky. We break
     // them into two categories: split intrinsics and unsplit intrinsics.
@@ -3056,12 +3376,14 @@ private:
 
     Value *Src;
     if (VecTy && !IsWholeAlloca && !IsDest) {
+      // FIXME: should we handle noalias annotations here ?
       Src = IRB.CreateAlignedLoad(NewAI.getAllocatedType(), &NewAI,
                                   NewAI.getAlign(), "load");
       Src = extractVector(IRB, Src, BeginIndex, EndIndex, "vec");
     } else if (IntTy && !IsWholeAlloca && !IsDest) {
-      Src = IRB.CreateAlignedLoad(NewAI.getAllocatedType(), &NewAI,
-                                  NewAI.getAlign(), "load");
+      LoadInst *Load = IRB.CreateAlignedLoad(NewAI.getAllocatedType(), &NewAI,
+                                             NewAI.getAlign(), "load");
+      Src = maybeIntroduceNoAlias(Load, II.getSource());
       Src = convertValue(DL, IRB, Src, IntTy);
       uint64_t Offset = NewBeginOffset - NewAllocaBeginOffset;
       Src = extractInteger(DL, IRB, Src, SubIntTy, Offset, "extract");
@@ -3070,7 +3392,7 @@ private:
                                              II.isVolatile(), "copyload");
       if (AATags)
         Load->setAAMetadata(AATags);
-      Src = Load;
+      Src = maybeIntroduceNoAlias(Load, II.getSource());
     }
 
     if (VecTy && !IsWholeAlloca && IsDest) {
@@ -3090,13 +3412,130 @@ private:
         IRB.CreateAlignedStore(Src, DstPtr, DstAlign, II.isVolatile()));
     if (AATags)
       Store->setAAMetadata(AATags);
-    LLVM_DEBUG(dbgs() << "          to: " << *Store << "\n");
+    LLVM_DEBUG(dbgs() << "(3)       to: " << *Store << "\n");
     return !II.isVolatile();
   }
 
-  bool visitIntrinsicInst(IntrinsicInst &II) {
-    assert((II.isLifetimeStartOrEnd() || II.isDroppable()) &&
-           "Unexpected intrinsic!");
+  void prepareNoAliasDecl() {
+    OldNoAliasDecl = nullptr;
+    NewNoAliasDecl = nullptr;
+    for (auto U : OldAI.users()) {
+      IntrinsicInst *II = dyn_cast<IntrinsicInst>(U);
+      if (II && II->getIntrinsicID() == Intrinsic::noalias_decl) {
+        if (OldNoAliasDecl) {
+          // We alreay found a llvm.noalias.decl - leave it up to the visiter to
+          // propagate
+          OldNoAliasDecl = nullptr;
+          NewNoAliasDecl = nullptr;
+          break;
+        }
+        IRB.SetInsertPoint(II);
+        IRB.SetCurrentDebugLocation(II->getDebugLoc());
+        IRB.getInserter().SetNamePrefix(Twine(NewAI.getName()) +
+                                        ".noalias.decl.");
+
+        OldNoAliasDecl = II;
+        LLVM_DEBUG(dbgs() << "Found llvm.noalias.decl: " << *II << "\n");
+        ConstantInt *OldId = cast<ConstantInt>(
+            II->getArgOperand(Intrinsic::NoAliasDeclObjIdArg));
+        NewNoAliasDecl = cast<IntrinsicInst>(IRB.CreateNoAliasDeclaration(
+            &NewAI, NewAllocaBeginOffset + OldId->getZExtValue(),
+            II->getArgOperand(2)));
+        LLVM_DEBUG(dbgs() << "New   llvm.noalias.decl: " << *NewNoAliasDecl
+                          << "\n");
+        // continue - it is possible we see multiple llvm.noalias.decl!
+      }
+    }
+  }
+
+  bool visitNoAliasDeclIntrinsicInst(IntrinsicInst &II) {
+    assert(II.getIntrinsicID() == Intrinsic::noalias_decl);
+    LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
+    Value *New;
+    if (OldNoAliasDecl) {
+      assert(OldNoAliasDecl == &II);
+      assert(NewNoAliasDecl != nullptr);
+      New = NewNoAliasDecl;
+    } else {
+      assert(NewNoAliasDecl == nullptr);
+      ConstantInt *OldId =
+          cast<ConstantInt>(II.getArgOperand(Intrinsic::NoAliasDeclObjIdArg));
+      New = cast<IntrinsicInst>(IRB.CreateNoAliasDeclaration(
+          &NewAI, NewAllocaBeginOffset + OldId->getZExtValue(),
+          II.getArgOperand(2)));
+    }
+    (void)New;
+    LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
+
+    // Record this instruction for deletion.
+    Pass.DeadInsts.insert(&II);
+
+    // nothing else to do - preparation was already done
+    return true;
+  }
+
+  bool visitProvenanceNoAliasIntrinsicInst(IntrinsicInst &II) {
+    assert(II.getIntrinsicID() == Intrinsic::provenance_noalias);
+    assert(II.getArgOperand(Intrinsic::ProvenanceNoAliasIdentifyPArg) ==
+           OldPtr);
+    LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
+    if (II.getArgOperand(Intrinsic::ProvenanceNoAliasNoAliasDeclArg) ==
+        OldNoAliasDecl) {
+      assert(OldNoAliasDecl && NewNoAliasDecl &&
+             "If we get here, we must have an old and a new llvm.noalias.decl");
+      II.setArgOperand(Intrinsic::ProvenanceNoAliasNoAliasDeclArg,
+                       NewNoAliasDecl);
+    }
+    II.setArgOperand(
+        Intrinsic::ProvenanceNoAliasIdentifyPArg,
+        getNewAllocaSlicePtr(
+            IRB, II.getArgOperand(Intrinsic::ProvenanceNoAliasIdentifyPArg)
+                     ->getType()));
+    if (NewAllocaBeginOffset > 0) {
+      Value *OldObjIdV =
+          II.getArgOperand(Intrinsic::ProvenanceNoAliasIdentifyPObjIdArg);
+      auto NewObjId = ConstantInt::get(
+          OldObjIdV->getType(),
+          cast<ConstantInt>(OldObjIdV)->getZExtValue() + NewAllocaBeginOffset);
+      II.setArgOperand(Intrinsic::ProvenanceNoAliasIdentifyPObjIdArg, NewObjId);
+    }
+    LLVM_DEBUG(dbgs() << "          to: " << II << "\n");
+    deleteIfTriviallyDead(OldPtr);
+    return true;
+  }
+
+  bool visitNoAliasIntrinsicInst(IntrinsicInst &II) {
+    assert(II.getIntrinsicID() == Intrinsic::noalias);
+    assert(II.getArgOperand(Intrinsic::NoAliasIdentifyPArg) == OldPtr);
+    LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
+    if (II.getArgOperand(Intrinsic::NoAliasNoAliasDeclArg) == OldNoAliasDecl) {
+      assert(OldNoAliasDecl && NewNoAliasDecl &&
+             "If we get here, we must have an old and a new llvm.noalias.decl");
+      II.setArgOperand(Intrinsic::NoAliasNoAliasDeclArg, NewNoAliasDecl);
+    }
+    II.setArgOperand(
+        Intrinsic::NoAliasIdentifyPArg,
+        getNewAllocaSlicePtr(
+            IRB, II.getArgOperand(Intrinsic::NoAliasIdentifyPArg)->getType()));
+    if (NewAllocaBeginOffset > 0) {
+      Value *OldObjIdV = II.getArgOperand(Intrinsic::NoAliasIdentifyPObjIdArg);
+      auto NewObjId = ConstantInt::get(
+          OldObjIdV->getType(),
+          cast<ConstantInt>(OldObjIdV)->getZExtValue() + NewAllocaBeginOffset);
+      II.setArgOperand(Intrinsic::NoAliasIdentifyPObjIdArg, NewObjId);
+    }
+    LLVM_DEBUG(dbgs() << "          to: " << II << "\n");
+    deleteIfTriviallyDead(OldPtr);
+    return true;
+  }
+
+  bool visitNoAliasCopyGuardIntrinsicInst(IntrinsicInst &II) {
+    assert(II.getIntrinsicID() == Intrinsic::noalias_copy_guard);
+    return true;
+  }
+
+  bool visitLifetimeIntrinsicInst(IntrinsicInst &II) {
+    assert(II.isLifetimeStartOrEnd());
     LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
 
     // Record this instruction for deletion.
@@ -3138,6 +3577,25 @@ private:
     LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
 
     return true;
+  }
+
+  bool visitIntrinsicInst(IntrinsicInst &II) {
+    switch (II.getIntrinsicID()) {
+    case Intrinsic::lifetime_start:
+    case Intrinsic::lifetime_end:
+      return visitLifetimeIntrinsicInst(II);
+    case Intrinsic::noalias_decl:
+      return visitNoAliasDeclIntrinsicInst(II);
+    case Intrinsic::noalias:
+      return visitNoAliasIntrinsicInst(II);
+    case Intrinsic::provenance_noalias:
+      return visitProvenanceNoAliasIntrinsicInst(II);
+    case Intrinsic::noalias_copy_guard:
+      return visitNoAliasCopyGuardIntrinsicInst(II);
+    default:
+      assert(false && "SROA: SliceRewriter: unhandled intrinsic");
+      return false;
+    }
   }
 
   void fixLoadStoreAlign(Instruction &Root) {
@@ -3232,6 +3690,264 @@ private:
 
 namespace {
 
+// Returns true if the indicices of the provided GEP are compatible with
+// the indices in the llvm.noalias.copy.guard.
+// - treatMissingIndicesAsZero: if the number of indices from the GEP
+// is smaller, treat the missing indices as zero
+// Note: A nullptr GEP can be combined with treatMissingIndicesAsZero=true
+static bool
+areGepIndicesCompatibleWithCopyGuard(GetElementPtrInst *GEP,
+                                     llvm::Instruction *CopyGuardII,
+                                     bool treatMissingIndicesAsZero = false) {
+  assert(CopyGuardII && "We need a llvm.noalias.copy.guard");
+
+  MDNode *CopyGuardIndices = cast<MDNode>(
+      cast<MetadataAsValue>(
+          CopyGuardII->getOperand(Intrinsic::NoAliasCopyGuardIndicesArg))
+          ->getMetadata());
+  for (const MDOperand &MDOp : CopyGuardIndices->operands()) {
+    if (const MDNode *IMD = dyn_cast<MDNode>(MDOp)) {
+      unsigned CGIndex = 0;
+      bool IndicesAreCompatible = true;
+      if (GEP) {
+        if (IMD->getNumOperands() < GEP->getNumIndices())
+          continue;
+        for (Value *Index : GEP->indices()) {
+          const MDOperand &MDIndex = IMD->getOperand(CGIndex);
+          ++CGIndex;
+          ConstantInt *C_lhs =
+              cast<ConstantInt>(cast<ValueAsMetadata>(MDIndex)->getValue());
+          if (C_lhs->isMinusOne())
+            continue; // accept any index at this place
+          ConstantInt *C_rhs = dyn_cast<ConstantInt>(Index);
+          if ((C_rhs == nullptr) ||
+              (C_lhs->getSExtValue() !=
+               C_rhs->getSExtValue())) { // compare int64 - the ConstantInt can
+                                         // have different types
+            IndicesAreCompatible = false;
+            break;
+          }
+        }
+        if (!IndicesAreCompatible)
+          continue;
+      }
+      // If there are more indices, check that they are zero
+      unsigned CGMaxIndex = IMD->getNumOperands();
+      if (treatMissingIndicesAsZero) {
+        for (; CGIndex < CGMaxIndex; ++CGIndex) {
+          const MDOperand &MDIndex = IMD->getOperand(CGIndex);
+          ConstantInt *C_lhs =
+              cast<ConstantInt>(cast<ValueAsMetadata>(MDIndex)->getValue());
+          if (C_lhs->isZero() || C_lhs->isMinusOne())
+            continue; // accept 0 or any index at this place
+          // otherwise, we do not have all-zero indices
+          IndicesAreCompatible = false;
+          break;
+        }
+      } else {
+        IndicesAreCompatible = (CGIndex == CGMaxIndex);
+      }
+      if (IndicesAreCompatible) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+static Type *GetZeroIndexLeafType(Type *TypeToLoad) {
+  while (true) {
+    if (StructType *ST = dyn_cast<StructType>(TypeToLoad)) {
+      TypeToLoad = ST->getElementType(0);
+      continue;
+    }
+    if (ArrayType *AT = dyn_cast<ArrayType>(TypeToLoad)) {
+      TypeToLoad = AT->getElementType();
+      continue;
+    }
+    if (VectorType *VT = dyn_cast<VectorType>(TypeToLoad)) {
+      TypeToLoad = VT->getElementType();
+      continue;
+    }
+    break;
+  }
+  assert(TypeToLoad->isPointerTy() && "Only pointers can have noalias info");
+
+  return TypeToLoad;
+}
+
+static void detachIfSingleUse(Value *What, Instruction *NACG) {
+  // Be on the safe side
+  Instruction *I = dyn_cast<Instruction>(What);
+  if (I && I->getNumUses() == 1 && I->getOperand(0) == NACG) {
+    I->setOperand(0, NACG->getOperand(0));
+  }
+}
+
+// Check if the load corresponds to a restrict pointer, as specified in the
+// CopyGuard information.
+// If so, add and return 'llvm.noalias' before the load. If the original load
+// needs to be replaced, due to bitcasts, it is returned through the 'Load'
+// argument.
+static llvm::Instruction *introduceNoAliasWhenCopyGuardIndicesAreCompatible(
+    llvm::LoadInst *Load, llvm::Instruction *CopyGuardII, const DataLayout &DL,
+    SmallVector<Use *, 2> *TrackSliceUses = nullptr) {
+  Value *PtrOp = Load->getPointerOperand();
+
+  if (TrackSliceUses)
+    TrackSliceUses->push_back(
+        &Load->getOperandUse(Load->getPointerOperandIndex()));
+
+  if (CopyGuardII == nullptr)
+    return Load;
+
+  // Possible cases:
+  // 1)  load ( gep ( CopyGuard) )
+  if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(PtrOp)) {
+    if (areGepIndicesCompatibleWithCopyGuard(GEP, CopyGuardII)) {
+      IRBuilderTy IRB(Load->getNextNode());
+
+      detachIfSingleUse(GEP, CopyGuardII);
+
+      // A compatible set of indices was found - introduce a noalias intrinsic
+      // FIXME: what AAMetadata should we put on the llvm.noalias ?
+      auto NoAlias = IRB.CreateNoAliasPointer(
+          Load,
+          CopyGuardII->getOperand(Intrinsic::NoAliasCopyGuardNoAliasDeclArg),
+          GEP, CopyGuardII->getOperand(Intrinsic::NoAliasCopyGuardScopeArg),
+          Load->getName() + ".noalias");
+      // juggle around
+      Load->replaceAllUsesWith(NoAlias);
+      NoAlias->setOperand(0, Load);
+      LLVM_DEBUG(llvm::dbgs()
+                 << " - compatible, introduced:" << *NoAlias << "\n");
+
+      if (TrackSliceUses)
+        TrackSliceUses->push_back(
+            &NoAlias->getOperandUse(Intrinsic::NoAliasIdentifyPArg));
+
+      return NoAlias;
+    }
+
+    return Load;
+  }
+
+  if (BitCastInst *BCI = dyn_cast<BitCastInst>(PtrOp)) {
+    // We want to pass it as an integer type or pointer
+    if (!(Load->getType()->isIntegerTy() || Load->getType()->isPointerTy())) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << " ** copy.guard: ignoring non integer or pointer:" << *Load
+                 << "\n");
+      return Load;
+    }
+
+    bool IsLoadOfInteger = Load->getType()->isIntegerTy();
+
+    // 2) load iXX (bitcast (gep (CopyGuard)))
+    //    load pXX (bitcast (gep (CopyGuard)))
+    // 3) load iXX (bitcast (CopyGuard))
+    //    load pXX (bitcast (CopyGuard))
+    Value *BCIOp = BCI->getOperand(0);
+    GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(BCI->getOperand(0));
+    if (GEP || (BCIOp == CopyGuardII)) {
+      Type *TypeToLoad = BCIOp->getType()->getPointerElementType();
+
+      // Also handles a null GEP
+      if (!areGepIndicesCompatibleWithCopyGuard(GEP, CopyGuardII, true)) {
+        return Load;
+      }
+
+      TypeToLoad = GetZeroIndexLeafType(TypeToLoad);
+
+      // Sizes must be identical
+      if (DL.getTypeStoreSizeInBits(TypeToLoad) !=
+          DL.getTypeStoreSizeInBits(Load->getType())) {
+        LLVM_DEBUG(llvm::dbgs() << " ** copy.guard: type sizes do not match\n");
+        return Load;
+      }
+
+      IRBuilderTy IRB(Load->getNextNode());
+
+      if (GEP) {
+        detachIfSingleUse(GEP, CopyGuardII);
+      } else {
+        // Look through BCIop == CopyGuardII
+        BCIOp = CopyGuardII->getOperand(0);
+      }
+
+      LLVM_DEBUG(
+          llvm::dbgs()
+          << (GEP ? " - compatible bitcast(gep(copy.guard)), introduced:\n"
+                  : " - compatible bitcast(copy.guard), introduced:\n"));
+
+      LoadInst *NewLoad = Load;
+      Value *NewPtr = BCIOp;
+      if (IsLoadOfInteger) {
+        NewPtr = IRB.CreatePointerBitCastOrAddrSpaceCast(
+            BCIOp, TypeToLoad->getPointerTo());
+
+        if (NewPtr != BCIOp) {
+          LLVM_DEBUG(llvm::dbgs() << " -- " << *NewPtr << "\n");
+        }
+
+        NewLoad = IRB.CreateAlignedLoad(TypeToLoad, NewPtr, Load->getAlign(),
+                                        Load->getName() + ".sroa_as_ptr");
+        AAMDNodes AATags;
+        Load->getAAMetadata(AATags);
+        NewLoad->setAAMetadata(AATags);
+        LLVM_DEBUG(llvm::dbgs() << " -- " << *NewLoad << "\n");
+      }
+
+      // A compatible set of indices was found - introduce a noalias intrinsic
+      // FIXME: what AAMetadata should we put on the llvm.noalias ?
+      auto NoAlias = IRB.CreateNoAliasPointer(
+          NewLoad,
+          CopyGuardII->getOperand(Intrinsic::NoAliasCopyGuardNoAliasDeclArg),
+          NewPtr, CopyGuardII->getOperand(Intrinsic::NoAliasCopyGuardScopeArg),
+          NewLoad->getName() + ".noalias");
+
+      LLVM_DEBUG(llvm::dbgs() << " -- " << *NoAlias << "\n");
+      Value *RetVal;
+      if (IsLoadOfInteger) {
+        auto PtrCast = IRB.CreatePtrToInt(NoAlias, Load->getType(),
+                                          Load->getName() + ".sroa_as_int");
+
+        LLVM_DEBUG(llvm::dbgs() << " -- " << *PtrCast << "\n");
+
+        // juggle around
+        Load->replaceAllUsesWith(PtrCast);
+        Load->eraseFromParent();
+
+        RetVal = PtrCast;
+      } else {
+        Load->replaceAllUsesWith(NoAlias);
+
+        RetVal = NoAlias;
+      }
+
+      if (BCI->use_empty())
+        BCI->eraseFromParent();
+
+      if (TrackSliceUses) {
+        TrackSliceUses->back() =
+            &NewLoad->getOperandUse(NewLoad->getPointerOperandIndex());
+        TrackSliceUses->push_back(
+            &NoAlias->getOperandUse(Intrinsic::NoAliasIdentifyPArg));
+      }
+
+      return cast<Instruction>(RetVal);
+    }
+
+    LLVM_DEBUG(llvm::dbgs()
+               << " ** copy.guard: unhandled bitcast:" << BCI << "\n");
+    return Load;
+  }
+
+  LLVM_DEBUG(llvm::dbgs() << "copy.guard: unhandled:" << Load << "\n");
+  // unhandled other situation
+  return Load;
+}
+
 /// Visitor to rewrite aggregate loads and stores as scalar.
 ///
 /// This pass aggressively rewrites all aggregate loads and stores on
@@ -3240,6 +3956,7 @@ namespace {
 class AggLoadStoreRewriter : public InstVisitor<AggLoadStoreRewriter, bool> {
   // Befriend the base class so it can delegate to private visit methods.
   friend class InstVisitor<AggLoadStoreRewriter, bool>;
+  typedef InstVisitor<AggLoadStoreRewriter, bool> Base;
 
   /// Queue of pointer uses to analyze and potentially rewrite.
   SmallVector<Use *, 8> Queue;
@@ -3374,40 +4091,69 @@ private:
 
   struct LoadOpSplitter : public OpSplitter<LoadOpSplitter> {
     AAMDNodes AATags;
+    Instruction *CopyGuardII = nullptr;
+    unsigned CGIIndex = 0;
 
     LoadOpSplitter(Instruction *InsertionPoint, Value *Ptr, Type *BaseTy,
-                   AAMDNodes AATags, Align BaseAlign, const DataLayout &DL)
+                   AAMDNodes AATags, Align BaseAlign, const DataLayout &DL,
+                   Instruction *CopyGuardII_)
         : OpSplitter<LoadOpSplitter>(InsertionPoint, Ptr, BaseTy, BaseAlign,
                                      DL),
-          AATags(AATags) {}
+          AATags(AATags), CopyGuardII(CopyGuardII_) {}
 
     /// Emit a leaf load of a single value. This is called at the leaves of the
     /// recursive emission to actually load values.
     void emitFunc(Type *Ty, Value *&Agg, Align Alignment, const Twine &Name) {
       assert(Ty->isSingleValueType());
       // Load the single value and insert it using the indices.
+      auto Ptr = this->Ptr; // Make sure _NOT_ to overwrite the Ptr member
+      if (CopyGuardII) {
+        assert(CopyGuardII == Ptr && "Ptr != CopyGuardII ???");
+        Ptr = CopyGuardII->getOperand(0); // look through noalias.copy.guard
+      }
       Value *GEP =
           IRB.CreateInBoundsGEP(BaseTy, Ptr, GEPIndices, Name + ".gep");
-      LoadInst *Load =
+      Instruction *PValue;
+      LoadInst *PLoad =
           IRB.CreateAlignedLoad(Ty, GEP, Alignment, Name + ".load");
       if (AATags)
-        Load->setAAMetadata(AATags);
-      Agg = IRB.CreateInsertValue(Agg, Load, Indices, Name + ".insert");
-      LLVM_DEBUG(dbgs() << "          to: " << *Load << "\n");
+        PLoad->setAAMetadata(AATags);
+      PValue = introduceNoAliasWhenCopyGuardIndicesAreCompatible(
+          PLoad, CopyGuardII, DL);
+
+      Agg = IRB.CreateInsertValue(Agg, PValue, Indices, Name + ".insert");
+      LLVM_DEBUG(dbgs() << "          to: " << *PValue << "\n");
     }
   };
 
   bool visitLoadInst(LoadInst &LI) {
-    assert(LI.getPointerOperand() == *U);
-    if (!LI.isSimple() || LI.getType()->isSingleValueType())
+    if (U->getOperandNo() == LI.getNoaliasProvenanceOperandIndex()) {
+      // Skip provenance
+      assert(LI.hasNoaliasProvenanceOperand() &&
+             LI.getNoaliasProvenanceOperand() == *U);
       return false;
+    }
+    assert(LI.getPointerOperand() == *U);
+    Instruction *CopyGuardII = getBaseAsCopyGuardOrNull(LI.getPointerOperand());
+    if (CopyGuardII) {
+      LLVM_DEBUG(llvm::dbgs() << " Replacing Load:" << LI
+                              << "\n"
+                                 " Depends on:"
+                              << *CopyGuardII << "\n");
+    }
+    if (!LI.isSimple() || LI.getType()->isSingleValueType()) {
+      LoadInst *PLI = &LI;
+      auto Load = introduceNoAliasWhenCopyGuardIndicesAreCompatible(
+          PLI, CopyGuardII, DL);
+      return (Load != PLI);
+    }
 
     // We have an aggregate being loaded, split it apart.
     LLVM_DEBUG(dbgs() << "    original: " << LI << "\n");
     AAMDNodes AATags;
     LI.getAAMetadata(AATags);
     LoadOpSplitter Splitter(&LI, *U, LI.getType(), AATags,
-                            getAdjustedAlignment(&LI, 0), DL);
+                            getAdjustedAlignment(&LI, 0), DL, CopyGuardII);
     Value *V = UndefValue::get(LI.getType());
     Splitter.emitSplitOps(LI.getType(), V, LI.getName() + ".fca");
     Visited.erase(&LI);
@@ -3452,6 +4198,16 @@ private:
 
     // We have an aggregate being stored, split it apart.
     LLVM_DEBUG(dbgs() << "    original: " << SI << "\n");
+
+    if (auto *LI = dyn_cast<LoadInst>(SI.getValueOperand())) {
+      // Try to split up the depending load, helpful for tracking noalias info
+      if (Visited.insert(LI).second) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "       - Forcing split of of StoreInst value operand\n");
+        Queue.push_back(&LI->getOperandUse(LI->getPointerOperandIndex()));
+      }
+    }
+
     AAMDNodes AATags;
     SI.getAAMetadata(AATags);
     StoreOpSplitter Splitter(&SI, *U, V->getType(), AATags,
@@ -3465,6 +4221,30 @@ private:
   bool visitBitCastInst(BitCastInst &BC) {
     enqueueUsers(BC);
     return false;
+  }
+
+  // Look through noalias intrinsics
+  bool visitIntrinsicInst(IntrinsicInst &II) {
+    if (II.getIntrinsicID() == Intrinsic::noalias) {
+      if (II.getOperand(0) == *U) {
+        enqueueUsers(II);
+      }
+      return false;
+    }
+    if (II.getIntrinsicID() == Intrinsic::provenance_noalias ||
+        II.getIntrinsicID() == Intrinsic::noalias_decl) {
+      return false;
+    }
+    if (II.getIntrinsicID() == Intrinsic::noalias_copy_guard) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "AggLoadStoreRewriter: handling llvm.noalias.copy.guard:"
+                 << (II.getOperand(0) == *U) << ":" << II << "\n");
+      if (II.getOperand(0) == *U)
+        enqueueUsers(II);
+      return false;
+    }
+
+    return Base::visitIntrinsicInst(II);
   }
 
   bool visitAddrSpaceCastInst(AddrSpaceCastInst &ASC) {
@@ -3975,8 +4755,8 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
   // First, we rewrite all of the split loads, and just accumulate each split
   // load in a parallel structure. We also build the slices for them and append
   // them to the alloca slices.
-  SmallDenseMap<LoadInst *, std::vector<LoadInst *>, 1> SplitLoadsMap;
-  std::vector<LoadInst *> SplitLoads;
+  SmallDenseMap<LoadInst *, std::vector<Instruction *>, 1> SplitLoadsMap;
+  std::vector<Instruction *> SplitLoads;
   const DataLayout &DL = AI.getModule()->getDataLayout();
   for (LoadInst *LI : Loads) {
     SplitLoads.clear();
@@ -3994,6 +4774,8 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
 
     Instruction *BasePtr = cast<Instruction>(LI->getPointerOperand());
     IRB.SetInsertPoint(LI);
+
+    Instruction *CopyGuardII = getBaseAsCopyGuardOrNull(BasePtr);
 
     LLVM_DEBUG(dbgs() << "  Splitting load: " << *LI << "\n");
 
@@ -4013,18 +4795,23 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
       PLoad->copyMetadata(*LI, {LLVMContext::MD_mem_parallel_loop_access,
                                 LLVMContext::MD_access_group});
 
+      SmallVector<Use *, 2> UsesToTrack;
+      auto *PValue = introduceNoAliasWhenCopyGuardIndicesAreCompatible(
+          PLoad, CopyGuardII, DL, &UsesToTrack);
+
       // Append this load onto the list of split loads so we can find it later
       // to rewrite the stores.
-      SplitLoads.push_back(PLoad);
+      SplitLoads.push_back(PValue);
 
       // Now build a new slice for the alloca.
-      NewSlices.push_back(
-          Slice(BaseOffset + PartOffset, BaseOffset + PartOffset + PartSize,
-                &PLoad->getOperandUse(PLoad->getPointerOperandIndex()),
-                /*IsSplittable*/ false));
-      LLVM_DEBUG(dbgs() << "    new slice [" << NewSlices.back().beginOffset()
-                        << ", " << NewSlices.back().endOffset()
-                        << "): " << *PLoad << "\n");
+      for (Use *PUse : UsesToTrack) {
+        NewSlices.push_back(Slice(BaseOffset + PartOffset,
+                                  BaseOffset + PartOffset + PartSize, PUse,
+                                  /*IsSplittable*/ false));
+        LLVM_DEBUG(dbgs() << "    new slice [" << NewSlices.back().beginOffset()
+                          << ", " << NewSlices.back().endOffset()
+                          << "): " << *PUse->getUser() << "\n");
+      }
 
       // See if we've handled all the splits.
       if (Idx >= Size)
@@ -4055,7 +4842,7 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
       LLVM_DEBUG(dbgs() << "    Splitting store of load: " << *SI << "\n");
 
       for (int Idx = 0, Size = SplitLoads.size(); Idx < Size; ++Idx) {
-        LoadInst *PLoad = SplitLoads[Idx];
+        auto *PLoad = SplitLoads[Idx];
         uint64_t PartOffset = Idx == 0 ? 0 : Offsets.Splits[Idx - 1];
         auto *PartPtrTy =
             PLoad->getType()->getPointerTo(SI->getPointerAddressSpace());
@@ -4117,13 +4904,14 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
            "Cannot represent alloca access size using 64-bit integers!");
 
     Value *LoadBasePtr = LI->getPointerOperand();
+    Instruction *CopyGuardII = getBaseAsCopyGuardOrNull(LoadBasePtr);
     Instruction *StoreBasePtr = cast<Instruction>(SI->getPointerOperand());
 
     LLVM_DEBUG(dbgs() << "  Splitting store: " << *SI << "\n");
 
     // Check whether we have an already split load.
     auto SplitLoadsMapI = SplitLoadsMap.find(LI);
-    std::vector<LoadInst *> *SplitLoads = nullptr;
+    std::vector<Instruction *> *SplitLoads = nullptr;
     if (SplitLoadsMapI != SplitLoadsMap.end()) {
       SplitLoads = &SplitLoadsMapI->second;
       assert(SplitLoads->size() == Offsets.Splits.size() + 1 &&
@@ -4140,19 +4928,21 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
       auto *StorePartPtrTy = PartTy->getPointerTo(SI->getPointerAddressSpace());
 
       // Either lookup a split load or create one.
-      LoadInst *PLoad;
+      Instruction *PLoad;
       if (SplitLoads) {
         PLoad = (*SplitLoads)[Idx];
       } else {
         IRB.SetInsertPoint(LI);
         auto AS = LI->getPointerAddressSpace();
-        PLoad = IRB.CreateAlignedLoad(
+        LoadInst *NewPLoad = IRB.CreateAlignedLoad(
             PartTy,
             getAdjustedPtr(IRB, DL, LoadBasePtr,
                            APInt(DL.getIndexSizeInBits(AS), PartOffset),
                            LoadPartPtrTy, LoadBasePtr->getName() + "."),
             getAdjustedAlignment(LI, PartOffset),
             /*IsVolatile*/ false, LI->getName());
+        PLoad = introduceNoAliasWhenCopyGuardIndicesAreCompatible(
+            NewPLoad, CopyGuardII, DL);
       }
 
       // And store this partition.
@@ -4264,6 +5054,7 @@ AllocaInst *SROA::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
   // or an i8 array of an appropriate size.
   Type *SliceTy = nullptr;
   const DataLayout &DL = AI.getModule()->getDataLayout();
+  auto RepresentsNoAlias = (partitionRepresentsNoAliasPointer(P) != nullptr);
   if (Type *CommonUseTy = findCommonType(P.begin(), P.end(), P.endOffset()))
     if (DL.getTypeAllocSize(CommonUseTy).getFixedSize() >= P.size())
       SliceTy = CommonUseTy;
@@ -4285,6 +5076,14 @@ AllocaInst *SROA::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
       IsIntegerPromotable ? nullptr : isVectorPromotionViable(P, DL);
   if (VecTy)
     SliceTy = VecTy;
+
+  if (RepresentsNoAlias && !SliceTy->isPointerTy()) {
+    if (DL.getTypeStoreSizeInBits(SliceTy) ==
+        DL.getTypeStoreSizeInBits(SliceTy->getPointerTo())) {
+      // a restrict pointer must be a pointer
+      SliceTy = SliceTy->getPointerTo();
+    }
+  }
 
   // Check for the case where we're going to rewrite to a new alloca of the
   // exact same type as the original, and with the same access offsets. In that
@@ -4327,7 +5126,7 @@ AllocaInst *SROA::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
 
   AllocaSliceRewriter Rewriter(DL, AS, *this, AI, *NewAI, P.beginOffset(),
                                P.endOffset(), IsIntegerPromotable, VecTy,
-                               PHIUsers, SelectUsers);
+                               PHIUsers, SelectUsers, RepresentsNoAlias);
   bool Promotable = true;
   for (Slice *S : P.splitSliceTails()) {
     Promotable &= Rewriter.visit(S);
@@ -4593,6 +5392,7 @@ void SROA::clobberUse(Use &U) {
 /// rewritten as needed.
 bool SROA::runOnAlloca(AllocaInst &AI) {
   LLVM_DEBUG(dbgs() << "SROA alloca: " << AI << "\n");
+  LLVM_DEBUG(AI.getParent()->getParent()->dump());
   ++NumAllocasAnalyzed;
 
   // Special case dead allocas, as they're trivial.

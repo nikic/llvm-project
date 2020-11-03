@@ -770,12 +770,26 @@ define void @atomics(i32* %word) {
   %ld.3 = load atomic volatile i32, i32* %word syncscope("singlethread") seq_cst, align 16
   ; CHECK: %ld.3 = load atomic volatile i32, i32* %word syncscope("singlethread") seq_cst, align 16
 
+  %ld.1p = load atomic i32, i32* %word monotonic, ptr_provenance i32* %word, align 4
+  ; CHECK: %ld.1p = load atomic i32, i32* %word monotonic, ptr_provenance i32* %word, align 4
+  %ld.2p = load atomic volatile i32, i32* %word acquire, ptr_provenance i32* %word, align 8
+  ; CHECK: %ld.2p = load atomic volatile i32, i32* %word acquire, ptr_provenance i32* %word, align 8
+  %ld.3p = load atomic volatile i32, i32* %word syncscope("singlethread") seq_cst, ptr_provenance i32* %word, align 16
+  ; CHECK: %ld.3p = load atomic volatile i32, i32* %word syncscope("singlethread") seq_cst, ptr_provenance i32* %word, align 16
+
   store atomic i32 23, i32* %word monotonic, align 4
   ; CHECK: store atomic i32 23, i32* %word monotonic, align 4
   store atomic volatile i32 24, i32* %word monotonic, align 4
   ; CHECK: store atomic volatile i32 24, i32* %word monotonic, align 4
   store atomic volatile i32 25, i32* %word syncscope("singlethread") monotonic, align 4
   ; CHECK: store atomic volatile i32 25, i32* %word syncscope("singlethread") monotonic, align 4
+
+  store atomic i32 26, i32* %word monotonic, ptr_provenance i32* %word, align 4
+  ; CHECK: store atomic i32 26, i32* %word monotonic, ptr_provenance i32* %word, align 4
+  store atomic volatile i32 27, i32* %word monotonic, ptr_provenance i32* %word, align 4
+  ; CHECK: store atomic volatile i32 27, i32* %word monotonic, ptr_provenance i32* %word, align 4
+  store atomic volatile i32 28, i32* %word syncscope("singlethread") monotonic, ptr_provenance i32* %word, align 4
+  ; CHECK: store atomic volatile i32 28, i32* %word syncscope("singlethread") monotonic, ptr_provenance i32* %word, align 4
   ret void
 }
 
@@ -1328,10 +1342,20 @@ define void @instructions.memops(i32** %base) {
   load volatile i32*, i32** %base, align 8, !invariant.load !7, !nontemporal !8, !nonnull !7, !dereferenceable !9, !dereferenceable_or_null !9
   ; CHECK: load volatile i32*, i32** %base, align 8, !invariant.load !7, !nontemporal !8, !nonnull !7, !dereferenceable !9, !dereferenceable_or_null !9
 
+  load i32*, i32** %base, ptr_provenance i32** %base, align 8, !invariant.load !7, !nontemporal !8, !nonnull !7, !dereferenceable !9, !dereferenceable_or_null !9
+  ; CHECK: load i32*, i32** %base, ptr_provenance i32** %base, align 8, !invariant.load !7, !nontemporal !8, !nonnull !7, !dereferenceable !9, !dereferenceable_or_null !9
+  load volatile i32*, i32** %base, ptr_provenance i32** %base, align 8, !invariant.load !7, !nontemporal !8, !nonnull !7, !dereferenceable !9, !dereferenceable_or_null !9
+  ; CHECK: load volatile i32*, i32** %base, ptr_provenance i32** %base, align 8, !invariant.load !7, !nontemporal !8, !nonnull !7, !dereferenceable !9, !dereferenceable_or_null !9
+
   store i32* null, i32** %base, align 4, !nontemporal !8
   ; CHECK: store i32* null, i32** %base, align 4, !nontemporal !8
   store volatile i32* null, i32** %base, align 4, !nontemporal !8
   ; CHECK: store volatile i32* null, i32** %base, align 4, !nontemporal !8
+
+  store i32* null, i32** %base, ptr_provenance i32** %base, align 4, !nontemporal !8
+  ; CHECK: store i32* null, i32** %base, ptr_provenance i32** %base, align 4, !nontemporal !8
+  store volatile i32* null, i32** %base, ptr_provenance i32** %base, align 4, !nontemporal !8
+  ; CHECK: store volatile i32* null, i32** %base, ptr_provenance i32** %base, align 4, !nontemporal !8
 
   ret void
 }

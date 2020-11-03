@@ -1006,7 +1006,17 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
                           << '\n');
         AvailableValues.insert(CondI, ConstantInt::getTrue(BB->getContext()));
       } else
-        LLVM_DEBUG(dbgs() << "EarlyCSE skipping assumption: " << Inst << '\n');
+        LLVM_DEBUG(dbgs() << "EarlyCSE skipping intrinsic: " << Inst << '\n');
+      continue;
+    }
+
+    // Likewise, noalias intrinsics don't actually write.
+    if (match(&Inst, m_Intrinsic<Intrinsic::noalias>()) ||
+        match(&Inst, m_Intrinsic<Intrinsic::noalias_decl>()) ||
+        match(&Inst, m_Intrinsic<Intrinsic::provenance_noalias>()) ||
+        match(&Inst, m_Intrinsic<Intrinsic::noalias_arg_guard>())) {
+      LLVM_DEBUG(dbgs() << "EarlyCSE skipping noalias intrinsic: " << Inst
+                        << '\n');
       continue;
     }
 

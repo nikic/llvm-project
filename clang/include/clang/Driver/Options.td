@@ -992,6 +992,15 @@ defm keep_static_consts : OptInFFlag<"keep-static-consts", "Keep", "Don't keep",
 defm fixed_point : OptInFFlag<"fixed-point", "Enable", "Disable", " fixed point types">;
 defm cxx_static_destructors : OptOutFFlag<"c++-static-destructors", "",
   "Disable C++ static destructor registration">;
+def ffull_restrict : Flag<["-"], "ffull-restrict">, Group<f_Group>,
+  Flags<[CoreOption, CC1Option]>,
+  HelpText<"Enable full restrict support">;
+def fno_full_restrict : Flag<["-"], "fno-full-restrict">, Group<f_Group>,
+  Flags<[CoreOption, CC1Option]>,
+  HelpText<"Disable full restrict support, falling back to the legacy support">;
+def fno_noalias_arguments : Flag<["-"], "fno-noalias-arguments">,
+  Group<f_Group>, Flags<[CoreOption, CC1Option]>,
+  HelpText<"Do not map restrict arguments onto noalias attribute">;
 def fsymbol_partition_EQ : Joined<["-"], "fsymbol-partition=">, Group<f_Group>,
   Flags<[CC1Option]>;
 

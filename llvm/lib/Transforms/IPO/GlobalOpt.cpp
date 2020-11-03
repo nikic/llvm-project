@@ -216,6 +216,9 @@ CleanupPointerRootUsers(GlobalVariable *GV,
       Value *V = SI->getValueOperand();
       if (isa<Constant>(V)) {
         Changed = true;
+        // skip potential second use from ptr_provenance before the erase
+        if ((UI != E) && (*UI == SI))
+          UI++;
         SI->eraseFromParent();
       } else if (Instruction *I = dyn_cast<Instruction>(V)) {
         if (I->hasOneUse())
@@ -792,6 +795,9 @@ static bool OptimizeAwayTrappingUsesOfLoads(
       Changed |= OptimizeAwayTrappingUsesOfValue(LI, LV);
       // If we were able to delete all uses of the loads
       if (LI->use_empty()) {
+        // skip potential second use from ptr_provenance before the erase
+        if ((GUI != E) && (*GUI == LI))
+          GUI++;
         LI->eraseFromParent();
         Changed = true;
       } else {
@@ -1279,6 +1285,9 @@ static void RewriteHeapSROALoadUser(Instruction *LoadUser,
   // users.
   for (auto UI = PN->user_begin(), E = PN->user_end(); UI != E;) {
     Instruction *User = cast<Instruction>(*UI++);
+    // skip potential second use from ptr_provenance
+    if ((UI != E) && (*UI == User))
+      ++UI;
     RewriteHeapSROALoadUser(User, InsertedScalarizedValues, PHIsToRewrite);
   }
 }
@@ -1291,6 +1300,8 @@ static void RewriteUsesOfLoadForHeapSRoA(LoadInst *Load,
                   std::vector<std::pair<PHINode *, unsigned> > &PHIsToRewrite) {
   for (auto UI = Load->user_begin(), E = Load->user_end(); UI != E;) {
     Instruction *User = cast<Instruction>(*UI++);
+    if ((UI != E) && (*UI == User))
+      ++UI;
     RewriteHeapSROALoadUser(User, InsertedScalarizedValues, PHIsToRewrite);
   }
 
@@ -1428,6 +1439,9 @@ static GlobalVariable *PerformHeapAllocSRoA(GlobalVariable *GV, CallInst *CI,
   // of the per-field globals instead.
   for (auto UI = GV->user_begin(), E = GV->user_end(); UI != E;) {
     Instruction *User = cast<Instruction>(*UI++);
+    // skip potential second use from ptr_provenance
+    if ((UI != E) && (*UI == User))
+      ++UI;
 
     if (LoadInst *LI = dyn_cast<LoadInst>(User)) {
       RewriteUsesOfLoadForHeapSRoA(LI, InsertedScalarizedValues, PHIsToRewrite);

@@ -1367,6 +1367,11 @@ void LoadInst::AssertOK() {
          "Ptr must have pointer type.");
   assert(!(isAtomic() && getAlignment() == 0) &&
          "Alignment required for atomic load");
+  assert((!hasNoaliasProvenanceOperand() || getOperand(1)) &&
+         "ptr_provenance must be non-null");
+  assert((!hasNoaliasProvenanceOperand() ||
+          (getOperand(0)->getType() == getOperand(1)->getType())) &&
+         "ptr_provenance must have the same type as the pointer");
 }
 
 static Align computeLoadStoreDefaultAlign(Type *Ty, BasicBlock *BB) {
@@ -1413,8 +1418,11 @@ LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
 LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
                    Align Align, AtomicOrdering Order, SyncScope::ID SSID,
                    Instruction *InsertBef)
-    : UnaryInstruction(Ty, Load, Ptr, InsertBef) {
+    : Instruction(Ty, Load, OperandTraits<LoadInst>::op_end(this) - 2, 2,
+                  InsertBef) {
   assert(Ty == cast<PointerType>(Ptr->getType())->getElementType());
+  setLoadInstNumOperands(1);
+  Op<0>() = Ptr;
   setVolatile(isVolatile);
   setAlignment(Align);
   setAtomic(Order, SSID);
@@ -1425,13 +1433,36 @@ LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
 LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
                    Align Align, AtomicOrdering Order, SyncScope::ID SSID,
                    BasicBlock *InsertAE)
-    : UnaryInstruction(Ty, Load, Ptr, InsertAE) {
+    : Instruction(Ty, Load, OperandTraits<LoadInst>::op_end(this) - 2, 2,
+                  InsertAE) {
+  setLoadInstNumOperands(1);
+  Op<0>() = Ptr;
   assert(Ty == cast<PointerType>(Ptr->getType())->getElementType());
   setVolatile(isVolatile);
   setAlignment(Align);
   setAtomic(Order, SSID);
   AssertOK();
   setName(Name);
+}
+
+void LoadInst::setNoaliasProvenanceOperand(llvm::LoadInst::Value *Provenance) {
+  assert(Provenance && "Needs a provenance");
+  if (!hasNoaliasProvenanceOperand()) {
+    setLoadInstNumOperands(2);
+    // shift operands
+    setOperand(0, getOperand(1));
+  }
+  setOperand(1, Provenance);
+  AssertOK();
+}
+
+void LoadInst::removeNoaliasProvenanceOperand() {
+  assert(hasNoaliasProvenanceOperand() && "nothing to remove");
+  // shift operands
+  setOperand(1, getOperand(0));
+  setOperand(0, nullptr);
+  setLoadInstNumOperands(1);
+  AssertOK();
 }
 
 //===----------------------------------------------------------------------===//
@@ -1447,6 +1478,11 @@ void StoreInst::AssertOK() {
          && "Ptr must be a pointer to Val type!");
   assert(!(isAtomic() && getAlignment() == 0) &&
          "Alignment required for atomic store");
+  assert((!hasNoaliasProvenanceOperand() || getOperand(2)) &&
+         "ptr_provenance must be non-null");
+  assert((!hasNoaliasProvenanceOperand() ||
+          (getOperand(1)->getType() == getOperand(2)->getType())) &&
+         "ptr_provenance must have the same type as the pointer");
 }
 
 StoreInst::StoreInst(Value *val, Value *addr, Instruction *InsertBefore)
@@ -1481,8 +1517,8 @@ StoreInst::StoreInst(Value *val, Value *addr, bool isVolatile, Align Align,
                      AtomicOrdering Order, SyncScope::ID SSID,
                      Instruction *InsertBefore)
     : Instruction(Type::getVoidTy(val->getContext()), Store,
-                  OperandTraits<StoreInst>::op_begin(this),
-                  OperandTraits<StoreInst>::operands(this), InsertBefore) {
+                  OperandTraits<StoreInst>::op_end(this) - 3, 3, InsertBefore) {
+  setStoreInstNumOperands(2);
   Op<0>() = val;
   Op<1>() = addr;
   setVolatile(isVolatile);
@@ -1495,8 +1531,8 @@ StoreInst::StoreInst(Value *val, Value *addr, bool isVolatile, Align Align,
                      AtomicOrdering Order, SyncScope::ID SSID,
                      BasicBlock *InsertAtEnd)
     : Instruction(Type::getVoidTy(val->getContext()), Store,
-                  OperandTraits<StoreInst>::op_begin(this),
-                  OperandTraits<StoreInst>::operands(this), InsertAtEnd) {
+                  OperandTraits<StoreInst>::op_end(this) - 3, 3, InsertAtEnd) {
+  setStoreInstNumOperands(2);
   Op<0>() = val;
   Op<1>() = addr;
   setVolatile(isVolatile);
@@ -1505,6 +1541,29 @@ StoreInst::StoreInst(Value *val, Value *addr, bool isVolatile, Align Align,
   AssertOK();
 }
 
+void StoreInst::setNoaliasProvenanceOperand(
+    llvm::StoreInst::Value *Provenance) {
+  assert(Provenance && "Needs a provenance");
+  if (!hasNoaliasProvenanceOperand()) {
+    setStoreInstNumOperands(3);
+    // shift uses; FIXME: can be made faster ?
+    setOperand(0, getOperand(1));
+    setOperand(1, getOperand(2));
+  }
+  setOperand(2, Provenance);
+  AssertOK();
+}
+
+void StoreInst::removeNoaliasProvenanceOperand() {
+  assert(hasNoaliasProvenanceOperand() && "nothing to remove");
+  // make sure 'uses' are updated
+  setOperand(2, getOperand(1));
+  setOperand(1, getOperand(0));
+  setOperand(0, nullptr);
+
+  setStoreInstNumOperands(2);
+  AssertOK();
+}
 
 //===----------------------------------------------------------------------===//
 //                       AtomicCmpXchgInst Implementation
@@ -4307,13 +4366,32 @@ AllocaInst *AllocaInst::cloneImpl() const {
 }
 
 LoadInst *LoadInst::cloneImpl() const {
-  return new LoadInst(getType(), getOperand(0), Twine(), isVolatile(),
-                      getAlign(), getOrdering(), getSyncScopeID());
+  LoadInst *Result =
+      new LoadInst(getType(), getOperand(0), Twine(), isVolatile(), getAlign(),
+                   getOrdering(), getSyncScopeID());
+  // - we must keep the same number of arguments (for vector optimizations)
+  // - if we duplicate the provenance, we can get into problems with passes
+  //   that don't know how to handle it (Like MergeLoadStoreMotion shows)
+  // - safe alternative: keep the argument, but map it to undef.
+  if (hasNoaliasProvenanceOperand())
+    Result->setNoaliasProvenanceOperand(
+        UndefValue::get(getNoaliasProvenanceOperand()->getType()));
+  return Result;
 }
 
 StoreInst *StoreInst::cloneImpl() const {
-  return new StoreInst(getOperand(0), getOperand(1), isVolatile(), getAlign(),
-                       getOrdering(), getSyncScopeID());
+  StoreInst *Result =
+      new StoreInst(getOperand(0), getOperand(1), isVolatile(), getAlign(),
+                    getOrdering(), getSyncScopeID());
+
+  // we must keep the same number of arguments (for vector optimizations)
+  // - if we duplicate the provenance, we can get into problems with passes
+  //   that don't know how to handle it (Like MergeLoadStoreMotion shows)
+  // - safe alternative: keep the argument, but map it to undef.
+  if (hasNoaliasProvenanceOperand())
+    Result->setNoaliasProvenanceOperand(
+        UndefValue::get(getNoaliasProvenanceOperand()->getType()));
+  return Result;
 }
 
 AtomicCmpXchgInst *AtomicCmpXchgInst::cloneImpl() const {

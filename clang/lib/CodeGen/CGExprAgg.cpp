@@ -1948,6 +1948,17 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
     }
   }
 
+  // Guard copies of structs containing restrict pointers
+  if (Ty.isRestrictOrContainsRestrictMembers() &&
+      CGM.getCodeGenOpts().FullRestrict) {
+    // NOTE: also see CodeGenFunction::EmitCall()
+    auto NoAliasScopeMD = getExistingOrUnknownNoAliasScope(SrcPtr.getPointer());
+    auto NoAliasDecl = getExistingNoAliasDeclOrNullptr(NoAliasScopeMD);
+    SrcPtr.adaptPointer(Builder.CreateNoAliasCopyGuard(
+        SrcPtr.getPointer(), NoAliasDecl, Ty.getRestrictIndices(),
+        NoAliasScopeMD));
+  }
+
   if (getLangOpts().CUDAIsDevice) {
     if (Ty->isCUDADeviceBuiltinSurfaceType()) {
       if (getTargetHooks().emitCUDADeviceBuiltinSurfaceDeviceCopy(*this, Dest,
@@ -2036,6 +2047,8 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
   }
 
   auto Inst = Builder.CreateMemCpy(DestPtr, SrcPtr, SizeVal, isVolatile);
+  // track noalias scope for memcpy
+  recordMemoryInstruction(Inst);
 
   // Determine the metadata to describe the position of any padding in this
   // memcpy, as well as the TBAA tags for the members of the struct, in case

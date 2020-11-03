@@ -344,7 +344,14 @@ public:
   /// @}
 
   /// Sets the metadata on this instruction from the AAMDNodes structure.
+  /// NOTE: The ptr_provenance must be copied over explicitely using
+  /// 'setAAMetadataNoAliasProvenance'. This must only be done if the dominator
+  /// relationship between the ptr_provenance and this instruction holds.
   void setAAMetadata(const AAMDNodes &N);
+
+  /// Sets (only) the ptr_provenance. Normally used in combination with
+  /// setAAMetadata.
+  void setAAMetadataNoAliasProvenance(const AAMDNodes &N);
 
   /// Retrieve the raw weight values of a conditional branch or select.
   /// Returns true on success with profile weights filled in.

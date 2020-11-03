@@ -293,6 +293,7 @@ void AliasSetTracker::clear() {
     I->second->eraseFromList();
 
   PointerMap.clear();
+  ProvenancePointers.clear();
 
   // The alias sets should all be clear now.
   AliasSets.clear();
@@ -357,6 +358,10 @@ AliasSet &AliasSetTracker::getAliasSetFor(const MemoryLocation &MemLoc) {
   const AAMDNodes &AAInfo = MemLoc.AATags;
 
   AliasSet::PointerRec &Entry = getEntryFor(Pointer);
+
+  if (AAInfo.NoAliasProvenance)
+    ProvenancePointers.insert(
+        ASTProvenanceCallbackVH(AAInfo.NoAliasProvenance, this));
 
   if (AliasAnyAS) {
     // At this point, the AST is saturated, so we only have one active alias
@@ -731,6 +736,65 @@ AliasSetTracker::ASTCallbackVH::ASTCallbackVH(Value *V, AliasSetTracker *ast)
 AliasSetTracker::ASTCallbackVH &
 AliasSetTracker::ASTCallbackVH::operator=(Value *V) {
   return *this = ASTCallbackVH(V, AST);
+}
+
+//===----------------------------------------------------------------------===//
+//                     ASTProvenanceCallbackVH Class Implementation
+//===----------------------------------------------------------------------===//
+
+void AliasSetTracker::ASTProvenanceCallbackVH::deleted() {
+  assert(AST && "ASTCallbackVH called with a null AliasSetTracker!");
+  AST->deleteProvenanceValue(getValPtr());
+  // this now dangles!
+}
+
+void AliasSetTracker::ASTProvenanceCallbackVH::allUsesReplacedWith(Value *V) {
+  AST->copyProvenanceValue(getValPtr(), V);
+}
+
+AliasSetTracker::ASTProvenanceCallbackVH::ASTProvenanceCallbackVH(
+    Value *V, AliasSetTracker *ast)
+    : CallbackVH(V), AST(ast) {}
+
+AliasSetTracker::ASTProvenanceCallbackVH &
+AliasSetTracker::ASTProvenanceCallbackVH::operator=(Value *V) {
+  return *this = ASTProvenanceCallbackVH(V, AST);
+}
+
+void AliasSetTracker::deleteProvenanceValue(Value *PtrVal) {
+  // FIXME: slow algorithms ahead
+  ProvenanceSetType::iterator I = ProvenancePointers.find_as(PtrVal);
+  if (I == ProvenancePointers.end())
+    return; // nope
+
+  // iterate over all PointerRecords to update the AAMDNodes that contain this
+  // pointer
+  for (auto &AS : *this) {
+    for (auto &PR : AS) {
+      PR.updateNoAliasProvenanceIfMatching(PtrVal, nullptr);
+    }
+  }
+
+  ProvenancePointers.erase(I);
+}
+
+void AliasSetTracker::copyProvenanceValue(Value *From, Value *To) {
+  // FIXME: slow algorithms ahead
+  ProvenanceSetType::iterator I = ProvenancePointers.find_as(From);
+  if (I == ProvenancePointers.end())
+    return; // nope
+
+  // iterate over all PointerRecords to update the AAMDNodes that contain this
+  // pointer
+  for (auto &AS : *this) {
+    for (auto &PR : AS) {
+      PR.updateNoAliasProvenanceIfMatching(From, To);
+    }
+  }
+
+  // Update the set
+  ProvenancePointers.erase(I);
+  ProvenancePointers.insert(ASTProvenanceCallbackVH(To, this));
 }
 
 //===----------------------------------------------------------------------===//

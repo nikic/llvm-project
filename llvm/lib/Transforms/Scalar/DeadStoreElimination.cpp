@@ -1392,11 +1392,13 @@ static bool eliminateDeadStores(BasicBlock &BB, AliasAnalysis *AA,
                 C, Earlier->getPointerOperand(), false, Earlier->getAlign(),
                 Earlier->getOrdering(), Earlier->getSyncScopeID(), DepWrite);
 
-            unsigned MDToKeep[] = {LLVMContext::MD_dbg, LLVMContext::MD_tbaa,
-                                   LLVMContext::MD_alias_scope,
-                                   LLVMContext::MD_noalias,
+            unsigned MDToKeep[] = {LLVMContext::MD_dbg,
                                    LLVMContext::MD_nontemporal};
             SI->copyMetadata(*DepWrite, MDToKeep);
+            AAMDNodes AAInfo;
+            Earlier->getAAMetadata(AAInfo);
+            SI->setAAMetadata(AAInfo);
+            SI->setAAMetadataNoAliasProvenance(AAInfo);
             ++NumModifiedStores;
 
             // Delete the old stores and now-dead instructions that feed them.

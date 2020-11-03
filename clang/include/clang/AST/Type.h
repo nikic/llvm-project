@@ -822,6 +822,19 @@ public:
   /// Returns true if it is not a class or if the class might not be dynamic.
   bool mayBeNotDynamicClass() const;
 
+  /// Returns true if this is a restrict pointer or contains a restrict pointer.
+  /// NOTE: A pointer to a restrict pointer does not count.
+  bool isRestrictOrContainsRestrictMembers() const;
+
+  /// Get the encoded indices, describing where in memory restrict pointers are
+  /// located.
+  std::vector<int64_t> getRestrictIndices() const;
+
+private:
+  void getRestrictIndices(std::vector<int64_t> &OutEncodedIndices,
+                          SmallVector<int64_t, 10> &InCurrentIndices) const;
+
+public:
   // Don't promise in the API that anything besides 'const' can be
   // easily added.
 

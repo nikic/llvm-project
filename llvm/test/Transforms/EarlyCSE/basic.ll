@@ -54,6 +54,26 @@ define i32 @test2a(i32 *%P, i1 %b) {
   ; CHECK: ret i32 0
 }
 
+; CHECK-LABEL: @test2b(
+define i32 @test2b(i32 *%P, i1 %b) {
+  %V1 = load i32, i32* %P
+  call i8* @llvm.noalias.p0i8.p0i8.p0p0i8.i32(i8* undef, i8* null, i8** null, i32 0, metadata !1)
+  %V2 = load i32, i32* %P
+  %Diff = sub i32 %V1, %V2
+  ret i32 %Diff
+  ; CHECK: ret i32 0
+}
+
+; CHECK-LABEL: @test2c(
+define i32 @test2c(i32 *%P, i1 %b) {
+  %V1 = load i32, i32* %P
+  call i8* @llvm.provenance.noalias.p0i8.p0i8.p0p0i8.p0p0i8.i32(i8* undef, i8* null, i8** null, i8** null, i32 0, metadata !1)
+  %V2 = load i32, i32* %P
+  %Diff = sub i32 %V1, %V2
+  ret i32 %Diff
+  ; CHECK: ret i32 0
+}
+
 ;; Cross block load value numbering.
 ; CHECK-LABEL: @test3(
 define i32 @test3(i32 *%P, i1 %Cond) {
@@ -129,6 +149,24 @@ define i32 @test6(i32 *%P) {
 define i32 @test6a(i32 *%P, i1 %b) {
   store i32 42, i32* %P
   tail call void @llvm.assume(i1 %b)
+  %V1 = load i32, i32* %P
+  ret i32 %V1
+  ; CHECK: ret i32 42
+}
+
+; CHECK-LABEL: @test6b(
+define i32 @test6b(i32 *%P, i1 %b) {
+  store i32 42, i32* %P
+  call i8* @llvm.noalias.p0i8.p0i8.p0p0i8.i32(i8* undef, i8* null, i8** null, i32 0, metadata !1)
+  %V1 = load i32, i32* %P
+  ret i32 %V1
+  ; CHECK: ret i32 42
+}
+
+; CHECK-LABEL: @test6c(
+define i32 @test6c(i32 *%P, i1 %b) {
+  store i32 42, i32* %P
+  call i8* @llvm.provenance.noalias.p0i8.p0i8.p0p0i8.p0p0i8.i32(i8* undef, i8* null, i8** null, i8** null, i32 0, metadata !1)
   %V1 = load i32, i32* %P
   ret i32 %V1
   ; CHECK: ret i32 42
@@ -302,3 +340,9 @@ entry:
   %and = and i1 %b, %c
   ret i1 %and
 }
+
+declare i8*  @llvm.noalias.p0i8.p0i8.p0p0i8.i32(i8*, i8*, i8**, i32, metadata ) nounwind
+declare i8*  @llvm.provenance.noalias.p0i8.p0i8.p0p0i8.p0p0i8.i32(i8*, i8*, i8**, i8**, i32, metadata ) nounwind
+
+!0 = !{!0, !"some domain"}
+!1 = !{!1, !0, !"some scope"}

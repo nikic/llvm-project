@@ -528,6 +528,11 @@ public:
     case Intrinsic::is_constant:
     case Intrinsic::lifetime_start:
     case Intrinsic::lifetime_end:
+    case Intrinsic::noalias_decl:
+    case Intrinsic::noalias:
+    case Intrinsic::provenance_noalias:
+    case Intrinsic::noalias_arg_guard:
+    case Intrinsic::noalias_copy_guard:
     case Intrinsic::objectsize:
     case Intrinsic::ptr_annotation:
     case Intrinsic::var_annotation:

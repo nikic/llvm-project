@@ -437,10 +437,20 @@ LoadInst *InstCombinerImpl::combineLoadToNewType(LoadInst &LI, Type *NewTy,
         NewPtr->getType()->getPointerAddressSpace() == AS))
     NewPtr = Builder.CreateBitCast(Ptr, NewTy->getPointerTo(AS));
 
+  Value *NewProvenancePtr = nullptr;
+  if (LI.hasNoaliasProvenanceOperand()) {
+    NewProvenancePtr = Builder.CreateBitCast(LI.getNoaliasProvenanceOperand(),
+                                             NewTy->getPointerTo(AS));
+  }
+
   LoadInst *NewLoad = Builder.CreateAlignedLoad(
       NewTy, NewPtr, LI.getAlign(), LI.isVolatile(), LI.getName() + Suffix);
   NewLoad->setAtomic(LI.getOrdering(), LI.getSyncScopeID());
   copyMetadataForLoad(*NewLoad, LI);
+  if (LI.hasNoaliasProvenanceOperand()) {
+    assert(NewProvenancePtr);
+    NewLoad->setNoaliasProvenanceOperand(NewProvenancePtr);
+  }
   return NewLoad;
 }
 
@@ -456,6 +466,12 @@ static StoreInst *combineStoreToNewValue(InstCombinerImpl &IC, StoreInst &SI,
   unsigned AS = SI.getPointerAddressSpace();
   SmallVector<std::pair<unsigned, MDNode *>, 8> MD;
   SI.getAllMetadata(MD);
+
+  Value *NewProvenancePtr = nullptr;
+  if (SI.hasNoaliasProvenanceOperand()) {
+    NewProvenancePtr = IC.Builder.CreateBitCast(
+        SI.getNoaliasProvenanceOperand(), V->getType()->getPointerTo(AS));
+  }
 
   StoreInst *NewStore = IC.Builder.CreateAlignedStore(
       V, IC.Builder.CreateBitCast(Ptr, V->getType()->getPointerTo(AS)),
@@ -495,6 +511,11 @@ static StoreInst *combineStoreToNewValue(InstCombinerImpl &IC, StoreInst &SI,
       // These don't apply for stores.
       break;
     }
+  }
+
+  if (SI.hasNoaliasProvenanceOperand()) {
+    assert(NewProvenancePtr);
+    NewStore->setNoaliasProvenanceOperand(NewProvenancePtr);
   }
 
   return NewStore;
@@ -580,6 +601,10 @@ static Instruction *combineLoadToOperationType(InstCombinerImpl &IC,
       // Replace all the stores with stores of the newly loaded value.
       for (auto UI = LI.user_begin(), UE = LI.user_end(); UI != UE;) {
         auto *SI = cast<StoreInst>(*UI++);
+        // skip the ptr_provenance
+        if ((UI != UE) && (*UI == SI))
+          ++UI;
+
         IC.Builder.SetInsertPoint(SI);
         combineStoreToNewValue(IC, *SI, NewLoad);
         IC.eraseInstFromFunction(*SI);
@@ -662,6 +687,7 @@ static Instruction *unpackLoadToAggregate(InstCombinerImpl &IC, LoadInst &LI) {
       AAMDNodes AAMD;
       LI.getAAMetadata(AAMD);
       L->setAAMetadata(AAMD);
+      L->setAAMetadataNoAliasProvenance(AAMD);
       V = IC.Builder.CreateInsertValue(V, L, i);
     }
 
@@ -711,6 +737,7 @@ static Instruction *unpackLoadToAggregate(InstCombinerImpl &IC, LoadInst &LI) {
       AAMDNodes AAMD;
       LI.getAAMetadata(AAMD);
       L->setAAMetadata(AAMD);
+      L->setAAMetadataNoAliasProvenance(AAMD);
       V = IC.Builder.CreateInsertValue(V, L, i);
       Offset += EltSize;
     }
@@ -923,6 +950,15 @@ static bool canSimplifyNullLoadOrGEP(LoadInst &LI, Value *Op) {
 
 Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
   Value *Op = LI.getOperand(0);
+
+  if (LI.hasNoaliasProvenanceOperand()) {
+    if (LI.getNoaliasProvenanceOperand() == LI.getPointerOperand() ||
+        isa<UndefValue>(LI.getNoaliasProvenanceOperand())) {
+      // degenerated ptr_provenance
+      LI.removeNoaliasProvenanceOperand();
+      return &LI;
+    }
+  }
 
   // Try to canonicalize the loaded type.
   if (Instruction *Res = combineLoadToOperationType(*this, LI))
@@ -1182,6 +1218,7 @@ static bool unpackStoreToAggregate(InstCombinerImpl &IC, StoreInst &SI) {
       AAMDNodes AAMD;
       SI.getAAMetadata(AAMD);
       NS->setAAMetadata(AAMD);
+      NS->setAAMetadataNoAliasProvenance(AAMD);
     }
 
     return true;
@@ -1230,6 +1267,7 @@ static bool unpackStoreToAggregate(InstCombinerImpl &IC, StoreInst &SI) {
       AAMDNodes AAMD;
       SI.getAAMetadata(AAMD);
       NS->setAAMetadata(AAMD);
+      NS->setAAMetadataNoAliasProvenance(AAMD);
       Offset += EltSize;
     }
 
@@ -1323,6 +1361,15 @@ static bool removeBitcastsFromLoadStoreOnMinMax(InstCombinerImpl &IC,
 Instruction *InstCombinerImpl::visitStoreInst(StoreInst &SI) {
   Value *Val = SI.getOperand(0);
   Value *Ptr = SI.getOperand(1);
+
+  if (SI.hasNoaliasProvenanceOperand()) {
+    if (SI.getNoaliasProvenanceOperand() == SI.getPointerOperand() ||
+        isa<UndefValue>(SI.getNoaliasProvenanceOperand())) {
+      // degenerated ptr_provenance
+      SI.removeNoaliasProvenanceOperand();
+      return &SI;
+    }
+  }
 
   // Try to canonicalize the stored type.
   if (combineStoreToValueType(*this, SI))
@@ -1545,6 +1592,7 @@ bool InstCombinerImpl::mergeStoreIntoSuccessor(StoreInst &SI) {
   if (AATags) {
     OtherStore->getAAMetadata(AATags, /* Merge = */ true);
     NewSI->setAAMetadata(AATags);
+    NewSI->setAAMetadataNoAliasProvenance(AATags);
   }
 
   // Nuke the old stores.

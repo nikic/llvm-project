@@ -114,14 +114,14 @@ int main(int argc, char **argv) {
 
 // CHECK: define internal {{.*}}i32 [[TASK]](i32 {{.+}}, [[TASK_TY]]* {{.+}})
 // CHECK-DAG: call i8* @__kmpc_task_reduction_get_th_data(i32 %{{.+}}, i8* [[TG:%.+]], i8* [[ARGC_REF:%.+]])
-// CHECK_DAG: [[TG]] = load i8*, i8** [[TG_ADDR:%.+]],
+// CHECK_DAG: [[TG]] = load i8*, i8** [[TG_ADDR:%.+]], align
 // CHECK-DAG: [[ARGC_REF]] = bitcast i32* [[ARGC_ADDR:%.+]] to i8*
-// CHECK-DAG: [[ARGC_ADDR]] = load i32*, i32** [[ARGC_ADDR_REF:%.+]],
+// CHECK-DAG: [[ARGC_ADDR]] = load i32*, i32** [[ARGC_ADDR_REF:%.+]], align
 // CHECK-DAG: [[ARGC_ADDR_REF]] = getelementptr inbounds [[CAPS_TY:%.+]], %{{.+}}* [[CAP:%.+]], i32 0, i32 1
 // CHECK-DAG: call i8* @__kmpc_task_reduction_get_th_data(i32 %{{.+}}, i8* [[TG:%.+]], i8* [[ARGV_REF:%.+]])
-// CHECK_DAG: [[TG]] = load i8*, i8** [[TG_ADDR]],
-// CHECK-DAG: [[ARGV_REF]] = load i8*, i8** [[ARGV_ADDR:%.+]],
-// CHECK-DAG: [[ARGV_ADDR]] = load i8**, i8*** [[ARGV_ADDR_REF:%.+]],
+// CHECK_DAG: [[TG]] = load i8*, i8** [[TG_ADDR]], align
+// CHECK-DAG: [[ARGV_REF]] = load i8*, i8** [[ARGV_ADDR:%.+]], align
+// CHECK-DAG: [[ARGV_ADDR]] = load i8**, i8*** [[ARGV_ADDR_REF:%.+]], align
 // CHECK-DAG: [[ARGV_ADDR_REF]] = getelementptr inbounds [[CAPS_TY]], [[CAPS_TY]]* [[CAP]], i32 0, i32 2
 
 #endif

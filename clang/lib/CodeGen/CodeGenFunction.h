@@ -37,6 +37,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Debug.h"
@@ -298,8 +299,7 @@ public:
   /// CGBuilder insert helper. This function is called after an
   /// instruction is created using Builder.
   void InsertHelper(llvm::Instruction *I, const llvm::Twine &Name,
-                    llvm::BasicBlock *BB,
-                    llvm::BasicBlock::iterator InsertPt) const;
+                    llvm::BasicBlock *BB, llvm::BasicBlock::iterator InsertPt);
 
   /// CurFuncDecl - Holds the Decl for the current outermost
   /// non-closure context.
@@ -814,11 +814,54 @@ public:
     }
   };
 
+  // Check if any local variable or argument contains a (direct) restrict
+  // pointer.
+  bool hasLocalRestrictVars(const CompoundStmt &S,
+                            FunctionArgList *Args = nullptr);
+
+  // Get the associated NoAliasScope for the Ptr (cast and geps will be
+  // stripped). If there is no associated scope returns the 'unknown function'
+  // scope. (which is created on demand)
+  llvm::MDNode *getExistingOrUnknownNoAliasScope(llvm::Value *Ptr);
+
+  // Get the associated declaration
+  llvm::Value *getExistingNoAliasDeclOrNullptr(llvm::MDNode *NoAliasScopeMD);
+
+  // The noalias scopes used to tag pointer values assigned to block-local
+  // restrict-qualified variables, and the memory-accessing instructions within
+  // this lexical scope to which the associated pointer-aliasing assumptions
+  // might apply. One of these will exist for each lexical scope.
+  struct LexicalNoAliasInfo {
+    bool RecordMemoryInsts;
+    llvm::TinyPtrVector<llvm::Instruction *> MemoryInsts;
+    llvm::TinyPtrVector<llvm::Metadata *> NoAliasScopes;
+
+    LexicalNoAliasInfo(bool RecordMemoryInsts = false)
+        : RecordMemoryInsts(RecordMemoryInsts) {}
+
+    void recordMemoryInsts() { RecordMemoryInsts = true; }
+
+    void recordMemoryInstruction(llvm::Instruction *I) {
+      if (RecordMemoryInsts)
+        MemoryInsts.push_back(I);
+    }
+
+    void addNoAliasScope(llvm::MDNode *Scope) {
+      assert(RecordMemoryInsts &&
+             "Adding noalias scope but not recording memory accesses!");
+      NoAliasScopes.push_back(Scope);
+    }
+
+    void addNoAliasMD();
+  };
+
+  LexicalNoAliasInfo FnNoAliasInfo;
+
   // Cleanup stack depth of the RunCleanupsScope that was pushed most recently.
   EHScopeStack::stable_iterator CurrentCleanupScopeDepth =
       EHScopeStack::stable_end();
 
-  class LexicalScope : public RunCleanupsScope {
+  class LexicalScope : public RunCleanupsScope, public LexicalNoAliasInfo {
     SourceRange Range;
     SmallVector<const LabelDecl*, 4> Labels;
     LexicalScope *ParentScope;
@@ -828,8 +871,10 @@ public:
 
   public:
     /// Enter a new cleanup scope.
-    explicit LexicalScope(CodeGenFunction &CGF, SourceRange Range)
-      : RunCleanupsScope(CGF), Range(Range), ParentScope(CGF.CurLexicalScope) {
+    explicit LexicalScope(CodeGenFunction &CGF, SourceRange Range,
+                          bool RecordMemoryInsts = false)
+        : RunCleanupsScope(CGF), LexicalNoAliasInfo(RecordMemoryInsts),
+          Range(Range), ParentScope(CGF.CurLexicalScope) {
       CGF.CurLexicalScope = this;
       if (CGDebugInfo *DI = CGF.getDebugInfo())
         DI->EmitLexicalBlockStart(CGF.Builder, Range.getBegin());
@@ -838,6 +883,19 @@ public:
     void addLabel(const LabelDecl *label) {
       assert(PerformCleanup && "adding label to dead scope?");
       Labels.push_back(label);
+    }
+
+    // If we have block-local restrict-qualified pointers, we need to keep
+    // track of the memory-accessing instructions in the blocks where such
+    // pointers are declared (including lexical scopes that are children of
+    // those blocks) so that we can later add the appropriate metadata. Record
+    // this instruction and so the same in any parent scopes.
+    void recordMemoryInstruction(llvm::Instruction *I) {
+      LexicalNoAliasInfo::recordMemoryInstruction(I);
+      if (ParentScope)
+        ParentScope->recordMemoryInstruction(I);
+      else
+        CGF.FnNoAliasInfo.recordMemoryInstruction(I);
     }
 
     /// Exit this cleanup scope, emitting any accumulated
@@ -857,6 +915,8 @@ public:
     /// Force the emission of cleanups now, instead of waiting
     /// until this object is destroyed.
     void ForceCleanup() {
+      addNoAliasMD();
+
       CGF.CurLexicalScope = ParentScope;
       RunCleanupsScope::ForceCleanup();
 
@@ -872,6 +932,23 @@ public:
   };
 
   typedef llvm::DenseMap<const Decl *, Address> DeclMapTy;
+
+  // Record this instruction for the purpose of later adding noalias metadata,
+  // is applicible, in order to support block-local restrict-qualified
+  // pointers.
+  void recordMemoryInstruction(llvm::Instruction *I) {
+    if (CurLexicalScope)
+      CurLexicalScope->recordMemoryInstruction(I);
+    else
+      FnNoAliasInfo.recordMemoryInstruction(I);
+  }
+
+  void addNoAliasScope(llvm::MDNode *Scope) {
+    if (CurLexicalScope)
+      CurLexicalScope->addNoAliasScope(Scope);
+    else
+      FnNoAliasInfo.addNoAliasScope(Scope);
+  }
 
   /// The class used to assign some variables some temporarily addresses.
   class OMPMapVars {
@@ -1834,6 +1911,19 @@ private:
   /// the function metadata.
   void EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                 llvm::Function *Fn);
+
+  /// The noalias domain metadata for this function.
+  llvm::MDNode *NoAliasDomain = nullptr;
+
+  /// A map between the addresses of local restrict-qualified variables and
+  /// their noalias scope.
+  llvm::DenseMap<llvm::Value *, llvm::MDNode *> NoAliasAddrMap;
+
+  /// A map between the noalias scope and its declaration
+  llvm::DenseMap<llvm::MDNode *, llvm::Value *> NoAliasDeclMap;
+
+  /// The node representing 'out-of-function' scope
+  llvm::MDNode *NoAliasUnknownScope = nullptr;
 
 public:
   CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
@@ -2981,6 +3071,9 @@ public:
   void EmitAutoVarCleanups(const AutoVarEmission &emission);
   void emitAutoVarTypeCleanup(const AutoVarEmission &emission,
                               QualType::DestructionKind dtorKind);
+
+  void EmitNoAliasDecl(const VarDecl &D, Address Loc);
+  void EmitAutoVarNoAlias(const AutoVarEmission &emission);
 
   /// Emits the alloca and debug information for the size expressions for each
   /// dimension of an array. It registers the association of its (1-dimensional)

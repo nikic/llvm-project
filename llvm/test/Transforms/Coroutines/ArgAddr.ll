@@ -47,6 +47,7 @@ entry:
   ret i32 0
 ; CHECK:      call void @ctor
 ; CHECK-NEXT: call void @print(i32 4)
+; CHECK-NEXT: bitcast i8*
 ; CHECK-NEXT: call void @print(i32 3)
 ; CHECK-NEXT: call void @print(i32 2)
 ; CHECK:      ret i32 0

@@ -36,6 +36,21 @@
 #include <map>
 using namespace llvm;
 
+static void PropagateNoAliasProvenanceInfo(Instruction *To,
+                                           const Instruction *From) {
+  // The ptr_provenance is not automatically copied over in a 'clone()'
+  // Let's do it here.
+  if (auto *LI = dyn_cast<LoadInst>(From)) {
+    if (LI->hasNoaliasProvenanceOperand())
+      cast<LoadInst>(To)->setNoaliasProvenanceOperand(
+          LI->getNoaliasProvenanceOperand());
+  } else if (auto SI = dyn_cast<StoreInst>(From)) {
+    if (SI->hasNoaliasProvenanceOperand())
+      cast<StoreInst>(To)->setNoaliasProvenanceOperand(
+          SI->getNoaliasProvenanceOperand());
+  }
+}
+
 /// See comments in Cloning.h.
 BasicBlock *llvm::CloneBasicBlock(const BasicBlock *BB, ValueToValueMapTy &VMap,
                                   const Twine &NameSuffix, Function *F,
@@ -55,6 +70,8 @@ BasicBlock *llvm::CloneBasicBlock(const BasicBlock *BB, ValueToValueMapTy &VMap,
       DIFinder->processInstruction(*TheModule, I);
 
     Instruction *NewInst = I.clone();
+    PropagateNoAliasProvenanceInfo(NewInst, &I);
+
     if (I.hasName())
       NewInst->setName(I.getName() + NameSuffix);
     NewBB->getInstList().push_back(NewInst);
@@ -338,6 +355,7 @@ void PruningFunctionCloner::CloneBlock(const BasicBlock *BB,
        II != IE; ++II) {
 
     Instruction *NewInst = II->clone();
+    PropagateNoAliasProvenanceInfo(NewInst, &*II);
 
     // Eagerly remap operands to the newly cloned instruction, except for PHI
     // nodes for which we defer processing until we update the CFG.
@@ -869,6 +887,7 @@ BasicBlock *llvm::DuplicateInstructionsInSplitBetween(
   // terminator gets replaced and StopAt == BB's terminator.
   for (; StopAt != &*BI && BB->getTerminator() != &*BI; ++BI) {
     Instruction *New = BI->clone();
+    PropagateNoAliasProvenanceInfo(New, &*BI);
     New->setName(BI->getName());
     New->insertBefore(NewTerm);
     ValueMapping[&*BI] = New;

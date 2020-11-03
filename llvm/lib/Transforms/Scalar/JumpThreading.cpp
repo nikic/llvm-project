@@ -1448,8 +1448,11 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LoadI) {
         LoadI->getOrdering(), LoadI->getSyncScopeID(),
         UnavailablePred->getTerminator());
     NewVal->setDebugLoc(LoadI->getDebugLoc());
-    if (AATags)
+    if (AATags) {
       NewVal->setAAMetadata(AATags);
+      // Note: ptr_provenance propagation is not done here. A dependend
+      // provenance should be migrated first !
+    }
 
     AvailablePreds.emplace_back(UnavailablePred, NewVal);
   }

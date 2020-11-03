@@ -787,6 +787,65 @@ public:
   /// assume that the provided condition will be true.
   CallInst *CreateAssumption(Value *Cond);
 
+  /// Create a llvm.noalias.decl intrinsic call.
+  Instruction *CreateNoAliasDeclaration(Value *AllocaPtr, Value *ObjId,
+                                        Value *Scope);
+  Instruction *CreateNoAliasDeclaration(Value *AllocaPtr, uint64_t ObjId,
+                                        Value *Scope) {
+    return CreateNoAliasDeclaration(
+        AllocaPtr,
+        ConstantInt::get(IntegerType::getInt64Ty(getContext()), ObjId), Scope);
+  }
+  Instruction *CreateNoAliasDeclaration(Value *AllocaPtr, MDNode *ScopeTag) {
+    uint64_t Zero = 0;
+    return CreateNoAliasDeclaration(AllocaPtr, Zero,
+                                    MetadataAsValue::get(Context, ScopeTag));
+  }
+
+  /// Create a llvm.noalias intrinsic call.
+  Instruction *CreateNoAliasPointer(Value *Ptr, Value *NoAliasDecl,
+                                    Value *AddrP, MDNode *ScopeTag,
+                                    const Twine &Name = "",
+                                    uint64_t ObjectId = 0) {
+    return CreateNoAliasPointer(Ptr, NoAliasDecl, AddrP,
+                                MetadataAsValue::get(getContext(), ScopeTag),
+                                Name, ObjectId);
+  }
+  Instruction *CreateNoAliasPointer(Value *Ptr, Value *NoAliasDecl,
+                                    Value *AddrP, Value *ScopeTag,
+                                    const Twine &Name = "",
+                                    uint64_t ObjectId = 0);
+
+  /// Create a llvm.provenance.noalias intrinsic call.
+  Instruction *CreateProvenanceNoAliasPlain(Value *Ptr, Value *NoAliasDecl,
+                                            Value *AddrP,
+                                            Value *AddrP_Provenance,
+                                            Value *ObjId, MDNode *ScopeTag,
+                                            const Twine &Name = "");
+  Instruction *CreateProvenanceNoAliasPlain(Value *Ptr, Value *NoAliasDecl,
+                                            Value *AddrP,
+                                            Value *AddrP_Provenance,
+                                            Value *ObjId, Value *ScopeValue,
+                                            const Twine &Name = "");
+
+  /// Create a llvm.noalias.arg.guard intrinsic call.
+  Instruction *CreateNoAliasArgGuard(Value *Ptr, Value *Provenance,
+                                     const Twine &Name = "");
+
+  /// Create a llvm.noalias_copy_guard intrinsic call.
+  Instruction *CreateNoAliasCopyGuard(Value *BasePtr, Value *NoAliasDel,
+                                      ArrayRef<int64_t> EncodedIndices,
+                                      MDNode *ScopeTag, const Twine &Name = "");
+
+private:
+  /// Helper for creating noalias intrinsics
+  Instruction *CreateGenericNoAliasIntrinsic(Intrinsic::ID ID, Value *arg0,
+                                             ArrayRef<Value *> args_opt,
+                                             ArrayRef<MDNode *> MDNodes,
+                                             ArrayRef<Value *> MDValues,
+                                             const Twine &Name = "");
+
+public:
   /// Create a call to the experimental.gc.statepoint intrinsic to
   /// start a new statepoint sequence.
   CallInst *CreateGCStatepointCall(uint64_t ID, uint32_t NumPatchBytes,
