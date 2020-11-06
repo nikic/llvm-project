@@ -38,7 +38,7 @@ using namespace llvm;
 static cl::opt<unsigned>
 DefaultMaxUsesToExplore("capture-tracking-max-uses-to-explore", cl::Hidden,
                         cl::desc("Maximal number of uses to explore."),
-                        cl::init(20));
+                        cl::init(64));
 
 unsigned llvm::getDefaultMaxUsesToExploreForCaptureTracking() {
   return DefaultMaxUsesToExplore;
