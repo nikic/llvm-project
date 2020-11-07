@@ -248,8 +248,8 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
   Worklist.reserve(getDefaultMaxUsesToExploreForCaptureTracking());
   SmallSet<const Use *, 20> Visited;
 
+  unsigned Count = 0;
   auto AddUses = [&](const Value *V) {
-    unsigned Count = 0;
     for (const Use &U : V->uses()) {
       // If there are lots of uses, conservatively say that the value
       // is captured to avoid taking too much compile time.
