@@ -141,14 +141,18 @@ namespace {
         return !isPotentiallyReachableFromMany(Worklist, BB, nullptr, DT);
       }
 
-      // If the value is defined in the same basic block as use and BeforeHere,
-      // there is no need to explore the use if BeforeHere dominates use.
-      // Check whether there is a path from I to BeforeHere.
-      if (BeforeHere != I && DT->dominates(BeforeHere, I) &&
-          !isPotentiallyReachable(I, BeforeHere, nullptr, DT))
-        return true;
+      // For compile-time reasons, only perform the reachability check if
+      // BeforeHere dominates I, i.e. if the code below only checks for loop
+      // backedge reachability.
+      if (!DT->dominates(BeforeHere, I))
+        return false;
 
-      return false;
+      // Check whether there is a path from I to BeforeHere and cache result.
+      auto Res = BeforeHereReachable.try_emplace(BB, /* dummy value */ true);
+      if (Res.second)
+        Res.first->second = isPotentiallyReachable(BB, BeforeHere->getParent(),
+                                                   DT);
+      return !Res.first->second;
     }
 
     bool shouldExplore(const Use *U) override {
@@ -173,6 +177,7 @@ namespace {
 
     const Instruction *BeforeHere;
     const DominatorTree *DT;
+    SmallDenseMap<BasicBlock *, bool> BeforeHereReachable;
 
     bool ReturnCaptures;
     bool IncludeI;
