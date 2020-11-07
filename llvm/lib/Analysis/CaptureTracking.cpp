@@ -145,12 +145,6 @@ namespace {
         return !*BeforeHereInLoop;
       }
 
-      // For compile-time reasons, only perform the reachability check if
-      // BeforeHere dominates I, i.e. if the code below only checks for loop
-      // backedge reachability.
-      if (!DT->dominates(BeforeHere, I))
-        return false;
-
       // Check whether there is a path from I to BeforeHere and cache result.
       auto Res = BeforeHereReachable.try_emplace(BB, /* dummy value */ true);
       if (Res.second)
