@@ -136,9 +136,13 @@ namespace {
             !BB->getTerminator()->getNumSuccessors())
           return true;
 
-        SmallVector<BasicBlock*, 32> Worklist;
-        Worklist.append(succ_begin(BB), succ_end(BB));
-        return !isPotentiallyReachableFromMany(Worklist, BB, nullptr, DT);
+        if (!BeforeHereInLoop) {
+          SmallVector<BasicBlock*, 32> Worklist;
+          Worklist.append(succ_begin(BB), succ_end(BB));
+          BeforeHereInLoop =
+              isPotentiallyReachableFromMany(Worklist, BB, nullptr, DT);
+        }
+        return !*BeforeHereInLoop;
       }
 
       // For compile-time reasons, only perform the reachability check if
@@ -178,6 +182,7 @@ namespace {
     const Instruction *BeforeHere;
     const DominatorTree *DT;
     SmallDenseMap<BasicBlock *, bool> BeforeHereReachable;
+    Optional<bool> BeforeHereInLoop;
 
     bool ReturnCaptures;
     bool IncludeI;
