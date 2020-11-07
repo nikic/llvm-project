@@ -255,6 +255,8 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
   auto AddUses = [&](const Value *V) {
     --Count;
     for (const Use &U : V->uses()) {
+      if (!Tracker->shouldExplore(&U))
+        continue;
       // If there are lots of uses, conservatively say that the value
       // is captured to avoid taking too much compile time.
       if (Count++ >= MaxUsesToExplore) {
@@ -262,8 +264,6 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
         return false;
       }
       if (!Visited.insert(&U).second)
-        continue;
-      if (!Tracker->shouldExplore(&U))
         continue;
       Worklist.push_back(&U);
     }
