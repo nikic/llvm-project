@@ -1584,9 +1584,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
       // below. We need to ensure that the phi is inbounds and has a constant
       // positive operand so that we can check for alias with the initial value
       // and an unknown but positive size.
-      if (PVGEP->getPointerOperand() == PN && PVGEP->isInBounds() &&
-          PVGEP->getNumIndices() == 1 && isa<ConstantInt>(PVGEP->idx_begin()) &&
-          !cast<ConstantInt>(PVGEP->idx_begin())->isNegative()) {
+      if (getUnderlyingObject(PVGEP->getPointerOperand()) == PN) {
         isRecursive = true;
         return true;
       }
@@ -1638,8 +1636,10 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // If this PHI node is recursive, set the size of the accessed memory to
   // unknown to represent all the possible values the GEP could advance the
   // pointer to.
-  if (isRecursive)
+  if (isRecursive) {
     PNSize = LocationSize::unknown();
+    V2Size = LocationSize::unknown();
+  }
 
   // In the recursive alias queries below, we may compare values from two
   // different loop iterations. Keep track of visited phi blocks, which will
