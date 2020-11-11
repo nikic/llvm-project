@@ -1577,17 +1577,15 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   auto CheckForRecPhi = [&](Value *PV) {
     if (!EnableRecPhiAnalysis)
       return false;
-    if (GEPOperator *PVGEP = dyn_cast<GEPOperator>(PV)) {
-      // Check whether the incoming value is a GEP that advances the pointer
-      // result of this PHI node (e.g. in a loop). If this is the case, we
-      // would recurse and always get a MayAlias. Handle this case specially
-      // below. We need to ensure that the phi is inbounds and has a constant
-      // positive operand so that we can check for alias with the initial value
-      // and an unknown but positive size.
-      if (getUnderlyingObject(PVGEP->getPointerOperand()) == PN) {
-        isRecursive = true;
-        return true;
-      }
+    // Check whether the incoming value is a GEP that advances the pointer
+    // result of this PHI node (e.g. in a loop). If this is the case, we
+    // would recurse and always get a MayAlias. Handle this case specially
+    // below. We need to ensure that the phi is inbounds and has a constant
+    // positive operand so that we can check for alias with the initial value
+    // and an unknown but positive size.
+    if (getUnderlyingObject(PV) == PN) {
+      isRecursive = true;
+      return true;
     }
     return false;
   };
