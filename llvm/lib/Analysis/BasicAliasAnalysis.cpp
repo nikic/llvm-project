@@ -1335,10 +1335,6 @@ AliasResult BasicAAResult::aliasGEP(
     // instruction.  If one pointer is a GEP with a non-zero index of the other
     // pointer, we know they cannot alias.
 
-    // If both accesses are unknown size, we can't do anything useful here.
-    if (V1Size == LocationSize::unknown() && V2Size == LocationSize::unknown())
-      return MayAlias;
-
     AliasResult R = aliasCheck(UnderlyingV1, LocationSize::unknown(),
                                AAMDNodes(), V2, LocationSize::unknown(),
                                V2AAInfo, AAQI, nullptr, UnderlyingV2);
@@ -1351,6 +1347,10 @@ AliasResult BasicAAResult::aliasGEP(
       assert(R == NoAlias || R == MayAlias);
       return R;
     }
+
+    // If both accesses are unknown size, we can't do anything useful here.
+    if (V1Size == LocationSize::unknown() && V2Size == LocationSize::unknown())
+      return MayAlias;
   }
 
   // In the two GEP Case, if there is no difference in the offsets of the
