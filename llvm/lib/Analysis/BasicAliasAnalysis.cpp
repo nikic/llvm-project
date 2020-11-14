@@ -1252,6 +1252,15 @@ AliasResult BasicAAResult::aliasGEP(
     const GEPOperator *GEP1, LocationSize V1Size, const AAMDNodes &V1AAInfo,
     const Value *V2, LocationSize V2Size, const AAMDNodes &V2AAInfo,
     const Value *UnderlyingV1, const Value *UnderlyingV2, AAQueryInfo &AAQI) {
+  // If both accesses are unknown size, we can only check whether the
+  // underlying objects are disjoint.
+  if (V1Size == LocationSize::unknown() && V2Size == LocationSize::unknown()) {
+    AliasResult BaseAlias =
+        aliasCheck(UnderlyingV1, LocationSize::unknown(), AAMDNodes(),
+                   UnderlyingV2, LocationSize::unknown(), AAMDNodes(), AAQI);
+    return BaseAlias == NoAlias ? NoAlias : MayAlias;
+  }
+
   DecomposedGEP DecompGEP1, DecompGEP2;
   unsigned MaxPointerSize = getMaxPointerSize(DL);
   DecompGEP1.Offset = APInt(MaxPointerSize, 0);
@@ -1347,10 +1356,6 @@ AliasResult BasicAAResult::aliasGEP(
       assert(R == NoAlias || R == MayAlias);
       return R;
     }
-
-    // If both accesses are unknown size, we can't do anything useful here.
-    if (V1Size == LocationSize::unknown() && V2Size == LocationSize::unknown())
-      return MayAlias;
   }
 
   // In the two GEP Case, if there is no difference in the offsets of the
