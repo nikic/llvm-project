@@ -3500,7 +3500,6 @@ DependenceInfo::depends(Instruction *Src, Instruction *Dst,
                                  MemoryLocation::get(Dst),
                                  MemoryLocation::get(Src))) {
   case MayAlias:
-  case PartialAlias:
     // cannot analyse objects if we don't understand their aliasing.
     LLVM_DEBUG(dbgs() << "can't analyze may or partial alias\n");
     return std::make_unique<Dependence>(Src, Dst);

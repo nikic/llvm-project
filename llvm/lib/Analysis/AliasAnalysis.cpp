@@ -417,9 +417,6 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, AliasResult AR) {
   case MayAlias:
     OS << "MayAlias";
     break;
-  case PartialAlias:
-    OS << "PartialAlias";
-    break;
   }
   return OS;
 }

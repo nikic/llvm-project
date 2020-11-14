@@ -58,8 +58,8 @@ AliasResult ObjCARCAAResult::alias(const MemoryLocation &LocA,
   const Value *UB = GetUnderlyingObjCPtr(SB);
   if (UA != SA || UB != SB) {
     Result = AAResultBase::alias(MemoryLocation(UA), MemoryLocation(UB), AAQI);
-    // We can't use MustAlias or PartialAlias results here because
-    // GetUnderlyingObjCPtr may return an offsetted pointer value.
+    // We can't use MustAlias results here because GetUnderlyingObjCPtr may
+    // return an offsetted pointer value.
     if (Result == NoAlias)
       return NoAlias;
   }

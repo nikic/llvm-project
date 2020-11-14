@@ -300,7 +300,6 @@ define void @caller_a(double* %arg_a0,
 ; CHECK-NEXT:   120 Total Alias Queries Performed
 ; CHECK-NEXT:   84 no alias responses (70.0%)
 ; CHECK-NEXT:   36 may alias responses (30.0%)
-; CHECK-NEXT:   0 partial alias responses (0.0%)
 ; CHECK-NEXT:   0 must alias responses (0.0%)
 ; CHECK-NEXT:   Alias Analysis Evaluator Pointer Alias Summary: 70%/30%/0%
 ; CHECK-NEXT:   184 Total ModRef Queries Performed

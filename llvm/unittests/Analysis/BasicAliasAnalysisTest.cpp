@@ -121,7 +121,7 @@ TEST_F(BasicAATest, AliasInstWithFullObjectOfImpreciseSize) {
                 MemoryLocation(I8, LocationSize::precise(2)),
                 MemoryLocation(I8AtUncertainOffset, LocationSize::precise(1)),
                 AAQI),
-            AliasResult::PartialAlias);
+            AliasResult::MayAlias);
 
   ASSERT_EQ(BasicAA.alias(
                 MemoryLocation(I8, LocationSize::upperBound(2)),

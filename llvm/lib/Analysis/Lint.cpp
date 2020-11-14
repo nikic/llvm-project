@@ -242,7 +242,7 @@ void Lint::visitCallBase(CallBase &I) {
               continue;
             if (AI != BI && (*BI)->getType()->isPointerTy()) {
               AliasResult Result = AA->alias(*AI, *BI);
-              Assert(Result != MustAlias && Result != PartialAlias,
+              Assert(Result != MustAlias,
                      "Unusual: noalias argument aliases another argument", &I);
             }
           }

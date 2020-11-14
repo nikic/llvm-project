@@ -2100,7 +2100,6 @@ void ObjCARCOpt::OptimizeWeakCalls(Function &F) {
           Call->eraseFromParent();
           goto clobbered;
         case MayAlias:
-        case PartialAlias:
           goto clobbered;
         case NoAlias:
           break;
@@ -2129,7 +2128,6 @@ void ObjCARCOpt::OptimizeWeakCalls(Function &F) {
           Call->eraseFromParent();
           goto clobbered;
         case MayAlias:
-        case PartialAlias:
           goto clobbered;
         case NoAlias:
           break;

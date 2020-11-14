@@ -33,7 +33,7 @@ end:
 
 ; CHECK-LABEL: Function: notmust: 6 pointers, 0 call sites
 ; CHECK:        MustAlias:    [2 x i32]* %tab, i8* %0
-; CHECK:        PartialAlias: [2 x i32]* %tab, i32* %arrayidx
+; CHECK:        MayAlias:     [2 x i32]* %tab, i32* %arrayidx
 ; CHECK:        NoAlias:      i32* %arrayidx, i8* %0
 ; CHECK:        MustAlias:    [2 x i32]* %tab, i32* %arrayidx1
 ; CHECK:        MustAlias:    i32* %arrayidx1, i8* %0
@@ -88,7 +88,7 @@ if.end: ; preds = %f.exit
 ; CHECK:         MustAlias:    [10 x i32]* %tab, i8* %0
 ; CHECK:         MustAlias:    [10 x i32]* %tab, i32* %arrayidx
 ; CHECK:         MustAlias:    i32* %arrayidx, i8* %0
-; CHECK:         PartialAlias: [10 x i32]* %tab, i32* %arrayidx1
+; CHECK:         MayAlias:     [10 x i32]* %tab, i32* %arrayidx1
 ; CHECK:         NoAlias:      i32* %arrayidx1, i8* %0
 ; CHECK:         NoAlias:      i32* %arrayidx, i32* %arrayidx1
 ; CHECK:         MayAlias:     [10 x i32]* %tab, i32* %p.addr.05.i
@@ -140,7 +140,7 @@ if.end: ; preds = %f.exit
 ; CHECK-LABEL: Function: negative: 6 pointers, 1 call sites
 ; CHECK:         NoAlias:      [3 x i16]* %int_arr.10, i16** %argv.6.par
 ; CHECK:         NoAlias:      i16* %_tmp1, i16** %argv.6.par
-; CHECK:         PartialAlias: [3 x i16]* %int_arr.10, i16* %_tmp1
+; CHECK:         MayAlias:     [3 x i16]* %int_arr.10, i16* %_tmp1
 ; CHECK:         MayAlias:     i16* %ls1.9.0, i16** %argv.6.par
 ; CHECK:         MayAlias:     [3 x i16]* %int_arr.10, i16* %ls1.9.0
 ; CHECK:         MayAlias:     i16* %_tmp1, i16* %ls1.9.0
@@ -149,7 +149,7 @@ if.end: ; preds = %f.exit
 ; CHECK:         MayAlias:     i16* %_tmp1, i16* %_tmp7
 ; CHECK:         NoAlias:      i16* %_tmp7, i16* %ls1.9.0
 ; CHECK:         NoAlias:      i16* %_tmp11, i16** %argv.6.par
-; CHECK:         PartialAlias: [3 x i16]* %int_arr.10, i16* %_tmp11
+; CHECK:         MayAlias:     [3 x i16]* %int_arr.10, i16* %_tmp11
 ; CHECK:         NoAlias:      i16* %_tmp1, i16* %_tmp11
 ; CHECK:         MayAlias:     i16* %_tmp11, i16* %ls1.9.0
 ; CHECK:         MayAlias:     i16* %_tmp11, i16* %_tmp7

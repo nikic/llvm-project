@@ -27,7 +27,6 @@ static cl::opt<bool> PrintAll("print-all-alias-modref-info", cl::ReallyHidden);
 
 static cl::opt<bool> PrintNoAlias("print-no-aliases", cl::ReallyHidden);
 static cl::opt<bool> PrintMayAlias("print-may-aliases", cl::ReallyHidden);
-static cl::opt<bool> PrintPartialAlias("print-partial-aliases", cl::ReallyHidden);
 static cl::opt<bool> PrintMustAlias("print-must-aliases", cl::ReallyHidden);
 
 static cl::opt<bool> PrintNoModRef("print-no-modref", cl::ReallyHidden);
@@ -132,7 +131,7 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
     }
   }
 
-  if (PrintAll || PrintNoAlias || PrintMayAlias || PrintPartialAlias ||
+  if (PrintAll || PrintNoAlias || PrintMayAlias ||
       PrintMustAlias || PrintNoModRef || PrintMod || PrintRef || PrintModRef)
     errs() << "Function: " << F.getName() << ": " << Pointers.size()
            << " pointers, " << Calls.size() << " call sites\n";
@@ -161,10 +160,6 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
         PrintResults(AR, PrintMayAlias, *I1, *I2, F.getParent());
         ++MayAliasCount;
         break;
-      case PartialAlias:
-        PrintResults(AR, PrintPartialAlias, *I1, *I2, F.getParent());
-        ++PartialAliasCount;
-        break;
       case MustAlias:
         PrintResults(AR, PrintMustAlias, *I1, *I2, F.getParent());
         ++MustAliasCount;
@@ -188,10 +183,6 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
           PrintLoadStoreResults(AR, PrintMayAlias, Load, Store, F.getParent());
           ++MayAliasCount;
           break;
-        case PartialAlias:
-          PrintLoadStoreResults(AR, PrintPartialAlias, Load, Store, F.getParent());
-          ++PartialAliasCount;
-          break;
         case MustAlias:
           PrintLoadStoreResults(AR, PrintMustAlias, Load, Store, F.getParent());
           ++MustAliasCount;
@@ -214,10 +205,6 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
         case MayAlias:
           PrintLoadStoreResults(AR, PrintMayAlias, *I1, *I2, F.getParent());
           ++MayAliasCount;
-          break;
-        case PartialAlias:
-          PrintLoadStoreResults(AR, PrintPartialAlias, *I1, *I2, F.getParent());
-          ++PartialAliasCount;
           break;
         case MustAlias:
           PrintLoadStoreResults(AR, PrintMustAlias, *I1, *I2, F.getParent());
@@ -335,8 +322,7 @@ AAEvaluator::~AAEvaluator() {
   if (FunctionCount == 0)
     return;
 
-  int64_t AliasSum =
-      NoAliasCount + MayAliasCount + PartialAliasCount + MustAliasCount;
+  int64_t AliasSum = NoAliasCount + MayAliasCount + MustAliasCount;
   errs() << "===== Alias Analysis Evaluator Report =====\n";
   if (AliasSum == 0) {
     errs() << "  Alias Analysis Evaluator Summary: No pointers!\n";
@@ -346,14 +332,11 @@ AAEvaluator::~AAEvaluator() {
     PrintPercent(NoAliasCount, AliasSum);
     errs() << "  " << MayAliasCount << " may alias responses ";
     PrintPercent(MayAliasCount, AliasSum);
-    errs() << "  " << PartialAliasCount << " partial alias responses ";
-    PrintPercent(PartialAliasCount, AliasSum);
     errs() << "  " << MustAliasCount << " must alias responses ";
     PrintPercent(MustAliasCount, AliasSum);
     errs() << "  Alias Analysis Evaluator Pointer Alias Summary: "
            << NoAliasCount * 100 / AliasSum << "%/"
            << MayAliasCount * 100 / AliasSum << "%/"
-           << PartialAliasCount * 100 / AliasSum << "%/"
            << MustAliasCount * 100 / AliasSum << "%\n";
   }
 

@@ -1370,7 +1370,7 @@ AliasResult BasicAAResult::aliasGEP(
     if (GEP1BaseOffset.sge(0)) {
       if (V2Size != LocationSize::unknown()) {
         if (GEP1BaseOffset.ult(V2Size.getValue()))
-          return PartialAlias;
+          return MayAlias;
         return NoAlias;
       }
     } else {
@@ -1385,7 +1385,7 @@ AliasResult BasicAAResult::aliasGEP(
       if (V1Size != LocationSize::unknown() &&
           V2Size != LocationSize::unknown()) {
         if ((-GEP1BaseOffset).ult(V1Size.getValue()))
-          return PartialAlias;
+          return MayAlias;
         return NoAlias;
       }
     }
@@ -1462,10 +1462,6 @@ static AliasResult MergeAliasResults(AliasResult A, AliasResult B) {
   // If the results agree, take it.
   if (A == B)
     return A;
-  // A mix of PartialAlias and MustAlias is PartialAlias.
-  if ((A == PartialAlias && B == MustAlias) ||
-      (B == PartialAlias && A == MustAlias))
-    return PartialAlias;
   // Otherwise, we don't know anything.
   return MayAlias;
 }
@@ -1649,8 +1645,8 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // Other results are not possible.
   if (Alias == MayAlias)
     return MayAlias;
-  // With recursive phis we cannot guarantee that MustAlias/PartialAlias will
-  // remain valid to all elements and needs to conservatively return MayAlias.
+  // With recursive phis we cannot guarantee that MustAlias will remain valid
+  // to all elements and needs to conservatively return MayAlias.
   if (isRecursive && Alias != NoAlias)
     return MayAlias;
 
@@ -1811,14 +1807,6 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     if (Result != MayAlias)
       return AAQI.updateResult(Locs, Result);
   }
-
-  // If both pointers are pointing into the same object and one of them
-  // accesses the entire object, then the accesses must overlap in some way.
-  if (O1 == O2)
-    if (V1Size.isPrecise() && V2Size.isPrecise() &&
-        (isObjectSize(O1, V1Size.getValue(), DL, TLI, NullIsValidLocation) ||
-         isObjectSize(O2, V2Size.getValue(), DL, TLI, NullIsValidLocation)))
-      return AAQI.updateResult(Locs, PartialAlias);
 
   // Recurse back into the best AA results we have, potentially with refined
   // memory locations. We have already ensured that BasicAA has a MayAlias

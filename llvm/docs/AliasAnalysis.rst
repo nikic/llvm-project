@@ -106,7 +106,7 @@ The ``alias`` method
   
 The ``alias`` method is the primary interface used to determine whether or not
 two memory objects alias each other.  It takes two memory objects as input and
-returns MustAlias, PartialAlias, MayAlias, or NoAlias as appropriate.
+returns MustAlias, MayAlias, or NoAlias as appropriate.
 
 Like all ``AliasAnalysis`` interfaces, the ``alias`` method requires that either
 the two pointer values be defined within the same function, or at least one of
@@ -130,10 +130,6 @@ the "irrelevant" dependencies are ignored.
 
 The ``MayAlias`` response is used whenever the two pointers might refer to the
 same object.
-
-The ``PartialAlias`` response is used when the two memory objects are known to
-be overlapping in some way, regardless whether they start at the same address
-or not.
 
 The ``MustAlias`` response may only be returned if the two memory objects are
 guaranteed to always start at exactly the same location. A ``MustAlias``

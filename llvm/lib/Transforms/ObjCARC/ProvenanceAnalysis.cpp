@@ -115,7 +115,6 @@ bool ProvenanceAnalysis::relatedCheck(const Value *A, const Value *B) {
   case NoAlias:
     return false;
   case MustAlias:
-  case PartialAlias:
     return true;
   case MayAlias:
     break;

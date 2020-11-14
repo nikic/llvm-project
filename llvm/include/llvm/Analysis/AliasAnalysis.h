@@ -83,8 +83,6 @@ enum AliasResult : uint8_t {
   NoAlias = 0,
   /// The two locations may or may not alias. This is the least precise result.
   MayAlias,
-  /// The two locations alias, but only due to a partial overlap.
-  PartialAlias,
   /// The two locations precisely alias each other.
   MustAlias,
 };
