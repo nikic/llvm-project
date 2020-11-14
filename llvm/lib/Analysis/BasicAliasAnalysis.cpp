@@ -1380,10 +1380,7 @@ AliasResult BasicAAResult::aliasGEP(
       // ---------------->|
       // |-->V1Size       |-------> V2Size
       // GEP1             V2
-      // We need to know that V2Size is not unknown, otherwise we might have
-      // stripped a gep with negative index ('gep <ptr>, -1, ...).
-      if (V1Size != LocationSize::unknown() &&
-          V2Size != LocationSize::unknown()) {
+      if (V1Size != LocationSize::unknown()) {
         if ((-GEP1BaseOffset).ult(V1Size.getValue()))
           return PartialAlias;
         return NoAlias;

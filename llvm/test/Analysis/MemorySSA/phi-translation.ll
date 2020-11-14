@@ -394,7 +394,8 @@ define void @dont_merge_noalias_complex_2(i32 %arg, i32 %arg1)  {
 ; CHECK-LABEL: storebb:
 ; CHECK-NEXT:  %iv.add2 = add nuw nsw i64 %iv, 2
 ; CHECK-NEXT:  %p.2 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 %iv.add2
-; CHECK-NEXT:  ; MemoryUse(4)
+; NOLIMIT-NEXT:; MemoryUse(1)
+; LIMIT-NEXT:  ; MemoryUse(4)
 ; CHECK-NEXT:  %l.2 = load i32, i32* %p.2, align 4
 ; CHECK-NEXT:  ; 2 = MemoryDef(4)
 ; CHECK-NEXT:  store i32 10, i32* %p.1, align 4
