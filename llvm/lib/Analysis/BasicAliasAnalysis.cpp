@@ -1743,13 +1743,15 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
 
   AliasResult Result = aliasCheckRecursive(V1, V1Size, V1AAInfo, V2, V2Size,
                                            V2AAInfo, AAQI, O1, O2);
-
-  // If caching is disabled, remove the entry once the recursive checks are
-  // done. We only needed it to prevent infinite recursion.
-  if (DisableCache)
-    AAQI.AliasCache.erase(AAQI.AliasCache.find(Locs));
-  else if (Result != MayAlias)
-    AAQI.updateResult(Locs, Result);
+  if (Result != MayAlias) {
+    // If caching is disabled, remove the entry once the recursive checks are
+    // done. We only needed it to prevent infinite recursion. We can retain
+    // MayAlias results, which are always conservatively correct.
+    if (DisableCache)
+      AAQI.AliasCache.erase(AAQI.AliasCache.find(Locs));
+    else
+      AAQI.updateResult(Locs, Result);
+  }
   return Result;
 }
 
