@@ -65,10 +65,6 @@
 
 using namespace llvm;
 
-/// Enable analysis of recursive PHI nodes.
-static cl::opt<bool> EnableRecPhiAnalysis("basic-aa-recphi", cl::Hidden,
-                                          cl::init(true));
-
 /// By default, even on 32-bit architectures we use 64-bit integers for
 /// calculations. This will allow us to more-aggressively decompose indexing
 /// expressions calculated using i64 values (e.g., long long in C) which is
@@ -1175,7 +1171,6 @@ AliasResult BasicAAResult::aliasGEP(
     // Check to see if these two pointers are related by the getelementptr
     // instruction.  If one pointer is a GEP with a non-zero index of the other
     // pointer, we know they cannot alias.
-
     AliasResult R = aliasCheck(
         UnderlyingV1, LocationSize::beforeOrAfterPointer(), AAMDNodes(),
         V2, V2Size, V2AAInfo, AAQI, nullptr, UnderlyingV2);
@@ -1401,20 +1396,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     }
 
   SmallVector<Value *, 4> V1Srcs;
-  // If a phi operand recurses back to the phi, we can still determine NoAlias
-  // if we don't alias the underlying objects of the other phi operands, as we
-  // know that the recursive phi needs to be based on them in some way.
-  bool isRecursive = false;
-  auto CheckForRecPhi = [&](Value *PV) {
-    if (!EnableRecPhiAnalysis)
-      return false;
-    if (getUnderlyingObject(PV) == PN) {
-      isRecursive = true;
-      return true;
-    }
-    return false;
-  };
-
   if (PV) {
     // If we have PhiValues then use it to get the underlying phi values.
     const PhiValues::ValueSet &PhiValueSet = PV->getValuesForPhi(PN);
@@ -1425,11 +1406,8 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     if (PhiValueSet.size() > MaxLookupSearchDepth)
       return MayAlias;
     // Add the values to V1Srcs
-    for (Value *PV1 : PhiValueSet) {
-      if (CheckForRecPhi(PV1))
-        continue;
+    for (Value *PV1 : PhiValueSet)
       V1Srcs.push_back(PV1);
-    }
   } else {
     // If we don't have PhiInfo then just look at the operands of the phi itself
     // FIXME: Remove this once we can guarantee that we have PhiInfo always
@@ -1442,9 +1420,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
         // and 'n' are the number of PHI sources.
         return MayAlias;
 
-      if (CheckForRecPhi(PV1))
-        continue;
-
       if (UniqueSrc.insert(PV1).second)
         V1Srcs.push_back(PV1);
     }
@@ -1455,12 +1430,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // block, but return MayAlias just in case.
   if (V1Srcs.empty())
     return MayAlias;
-
-  // If this PHI node is recursive, indicate that the pointer may be moved
-  // across iterations. We can only prove NoAlias if different underlying
-  // objects are involved.
-  if (isRecursive)
-    PNSize = LocationSize::beforeOrAfterPointer();
 
   // In the recursive alias queries below, we may compare values from two
   // different loop iterations. Keep track of visited phi blocks, which will
@@ -1483,10 +1452,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // Early exit if the check of the first PHI source against V2 is MayAlias.
   // Other results are not possible.
   if (Alias == MayAlias)
-    return MayAlias;
-  // With recursive phis we cannot guarantee that MustAlias/PartialAlias will
-  // remain valid to all elements and needs to conservatively return MayAlias.
-  if (isRecursive && Alias != NoAlias)
     return MayAlias;
 
   // If all sources of the PHI node NoAlias or MustAlias V2, then returns
