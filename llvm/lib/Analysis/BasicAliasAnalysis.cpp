@@ -65,10 +65,6 @@
 
 using namespace llvm;
 
-/// Enable analysis of recursive PHI nodes.
-static cl::opt<bool> EnableRecPhiAnalysis("basic-aa-recphi", cl::Hidden,
-                                          cl::init(true));
-
 /// By default, even on 32-bit architectures we use 64-bit integers for
 /// calculations. This will allow us to more-aggressively decompose indexing
 /// expressions calculated using i64 values (e.g., long long in C) which is
@@ -1222,6 +1218,13 @@ AliasResult BasicAAResult::aliasGEP(
     const GEPOperator *GEP1, LocationSize V1Size, const AAMDNodes &V1AAInfo,
     const Value *V2, LocationSize V2Size, const AAMDNodes &V2AAInfo,
     const Value *UnderlyingV1, const Value *UnderlyingV2, AAQueryInfo &AAQI) {
+  if (!V1Size.hasValue() && !V2Size.hasValue()) {
+    AliasResult BaseAlias = aliasCheck(
+        UnderlyingV1, LocationSize::beforeOrAfterPointer(), AAMDNodes(),
+        UnderlyingV2, LocationSize::beforeOrAfterPointer(), AAMDNodes(), AAQI);
+    return BaseAlias == NoAlias ? NoAlias : MayAlias;
+  }
+
   DecomposedGEP DecompGEP1 = DecomposeGEPExpression(GEP1, DL, &AC, DT);
   DecomposedGEP DecompGEP2 = DecomposeGEPExpression(V2, DL, &AC, DT);
 
@@ -1291,14 +1294,6 @@ AliasResult BasicAAResult::aliasGEP(
     GetIndexDifference(DecompGEP1.VarIndices, DecompGEP2.VarIndices);
 
   } else {
-    // Check to see if these two pointers are related by the getelementptr
-    // instruction.  If one pointer is a GEP with a non-zero index of the other
-    // pointer, we know they cannot alias.
-
-    // If both accesses are unknown size, we can't do anything useful here.
-    if (!V1Size.hasValue() && !V2Size.hasValue())
-      return MayAlias;
-
     AliasResult R = aliasCheck(
         UnderlyingV1, LocationSize::beforeOrAfterPointer(), AAMDNodes(),
         V2, V2Size, V2AAInfo, AAQI, nullptr, UnderlyingV2);
@@ -1498,31 +1493,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     }
 
   SmallVector<Value *, 4> V1Srcs;
-  // For a recursive phi, that recurses through a contant gep, we can perform
-  // aliasing calculations using the other phi operands with an unknown size to
-  // specify that an unknown number of elements after the initial value are
-  // potentially accessed.
-  bool isRecursive = false;
-  auto CheckForRecPhi = [&](Value *PV) {
-    if (!EnableRecPhiAnalysis)
-      return false;
-    if (GEPOperator *PVGEP = dyn_cast<GEPOperator>(PV)) {
-      // Check whether the incoming value is a GEP that advances the pointer
-      // result of this PHI node (e.g. in a loop). If this is the case, we
-      // would recurse and always get a MayAlias. Handle this case specially
-      // below. We need to ensure that the phi is inbounds and has a constant
-      // positive operand so that we can check for alias with the initial value
-      // and an unknown but positive size.
-      if (PVGEP->getPointerOperand() == PN && PVGEP->isInBounds() &&
-          PVGEP->getNumIndices() == 1 && isa<ConstantInt>(PVGEP->idx_begin()) &&
-          !cast<ConstantInt>(PVGEP->idx_begin())->isNegative()) {
-        isRecursive = true;
-        return true;
-      }
-    }
-    return false;
-  };
-
   if (PV) {
     // If we have PhiValues then use it to get the underlying phi values.
     const PhiValues::ValueSet &PhiValueSet = PV->getValuesForPhi(PN);
@@ -1533,11 +1503,8 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     if (PhiValueSet.size() > MaxLookupSearchDepth)
       return MayAlias;
     // Add the values to V1Srcs
-    for (Value *PV1 : PhiValueSet) {
-      if (CheckForRecPhi(PV1))
-        continue;
+    for (Value *PV1 : PhiValueSet)
       V1Srcs.push_back(PV1);
-    }
   } else {
     // If we don't have PhiInfo then just look at the operands of the phi itself
     // FIXME: Remove this once we can guarantee that we have PhiInfo always
@@ -1550,9 +1517,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
         // and 'n' are the number of PHI sources.
         return MayAlias;
 
-      if (CheckForRecPhi(PV1))
-        continue;
-
       if (UniqueSrc.insert(PV1).second)
         V1Srcs.push_back(PV1);
     }
@@ -1563,16 +1527,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // block, but return MayAlias just in case.
   if (V1Srcs.empty())
     return MayAlias;
-
-  // If this PHI node is recursive, set the size of the accessed memory to
-  // unknown to represent all the possible values the GEP could advance the
-  // pointer to.
-  if (isRecursive)
-    // TODO: We are checking above that the addrec GEP has a positive offset
-    // and can thus assume that all accesses happen after the base pointer.
-    // It might be better to drop the offset requirement and use
-    // beforeOrAfterPointer().
-    PNSize = LocationSize::afterPointer();
 
   // In the recursive alias queries below, we may compare values from two
   // different loop iterations. Keep track of visited phi blocks, which will
@@ -1595,10 +1549,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // Early exit if the check of the first PHI source against V2 is MayAlias.
   // Other results are not possible.
   if (Alias == MayAlias)
-    return MayAlias;
-  // With recursive phis we cannot guarantee that MustAlias/PartialAlias will
-  // remain valid to all elements and needs to conservatively return MayAlias.
-  if (isRecursive && Alias != NoAlias)
     return MayAlias;
 
   // If all sources of the PHI node NoAlias or MustAlias V2, then returns
