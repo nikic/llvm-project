@@ -1703,9 +1703,13 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // The NoAlias assumption has been used, but disproven.
     Result = MayAlias;
     // Remove any results that may have been based on this assumption.
-    while (AssumptionBasedResults.size() > OrigNumAssumptionBasedResults)
-      AAQI.AliasCache.erase(
-          AAQI.AliasCache.find(AssumptionBasedResults.pop_back_val()));
+    while (AssumptionBasedResults.size() > OrigNumAssumptionBasedResults) {
+      // The result may not be in the cache if it was part of a recursive
+      // query that used an empty AAQI. We can safely ignore this.
+      auto It = AAQI.AliasCache.find(AssumptionBasedResults.pop_back_val());
+      if (It != AAQI.AliasCache.end())
+        AAQI.AliasCache.erase(It);
+    }
   }
 
   // This is a definitive result now, when considered as a root query.
