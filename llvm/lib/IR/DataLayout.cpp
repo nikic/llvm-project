@@ -582,12 +582,15 @@ Error DataLayout::setAlignment(AlignTypeEnum align_type, Align abi_align,
   return Error::success();
 }
 
-DataLayout::PointersTy::iterator
-DataLayout::findPointerLowerBound(uint32_t AddressSpace) {
-  auto I = Pointers.begin(), E = Pointers.end();
-  while (I < E && I->AddressSpace < AddressSpace)
-    ++I;
-  return I;
+const PointerAlignElem &
+DataLayout::getPointerAlignElem(uint32_t AddressSpace) const {
+  for (const PointerAlignElem &Elem : Pointers)
+    if (Elem.AddressSpace == AddressSpace)
+      return Elem;
+
+  // Fall back to address space zero info.
+  assert(Pointers[0].AddressSpace == 0);
+  return Pointers[0];
 }
 
 Error DataLayout::setPointerAlignment(uint32_t AddrSpace, Align ABIAlign,
@@ -597,7 +600,10 @@ Error DataLayout::setPointerAlignment(uint32_t AddrSpace, Align ABIAlign,
     return reportError(
         "Preferred alignment cannot be less than the ABI alignment");
 
-  PointersTy::iterator I = findPointerLowerBound(AddrSpace);
+  auto I = std::lower_bound(Pointers.begin(), Pointers.end(), AddrSpace,
+                          [](const PointerAlignElem &A, uint32_t AddressSpace) {
+    return A.AddressSpace < AddressSpace;
+  });
   if (I == Pointers.end() || I->AddressSpace != AddrSpace) {
     Pointers.insert(I, PointerAlignElem::get(AddrSpace, ABIAlign, PrefAlign,
                                              TypeByteWidth, IndexWidth));
@@ -712,30 +718,15 @@ const StructLayout *DataLayout::getStructLayout(StructType *Ty) const {
 }
 
 Align DataLayout::getPointerABIAlignment(unsigned AS) const {
-  PointersTy::const_iterator I = findPointerLowerBound(AS);
-  if (I == Pointers.end() || I->AddressSpace != AS) {
-    I = findPointerLowerBound(0);
-    assert(I->AddressSpace == 0);
-  }
-  return I->ABIAlign;
+  return getPointerAlignElem(AS).ABIAlign;
 }
 
 Align DataLayout::getPointerPrefAlignment(unsigned AS) const {
-  PointersTy::const_iterator I = findPointerLowerBound(AS);
-  if (I == Pointers.end() || I->AddressSpace != AS) {
-    I = findPointerLowerBound(0);
-    assert(I->AddressSpace == 0);
-  }
-  return I->PrefAlign;
+  return getPointerAlignElem(AS).PrefAlign;
 }
 
 unsigned DataLayout::getPointerSize(unsigned AS) const {
-  PointersTy::const_iterator I = findPointerLowerBound(AS);
-  if (I == Pointers.end() || I->AddressSpace != AS) {
-    I = findPointerLowerBound(0);
-    assert(I->AddressSpace == 0);
-  }
-  return I->TypeByteWidth;
+  return getPointerAlignElem(AS).TypeByteWidth;
 }
 
 unsigned DataLayout::getMaxPointerSize() const {
@@ -754,12 +745,7 @@ unsigned DataLayout::getPointerTypeSizeInBits(Type *Ty) const {
 }
 
 unsigned DataLayout::getIndexSize(unsigned AS) const {
-  PointersTy::const_iterator I = findPointerLowerBound(AS);
-  if (I == Pointers.end() || I->AddressSpace != AS) {
-    I = findPointerLowerBound(0);
-    assert(I->AddressSpace == 0);
-  }
-  return I->IndexWidth;
+  return getPointerAlignElem(AS).IndexWidth;
 }
 
 unsigned DataLayout::getIndexTypeSizeInBits(Type *Ty) const {
