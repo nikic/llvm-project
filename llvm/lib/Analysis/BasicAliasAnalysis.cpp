@@ -390,10 +390,13 @@ static bool isObjectSize(const Value *V, uint64_t Size, const DataLayout &DL,
 /// an issue, for example, in particular for 32b pointers with negative indices
 /// that rely on two's complement wrap-arounds for precise alias information
 /// where the maximum pointer size is 64b.
-static APInt adjustToPointerSize(const APInt &Offset, unsigned PointerSize) {
+static void adjustToPointerSize(APInt &Offset, unsigned PointerSize) {
   assert(PointerSize <= Offset.getBitWidth() && "Invalid PointerSize!");
   unsigned ShiftBits = Offset.getBitWidth() - PointerSize;
-  return (Offset << ShiftBits).ashr(ShiftBits);
+  if (ShiftBits) {
+    Offset <<= ShiftBits;
+    Offset.ashrInPlace(ShiftBits);
+  }
 }
 
 static unsigned getMaxPointerSize(const DataLayout &DL) {
@@ -581,7 +584,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
 
       // Make sure that we have a scale that makes sense for this target's
       // pointer size.
-      Scale = adjustToPointerSize(Scale, PointerSize);
+      adjustToPointerSize(Scale, PointerSize);
 
       if (!!Scale) {
         VariableGEPIndex Entry = {Index, ZExtBits, SExtBits, Scale};
@@ -591,7 +594,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
 
     // Take care of wrap-arounds
     if (GepHasConstantOffset)
-      Decomposed.Offset = adjustToPointerSize(Decomposed.Offset, PointerSize);
+      adjustToPointerSize(Decomposed.Offset, PointerSize);
 
     // Analyze the base pointer next.
     V = GEPOp->getOperand(0);
