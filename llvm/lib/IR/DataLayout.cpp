@@ -584,10 +584,10 @@ Error DataLayout::setAlignment(AlignTypeEnum align_type, Align abi_align,
 
 DataLayout::PointersTy::iterator
 DataLayout::findPointerLowerBound(uint32_t AddressSpace) {
-  return std::lower_bound(Pointers.begin(), Pointers.end(), AddressSpace,
-                          [](const PointerAlignElem &A, uint32_t AddressSpace) {
-    return A.AddressSpace < AddressSpace;
-  });
+  auto I = Pointers.begin(), E = Pointers.end();
+  while (I < E && I->AddressSpace < AddressSpace)
+    ++I;
+  return I;
 }
 
 Error DataLayout::setPointerAlignment(uint32_t AddrSpace, Align ABIAlign,
