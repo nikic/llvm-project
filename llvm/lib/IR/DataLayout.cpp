@@ -639,13 +639,13 @@ Error DataLayout::setPointerAlignment(uint32_t AddrSpace, Align ABIAlign,
 
 Align DataLayout::getIntegerAlignment(uint32_t BitWidth,
                                       bool abi_or_pref) const {
-  auto I = findAlignmentLowerBound(IntAlignments, BitWidth);
-  // If we don't have an exact match, use alignment of next larger integer
-  // type. If there is none, use alignment of largest integer type by going
-  // back one element.
-  if (I == IntAlignments.end())
-    --I;
-  return abi_or_pref ? I->ABIAlign : I->PrefAlign;
+  // If no exact match, use alignment of next larger integer type.
+  for (const LayoutAlignElem &Elem : IntAlignments)
+    if (Elem.TypeBitWidth >= BitWidth)
+      return abi_or_pref ? Elem.ABIAlign : Elem.PrefAlign;
+  // Use alignment of largest integer type.
+  const LayoutAlignElem &Elem = IntAlignments.back();
+  return abi_or_pref ? Elem.ABIAlign : Elem.PrefAlign;
 }
 
 namespace {
