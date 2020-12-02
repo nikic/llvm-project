@@ -70,11 +70,11 @@ static cl::opt<unsigned> MaxNumberOfUseBBsForSinking(
     cl::desc("Do not sink instructions that have too many uses."));
 
 static cl::opt<bool> EnableMSSAInLoopSink(
-    "enable-mssa-in-loop-sink", cl::Hidden, cl::init(false),
+    "enable-mssa-in-loop-sink", cl::Hidden, cl::init(true),
     cl::desc("Enable MemorySSA for LoopSink in new pass manager"));
 
 static cl::opt<bool> EnableMSSAInLegacyLoopSink(
-    "enable-mssa-in-legacy-loop-sink", cl::Hidden, cl::init(false),
+    "enable-mssa-in-legacy-loop-sink", cl::Hidden, cl::init(true),
     cl::desc("Enable MemorySSA for LoopSink in legacy pass manager"));
 
 /// Return adjusted total frequency of \p BBs.

@@ -300,6 +300,7 @@
 ; GCN-O1-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; GCN-O1-NEXT:       Function Alias Analysis Results
 ; GCN-O1-NEXT:       Scalar Evolution Analysis
+; GCN-O1-NEXT:       Memory SSA
 ; GCN-O1-NEXT:       Block Frequency Analysis
 ; GCN-O1-NEXT:       Loop Pass Manager
 ; GCN-O1-NEXT:         Loop Sink
@@ -659,6 +660,7 @@
 ; GCN-O2-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; GCN-O2-NEXT:       Function Alias Analysis Results
 ; GCN-O2-NEXT:       Scalar Evolution Analysis
+; GCN-O2-NEXT:       Memory SSA
 ; GCN-O2-NEXT:       Block Frequency Analysis
 ; GCN-O2-NEXT:       Loop Pass Manager
 ; GCN-O2-NEXT:         Loop Sink
@@ -1023,6 +1025,7 @@
 ; GCN-O3-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; GCN-O3-NEXT:       Function Alias Analysis Results
 ; GCN-O3-NEXT:       Scalar Evolution Analysis
+; GCN-O3-NEXT:       Memory SSA
 ; GCN-O3-NEXT:       Block Frequency Analysis
 ; GCN-O3-NEXT:       Loop Pass Manager
 ; GCN-O3-NEXT:         Loop Sink
