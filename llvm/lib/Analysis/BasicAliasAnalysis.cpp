@@ -1729,16 +1729,13 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
       Locs, AAQueryInfo::CacheEntry{NoAlias, 0});
   if (!Pair.second) {
     auto &Entry = Pair.first->second;
-    if (!Entry.isDefinitive()) {
-      // Remember that we used an assumption.
+    // Remember that we used an assumption.
+    if (!Entry.isDefinitive())
       ++Entry.NumAssumptionUses;
-      ++NumAssumptionUses;
-    }
     return Entry.Result;
   }
 
-  int OrigNumAssumptionUses = NumAssumptionUses;
-  unsigned OrigNumAssumptionBasedResults = AssumptionBasedResults.size();
+  unsigned OrigTracePos = LocPairTrace.size();
   AliasResult Result = aliasCheckRecursive(V1, V1Size, V1AAInfo, V2, V2Size,
                                            V2AAInfo, AAQI, O1, O2);
 
@@ -1750,24 +1747,23 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // The NoAlias assumption has been used, but disproven.
     Result = MayAlias;
     // Remove any results that may have been based on this assumption.
-    while (AssumptionBasedResults.size() > OrigNumAssumptionBasedResults) {
+    while (LocPairTrace.size() > OrigTracePos) {
       // The result may not be in the cache if it was part of a recursive
       // query that used an empty AAQI. We can safely ignore this.
-      auto It = AAQI.AliasCache.find(AssumptionBasedResults.pop_back_val());
+      auto It = AAQI.AliasCache.find(LocPairTrace.pop_back_val());
       if (It != AAQI.AliasCache.end())
         AAQI.AliasCache.erase(It);
     }
   }
 
   // This is a definitive result now, when considered as a root query.
-  NumAssumptionUses -= Entry.NumAssumptionUses;
   Entry.Result = Result;
   Entry.NumAssumptionUses = -1;
 
   // However, it may still be based on assumptions higher up in the chain.
   // Remember it, so it can be purged from the cache later.
-  if (OrigNumAssumptionUses != NumAssumptionUses && Result != MayAlias)
-    AssumptionBasedResults.push_back(Locs);
+  if (Result != MayAlias)
+    LocPairTrace.push_back(Locs);
   return Result;
 }
 
