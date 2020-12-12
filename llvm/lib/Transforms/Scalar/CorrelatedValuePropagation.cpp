@@ -343,7 +343,8 @@ static bool processSwitch(SwitchInst *I, LazyValueInfo *LVI,
     for (auto CI = SI->case_begin(), CE = SI->case_end(); CI != CE;) {
       ConstantInt *Case = CI->getCaseValue();
       LazyValueInfo::Tristate State =
-          LVI->getPredicateAt(CmpInst::ICMP_EQ, Cond, Case, I);
+          LVI->getPredicateAt(CmpInst::ICMP_EQ, Cond, Case, I,
+                              /* UseBlockValue */ true);
 
       if (State == LazyValueInfo::False) {
         // This case never fires - remove it.
