@@ -1222,6 +1222,21 @@ AliasResult BasicAAResult::aliasGEP(
   }
 
   if (!DecompGEP1.VarIndices.empty()) {
+    // Pick context instruction for ValueTracking queries. Using either
+    // instruction is correct, but the one with the larger context (the "more
+    // dominated" one) is preferable. If both instructions are GEPs not in a
+    // dominance relationship, don't use a context instruction, as we have no
+    // select criterion that is independent of the order in the alias() call.
+    const auto *CxtI = dyn_cast<Instruction>(GEP1);
+    if (CxtI) {
+      if (const auto *I2 = dyn_cast<GetElementPtrInst>(V2)) {
+        if (DT->dominates(CxtI, I2))
+          CxtI = I2;
+        else if (!DT->dominates(I2, CxtI))
+          CxtI = nullptr;
+      }
+    }
+
     APInt GCD;
     bool AllNonNegative = DecompGEP1.Offset.isNonNegative();
     bool AllNonPositive = DecompGEP1.Offset.isNonPositive();
@@ -1238,8 +1253,7 @@ AliasResult BasicAAResult::aliasGEP(
         // give up if we can't determine conditions that hold for every cycle:
         const Value *V = DecompGEP1.VarIndices[i].V;
 
-        KnownBits Known =
-            computeKnownBits(V, DL, 0, &AC, dyn_cast<Instruction>(GEP1), DT);
+        KnownBits Known = computeKnownBits(V, DL, 0, &AC, CxtI, DT);
         bool SignKnownZero = Known.isNonNegative();
         bool SignKnownOne = Known.isNegative();
 
