@@ -53,6 +53,7 @@ public:
 
   Constructable(Constructable && src) : constructed(true) {
     value = src.value;
+    src.value = 0;
     ++numConstructorCalls;
     ++numMoveConstructorCalls;
   }
@@ -74,6 +75,7 @@ public:
   Constructable & operator=(Constructable && src) {
     EXPECT_TRUE(constructed);
     value = src.value;
+    src.value = 0;
     ++numAssignmentCalls;
     ++numMoveAssignmentCalls;
     return *this;
@@ -1031,11 +1033,16 @@ protected:
     return N;
   }
 
+  template <class T> static bool isValueType() {
+    return std::is_same<T, typename VectorT::value_type>::value;
+  }
+
   void SetUp() override {
     SmallVectorTestBase::SetUp();
 
     // Fill up the small size so that insertions move the elements.
-    V.append({0, 0, 0});
+    for (int I = 0, E = NumBuiltinElts(V); I != E; ++I)
+      V.emplace_back(I + 1);
   }
 };
 
@@ -1050,38 +1057,48 @@ TYPED_TEST_CASE(SmallVectorReferenceInvalidationTest,
 
 TYPED_TEST(SmallVectorReferenceInvalidationTest, PushBack) {
   auto &V = this->V;
-  (void)V;
-#if !defined(NDEBUG) && GTEST_HAS_DEATH_TEST
-  EXPECT_DEATH(V.push_back(V.back()), this->AssertionMessage);
-#endif
+  V.push_back(V.back());
+  int N = this->NumBuiltinElts(V);
+  EXPECT_EQ(N, V.back());
+  if (this->template isValueType<Constructable>())
+    EXPECT_EQ(N, V[N - 1]);
 }
 
 TYPED_TEST(SmallVectorReferenceInvalidationTest, PushBackMoved) {
   auto &V = this->V;
-  (void)V;
-#if !defined(NDEBUG) && GTEST_HAS_DEATH_TEST
-  EXPECT_DEATH(V.push_back(std::move(V.back())), this->AssertionMessage);
-#endif
+  V.push_back(std::move(V.back()));
+  int N = this->NumBuiltinElts(V);
+  EXPECT_EQ(N, V.back());
+  if (this->template isValueType<Constructable>())
+    EXPECT_EQ(0, V[N - 1]);
 }
 
 TYPED_TEST(SmallVectorReferenceInvalidationTest, Resize) {
   auto &V = this->V;
   (void)V;
   int N = this->NumBuiltinElts(V);
-#if !defined(NDEBUG) && GTEST_HAS_DEATH_TEST
-  EXPECT_DEATH(V.resize(N + 1, V.back()), this->AssertionMessage);
-#endif
+  V.resize(N + 1, V.back());
+  EXPECT_EQ(N, V.back());
 
-  // No assertion when shrinking, since the parameter isn't accessed.
-  V.resize(N - 1, V.back());
+  // Append enough more elements that V will grow again. This time the old
+  // storage will have been freed at time of access and sanitizers can catch
+  // the use-after-free.
+  V.resize(V.capacity() + 1, V.front());
+  EXPECT_EQ(1, V.back());
 }
 
 TYPED_TEST(SmallVectorReferenceInvalidationTest, Append) {
   auto &V = this->V;
   (void)V;
-#if !defined(NDEBUG) && GTEST_HAS_DEATH_TEST
-  EXPECT_DEATH(V.append(1, V.back()), this->AssertionMessage);
-#endif
+  V.append(1, V.back());
+  int N = this->NumBuiltinElts(V);
+  EXPECT_EQ(N, V[N - 1]);
+
+  // Append enough more elements that V will grow again. This time the old
+  // storage will have been freed at time of access and sanitizers can catch
+  // the use-after-free.
+  V.append(V.capacity(), V.front());
+  EXPECT_EQ(1, V.back());
 }
 
 TYPED_TEST(SmallVectorReferenceInvalidationTest, AppendRange) {
@@ -1127,26 +1144,54 @@ TYPED_TEST(SmallVectorReferenceInvalidationTest, AssignRange) {
 TYPED_TEST(SmallVectorReferenceInvalidationTest, Insert) {
   auto &V = this->V;
   (void)V;
-#if !defined(NDEBUG) && GTEST_HAS_DEATH_TEST
-  EXPECT_DEATH(V.insert(V.begin(), V.back()), this->AssertionMessage);
-#endif
+  V.insert(V.begin(), V.back());
+  int N = this->NumBuiltinElts(V);
+  EXPECT_EQ(N, V.front());
+  if (this->template isValueType<Constructable>()) {
+    // Check that the value was copied out (not moved).
+    EXPECT_EQ(N, V.back());
+  }
+
+  // The logic for reference invalidation when NOT growing is disabled when
+  // TakesParamByValue since it relies on taking a copy. Check that we actually
+  // took a copy.
+  V.insert(V.begin(), V.back());
+  EXPECT_EQ(N, V.front());
 }
 
 TYPED_TEST(SmallVectorReferenceInvalidationTest, InsertMoved) {
   auto &V = this->V;
   (void)V;
-#if !defined(NDEBUG) && GTEST_HAS_DEATH_TEST
-  EXPECT_DEATH(V.insert(V.begin(), std::move(V.back())),
-               this->AssertionMessage);
-#endif
+  int N = this->NumBuiltinElts(V);
+  V.insert(V.begin(), std::move(V.back()));
+  EXPECT_EQ(N, V.front());
+  if (this->template isValueType<Constructable>()) {
+    // Check that the value got moved out, then copy it back in.
+    EXPECT_EQ(0, V.back());
+    V.back() = V.front();
+  }
+
+  // The logic for reference invalidation when NOT growing is disabled when
+  // TakesParamByValue since it relies on taking a copy. Check that we actually
+  // took a copy.
+  V.insert(V.begin(), std::move(V.back()));
+  EXPECT_EQ(N, V.front());
 }
 
 TYPED_TEST(SmallVectorReferenceInvalidationTest, InsertN) {
   auto &V = this->V;
   (void)V;
-#if !defined(NDEBUG) && GTEST_HAS_DEATH_TEST
-  EXPECT_DEATH(V.insert(V.begin(), 2, V.back()), this->AssertionMessage);
-#endif
+
+  // Cover NumToInsert <= this->end() - I.
+  V.insert(V.begin() + 1, 1, V.back());
+  int N = this->NumBuiltinElts(V);
+  EXPECT_EQ(N, V[1]);
+
+  // Cover NumToInsert > this->end() - I. Also insert enough more elements that
+  // V will grow again. This time the old storage will have been freed at time
+  // of access and sanitizers can catch the use-after-free.
+  V.insert(V.begin(), V.capacity(), V.front());
+  EXPECT_EQ(1, V.front());
 }
 
 TYPED_TEST(SmallVectorReferenceInvalidationTest, InsertRange) {
