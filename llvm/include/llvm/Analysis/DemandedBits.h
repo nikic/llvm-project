@@ -56,6 +56,10 @@ public:
   /// Return true if, during analysis, I could not be reached.
   bool isInstructionDead(Instruction *I);
 
+  /// Like getDemandedBits(), but for a specific Use, rather than the union
+  /// over all uses of an instruction.
+  APInt getDemandedUseBits(Use *U);
+
   /// Return whether this use is dead by means of not having any demanded bits.
   bool isUseDead(Use *U);
 
@@ -90,10 +94,8 @@ private:
 
   // The set of visited instructions (non-integer-typed only).
   SmallPtrSet<Instruction*, 32> Visited;
-  DenseMap<Instruction *, APInt> AliveBits;
-  // Uses with no demanded bits. If the user also has no demanded bits, the use
-  // might not be stored explicitly in this map, to save memory during analysis.
-  SmallPtrSet<Use *, 16> DeadUses;
+  DenseMap<Instruction *, APInt> AliveInstBits;
+  DenseMap<Use *, APInt> AliveUseBits;
 };
 
 class DemandedBitsWrapperPass : public FunctionPass {

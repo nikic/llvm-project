@@ -334,8 +334,8 @@ void DemandedBits::performAnalysis() {
   Analyzed = true;
 
   Visited.clear();
-  AliveBits.clear();
-  DeadUses.clear();
+  AliveInstBits.clear();
+  AliveUseBits.clear();
 
   SmallSetVector<Instruction*, 16> Worklist;
 
@@ -351,7 +351,7 @@ void DemandedBits::performAnalysis() {
     // all bits as live).
     Type *T = I.getType();
     if (T->isIntOrIntVectorTy()) {
-      if (AliveBits.try_emplace(&I, T->getScalarSizeInBits(), 0).second)
+      if (AliveInstBits.try_emplace(&I, T->getScalarSizeInBits(), 0).second)
         Worklist.insert(&I);
 
       continue;
@@ -362,7 +362,7 @@ void DemandedBits::performAnalysis() {
       if (Instruction *J = dyn_cast<Instruction>(OI)) {
         Type *T = J->getType();
         if (T->isIntOrIntVectorTy())
-          AliveBits[J] = APInt::getAllOnesValue(T->getScalarSizeInBits());
+          AliveInstBits[J] = APInt::getAllOnesValue(T->getScalarSizeInBits());
         else
           Visited.insert(J);
         Worklist.insert(J);
@@ -382,7 +382,7 @@ void DemandedBits::performAnalysis() {
     APInt AOut;
     bool InputIsKnownDead = false;
     if (UserI->getType()->isIntOrIntVectorTy()) {
-      AOut = AliveBits[UserI];
+      AOut = AliveInstBits[UserI];
       LLVM_DEBUG(dbgs() << " Alive Out: 0x"
                         << Twine::utohexstr(AOut.getLimitedValue()));
 
@@ -398,12 +398,7 @@ void DemandedBits::performAnalysis() {
     // existing set, if any, and if that changes the set of alive bits, the
     // operand is added to the work-list.
     for (Use &OI : UserI->operands()) {
-      // We also want to detect dead uses of arguments, but will only store
-      // demanded bits for instructions.
       Instruction *I = dyn_cast<Instruction>(OI);
-      if (!I && !isa<Argument>(OI))
-        continue;
-
       Type *T = OI->getType();
       if (T->isIntOrIntVectorTy()) {
         unsigned BitWidth = T->getScalarSizeInBits();
@@ -415,19 +410,15 @@ void DemandedBits::performAnalysis() {
           // output are alive, all others are dead.
           determineLiveOperandBits(UserI, OI, OI.getOperandNo(), AOut, AB,
                                    Known, Known2, KnownBitsComputed);
-
-          // Keep track of uses which have no demanded bits.
-          if (AB.isNullValue())
-            DeadUses.insert(&OI);
-          else
-            DeadUses.erase(&OI);
         }
+
+        AliveUseBits[&OI] = AB;
 
         if (I) {
           // If we've added to the set of alive bits (or the operand has not
           // been previously visited), then re-queue the operand to be visited
           // again.
-          auto Res = AliveBits.try_emplace(I);
+          auto Res = AliveInstBits.try_emplace(I);
           if (Res.second || (AB |= Res.first->second) != Res.first->second) {
             Res.first->second = std::move(AB);
             Worklist.insert(I);
@@ -443,8 +434,8 @@ void DemandedBits::performAnalysis() {
 APInt DemandedBits::getDemandedBits(Instruction *I) {
   performAnalysis();
 
-  auto Found = AliveBits.find(I);
-  if (Found != AliveBits.end())
+  auto Found = AliveInstBits.find(I);
+  if (Found != AliveInstBits.end())
     return Found->second;
 
   const DataLayout &DL = I->getModule()->getDataLayout();
@@ -452,41 +443,32 @@ APInt DemandedBits::getDemandedBits(Instruction *I) {
       DL.getTypeSizeInBits(I->getType()->getScalarType()));
 }
 
+APInt DemandedBits::getDemandedUseBits(Use *U) {
+  performAnalysis();
+
+  auto Found = AliveUseBits.find(U);
+  if (Found != AliveUseBits.end())
+    return Found->second;
+
+  const DataLayout &DL = F.getParent()->getDataLayout();
+  unsigned BitWidth = DL.getTypeSizeInBits((*U)->getType()->getScalarType());
+  return APInt::getAllOnesValue(BitWidth);
+}
+
 bool DemandedBits::isInstructionDead(Instruction *I) {
   performAnalysis();
 
-  return !Visited.count(I) && AliveBits.find(I) == AliveBits.end() &&
+  return !Visited.count(I) && AliveInstBits.find(I) == AliveInstBits.end() &&
     !isAlwaysLive(I);
 }
 
 bool DemandedBits::isUseDead(Use *U) {
-  // We only track integer uses, everything else is assumed live.
-  if (!(*U)->getType()->isIntOrIntVectorTy())
-    return false;
-
-  // Uses by always-live instructions are never dead.
-  Instruction *UserI = cast<Instruction>(U->getUser());
-  if (isAlwaysLive(UserI))
-    return false;
-
-  performAnalysis();
-  if (DeadUses.count(U))
-    return true;
-
-  // If no output bits are demanded, no input bits are demanded and the use
-  // is dead. These uses might not be explicitly present in the DeadUses map.
-  if (UserI->getType()->isIntOrIntVectorTy()) {
-    auto Found = AliveBits.find(UserI);
-    if (Found != AliveBits.end() && Found->second.isNullValue())
-      return true;
-  }
-
-  return false;
+  return getDemandedUseBits(U).isNullValue();
 }
 
 void DemandedBits::print(raw_ostream &OS) {
   performAnalysis();
-  for (auto &KV : AliveBits) {
+  for (auto &KV : AliveInstBits) {
     OS << "DemandedBits: 0x" << Twine::utohexstr(KV.second.getLimitedValue())
        << " for " << *KV.first << '\n';
   }
