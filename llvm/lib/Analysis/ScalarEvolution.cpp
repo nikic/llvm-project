@@ -1176,6 +1176,14 @@ const SCEV *ScalarEvolution::getTruncateExpr(const SCEV *Op, Type *Ty,
     return getTruncateOrZeroExtend(SZ->getOperand(), Ty, Depth + 1);
 
   if (Depth > MaxCastDepth) {
+    // Return zero if truncating to known zeros. Since we're already at maximum
+    // desired recursion depth, only do this for unknown SCEV's.
+    if (const SCEVUnknown *U = dyn_cast<SCEVUnknown>(Op)) {
+      uint32_t MinTrailingZeros = GetMinTrailingZeros(Op);
+      if (MinTrailingZeros >= getTypeSizeInBits(Ty))
+        return getZero(Ty);
+    }
+
     SCEV *S =
         new (SCEVAllocator) SCEVTruncateExpr(ID.Intern(SCEVAllocator), Op, Ty);
     UniqueSCEVs.InsertNode(S, IP);
@@ -1221,6 +1229,11 @@ const SCEV *ScalarEvolution::getTruncateExpr(const SCEV *Op, Type *Ty,
       Operands.push_back(getTruncateExpr(Op, Ty, Depth + 1));
     return getAddRecExpr(Operands, AddRec->getLoop(), SCEV::FlagAnyWrap);
   }
+
+  // Return zero if truncating to known zeros.
+  uint32_t MinTrailingZeros = GetMinTrailingZeros(Op);
+  if (MinTrailingZeros >= getTypeSizeInBits(Ty))
+    return getZero(Ty);
 
   // The cast wasn't folded; create an explicit cast node. We can reuse
   // the existing insert position since if we get here, we won't have
