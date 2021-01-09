@@ -691,10 +691,12 @@ FunctionModRefBehavior BasicAAResult::getModRefBehavior(const CallBase *Call) {
   // If the call has operand bundles then aliasing attributes from the function
   // it calls do not directly apply to the call.  This can be made more precise
   // in the future.
+#if 0
   if (!Call->hasOperandBundles())
     if (const Function *F = Call->getCalledFunction())
       Min =
           FunctionModRefBehavior(Min & getBestAAResults().getModRefBehavior(F));
+#endif
 
   return Min;
 }
@@ -881,7 +883,7 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
 
       // If this is a no-capture pointer argument, see if we can tell that it
       // is impossible to alias the pointer we're checking.
-      AliasResult AR = getBestAAResults().alias(
+      AliasResult AR = AAQI.AAR.alias(
           MemoryLocation::getBeforeOrAfter(*CI),
           MemoryLocation::getBeforeOrAfter(Object), AAQI);
       if (AR != MustAlias)
@@ -929,8 +931,8 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   if (isMallocOrCallocLikeFn(Call, &TLI)) {
     // Be conservative if the accessed pointer may alias the allocation -
     // fallback to the generic handling below.
-    if (getBestAAResults().alias(MemoryLocation::getBeforeOrAfter(Call),
-                                 Loc, AAQI) == NoAlias)
+    if (AAQI.AAR.alias(MemoryLocation::getBeforeOrAfter(Call),
+                       Loc, AAQI) == NoAlias)
       return ModRefInfo::NoModRef;
   }
 
@@ -939,9 +941,9 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   // no-alias or must-alias.
   if (auto *Inst = dyn_cast<AnyMemCpyInst>(Call)) {
     AliasResult SrcAA =
-        getBestAAResults().alias(MemoryLocation::getForSource(Inst), Loc, AAQI);
+        AAQI.AAR.alias(MemoryLocation::getForSource(Inst), Loc, AAQI);
     AliasResult DestAA =
-        getBestAAResults().alias(MemoryLocation::getForDest(Inst), Loc, AAQI);
+        AAQI.AAR.alias(MemoryLocation::getForDest(Inst), Loc, AAQI);
     // It's also possible for Loc to alias both src and dest, or neither.
     ModRefInfo rv = ModRefInfo::NoModRef;
     if (SrcAA != NoAlias)
@@ -1470,7 +1472,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // If we inserted a block into VisitedPhiBBs, alias analysis results that
   // have been cached earlier may no longer be valid. Perform recursive queries
   // with a new AAQueryInfo.
-  AAQueryInfo NewAAQI;
+  AAQueryInfo NewAAQI(AAQI.AAR);
   AAQueryInfo *UseAAQI = BlockInserted ? &NewAAQI : &AAQI;
 
   AliasResult Alias = aliasCheck(V2, V2Size, V2AAInfo, V1Srcs[0], PNSize,
@@ -1710,8 +1712,8 @@ AliasResult BasicAAResult::aliasCheckRecursive(
   // Recurse back into the best AA results we have, potentially with refined
   // memory locations. We have already ensured that BasicAA has a MayAlias
   // cache result for these, so any recursion back into BasicAA won't loop.
-  return getBestAAResults().alias(MemoryLocation(V1, V1Size, V1AAInfo),
-                                  MemoryLocation(V2, V2Size, V2AAInfo), AAQI);
+  return AAQI.AAR.alias(MemoryLocation(V1, V1Size, V1AAInfo),
+                        MemoryLocation(V2, V2Size, V2AAInfo), AAQI);
 }
 
 /// Check whether two Values can be considered equivalent.
