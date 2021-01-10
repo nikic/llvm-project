@@ -472,7 +472,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(NewGVN ? createNewGVNPass()
                    : createGVNPass(DisableGVNLoadPRE)); // Remove redundancies
   }
-  MPM.add(createMemCpyOptPass());             // Remove memcpy / form memset
   MPM.add(createSCCPPass());                  // Constant prop with SCCP
 
   if (EnableConstraintElimination)
@@ -495,6 +494,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
   // TODO: Investigate if this is too expensive at O1.
   if (OptLevel > 1) {
+    MPM.add(createMemCpyOptPass());             // Remove memcpy / form memset
     MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
   }
