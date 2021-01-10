@@ -92,8 +92,8 @@
 ; CHECK-O2-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-O2-NEXT: Running analysis: PhiValuesAnalysis
 ; CHECK-O2-NEXT: Running pass: MemCpyOptPass on foo
-; CHECK-O2-NEXT: Running pass: DSEPass on foo
 ; CHECK-O2-NEXT: Running analysis: MemorySSAAnalysis on foo
+; CHECK-O2-NEXT: Running pass: DSEPass on foo
 ; CHECK-O2-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
 ; CHECK-O2-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-O2-NEXT: Running pass: SimplifyCFGPass on foo
