@@ -2361,6 +2361,45 @@ struct DSEState {
     return false;
   }
 
+  /// Eliminates writes to locations where the value that is being written
+  /// is already stored at the same location.
+  bool eliminateRedundantStoresOfExisitingValues() {
+    bool MadeChange = false;
+    LLVM_DEBUG(dbgs() << "Trying to eliminate MemoryDefs that write the "
+                         "already exisiting value\n");
+    for (MemoryDef *Def : reverse(MemDefs)) {
+      if (SkipStores.find(Def) != SkipStores.end() ||
+          !isRemovable(Def->getMemoryInst()))
+        continue;
+
+      Instruction *DefI = Def->getMemoryInst();
+      Optional<MemoryLocation> MaybeDefLoc = getLocForWriteEx(DefI);
+      if (!MaybeDefLoc)
+        continue;
+
+      // Remove any uses of Def, that are MemoryDefs that write the same value
+      // to the same location as Def.
+      for (Use &U : make_early_inc_range(Def->uses())) {
+        MemoryAccess *UseAccess = cast<MemoryAccess>(U.getUser());
+        MemoryDef *UseDef = dyn_cast_or_null<MemoryDef>(UseAccess);
+        if (!UseDef)
+          continue;
+        Instruction *UseI = UseDef->getMemoryInst();
+
+        // Skip self-reads.
+        if (isReadClobber(*MaybeDefLoc, UseI))
+          continue;
+
+        if (UseI->isIdenticalTo(DefI)) {
+          deleteDeadInstruction(UseI);
+          NumRedundantStores++;
+          MadeChange = true;
+        }
+      }
+    }
+    return MadeChange;
+  }
+
   /// Eliminate writes to objects that are not visible in the caller and are not
   /// accessed before returning from the function.
   bool eliminateDeadWritesAtEndOfFunction() {
@@ -2629,6 +2668,8 @@ bool eliminateDeadStoresMemorySSA(Function &F, AliasAnalysis &AA,
       continue;
     }
   }
+
+  MadeChange |= State.eliminateRedundantStoresOfExisitingValues();
 
   if (EnablePartialOverwriteTracking)
     for (auto &KV : State.IOLs)

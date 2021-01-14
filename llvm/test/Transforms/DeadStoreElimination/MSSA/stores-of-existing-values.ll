@@ -11,7 +11,6 @@ define void @test1_pr16520(i1 %b, i8* nocapture %r) {
 ; CHECK-NEXT:    store i8 1, i8* [[R:%.*]], align 1
 ; CHECK-NEXT:    br i1 [[B:%.*]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
 ; CHECK:       if.then:
-; CHECK-NEXT:    store i8 1, i8* [[R]], align 1
 ; CHECK-NEXT:    tail call void @fn_mayread_or_clobber()
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       if.else:
@@ -54,7 +53,6 @@ define void @test2(i1 %b, i8* nocapture %r) {
 ; CHECK-NEXT:    tail call void @fn_readonly()
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
-; CHECK-NEXT:    store i8 1, i8* [[R]], align 1
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -71,6 +69,39 @@ if.else:                                          ; preds = %entry
 
 if.end:                                           ; preds = %if.else, %if.then
   store i8 1, i8* %r, align 1
+  ret void
+}
+
+; Make sure volatile stores are not removed.
+define void @test2_volatile(i1 %b, i8* nocapture %r) {
+; CHECK-LABEL: @test2_volatile(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    store volatile i8 1, i8* [[R:%.*]], align 1
+; CHECK-NEXT:    br i1 [[B:%.*]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
+; CHECK:       if.then:
+; CHECK-NEXT:    tail call void @fn_readonly()
+; CHECK-NEXT:    br label [[IF_END:%.*]]
+; CHECK:       if.else:
+; CHECK-NEXT:    tail call void @fn_readonly()
+; CHECK-NEXT:    br label [[IF_END]]
+; CHECK:       if.end:
+; CHECK-NEXT:    store volatile i8 1, i8* [[R]], align 1
+; CHECK-NEXT:    ret void
+;
+entry:
+  store volatile i8 1, i8* %r, align 1
+  br i1 %b, label %if.then, label %if.else
+
+if.then:                                          ; preds = %entry
+  tail call void @fn_readonly()
+  br label %if.end
+
+if.else:                                          ; preds = %entry
+  tail call void @fn_readonly()
+  br label %if.end
+
+if.end:                                           ; preds = %if.else, %if.then
+  store volatile i8 1, i8* %r, align 1
   ret void
 }
 
@@ -181,7 +212,6 @@ define void @test6(i32* noalias %P) {
 ; CHECK-NEXT:    [[C1:%.*]] = call i1 @cond()
 ; CHECK-NEXT:    br i1 [[C1]], label [[FOR_BODY:%.*]], label [[END:%.*]]
 ; CHECK:       for.body:
-; CHECK-NEXT:    store i32 1, i32* [[P]], align 4
 ; CHECK-NEXT:    [[LV:%.*]] = load i32, i32* [[P]], align 4
 ; CHECK-NEXT:    br label [[FOR_HEADER]]
 ; CHECK:       end:
@@ -216,7 +246,6 @@ define void @test7(i32* noalias %P) {
 ; CHECK:       bb2:
 ; CHECK-NEXT:    ret void
 ; CHECK:       bb3:
-; CHECK-NEXT:    store i32 0, i32* [[P]], align 4
 ; CHECK-NEXT:    ret void
 ;
   store i32 0, i32* %P
@@ -268,7 +297,6 @@ define void @test9(i32* noalias %P) {
 ; CHECK-NEXT:    call void @fn_mayread_or_clobber()
 ; CHECK-NEXT:    ret void
 ; CHECK:       bb3:
-; CHECK-NEXT:    store i32 0, i32* [[P]], align 4
 ; CHECK-NEXT:    ret void
 ;
   store i32 0, i32* %P
