@@ -1458,7 +1458,7 @@ static bool addWillReturn(const SCCNodeSet &SCCNodes) {
     if (!F || F->willReturn() || !functionWillReturn(*F))
       continue;
 
-    F->setWillReturn();
+    //F->setWillReturn();
     NumWillReturn++;
     Changed = true;
   }
