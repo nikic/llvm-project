@@ -49,7 +49,7 @@ using namespace PatternMatch;
 
 /// FIXME: Enabled by default until the pattern is supported well.
 static cl::opt<bool> EnableUnsafeSelectTransform(
-    "instcombine-unsafe-select-transform", cl::init(true),
+    "instcombine-unsafe-select-transform", cl::init(false),
     cl::desc("Enable poison-unsafe select to and/or transform"));
 
 static Value *createMinMax(InstCombiner::BuilderTy &Builder,
