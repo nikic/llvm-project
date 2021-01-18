@@ -91,7 +91,7 @@ using namespace PatternMatch;
 
 cl::opt<bool> llvm::RequireAndPreserveDomTree(
     "simplifycfg-require-and-preserve-domtree", cl::Hidden, cl::ZeroOrMore,
-    cl::init(false),
+    cl::init(true),
     cl::desc("Temorary development switch used to gradually uplift SimplifyCFG "
              "into preserving DomTree,"));
 
@@ -6730,21 +6730,12 @@ bool SimplifyCFGOpt::simplifyOnceImpl(BasicBlock *BB) {
 
 bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
   bool Changed = simplifyOnceImpl(BB);
-
-  assert((!RequireAndPreserveDomTree ||
-          (DTU &&
-           DTU->getDomTree().verify(DominatorTree::VerificationLevel::Full))) &&
-         "Failed to maintain validity of domtree!");
+  DTU->getDomTree();
 
   return Changed;
 }
 
 bool SimplifyCFGOpt::run(BasicBlock *BB) {
-  assert((!RequireAndPreserveDomTree ||
-          (DTU &&
-           DTU->getDomTree().verify(DominatorTree::VerificationLevel::Full))) &&
-         "Original domtree is invalid?");
-
   bool Changed = false;
 
   // Repeated simplify BB as long as resimplification is requested.

@@ -371,7 +371,7 @@ bool AMDGPUUnifyDivergentExitNodes::runOnFunction(Function &F) {
   }
 
   // FIXME: add PDT here once simplifycfg is ready.
-  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
   if (RequireAndPreserveDomTree)
     DTU.applyUpdates(Updates);
   Updates.clear();

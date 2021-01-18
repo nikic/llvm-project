@@ -10,7 +10,6 @@
 ; CHECK-Osz-NEXT: SROA
 ; CHECK-Osz-NEXT: Early CSE
 ; CHECK-Osz-NEXT: Simplify the CFG
-; CHECK-Osz-NEXT: Dominator Tree Construction
 ; CHECK-Osz-NEXT: Basic Alias Analysis (stateless AA impl)
 ; CHECK-Osz-NEXT: Function Alias Analysis Results
 ; CHECK-Osz-NEXT: Natural Loop Information

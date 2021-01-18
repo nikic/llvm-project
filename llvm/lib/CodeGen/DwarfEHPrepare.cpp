@@ -249,17 +249,7 @@ bool DwarfEHPrepare::InsertUnwindResumeCalls() {
 }
 
 bool DwarfEHPrepare::run() {
-  assert(((OptLevel == CodeGenOpt::None || !RequireAndPreserveDomTree) ||
-          (DTU &&
-           DTU->getDomTree().verify(DominatorTree::VerificationLevel::Full))) &&
-         "Original domtree is invalid?");
-
   bool Changed = InsertUnwindResumeCalls();
-
-  assert(((OptLevel == CodeGenOpt::None || !RequireAndPreserveDomTree) ||
-          (DTU &&
-           DTU->getDomTree().verify(DominatorTree::VerificationLevel::Full))) &&
-         "Original domtree is invalid?");
 
   return Changed;
 }
@@ -268,7 +258,7 @@ static bool prepareDwarfEH(CodeGenOpt::Level OptLevel,
                            FunctionCallee &RewindFunction, Function &F,
                            const TargetLowering &TLI, DominatorTree *DT,
                            const TargetTransformInfo *TTI) {
-  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
 
   return DwarfEHPrepare(OptLevel, RewindFunction, F, TLI, DT ? &DTU : nullptr,
                         TTI)

@@ -232,7 +232,7 @@ static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
 static bool simplifyFunctionCFGImpl(Function &F, const TargetTransformInfo &TTI,
                                     DominatorTree *DT,
                                     const SimplifyCFGOptions &Options) {
-  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
 
   bool EverChanged = removeUnreachableBlocks(F, DT ? &DTU : nullptr);
   EverChanged |= mergeEmptyReturnBlocks(F, DT ? &DTU : nullptr);
@@ -260,15 +260,7 @@ static bool simplifyFunctionCFGImpl(Function &F, const TargetTransformInfo &TTI,
 static bool simplifyFunctionCFG(Function &F, const TargetTransformInfo &TTI,
                                 DominatorTree *DT,
                                 const SimplifyCFGOptions &Options) {
-  assert((!RequireAndPreserveDomTree ||
-          (DT && DT->verify(DominatorTree::VerificationLevel::Full))) &&
-         "Original domtree is invalid?");
-
   bool Changed = simplifyFunctionCFGImpl(F, TTI, DT, Options);
-
-  assert((!RequireAndPreserveDomTree ||
-          (DT && DT->verify(DominatorTree::VerificationLevel::Full))) &&
-         "Failed to maintain validity of domtree!");
 
   return Changed;
 }

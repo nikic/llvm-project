@@ -160,7 +160,6 @@
 ; CHECK-NEXT:       Combine redundant instructions
 ; CHECK-NEXT:       Simplify the CFG
 ; CHECK-NEXT:       Sparse Conditional Constant Propagation
-; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:       Function Alias Analysis Results
 ; CHECK-NEXT:       Natural Loop Information
@@ -182,6 +181,7 @@
 ; CHECK-NEXT:     Lower type metadata
 ; CHECK-NEXT:     Lower type metadata
 ; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Simplify the CFG
 ; CHECK-NEXT:     Eliminate Available Externally Globals
 ; CHECK-NEXT:     Dead Global Elimination
