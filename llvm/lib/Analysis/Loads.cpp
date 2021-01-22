@@ -438,6 +438,10 @@ Value *llvm::FindAvailablePtrLoadStore(Value *Ptr, Type *AccessTy,
   const DataLayout &DL = ScanBB->getModule()->getDataLayout();
   Value *StrippedPtr = Ptr->stripPointerCasts();
 
+  // First try to find an available pointer, and then check if the
+  // intervening instructions don't alias.
+  SmallVector<Instruction *, 8> MustNotAlias;
+  Value *AvailablePtr = nullptr;
   while (ScanFrom != ScanBB->begin()) {
     // We must ignore debug info directives when counting (otherwise they
     // would affect codegen).
@@ -470,12 +474,10 @@ Value *llvm::FindAvailablePtrLoadStore(Value *Ptr, Type *AccessTy,
           return nullptr;
 
         if (IsLoadCSE)
-            *IsLoadCSE = true;
-        return LI;
+          *IsLoadCSE = true;
+        AvailablePtr = LI;
+        break;
       }
-
-    // Try to get the store size for the type.
-    auto AccessSize = LocationSize::precise(DL.getTypeStoreSize(AccessTy));
 
     if (StoreInst *SI = dyn_cast<StoreInst>(Inst)) {
       Value *StorePtr = SI->getPointerOperand()->stripPointerCasts();
@@ -493,7 +495,8 @@ Value *llvm::FindAvailablePtrLoadStore(Value *Ptr, Type *AccessTy,
 
         if (IsLoadCSE)
           *IsLoadCSE = false;
-        return SI->getOperand(0);
+        AvailablePtr = SI->getOperand(0);
+        break;
       }
 
       // If both StrippedPtr and StorePtr reach all the way to an alloca or
@@ -503,44 +506,39 @@ Value *llvm::FindAvailablePtrLoadStore(Value *Ptr, Type *AccessTy,
           (isa<AllocaInst>(StorePtr) || isa<GlobalVariable>(StorePtr)) &&
           StrippedPtr != StorePtr)
         continue;
-
-      if (!AA) {
-        // When AA isn't available, but if the load and the store have the same
-        // base, constant offsets and non-overlapping access ranges, ignore the
-        // store. This is a simple form of alias analysis that is used by the
-        // inliner. FIXME: use BasicAA if possible.
-        if (AreNonOverlapSameBaseLoadAndStore(
-                Ptr, AccessTy, SI->getPointerOperand(),
-                SI->getValueOperand()->getType(), DL))
-          continue;
-      } else {
-        // If we have alias analysis and it says the store won't modify the
-        // loaded value, ignore the store.
-        if (!isModSet(AA->getModRefInfo(SI, StrippedPtr, AccessSize)))
-          continue;
-      }
-
-      // Otherwise the store that may or may not alias the pointer, bail out.
-      ++ScanFrom;
-      return nullptr;
     }
 
-    // If this is some other instruction that may clobber Ptr, bail out.
-    if (Inst->mayWriteToMemory()) {
-      // If alias analysis claims that it really won't modify the load,
-      // ignore it.
-      if (AA && !isModSet(AA->getModRefInfo(Inst, StrippedPtr, AccessSize)))
-        continue;
-
-      // May modify the pointer, bail out.
-      ++ScanFrom;
-      return nullptr;
-    }
+    if (Inst->mayWriteToMemory())
+      MustNotAlias.push_back(Inst);
   }
 
-  // Got to the start of the block, we didn't find it, but are done for this
-  // block.
-  return nullptr;
+  if (!AvailablePtr)
+    return nullptr;
+
+  // We have a forwarding candidate. Check that the memory was not clobbered
+  // in between.
+  auto AccessSize = LocationSize::precise(DL.getTypeStoreSize(AccessTy));
+  for (Instruction *I : MustNotAlias) {
+    if (AA) {
+      if (!isModSet(AA->getModRefInfo(I, StrippedPtr, AccessSize)))
+        continue;
+    } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+      // When AA isn't available, but if the load and the store have the same
+      // base, constant offsets and non-overlapping access ranges, ignore the
+      // store. This is a simple form of alias analysis that is used by the
+      // inliner. FIXME: use BasicAA if possible.
+      if (AreNonOverlapSameBaseLoadAndStore(
+              Ptr, AccessTy, SI->getPointerOperand(),
+              SI->getValueOperand()->getType(), DL))
+        continue;
+    }
+
+    // May modify the pointer, bail out.
+    ScanFrom = I->getIterator();
+    return nullptr;
+  }
+
+  return AvailablePtr;
 }
 
 bool llvm::canReplacePointersIfEqual(Value *A, Value *B, const DataLayout &DL,
