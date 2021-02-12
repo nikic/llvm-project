@@ -91,6 +91,9 @@ STATISTIC(SearchTimes, "Number of times a GEP is decomposed");
 /// cannot be involved in a cycle.
 const unsigned MaxNumPhiBBsValueReachabilityCheck = 20;
 
+/// Maximum depth of recursive alias analysis queries.
+static const unsigned MaxQueryDepth = 8;
+
 // The max limit of the search depth in DecomposeGEPExpression() and
 // getUnderlyingObject(), both functions need to use the same search
 // depth otherwise the algorithm in aliasGEP will assert.
@@ -1462,6 +1465,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   AliasResult Alias = getBestAAResults().alias(
       MemoryLocation(V2, V2Size, V2AAInfo),
       MemoryLocation(V1Srcs[0], PNSize, PNAAInfo), *UseAAQI);
+  AAQI.MaxDepth = UseAAQI->MaxDepth;
 
   // Early exit if the check of the first PHI source against V2 is MayAlias.
   // Other results are not possible.
@@ -1480,6 +1484,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     AliasResult ThisAlias = getBestAAResults().alias(
         MemoryLocation(V2, V2Size, V2AAInfo),
         MemoryLocation(V, PNSize, PNAAInfo), *UseAAQI);
+    AAQI.MaxDepth = UseAAQI->MaxDepth;
     Alias = MergeAliasResults(ThisAlias, Alias);
     if (Alias == MayAlias)
       break;
@@ -1578,6 +1583,12 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
           TLI, NullIsValidLocation)))
     return NoAlias;
 
+  // Don't perform recursive queries if depth limit has been reached.
+  unsigned OrigMaxDepth = AAQI.MaxDepth;
+  AAQI.MaxDepth = AAQI.Depth;
+  if (AAQI.Depth > MaxQueryDepth)
+    return MayAlias;
+
   // If one the accesses may be before the accessed pointer, canonicalize this
   // by using unknown after-pointer sizes for both accesses. This is
   // equivalent, because regardless of which pointer is lower, one of them
@@ -1597,15 +1608,42 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
   if (V1 > V2)
     std::swap(Locs.first, Locs.second);
   const auto &Pair = AAQI.AliasCache.try_emplace(
-      Locs, AAQueryInfo::CacheEntry{NoAlias, 0});
+      Locs, AAQueryInfo::CacheEntry{NoAlias, AAQI.Depth,
+                                    /* MaxDepth */ 0,
+                                    /* NumAssumptionUses */ 0});
   if (!Pair.second) {
     auto &Entry = Pair.first->second;
     if (!Entry.isDefinitive()) {
       // Remember that we used an assumption.
       ++Entry.NumAssumptionUses;
       ++AAQI.NumAssumptionUses;
+      return Entry.Result;
     }
-    return Entry.Result;
+
+    if (Entry.Depth < AAQI.Depth) {
+      // The query has been cached at a lower depth, which means that the
+      // result may be better than what we would get starting from the current
+      // depth. Using such a result would make AA query results order-dependent
+      // if BatchAA is used. Check whether we could compute this result from
+      // the current depth without reaching the limit. Otherwise return
+      // MayAlias, as we would definitely hit the limit.
+      if (AAQI.Depth + (Entry.MaxDepth - Entry.Depth) <= MaxQueryDepth)
+        return Entry.Result;
+      return MayAlias;
+    } else if (Entry.Depth > AAQI.Depth) {
+      // If the entry has been cached at a higher depth and hit the depth limit
+      // we might get a better result starting at a lower depth. Clear the old
+      // cache entry and try again.
+      if (Entry.MaxDepth <= MaxQueryDepth)
+        return Entry.Result;
+
+      Entry.Result = NoAlias;
+      Entry.Depth = AAQI.Depth;
+      Entry.NumAssumptionUses = 0;
+    } else {
+      // Cached at same depth, this result is certainly valid.
+      return Entry.Result;
+    }
   }
 
   int OrigNumAssumptionUses = AAQI.NumAssumptionUses;
@@ -1623,9 +1661,11 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     Result = MayAlias;
 
   // This is a definitive result now, when considered as a root query.
-  AAQI.NumAssumptionUses -= Entry.NumAssumptionUses;
   Entry.Result = Result;
+  Entry.MaxDepth = AAQI.MaxDepth;
   Entry.NumAssumptionUses = -1;
+  AAQI.NumAssumptionUses -= Entry.NumAssumptionUses;
+  AAQI.MaxDepth = std::max(AAQI.MaxDepth, OrigMaxDepth);
 
   // If the assumption has been disproven, remove any results that may have
   // been based on this assumption. Do this after the Entry updates above to

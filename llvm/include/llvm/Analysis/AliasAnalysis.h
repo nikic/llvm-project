@@ -348,6 +348,10 @@ public:
   using LocPair = std::pair<MemoryLocation, MemoryLocation>;
   struct CacheEntry {
     AliasResult Result;
+    /// The starting depth at which this entry has been cached.
+    unsigned Depth;
+    /// The maximum depth reached during the computation of this result.
+    unsigned MaxDepth;
     /// Number of times a NoAlias assumption has been used.
     /// 0 for assumptions that have not been used, -1 for definitive results.
     int NumAssumptionUses;
@@ -360,8 +364,10 @@ public:
   using IsCapturedCacheT = SmallDenseMap<const Value *, bool, 8>;
   IsCapturedCacheT IsCapturedCache;
 
-  /// Query depth used to distinguish recursive queries.
+  /// Current query depth.
   unsigned Depth = 0;
+  /// Maximum depth reached in recursive queries.
+  unsigned MaxDepth = 0;
 
   /// How many active NoAlias assumption uses there are.
   int NumAssumptionUses = 0;
@@ -379,6 +385,7 @@ public:
   AAQueryInfo withEmptyCache() {
     AAQueryInfo NewAAQI;
     NewAAQI.Depth = Depth;
+    NewAAQI.MaxDepth = MaxDepth;
     return NewAAQI;
   }
 };
