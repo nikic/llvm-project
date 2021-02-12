@@ -92,7 +92,7 @@ STATISTIC(SearchTimes, "Number of times a GEP is decomposed");
 const unsigned MaxNumPhiBBsValueReachabilityCheck = 20;
 
 /// Maximum depth of recursive alias analysis queries.
-static const unsigned MaxQueryDepth = 8;
+static const unsigned MaxQueryDepth = 6;
 
 // The max limit of the search depth in DecomposeGEPExpression() and
 // getUnderlyingObject(), both functions need to use the same search
