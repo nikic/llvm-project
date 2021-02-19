@@ -536,7 +536,29 @@ bool llvm::isValidAssumeForContext(const Instruction *Inv,
   //     feeding the assume is trivially true, thus causing the removal of
   //     the assume).
 
-  if (Inv->getParent() == CxtI->getParent()) {
+  auto GuaranteedToExecuteInvFrom = [&](BasicBlock::const_iterator I) {
+    // We limit the scan distance between the context instruction and the assume
+    // to avoid a compile-time explosion. This limit is chosen arbitrarily, so
+    // it can be adjusted if needed (could be turned into a cl::opt).
+    unsigned ScanLimit = 15;
+    for (BasicBlock::const_iterator IE(Inv); I != IE; ++I)
+      if (!isGuaranteedToTransferExecutionToSuccessor(&*I) || --ScanLimit == 0)
+        return false;
+    return true;
+  };
+
+  const BasicBlock *InvBB = Inv->getParent();
+  if (!CxtI) {
+    // If there is no context instruction, assume the start of the entry block
+    // as context, and see whether the assume is guaranteed reachable from
+    // there.
+    if (InvBB != &InvBB->getParent()->getEntryBlock())
+      return false;
+
+    return GuaranteedToExecuteInvFrom(InvBB->begin());
+  }
+
+  if (InvBB == CxtI->getParent()) {
     // If Inv and CtxI are in the same block, check if the assume (Inv) is first
     // in the BB.
     if (Inv->comesBefore(CxtI))
@@ -551,22 +573,15 @@ bool llvm::isValidAssumeForContext(const Instruction *Inv,
     // The context comes first, but they're both in the same block.
     // Make sure there is nothing in between that might interrupt
     // the control flow, not even CxtI itself.
-    // We limit the scan distance between the assume and its context instruction
-    // to avoid a compile-time explosion. This limit is chosen arbitrarily, so
-    // it can be adjusted if needed (could be turned into a cl::opt).
-    unsigned ScanLimit = 15;
-    for (BasicBlock::const_iterator I(CxtI), IE(Inv); I != IE; ++I)
-      if (!isGuaranteedToTransferExecutionToSuccessor(&*I) || --ScanLimit == 0)
-        return false;
-
-    return !isEphemeralValueOf(Inv, CxtI);
+    return GuaranteedToExecuteInvFrom(CxtI->getIterator()) &&
+           !isEphemeralValueOf(Inv, CxtI);
   }
 
   // Inv and CxtI are in different blocks.
   if (DT) {
     if (DT->dominates(Inv, CxtI))
       return true;
-  } else if (Inv->getParent() == CxtI->getParent()->getSinglePredecessor()) {
+  } else if (InvBB == CxtI->getParent()->getSinglePredecessor()) {
     // We don't have a DT, but this trivially dominates.
     return true;
   }
@@ -639,9 +654,7 @@ static bool isKnownNonZeroFromAssume(const Value *V, const Query &Q) {
 
 static void computeKnownBitsFromAssume(const Value *V, KnownBits &Known,
                                        unsigned Depth, const Query &Q) {
-  // Use of assumptions is context-sensitive. If we don't have a context, we
-  // cannot use them!
-  if (!Q.AC || !Q.CxtI)
+  if (!Q.AC)
     return;
 
   unsigned BitWidth = Known.getBitWidth();
@@ -661,8 +674,6 @@ static void computeKnownBitsFromAssume(const Value *V, KnownBits &Known,
     if (!AssumeVH)
       continue;
     CallInst *I = cast<CallInst>(AssumeVH);
-    assert(I->getParent()->getParent() == Q.CxtI->getParent()->getParent() &&
-           "Got assumption for the wrong function!");
     if (Q.isExcluded(I))
       continue;
 

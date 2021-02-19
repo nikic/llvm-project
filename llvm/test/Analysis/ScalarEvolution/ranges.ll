@@ -38,7 +38,7 @@ define i32 @lshr(i32 %a) {
 ; CHECK-LABEL: 'lshr'
 ; CHECK-NEXT:  Classifying expressions for: @lshr
 ; CHECK-NEXT:    %res = lshr i32 %a, 31
-; CHECK-NEXT:    --> (%a /u -2147483648) U: [0,2) S: [0,2)
+; CHECK-NEXT:    --> (%a /u -2147483648) U: [0,1) S: [0,1)
 ; CHECK-NEXT:  Determining loop execution counts for: @lshr
 ;
   %pos = icmp sge i32 %a, 0
@@ -52,7 +52,7 @@ define i32 @udiv(i32 %a) {
 ; CHECK-LABEL: 'udiv'
 ; CHECK-NEXT:  Classifying expressions for: @udiv
 ; CHECK-NEXT:    %res = udiv i32 %a, -2147483648
-; CHECK-NEXT:    --> (%a /u -2147483648) U: [0,2) S: [0,2)
+; CHECK-NEXT:    --> (%a /u -2147483648) U: [0,1) S: [0,1)
 ; CHECK-NEXT:  Determining loop execution counts for: @udiv
 ;
   %pos = icmp sge i32 %a, 0
@@ -65,7 +65,7 @@ define i64 @sext(i32 %a) {
 ; CHECK-LABEL: 'sext'
 ; CHECK-NEXT:  Classifying expressions for: @sext
 ; CHECK-NEXT:    %res = sext i32 %a to i64
-; CHECK-NEXT:    --> (sext i32 %a to i64) U: [-2147483648,2147483648) S: [-2147483648,2147483648)
+; CHECK-NEXT:    --> (zext i32 %a to i64) U: [0,2147483648) S: [0,2147483648)
 ; CHECK-NEXT:  Determining loop execution counts for: @sext
 ;
   %pos = icmp sge i32 %a, 0
@@ -78,7 +78,7 @@ define i64 @zext(i32 %a) {
 ; CHECK-LABEL: 'zext'
 ; CHECK-NEXT:  Classifying expressions for: @zext
 ; CHECK-NEXT:    %res = zext i32 %a to i64
-; CHECK-NEXT:    --> (zext i32 %a to i64) U: [0,4294967296) S: [0,4294967296)
+; CHECK-NEXT:    --> (zext i32 %a to i64) U: [0,2147483648) S: [0,2147483648)
 ; CHECK-NEXT:  Determining loop execution counts for: @zext
 ;
   %pos = icmp sge i32 %a, 0
