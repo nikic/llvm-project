@@ -1323,8 +1323,21 @@ static Value *SimplifyShlInst(Value *Op0, Value *Op1, bool isNSW, bool isNUW,
   // shl nuw i8 C, %x  ->  C  iff C has sign bit set.
   if (isNUW && match(Op0, m_Negative()))
     return Op0;
-  // NOTE: could use computeKnownBits() / LazyValueInfo,
-  // but the cost-benefit analysis suggests it isn't worth it.
+
+  // check for nsw shl leading to a poison value.
+  if (isNSW) {
+    KnownBits KnownVal = computeKnownBits(Op0, Q.DL, 0, Q.AC, Q.CxtI, Q.DT);
+    KnownBits KnownAmt = computeKnownBits(Op1, Q.DL, 0, Q.AC, Q.CxtI, Q.DT);
+    KnownBits KnownShl = KnownBits::shl(KnownVal, KnownAmt);
+
+    if (KnownVal.Zero.isSignBitSet())
+      KnownShl.Zero.setSignBit();
+    if (KnownVal.One.isSignBitSet())
+      KnownShl.One.setSignBit();
+
+    if (KnownShl.hasConflict())
+      return PoisonValue::get(Op0->getType());
+  }
 
   return nullptr;
 }
