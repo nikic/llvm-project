@@ -463,11 +463,21 @@ isOverwrite(const Instruction *LaterI, const Instruction *EarlierI,
   const Value *P1 = Earlier.Ptr->stripPointerCasts();
   const Value *P2 = Later.Ptr->stripPointerCasts();
 
+  // Query the alias information
+  AliasResult AAR = AA.alias(Later, Earlier);
+
   // If the start pointers are the same, we just have to compare sizes to see if
   // the later store was larger than the earlier store.
-  if (P1 == P2 || AA.isMustAlias(P1, P2)) {
+  if (P1 == P2 || (AAR == AliasResult::MustAlias)) {
     // Make sure that the Later size is >= the Earlier size.
     if (LaterSize >= EarlierSize)
+      return OW_Complete;
+  }
+
+  // If we hit a partial alias we may have a full overwrite
+  if (AAR == AliasResult::PartialAlias) {
+    int64_t Off = AA.getClobberOffset(Later, Earlier).getValueOr(0);
+    if ((Off > 0) && (((uint64_t)Off + EarlierSize) <= LaterSize))
       return OW_Complete;
   }
 
@@ -1301,6 +1311,7 @@ static bool eliminateDeadStores(BasicBlock &BB, AliasAnalysis *AA,
                                 MemoryDependenceResults *MD, DominatorTree *DT,
                                 const TargetLibraryInfo *TLI) {
   const DataLayout &DL = BB.getModule()->getDataLayout();
+  BatchAAResults BatchAA(*AA, /*CacheOffsets =*/true);
   bool MadeChange = false;
 
   MapVector<Instruction *, bool> ThrowableInst;
@@ -1412,9 +1423,9 @@ static bool eliminateDeadStores(BasicBlock &BB, AliasAnalysis *AA,
       if (isRemovable(DepWrite) &&
           !isPossibleSelfRead(Inst, Loc, DepWrite, *TLI, *AA)) {
         int64_t InstWriteOffset, DepWriteOffset;
-        OverwriteResult OR = isOverwrite(Inst, DepWrite, Loc, DepLoc, DL, *TLI,
-                                         DepWriteOffset, InstWriteOffset, *AA,
-                                         BB.getParent());
+        OverwriteResult OR =
+            isOverwrite(Inst, DepWrite, Loc, DepLoc, DL, *TLI, DepWriteOffset,
+                        InstWriteOffset, BatchAA, BB.getParent());
         if (OR == OW_MaybePartial)
           OR = isPartialOverwrite(Loc, DepLoc, DepWriteOffset, InstWriteOffset,
                                   DepWrite, IOL);
@@ -1635,8 +1646,8 @@ struct DSEState {
 
   DSEState(Function &F, AliasAnalysis &AA, MemorySSA &MSSA, DominatorTree &DT,
            PostDominatorTree &PDT, const TargetLibraryInfo &TLI)
-      : F(F), AA(AA), BatchAA(AA), MSSA(MSSA), DT(DT), PDT(PDT), TLI(TLI),
-        DL(F.getParent()->getDataLayout()) {}
+      : F(F), AA(AA), BatchAA(AA, /*CacheOffsets =*/true), MSSA(MSSA), DT(DT),
+        PDT(PDT), TLI(TLI), DL(F.getParent()->getDataLayout()) {}
 
   static DSEState get(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
                       DominatorTree &DT, PostDominatorTree &PDT,
