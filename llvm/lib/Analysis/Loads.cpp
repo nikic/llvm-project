@@ -469,14 +469,16 @@ static Value *getAvailableLoadStore(Instruction *Inst, Value *Ptr,
   // (This is true even if the load is volatile or atomic, although
   // those cases are unlikely.)
   if (LoadInst *LI = dyn_cast<LoadInst>(Inst)) {
-    if (AreEquivalentAddressValues(
-            LI->getPointerOperand()->stripPointerCasts(), Ptr) &&
-        CastInst::isBitOrNoopPointerCastable(LI->getType(), AccessTy, DL)) {
-      // We can value forward from an atomic to a non-atomic, but not the
-      // other way around.
-      if (LI->isAtomic() < AtLeastAtomic)
-        return nullptr;
+    // We can value forward from an atomic to a non-atomic, but not the
+    // other way around.
+    if (LI->isAtomic() < AtLeastAtomic)
+      return nullptr;
 
+    Value *LoadPtr = LI->getPointerOperand()->stripPointerCasts();
+    if (!AreEquivalentAddressValues(LoadPtr, Ptr))
+      return nullptr;
+
+    if (CastInst::isBitOrNoopPointerCastable(LI->getType(), AccessTy, DL)) {
       if (IsLoadCSE)
         *IsLoadCSE = true;
       return LI;
@@ -487,19 +489,24 @@ static Value *getAvailableLoadStore(Instruction *Inst, Value *Ptr,
   // (This is true even if the store is volatile or atomic, although
   // those cases are unlikely.)
   if (StoreInst *SI = dyn_cast<StoreInst>(Inst)) {
-    Value *StorePtr = SI->getPointerOperand()->stripPointerCasts();
-    if (AreEquivalentAddressValues(StorePtr, Ptr) &&
-        CastInst::isBitOrNoopPointerCastable(SI->getValueOperand()->getType(),
-                                             AccessTy, DL)) {
-      // We can value forward from an atomic to a non-atomic, but not the
-      // other way around.
-      if (SI->isAtomic() < AtLeastAtomic)
-        return nullptr;
+    // We can value forward from an atomic to a non-atomic, but not the
+    // other way around.
+    if (SI->isAtomic() < AtLeastAtomic)
+      return nullptr;
 
-      if (IsLoadCSE)
-        *IsLoadCSE = false;
-      return SI->getOperand(0);
-    }
+    Value *StorePtr = SI->getPointerOperand()->stripPointerCasts();
+    if (!AreEquivalentAddressValues(StorePtr, Ptr))
+      return nullptr;
+
+    if (IsLoadCSE)
+      *IsLoadCSE = false;
+
+    Value *Val = SI->getValueOperand();
+    if (CastInst::isBitOrNoopPointerCastable(Val->getType(), AccessTy, DL))
+      return Val;
+
+    if (auto *C = dyn_cast<Constant>(Val))
+      return ConstantFoldLoadThroughBitcast(C, AccessTy, DL);
   }
 
   return nullptr;
