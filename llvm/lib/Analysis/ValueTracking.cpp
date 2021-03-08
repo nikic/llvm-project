@@ -4162,10 +4162,12 @@ static bool isSameUnderlyingObjectInLoop(const PHINode *PN,
   return true;
 }
 
-const Value *llvm::getUnderlyingObject(const Value *V, unsigned MaxLookup) {
+/// Look back through the graph at most MaxLookup steps, stop at the first
+/// phi or select encountered.  Update MaxLookup with remaining budget.
+const Value *getUnderlyingObjectStep(const Value *V, unsigned &MaxLookup) {
   if (!V->getType()->isPointerTy())
     return V;
-  for (unsigned Count = 0; MaxLookup == 0 || Count < MaxLookup; ++Count) {
+  for ( ; MaxLookup != 0; MaxLookup--) {
     if (auto *GEP = dyn_cast<GEPOperator>(V)) {
       V = GEP->getPointerOperand();
     } else if (Operator::getOpcode(V) == Instruction::BitCast ||
@@ -4205,6 +4207,52 @@ const Value *llvm::getUnderlyingObject(const Value *V, unsigned MaxLookup) {
     assert(V->getType()->isPointerTy() && "Unexpected operand type!");
   }
   return V;
+}
+
+const Value *llvm::getUnderlyingObject(const Value *V,
+                                       unsigned MaxLookup) {
+  return getUnderlyingObjectStep(V, MaxLookup);
+}
+
+const Value *llvm::getUnderlyingObject2(const Value *V,
+                                        unsigned MaxLookup) {
+  auto *FirstStep = getUnderlyingObjectStep(V, MaxLookup);
+  if (MaxLookup == 0)
+    return FirstStep;
+
+  const Value *Object = nullptr;
+  SmallPtrSet<const Value *, 4> Visited;
+  SmallVector<const Value *, 4> Worklist;
+  Worklist.push_back(FirstStep);
+  do {
+    const Value *P = Worklist.pop_back_val();
+    P = getUnderlyingObjectStep(P, MaxLookup);
+    if (MaxLookup == 0)
+      // Exhausted budget
+      return FirstStep;
+
+    if (!Visited.insert(P).second)
+      continue;
+
+    if (auto *SI = dyn_cast<SelectInst>(P)) {
+      Worklist.push_back(SI->getTrueValue());
+      Worklist.push_back(SI->getFalseValue());
+      MaxLookup--;
+      continue;
+    }
+
+    if (auto *PN = dyn_cast<PHINode>(P)) {
+      append_range(Worklist, PN->incoming_values());
+      MaxLookup--;
+      continue;
+    }
+
+    if (Object)
+      // Found at least two objects, fallback to conservative result
+      return FirstStep;
+    Object = P;
+  } while (!Worklist.empty());
+  return Object ? Object : FirstStep;
 }
 
 void llvm::getUnderlyingObjects(const Value *V,

@@ -1,5 +1,5 @@
-; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,NO-PHI-VALUES
-; RUN: opt < %s -phi-values -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,PHI-VALUES
+; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -phi-values -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Function: simple: 5 pointers, 0 call sites
 ; CHECK:         NoAlias:      float* %src1, float* %src2
@@ -39,11 +39,11 @@ end:
 ; CHECK:        MustAlias:    [2 x i32]* %tab, i32* %arrayidx1
 ; CHECK:        MustAlias:    i32* %arrayidx1, i8* %0
 ; CHECK:        NoAlias:      i32* %arrayidx, i32* %arrayidx1
-; CHECK:        MayAlias:     [2 x i32]* %tab, i32* %p.addr.05.i
+; CHECK:        PartialAlias: [2 x i32]* %tab, i32* %p.addr.05.i
 ; CHECK:        MayAlias:     i32* %p.addr.05.i, i8* %0
 ; CHECK:        MayAlias:     i32* %arrayidx, i32* %p.addr.05.i
 ; CHECK:        MayAlias:     i32* %arrayidx1, i32* %p.addr.05.i
-; CHECK:        MayAlias:     [2 x i32]* %tab, i32* %incdec.ptr.i
+; CHECK:        PartialAlias: [2 x i32]* %tab, i32* %incdec.ptr.i
 ; CHECK:        NoAlias:      i32* %incdec.ptr.i, i8* %0
 ; CHECK:        MayAlias:     i32* %arrayidx, i32* %incdec.ptr.i
 ; CHECK:        NoAlias:      i32* %arrayidx1, i32* %incdec.ptr.i
@@ -92,11 +92,11 @@ if.end: ; preds = %f.exit
 ; CHECK:         PartialAlias: [10 x i32]* %tab, i32* %arrayidx1
 ; CHECK:         NoAlias:      i32* %arrayidx1, i8* %0
 ; CHECK:         NoAlias:      i32* %arrayidx, i32* %arrayidx1
-; CHECK:         MayAlias:     [10 x i32]* %tab, i32* %p.addr.05.i
+; CHECK:         PartialAlias: [10 x i32]* %tab, i32* %p.addr.05.i
 ; CHECK:         MayAlias:     i32* %p.addr.05.i, i8* %0
 ; CHECK:         MayAlias:     i32* %arrayidx, i32* %p.addr.05.i
 ; CHECK:         MayAlias:     i32* %arrayidx1, i32* %p.addr.05.i
-; CHECK:         MayAlias:     [10 x i32]* %tab, i32* %incdec.ptr.i
+; CHECK:         PartialAlias: [10 x i32]* %tab, i32* %incdec.ptr.i
 ; CHECK:         MayAlias:     i32* %incdec.ptr.i, i8* %0
 ; CHECK:         MayAlias:     i32* %arrayidx, i32* %incdec.ptr.i
 ; CHECK:         MayAlias:     i32* %arrayidx1, i32* %incdec.ptr.i
@@ -143,10 +143,10 @@ if.end: ; preds = %f.exit
 ; CHECK:         NoAlias:      i16* %_tmp1, i16** %argv.6.par
 ; CHECK:         PartialAlias: [3 x i16]* %int_arr.10, i16* %_tmp1
 ; CHECK:         NoAlias:      i16* %ls1.9.0, i16** %argv.6.par
-; CHECK:         MayAlias:     [3 x i16]* %int_arr.10, i16* %ls1.9.0
+; CHECK:         PartialAlias: [3 x i16]* %int_arr.10, i16* %ls1.9.0
 ; CHECK:         MayAlias:     i16* %_tmp1, i16* %ls1.9.0
 ; CHECK:         NoAlias:      i16* %_tmp7, i16** %argv.6.par
-; CHECK:         MayAlias:     [3 x i16]* %int_arr.10, i16* %_tmp7
+; CHECK:         PartialAlias: [3 x i16]* %int_arr.10, i16* %_tmp7
 ; CHECK:         MayAlias:     i16* %_tmp1, i16* %_tmp7
 ; CHECK:         NoAlias:      i16* %_tmp7, i16* %ls1.9.0
 ; CHECK:         NoAlias:      i16* %_tmp11, i16** %argv.6.par
@@ -237,8 +237,7 @@ exit:
 ; CHECK: NoAlias:  i8* %a, i8* %p.base
 ; CHECK: NoAlias:  i8* %a, i8* %p.outer
 ; CHECK: NoAlias:  i8* %a, i8* %p.outer.next
-; NO-PHI-VALUES: MayAlias: i8* %a, i8* %p.inner
-; PHI-VALUES: NoAlias: i8* %a, i8* %p.inner
+; CHECK: NoAlias: i8* %a, i8* %p.inner
 ; CHECK: NoAlias:  i8* %a, i8* %p.inner.next
 define void @nested_loop(i1 %c, i1 %c2, i8* noalias %p.base) {
 entry:
@@ -267,7 +266,7 @@ exit:
 ; CHECK: NoAlias:  i8* %a, i8* %p.base
 ; CHECK: NoAlias:  i8* %a, i8* %p.outer
 ; CHECK: NoAlias:  i8* %a, i8* %p.outer.next
-; CHECK: MayAlias: i8* %a, i8* %p.inner
+; CHECK: NoAlias: i8* %a, i8* %p.inner
 ; CHECK: NoAlias:  i8* %a, i8* %p.inner.next
 ; TODO: (a, p.inner) could be NoAlias
 define void @nested_loop2(i1 %c, i1 %c2, i8* noalias %p.base) {
@@ -296,8 +295,7 @@ exit:
 ; CHECK: NoAlias:	i8* %a, i8* %p.base
 ; CHECK: NoAlias:	i8* %a, i8* %p.outer
 ; CHECK: NoAlias:	i8* %a, i8* %p.outer.next
-; NO-PHI-VALUES: NoAlias:	i8* %a, i8* %p.inner
-; PHI-VALUES: MayAlias:	i8* %a, i8* %p.inner
+; CHECK: NoAlias:	i8* %a, i8* %p.inner
 ; CHECK: NoAlias:	i8* %a, i8* %p.inner.next
 define void @nested_loop3(i1 %c, i1 %c2, i8* noalias %p.base) {
 entry:
@@ -325,9 +323,8 @@ exit:
 ; CHECK: NoAlias:	i8* %a, i8* %p.base
 ; CHECK: NoAlias:	i8* %a, i8* %p1
 ; CHECK: NoAlias:	i8* %a, i8* %p1.next
-; CHECK: MayAlias:	i8* %a, i8* %p2
+; CHECK: NoAlias:	i8* %a, i8* %p2
 ; CHECK: NoAlias:	i8* %a, i8* %p2.next
-; TODO: %p2 does not alias %a
 define void @sibling_loop(i1 %c, i1 %c2, i8* noalias %p.base) {
 entry:
   %a = alloca i8
@@ -351,8 +348,7 @@ exit:
 ; CHECK: NoAlias:	i8* %a, i8* %p.base
 ; CHECK: NoAlias:	i8* %a, i8* %p1
 ; CHECK: NoAlias:	i8* %a, i8* %p1.next
-; NO-PHI-VALUES: NoAlias:	i8* %a, i8* %p2
-; PHI-VALUES: MayAlias:	i8* %a, i8* %p2
+; CHECK: NoAlias:	i8* %a, i8* %p2
 ; CHECK: NoAlias:	i8* %a, i8* %p2.next
 define void @sibling_loop2(i1 %c, i1 %c2, i8* noalias %p.base) {
 entry:

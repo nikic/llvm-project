@@ -91,9 +91,9 @@ STATISTIC(SearchTimes, "Number of times a GEP is decomposed");
 /// cannot be involved in a cycle.
 const unsigned MaxNumPhiBBsValueReachabilityCheck = 20;
 
-// The max limit of the search depth in DecomposeGEPExpression() and
-// getUnderlyingObject(), both functions need to use the same search
-// depth otherwise the algorithm in aliasGEP will assert.
+// The max limit of the search depth in DecomposeGEPExpression() and,
+// separately, limit used for getUnderlyingObject,  We use to require
+// these be the same, but is no longer required for correctness.
 static const unsigned MaxLookupSearchDepth = 6;
 
 bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
@@ -412,10 +412,6 @@ static unsigned getMaxPointerSize(const DataLayout &DL) {
 /// specified amount, but which may have other unrepresented high bits. As
 /// such, the gep cannot necessarily be reconstructed from its decomposed form.
 ///
-/// This function is capable of analyzing everything that getUnderlyingObject
-/// can look through. To be able to do that getUnderlyingObject and
-/// DecomposeGEPExpression must use the same search depth
-/// (MaxLookupSearchDepth).
 BasicAAResult::DecomposedGEP
 BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
                                       AssumptionCache *AC, DominatorTree *DT) {
@@ -1045,7 +1041,7 @@ static bool isBaseOfObject(const Value *V) {
 AliasResult BasicAAResult::aliasGEP(
     const GEPOperator *GEP1, LocationSize V1Size, const AAMDNodes &V1AAInfo,
     const Value *V2, LocationSize V2Size, const AAMDNodes &V2AAInfo,
-    const Value *UnderlyingV1, const Value *UnderlyingV2, AAQueryInfo &AAQI) {
+    AAQueryInfo &AAQI) {
   DecomposedGEP DecompGEP1 = DecomposeGEPExpression(GEP1, DL, &AC, DT);
   DecomposedGEP DecompGEP2 = DecomposeGEPExpression(V2, DL, &AC, DT);
 
@@ -1054,10 +1050,6 @@ AliasResult BasicAAResult::aliasGEP(
   if (!DecompGEP1.HasCompileTimeConstantScale ||
       !DecompGEP2.HasCompileTimeConstantScale)
     return MayAlias;
-
-  assert(DecompGEP1.Base == UnderlyingV1 && DecompGEP2.Base == UnderlyingV2 &&
-         "DecomposeGEPExpression returned a result different from "
-         "getUnderlyingObject");
 
   // Subtract the GEP2 pointer from the GEP1 pointer to find out their
   // symbolic difference.
@@ -1088,13 +1080,13 @@ AliasResult BasicAAResult::aliasGEP(
   // when performing the alias check on the underlying objects.
   if (DecompGEP1.Offset == 0 && DecompGEP1.VarIndices.empty())
     return getBestAAResults().alias(
-        MemoryLocation(UnderlyingV1, V1Size, V1AAInfo),
-        MemoryLocation(UnderlyingV2, V2Size, V2AAInfo), AAQI);
+        MemoryLocation(DecompGEP1.Base, V1Size, V1AAInfo),
+        MemoryLocation(DecompGEP2.Base, V2Size, V2AAInfo), AAQI);
 
   // Do the base pointers alias?
   AliasResult BaseAlias = getBestAAResults().alias(
-      MemoryLocation::getBeforeOrAfter(UnderlyingV1),
-      MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
+      MemoryLocation::getBeforeOrAfter(DecompGEP1.Base),
+      MemoryLocation::getBeforeOrAfter(DecompGEP2.Base), AAQI);
 
   // If we get a No or May, then return it immediately, no amount of analysis
   // will improve this situation.
@@ -1485,8 +1477,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     return NoAlias; // Scalars cannot alias each other
 
   // Figure out what objects these things are pointing to if we can.
-  const Value *O1 = getUnderlyingObject(V1, MaxLookupSearchDepth);
-  const Value *O2 = getUnderlyingObject(V2, MaxLookupSearchDepth);
+  const Value *O1 = getUnderlyingObject2(V1, MaxLookupSearchDepth);
+  const Value *O2 = getUnderlyingObject2(V2, MaxLookupSearchDepth);
 
   // Null values in the default address space don't point to any object, so they
   // don't alias any other pointer.
@@ -1617,12 +1609,12 @@ AliasResult BasicAAResult::aliasCheckRecursive(
     AAQueryInfo &AAQI, const Value *O1, const Value *O2) {
   if (const GEPOperator *GV1 = dyn_cast<GEPOperator>(V1)) {
     AliasResult Result =
-        aliasGEP(GV1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O1, O2, AAQI);
+        aliasGEP(GV1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, AAQI);
     if (Result != MayAlias)
       return Result;
   } else if (const GEPOperator *GV2 = dyn_cast<GEPOperator>(V2)) {
     AliasResult Result =
-        aliasGEP(GV2, V2Size, V2AAInfo, V1, V1Size, V1AAInfo, O2, O1, AAQI);
+        aliasGEP(GV2, V2Size, V2AAInfo, V1, V1Size, V1AAInfo, AAQI);
     if (Result != MayAlias)
       return Result;
   }

@@ -376,6 +376,8 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
     const Value *VConst = V;
     return const_cast<Value *>(getUnderlyingObject(VConst, MaxLookup));
   }
+  const Value *getUnderlyingObject2(const Value *V,
+                                    unsigned MaxLookup = 6);
 
   /// This method is similar to getUnderlyingObject except that it can
   /// look through phi and select instructions and return multiple objects.
