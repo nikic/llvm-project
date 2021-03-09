@@ -274,7 +274,7 @@ public:
 
   /// This is a wrapper around getRegForValue that also takes care of
   /// truncating or sign-extending the given getelementptr index value.
-  std::pair<Register, bool> getRegForGEPIndex(const Value *Idx);
+  Register getRegForGEPIndex(const Value *Idx);
 
   /// We're checking to see if we can fold \p LI into \p FoldInst. Note
   /// that we could have a sequence where multiple LLVM IR instructions are
@@ -489,12 +489,6 @@ protected:
   /// - \c Add is in the same basic block as \c GEP, and
   /// - \c Add has a constant operand.
   bool canFoldAddIntoGEP(const User *GEP, const Value *Add);
-
-  /// Test whether the register associated with this value has exactly one use,
-  /// in which case that single use is killing. Note that multiple IR values
-  /// may map onto the same register, in which case this is not the same as
-  /// checking that an IR value has one use.
-  bool hasTrivialKill(const Value *V);
 
   /// Create a machine mem operand from the given instruction.
   MachineMemOperand *createMachineMemOperandFor(const Instruction *I) const;
