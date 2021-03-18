@@ -80,8 +80,8 @@ class Value;
 /// of these values.
 class AliasResult {
 private:
-  static const int OffsetBits = 28;
-  static const int AliasBits = 3;
+  static const int OffsetBits = 23;
+  static const int AliasBits = 8;
   static_assert(AliasBits + 1 + OffsetBits <= 32,
                 "AliasResult size is intended to be 4 bytes!");
 
@@ -110,7 +110,7 @@ public:
 
   explicit AliasResult() = delete;
   constexpr AliasResult(const Result &Alias)
-      : Alias(Alias), HasOffset(false), Offset(-1) {}
+      : Alias(Alias), HasOffset(false), Offset(0) {}
 
   operator Result() const { return static_cast<Result>(Alias); }
 
