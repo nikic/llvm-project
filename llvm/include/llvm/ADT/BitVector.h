@@ -568,6 +568,18 @@ public:
     return false;
   }
 
+  template <class F, class... ArgTys>
+  static BitVector &apply(F &&f, BitVector &Out, ArgTys const &...Args) {
+    static_assert(sizeof...(ArgTys) > 0, "at least one argument");
+    std::initializer_list<size_t> Sizes = {Args.size()...};
+    size_t CommonSize = *std::min_element(Sizes.begin(), Sizes.end());
+    if (Out.size() < CommonSize)
+      Out.resize(CommonSize);
+    for (size_t i = 0, e = Out.NumBitWords(CommonSize); i != e; ++i)
+      Out.Bits[i] = f(Args.Bits[i]...);
+    return Out;
+  }
+
   BitVector &operator|=(const BitVector &RHS) {
     if (size() < RHS.size())
       resize(RHS.size());
