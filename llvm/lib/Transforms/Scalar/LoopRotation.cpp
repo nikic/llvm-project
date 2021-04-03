@@ -14,6 +14,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
@@ -81,12 +82,13 @@ namespace {
 class LoopRotateLegacyPass : public LoopPass {
   unsigned MaxHeaderSize;
   bool PrepareForLTO;
+  bool RequiresMSSA;
 
 public:
   static char ID; // Pass ID, replacement for typeid
   LoopRotateLegacyPass(int SpecifiedMaxHeaderSize = -1,
-                       bool PrepareForLTO = false)
-      : LoopPass(ID), PrepareForLTO(PrepareForLTO) {
+                       bool PrepareForLTO = false, bool RequiresMSSA = false)
+      : LoopPass(ID), PrepareForLTO(PrepareForLTO), RequiresMSSA(RequiresMSSA) {
     initializeLoopRotateLegacyPassPass(*PassRegistry::getPassRegistry());
     if (SpecifiedMaxHeaderSize == -1)
       MaxHeaderSize = DefaultRotationThreshold;
@@ -98,9 +100,16 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
-    if (EnableMSSALoopDependency)
+    if (EnableMSSALoopDependency) {
+      if (RequiresMSSA)
+        AU.addRequired<MemorySSAWrapperPass>();
       AU.addPreserved<MemorySSAWrapperPass>();
+    }
     getLoopAnalysisUsage(AU);
+    // Lazy BFI and BPI are marked as preserved here so Loop Rotation
+    // can remain part of the same loop pass as LICM
+    AU.addPreserved<LazyBlockFrequencyInfoPass>();
+    AU.addPreserved<LazyBranchProbabilityInfoPass>();
   }
 
   bool runOnLoop(Loop *L, LPPassManager &LPM) override {
@@ -116,8 +125,6 @@ public:
     const SimplifyQuery SQ = getBestSimplifyQuery(*this, F);
     Optional<MemorySSAUpdater> MSSAU;
     if (EnableMSSALoopDependency) {
-      // Not requiring MemorySSA and getting it only if available will split
-      // the loop pass pipeline when LoopRotate is being run first.
       auto *MSSAA = getAnalysisIfAvailable<MemorySSAWrapperPass>();
       if (MSSAA)
         MSSAU = MemorySSAUpdater(&MSSAA->getMSSA());
@@ -147,6 +154,7 @@ INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
 INITIALIZE_PASS_END(LoopRotateLegacyPass, "loop-rotate", "Rotate Loops", false,
                     false)
 
-Pass *llvm::createLoopRotatePass(int MaxHeaderSize, bool PrepareForLTO) {
-  return new LoopRotateLegacyPass(MaxHeaderSize, PrepareForLTO);
+Pass *llvm::createLoopRotatePass(int MaxHeaderSize, bool PrepareForLTO,
+                                 bool RequiresMSSA) {
+  return new LoopRotateLegacyPass(MaxHeaderSize, PrepareForLTO, RequiresMSSA);
 }
