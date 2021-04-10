@@ -704,12 +704,6 @@ ReprocessLoop:
     }
   }
 
-  // Changing exit conditions for blocks may affect exit counts of this loop and
-  // any of its paretns, so we must invalidate the entire subtree if we've made
-  // any changes.
-  if (Changed && SE)
-    SE->forgetTopmostLoop(L);
-
   if (MSSAU && VerifyMemorySSA)
     MSSAU->getMemorySSA()->verifyMemorySSA();
 
@@ -744,9 +738,26 @@ bool llvm::simplifyLoop(Loop *L, DominatorTree *DT, LoopInfo *LI,
     Worklist.append(L2->begin(), L2->end());
   }
 
-  while (!Worklist.empty())
-    Changed |= simplifyOneLoop(Worklist.pop_back_val(), Worklist, DT, LI, SE,
-                               AC, MSSAU, PreserveLCSSA);
+  SmallSetVector<Loop *, 4> ForgetLoops;
+  while (!Worklist.empty()) {
+    Loop *L = Worklist.pop_back_val();
+    bool LocalChanged = simplifyOneLoop(L, Worklist, DT, LI, SE, AC, MSSAU,
+                                        PreserveLCSSA);
+
+    // Changing exit conditions for blocks may affect exit counts of this loop
+    // and any of its paretns, so we must invalidate the entire subtree if
+    // we've made any changes.
+    if (LocalChanged && SE) {
+      while (Loop *Parent = L->getParentLoop())
+        L = Parent;
+      ForgetLoops.insert(L);
+    }
+
+    Changed |= LocalChanged;
+  }
+
+  for (Loop *L : ForgetLoops)
+    SE->forgetLoop(L);
 
   return Changed;
 }
