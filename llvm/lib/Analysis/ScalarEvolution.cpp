@@ -7224,9 +7224,8 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
         forgetMemoizedResults(It->second);
         if (PHINode *PN = dyn_cast<PHINode>(I))
           ConstantEvolutionLoopExitValue.erase(PN);
+        PushDefUseChildren(I, Worklist);
       }
-
-      PushDefUseChildren(I, Worklist);
     }
 
     LoopPropertiesCache.erase(CurrL);
