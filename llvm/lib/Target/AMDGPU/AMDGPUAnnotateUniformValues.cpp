@@ -87,11 +87,7 @@ bool AMDGPUAnnotateUniformValues::isClobberedInFunction(LoadInst * Load) {
   const Value *Ptr = Load->getPointerOperand();
   const Loop *L = LI->getLoopFor(Start);
   if (L) {
-    const Loop *P = L;
-    do {
-      L = P;
-      P = P->getParentLoop();
-    } while (P);
+    L = L->getOutermostLoop();
     Checklist.insert(L->block_begin(), L->block_end());
     Start = L->getHeader();
   }

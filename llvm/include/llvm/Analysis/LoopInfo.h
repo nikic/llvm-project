@@ -112,6 +112,18 @@ public:
   /// parent is the innermost loop in which it is enclosed.
   LoopT *getParentLoop() const { return ParentLoop; }
 
+  /// Get the outermost loop in which this loop is contained.
+  /// If the loop itself if it already is the outermost loop.
+  const LoopT *getOutermostLoop() const {
+    const LoopT *L = static_cast<const LoopT *>(this);
+    while (L->ParentLoop) L = L->ParentLoop;
+    return L;
+  }
+
+  LoopT *getOutermostLoop() {
+    return const_cast<LoopT *>(getOutermostLoop());
+  }
+
   /// This is a raw interface for bypassing addChildLoop.
   void setParentLoop(LoopT *L) {
     assert(!isInvalid() && "Loop not in a valid state!");
