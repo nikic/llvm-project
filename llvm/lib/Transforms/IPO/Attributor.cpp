@@ -147,6 +147,11 @@ static cl::opt<bool> EnableCallSiteSpecific(
     cl::desc("Allow the Attributor to do call site specific analysis"),
     cl::init(false));
 
+static cl::opt<bool> EnableAllAbstractAttributes(
+    "attributor-enable-all-abstract-attributes", cl::Hidden,
+    cl::desc("Allows the Attributor to seed all Abstract Attributes"),
+    cl::init(false));
+
 /// Logic operators for the change status enum class.
 ///
 ///{
@@ -2330,10 +2335,19 @@ static bool runAttributorOnFunctions(InformationCache &InfoCache,
   LLVM_DEBUG(dbgs() << "[Attributor] Run on module with " << Functions.size()
                     << " functions.\n");
 
+  DenseSet<const char *> AllowedAAs = {
+      &AAReturnedValues::ID, &AANoUnwind::ID,  &AANoSync::ID,
+      &AANoFree ::ID,        &AANonNull::ID,   &AANoRecurse::ID,
+      &AAWillReturn::ID,     &AANoAlias::ID,   &AADereferenceable ::ID,
+      &AAAlign::ID,          &AANoCapture::ID, &AAMemoryBehavior::ID,
+      &AAMemoryLocation::ID};
+
+  DenseSet<const char *> *Allowed =
+      EnableAllAbstractAttributes ? nullptr : &AllowedAAs;
+
   // Create an Attributor and initially empty information cache that is filled
   // while we identify default attribute opportunities.
-  Attributor A(Functions, InfoCache, CGUpdater, /* Allowed */ nullptr,
-               DeleteFns);
+  Attributor A(Functions, InfoCache, CGUpdater, Allowed, DeleteFns);
 
   // Create shallow wrappers for all functions that are not IPO amendable
   if (AllowShallowWrappers)

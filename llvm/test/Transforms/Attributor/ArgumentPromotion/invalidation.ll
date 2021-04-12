@@ -7,7 +7,7 @@
 ; invalidation this will crash in the second printer as it tries to reuse
 ; now-invalid demanded bits.
 ;
-; RUN: opt < %s -passes='function(print<demanded-bits>),attributor,function(print<demanded-bits>)' -S | FileCheck %s
+; RUN: opt < %s -passes='function(print<demanded-bits>),attributor,function(print<demanded-bits>)' -attributor-enable-all-abstract-attributes -S | FileCheck %s
 
 @G = constant i32 0
 
