@@ -3637,7 +3637,9 @@ static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
   }
 
   // icmp eq|ne X, Y -> false|true if X != Y
-  if (ICmpInst::isEquality(Pred) &&
+  // This is potentially expensive, and we have already computedKnownBits for
+  // compares with 0 above here, so only try this for a non-zero compare.
+  if (ICmpInst::isEquality(Pred) && !match(RHS, m_Zero()) &&
       isKnownNonEqual(LHS, RHS, Q.DL, Q.AC, Q.CxtI, Q.DT, Q.IIQ.UseInstrInfo)) {
     return Pred == ICmpInst::ICMP_NE ? getTrue(ITy) : getFalse(ITy);
   }
