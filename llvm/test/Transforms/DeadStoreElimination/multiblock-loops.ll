@@ -111,7 +111,6 @@ define void @test_loop(i32 %N, i32* noalias nocapture readonly %A, i32* noalias 
 ; CHECK:       for.body4.lr.ph:
 ; CHECK-NEXT:    [[I_028:%.*]] = phi i32 [ [[INC11:%.*]], [[FOR_COND_CLEANUP3:%.*]] ], [ 0, [[FOR_BODY4_LR_PH_PREHEADER]] ]
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[B:%.*]], i32 [[I_028]]
-; CHECK-NEXT:    store i32 0, i32* [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[MUL:%.*]] = mul nsw i32 [[I_028]], [[N]]
 ; CHECK-NEXT:    br label [[FOR_BODY4:%.*]]
 ; CHECK:       for.body4:
@@ -354,5 +353,105 @@ if.end:                                           ; preds = %do.body
 
 if.end10:                                         ; preds = %do.body
   store i16 1, i16* %arrayidx2, align 1
+  ret i16 0
+}
+
+; Similar to above, but with an irreducible loop. The stores should not be removed.
+define i16 @irreducible(i1 %c) {
+; CHECK-LABEL: @irreducible(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br i1 [[C:%.*]], label [[A:%.*]], label [[B:%.*]]
+; CHECK:       A:
+; CHECK-NEXT:    [[I_0:%.*]] = phi i16 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[B]] ]
+; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i16 [[I_0]]
+; CHECK-NEXT:    br label [[B]]
+; CHECK:       B:
+; CHECK-NEXT:    [[J_0:%.*]] = phi i16 [ 0, [[ENTRY]] ], [ [[I_0]], [[A]] ]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i16 [[J_0]]
+; CHECK-NEXT:    store i16 2, i16* [[ARRAYIDX]], align 1
+; CHECK-NEXT:    [[INC]] = add nuw nsw i16 [[J_0]], 1
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i16 [[J_0]], 4
+; CHECK-NEXT:    br i1 [[EXITCOND]], label [[EXIT:%.*]], label [[A]]
+; CHECK:       exit:
+; CHECK-NEXT:    store i16 1, i16* [[ARRAYIDX]], align 1
+; CHECK-NEXT:    ret i16 0
+;
+entry:
+  br i1 %c, label %A, label %B
+
+A:
+  %i.0 = phi i16 [ 0, %entry ], [ %inc, %B ]
+  %arrayidx2 = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i16 %i.0
+  br label %B
+
+B:
+  %j.0 = phi i16 [ 0, %entry ], [ %i.0, %A ]
+  %arrayidx = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i16 %j.0
+  store i16 2, i16* %arrayidx, align 1
+  %inc = add nuw nsw i16 %j.0, 1
+  %exitcond = icmp eq i16 %j.0, 4
+  br i1 %exitcond, label %exit, label %A
+
+exit:
+  store i16 1, i16* %arrayidx, align 1
+  ret i16 0
+}
+
+; An irreducible loop inside another loop.
+define i16 @irreducible_nested() {
+; CHECK-LABEL: @irreducible_nested(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br label [[OUTER:%.*]]
+; CHECK:       outer:
+; CHECK-NEXT:    [[X:%.*]] = phi i16 [ 0, [[ENTRY:%.*]] ], [ [[INCX:%.*]], [[OUTERL:%.*]] ]
+; CHECK-NEXT:    [[C:%.*]] = icmp sgt i16 [[X]], 2
+; CHECK-NEXT:    br i1 [[C]], label [[A:%.*]], label [[B:%.*]]
+; CHECK:       A:
+; CHECK-NEXT:    [[I_0:%.*]] = phi i16 [ 0, [[OUTER]] ], [ [[INC:%.*]], [[B]] ]
+; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i16 [[I_0]]
+; CHECK-NEXT:    br label [[B]]
+; CHECK:       B:
+; CHECK-NEXT:    [[J_0:%.*]] = phi i16 [ 0, [[OUTER]] ], [ [[I_0]], [[A]] ]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i16 [[J_0]]
+; CHECK-NEXT:    store i16 2, i16* [[ARRAYIDX]], align 1
+; CHECK-NEXT:    [[INC]] = add nuw nsw i16 [[J_0]], 1
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i16 [[J_0]], 4
+; CHECK-NEXT:    br i1 [[EXITCOND]], label [[OUTERL]], label [[A]]
+; CHECK:       outerl:
+; CHECK-NEXT:    store i16 1, i16* [[ARRAYIDX]], align 1
+; CHECK-NEXT:    [[INCX]] = add nuw nsw i16 [[X]], 1
+; CHECK-NEXT:    [[EXITCONDX:%.*]] = icmp eq i16 [[X]], 4
+; CHECK-NEXT:    br i1 [[EXITCONDX]], label [[END:%.*]], label [[OUTER]]
+; CHECK:       end:
+; CHECK-NEXT:    ret i16 0
+;
+entry:
+  br label %outer
+
+outer:
+  %x = phi i16 [ 0, %entry ], [ %incx, %outerl ]
+  %c = icmp sgt i16 %x, 2
+  br i1 %c, label %A, label %B
+
+A:
+  %i.0 = phi i16 [ 0, %outer ], [ %inc, %B ]
+  %arrayidx2 = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i16 %i.0
+  br label %B
+
+B:
+  %j.0 = phi i16 [ 0, %outer ], [ %i.0, %A ]
+  %arrayidx = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i16 %j.0
+  store i16 2, i16* %arrayidx, align 1
+  %inc = add nuw nsw i16 %j.0, 1
+  %exitcond = icmp eq i16 %j.0, 4
+  br i1 %exitcond, label %outerl, label %A
+
+outerl:
+  store i16 1, i16* %arrayidx, align 1
+  %incx = add nuw nsw i16 %x, 1
+  %exitcondx = icmp eq i16 %x, 4
+  br i1 %exitcondx, label %end, label %outer
+
+end:
   ret i16 0
 }
