@@ -1096,15 +1096,22 @@ static LoopUnrollResult tryToUnrollLoop(
   // Find trip count and trip multiple if count is not available
   unsigned TripCount = 0;
   unsigned TripMultiple = 1;
-  // If there are multiple exiting blocks but one of them is the latch, use the
-  // latch for the trip count estimation. Otherwise insist on a single exiting
-  // block for the trip count estimation.
-  BasicBlock *ExitingBlock = L->getLoopLatch();
-  if (!ExitingBlock || !L->isLoopExiting(ExitingBlock))
-    ExitingBlock = L->getExitingBlock();
-  if (ExitingBlock) {
-    TripCount = SE.getSmallConstantTripCount(L, ExitingBlock);
-    TripMultiple = SE.getSmallConstantTripMultiple(L, ExitingBlock);
+  // Prefer the trip count of the latch, if we have one and it is known.
+  BasicBlock *Latch = L->getLoopLatch();
+  if (Latch && L->isLoopExiting(Latch)) {
+    TripCount = SE.getSmallConstantTripCount(L, Latch);
+    TripMultiple = SE.getSmallConstantTripMultiple(L, Latch);
+  }
+  if (TripCount == 0 && TripMultiple == 1) {
+    // Try to find some another exit that has a known trip count.
+    SmallVector<BasicBlock *, 8> ExitingBlocks;
+    L->getExitingBlocks(ExitingBlocks);
+    for (BasicBlock *ExitingBlock : ExitingBlocks) {
+      TripCount = SE.getSmallConstantTripCount(L, ExitingBlock);
+      TripMultiple = SE.getSmallConstantTripMultiple(L, ExitingBlock);
+      if (TripCount)
+        break;
+    }
   }
 
   // If the loop contains a convergent operation, the prelude we'd add
