@@ -2195,7 +2195,8 @@ bool llvm::promoteLoopAccessesToScalars(
       Value *Object = getUnderlyingObject(SomePtr);
       SafeToInsertStore =
           (isAllocLikeFn(Object, TLI) || isa<AllocaInst>(Object)) &&
-          !PointerMayBeCaptured(Object, true, true);
+          !PointerMayBeCapturedBefore(
+              Object, true, true, CurLoop->getHeader()->getTerminator(), DT);
     }
   }
 
