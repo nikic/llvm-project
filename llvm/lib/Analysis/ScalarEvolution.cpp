@@ -9299,17 +9299,19 @@ ScalarEvolution::howFarToNonZero(const SCEV *V, const Loop *L) {
 std::pair<const BasicBlock *, const BasicBlock *>
 ScalarEvolution::getPredecessorWithUniqueSuccessorForBB(const BasicBlock *BB)
     const {
-  // If the block has a unique predecessor, then there is no path from the
-  // predecessor to the block that does not go through the direct edge
-  // from the predecessor to the block.
-  if (const BasicBlock *Pred = BB->getSinglePredecessor())
-    return {Pred, BB};
+  while (true) {
+    // If the block has a unique predecessor, then there is no path from the
+    // predecessor to the block that does not go through the direct edge
+    // from the predecessor to the block.
+    if (const BasicBlock *Pred = BB->getSinglePredecessor())
+      return {Pred, BB};
 
-  // A loop's header is defined to be a block that dominates the loop.
-  // If the header has a unique predecessor outside the loop, it must be
-  // a block that has exactly one successor that can reach the loop.
-  if (const Loop *L = LI.getLoopFor(BB))
-    return {L->getLoopPredecessor(), L->getHeader()};
+    DomTreeNode *IDom = DT.getNode(BB)->getIDom();
+    if (!IDom)
+      break;
+
+    BB = IDom->getBlock();
+  }
 
   return {nullptr, nullptr};
 }
