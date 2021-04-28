@@ -10487,16 +10487,13 @@ bool ScalarEvolution::isImpliedCondBalancedTypes(
   // FoundRHS is AddRec's start value if and only if "AddRec == FoundRHS" is
   // true. It means we can use "FoundRHS >= AddRec's start value".
   if (FoundPred == ICmpInst::ICMP_EQ) {
-    bool FoundCandidate = false;
-    if (Pred == ICmpInst::ICMP_SGT && isa<SCEVAddRecExpr>(FoundRHS)) {
+    if (isa<SCEVAddRecExpr>(FoundRHS) && !isa<SCEVAddRecExpr>(FoundLHS)) {
       std::swap(FoundLHS, FoundRHS);
       std::swap(LHS, RHS);
       Pred = ICmpInst::getSwappedPredicate(Pred);
-      FoundCandidate = true;
-    } else if (Pred == ICmpInst::ICMP_SLT && isa<SCEVAddRecExpr>(FoundLHS))
-      FoundCandidate = true;
+    }
 
-    if (FoundCandidate) {
+    if (isa<SCEVAddRecExpr>(FoundLHS)) {
       const auto *AddRec = cast<SCEVAddRecExpr>(FoundLHS);
       const auto *StepCst =
           dyn_cast<SCEVConstant>(AddRec->getStepRecurrence(*this));
