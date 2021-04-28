@@ -9305,6 +9305,13 @@ ScalarEvolution::getPredecessorWithUniqueSuccessorForBB(const BasicBlock *BB)
   if (const BasicBlock *Pred = BB->getSinglePredecessor())
     return {Pred, BB};
 
+  // Check IDom of BB and the IDom has single predecessor.
+  if (auto *IDom = DT.getNode(BB)->getIDom()) {
+    const BasicBlock *IDomBB = IDom->getBlock();
+    if (const BasicBlock *IDomPred = IDomBB->getSinglePredecessor())
+      return {IDomPred, IDomBB};
+  }
+
   // A loop's header is defined to be a block that dominates the loop.
   // If the header has a unique predecessor outside the loop, it must be
   // a block that has exactly one successor that can reach the loop.

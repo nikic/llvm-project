@@ -1467,4 +1467,44 @@ TEST_F(ScalarEvolutionsTest, MatchURem) {
   });
 }
 
+TEST_F(ScalarEvolutionsTest, BasicBlockEntryGuardedByCondWithIDom) {
+  LLVMContext C;
+  SMDiagnostic Err;
+  std::unique_ptr<Module> M = parseAssemblyString(
+      "define void @foo(i64 %0, i64 %1, i64 %n) { "
+      "entry: "
+      "  br label %bb "
+      "bb: "
+      "  %if.cond = icmp slt i64 1, %n "
+      "  br i1 %if.cond, label %if.then, label %exit "
+      "if.then: "
+      "  %if.cond.2 = icmp slt i64 1, %n "
+      "  br i1 %if.cond.2, label %loop.ph, label %if.then.else "
+      "if.then.else: "
+      "  br label %loop.ph "
+      "loop.ph: "
+      "  br label %loop "
+      "loop: "
+      "  %iv = phi i64 [ %inc, %loop ], [ 1, %loop.ph ] "
+      "  %inc = add nuw nsw i64 %iv, 1 "
+      "  %cond = icmp eq i64 %inc, %n "
+      "  br i1 %cond, label %exit, label %loop "
+      "exit: "
+      "  ret void "
+      "} ",
+      Err, C);
+
+  ASSERT_TRUE(M && "Could not parse module?");
+  ASSERT_TRUE(!verifyModule(*M) && "Must have been well formed!");
+
+  runWithSE(*M, "foo", [](Function &F, LoopInfo &LI, ScalarEvolution &SE) {
+    auto *Guarded = getInstructionByName(F, "iv")->getParent();
+    const SCEV *RHS = SE.getSCEV(getArgByName(F, "n"));
+    const SCEV *LHS = SE.getZero(RHS->getType());
+    ICmpInst::Predicate Pred = ICmpInst::ICMP_SLT;
+    EXPECT_TRUE(
+        SE.isBasicBlockEntryGuardedByCond(Guarded, Pred, LHS, RHS));
+  });
+}
+
 }  // end namespace llvm
