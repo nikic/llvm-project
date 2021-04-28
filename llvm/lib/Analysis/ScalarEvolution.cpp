@@ -10483,6 +10483,40 @@ bool ScalarEvolution::isImpliedCondBalancedTypes(
                                 Context))
         return true;
 
+  // If FoundLHS is AddRec and FoundPred is EQ, we can say that the min value of
+  // FoundRHS is AddRec's start value if and only if "AddRec == FoundRHS" is
+  // true. It means we can use "FoundRHS >= AddRec's start value".
+  if (FoundPred == ICmpInst::ICMP_EQ) {
+    bool FoundCandidate = false;
+    if (Pred == ICmpInst::ICMP_SGT && isa<SCEVAddRecExpr>(FoundRHS)) {
+      std::swap(FoundLHS, FoundRHS);
+      std::swap(LHS, RHS);
+      Pred = ICmpInst::getSwappedPredicate(Pred);
+      FoundCandidate = true;
+    } else if (Pred == ICmpInst::ICMP_SLT && isa<SCEVAddRecExpr>(FoundLHS))
+      FoundCandidate = true;
+
+    if (FoundCandidate) {
+      const auto *AddRec = cast<SCEVAddRecExpr>(FoundLHS);
+      const auto *StepCst =
+          dyn_cast<SCEVConstant>(AddRec->getStepRecurrence(*this));
+      if (StepCst) {
+        auto isImpliedCondWithNewPred = [&](ICmpInst::Predicate NewFoundPred) {
+          const auto *NewFoundLHS = cast<SCEVAddRecExpr>(FoundLHS)->getStart();
+          if (isImpliedCondBalancedTypes(Pred, LHS, RHS, NewFoundPred,
+                                         NewFoundLHS, FoundRHS, Context))
+            return true;
+          return false;
+        };
+        if ((AddRec->getNoWrapFlags(SCEV::FlagNSW) &&
+             !StepCst->getValue()->isNegative())) {
+          if (isImpliedCondWithNewPred(ICmpInst::ICMP_SLE))
+            return true;
+        }
+      }
+    }
+  }
+
   // Otherwise assume the worst.
   return false;
 }

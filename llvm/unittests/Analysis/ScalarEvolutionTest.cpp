@@ -1414,6 +1414,76 @@ TEST_F(ScalarEvolutionsTest, ImpliedCond) {
   });
 }
 
+TEST_F(ScalarEvolutionsTest, ImpliedCondWithAddRecNSWStepPositive) {
+  LLVMContext C;
+  SMDiagnostic Err;
+  std::unique_ptr<Module> M =
+      parseAssemblyString("define void @foo(i32 %len) { "
+                          "entry: "
+                          "  br label %loop "
+                          "loop: "
+                          "  %iv = phi i32 [ 1, %entry], [%iv.next, %loop] "
+                          "  %iv.next = add nsw i32 %iv, 1 "
+                          "  %cmp = icmp eq i32 %iv, %len "
+                          "  br i1 %cmp, label %loop, label %exit "
+                          "exit:"
+                          "  ret void "
+                          "}",
+                          Err, C);
+
+  ASSERT_TRUE(M && "Could not parse module?");
+  ASSERT_TRUE(!verifyModule(*M) && "Must have been well formed!");
+
+  runWithSE(*M, "foo", [](Function &F, LoopInfo &LI, ScalarEvolution &SE) {
+    ICmpInst *ICMP = cast<ICmpInst>(getInstructionByName(F, "cmp"));
+    const SCEV *FoundLHS = SE.getSCEV(ICMP->getOperand(0));
+    const SCEV *FoundRHS = SE.getSCEV(ICMP->getOperand(1));
+    ICmpInst::Predicate FoundPred = ICMP->getPredicate();
+
+    const SCEV *LHS = SE.getZero(ICMP->getOperand(0)->getType());
+    const SCEV *RHS = SE.getSCEV(getArgByName(F, "len"));
+    ICmpInst::Predicate Pred = ICmpInst::ICMP_SLT;
+
+    EXPECT_TRUE(
+        isImpliedCond(SE, Pred, LHS, RHS, FoundPred, FoundLHS, FoundRHS));
+  });
+}
+
+TEST_F(ScalarEvolutionsTest, ImpliedCondWithAddRecNSWStepNegative) {
+  LLVMContext C;
+  SMDiagnostic Err;
+  std::unique_ptr<Module> M =
+      parseAssemblyString("define void @foo(i32 %len) { "
+                          "entry: "
+                          "  br label %loop "
+                          "loop: "
+                          "  %iv = phi i32 [ 100, %entry], [%iv.next, %loop] "
+                          "  %iv.next = add nsw i32 %iv, -1 "
+                          "  %cmp = icmp eq i32 %iv, %len "
+                          "  br i1 %cmp, label %loop, label %exit "
+                          "exit:"
+                          "  ret void "
+                          "}",
+                          Err, C);
+
+  ASSERT_TRUE(M && "Could not parse module?");
+  ASSERT_TRUE(!verifyModule(*M) && "Must have been well formed!");
+
+  runWithSE(*M, "foo", [](Function &F, LoopInfo &LI, ScalarEvolution &SE) {
+    ICmpInst *ICMP = cast<ICmpInst>(getInstructionByName(F, "cmp"));
+    const SCEV *FoundLHS = SE.getSCEV(ICMP->getOperand(0));
+    const SCEV *FoundRHS = SE.getSCEV(ICMP->getOperand(1));
+    ICmpInst::Predicate FoundPred = ICMP->getPredicate();
+
+    const SCEV *LHS = SE.getZero(ICMP->getOperand(0)->getType());
+    const SCEV *RHS = SE.getSCEV(getArgByName(F, "len"));
+    ICmpInst::Predicate Pred = ICmpInst::ICMP_SLT;
+
+    EXPECT_FALSE(
+        isImpliedCond(SE, Pred, LHS, RHS, FoundPred, FoundLHS, FoundRHS));
+  });
+}
+
 TEST_F(ScalarEvolutionsTest, MatchURem) {
   LLVMContext C;
   SMDiagnostic Err;
