@@ -847,7 +847,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   for (auto &C : ScalarOptimizerLateEPCallbacks)
     C(FPM, Level);
 
-  FPM.addPass(SimplifyCFGPass());
+  FPM.addPass(SimplifyCFGPass(
+      SimplifyCFGOptions().hoistCommonInsts(true)));
   FPM.addPass(InstCombinePass());
   invokePeepholeEPCallbacks(FPM, Level);
 
