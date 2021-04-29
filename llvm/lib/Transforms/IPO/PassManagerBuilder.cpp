@@ -511,7 +511,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
   // Merge & remove BBs and sink & hoist common instructions.
   MPM.add(createCFGSimplificationPass(
-      SimplifyCFGOptions().hoistCommonInsts(true)));
+      SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
   // Clean up after everything.
   MPM.add(createInstructionCombiningPass());
   addExtensionsToPM(EP_Peephole, MPM);
