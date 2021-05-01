@@ -7207,13 +7207,17 @@ void ScalarEvolution::forgetAllLoops() {
 }
 
 void ScalarEvolution::forgetLoop(const Loop *L) {
-  SmallVector<const Loop *, 16> LoopWorklist(1, L);
   SmallVector<Instruction *, 32> Worklist;
   SmallPtrSet<Instruction *, 16> Visited;
+  auto ForgetSingleLoop = [&](const Loop *CurrL) {
+    LoopPropertiesCache.erase(CurrL);
 
-  // Iterate over all the loops and sub-loops to drop SCEV information.
-  while (!LoopWorklist.empty()) {
-    auto *CurrL = LoopWorklist.pop_back_val();
+    // We only need to invalidate something if either a) there are SCEV
+    // expression using the loop, or b) there are computed backedge taken
+    // counts, which may be used to compute exit values (that no longer
+    // directly depend on the loop).
+    if (!LoopUsers.count(CurrL) && !BackedgeTakenCounts.count(CurrL))
+      return;
 
     // Drop any stored trip count value.
     BackedgeTakenCounts.erase(CurrL);
@@ -7255,8 +7259,14 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
 
       PushDefUseChildren(I, Worklist);
     }
+  };
 
-    LoopPropertiesCache.erase(CurrL);
+  // Iterate over all the loops and sub-loops to drop SCEV information.
+  SmallVector<const Loop *, 16> LoopWorklist(1, L);
+  while (!LoopWorklist.empty()) {
+    auto *CurrL = LoopWorklist.pop_back_val();
+    ForgetSingleLoop(CurrL);
+
     // Forget all contained loops too, to avoid dangling entries in the
     // ValuesAtScopes map.
     LoopWorklist.append(CurrL->begin(), CurrL->end());
