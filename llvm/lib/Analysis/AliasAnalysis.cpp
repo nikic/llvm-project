@@ -732,6 +732,11 @@ ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
   if (!Call || Call == Object)
     return ModRefInfo::ModRef;
 
+  // For a non-escaping local object, normal AA will have computed an optimal
+  // result already. Don't try to refine it.
+  if (isNonEscapingLocalObject(Object, &AAQI.IsCapturedCache))
+    return ModRefInfo::ModRef;
+
   if (PointerMayBeCapturedBefore(Object, /* ReturnCaptures */ true,
                                  /* StoreCaptures */ true, I, DT,
                                  /* include Object */ true))
