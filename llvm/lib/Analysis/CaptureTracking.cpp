@@ -106,7 +106,8 @@ namespace {
     void tooManyUses() override { Captured = true; }
 
     bool isSafeToPrune(Instruction *I) {
-      assert(I != BeforeHere && "Should have been handled earlier");
+      if (BeforeHere == I)
+        return !IncludeI;
 
       BasicBlock *BB = I->getParent();
       // We explore this usage only if the usage can reach "BeforeHere".
@@ -152,17 +153,12 @@ namespace {
       return false;
     }
 
-    bool shouldExplore(const Use *U) override {
-      Instruction *I = cast<Instruction>(U->getUser());
-
-      if (BeforeHere == I)
-        return IncludeI;
-
-      return !isSafeToPrune(I);
-    }
-
     bool captured(const Use *U) override {
-      if (isa<ReturnInst>(U->getUser()) && !ReturnCaptures)
+      Instruction *I = cast<Instruction>(U->getUser());
+      if (isa<ReturnInst>(I) && !ReturnCaptures)
+        return false;
+
+      if (isSafeToPrune(I))
         return false;
 
       Captured = true;
@@ -258,9 +254,9 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
         Tracker->tooManyUses();
         return false;
       }
-      if (!Visited.insert(&U).second)
-        continue;
       if (!Tracker->shouldExplore(&U))
+        continue;
+      if (!Visited.insert(&U).second)
         continue;
       Worklist.push_back(&U);
     }
