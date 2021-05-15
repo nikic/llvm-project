@@ -428,6 +428,10 @@ public:
   using IsCapturedCacheT = SmallDenseMap<const Value *, bool, 8>;
   IsCapturedCacheT IsCapturedCache;
 
+  /// Reachability cache used by callCapturesBefore().
+  DenseMap<std::pair<const BasicBlock *, const BasicBlock *>, bool>
+      ReachabilityCache;
+
   /// Query depth used to distinguish recursive queries.
   unsigned Depth = 0;
 

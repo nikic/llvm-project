@@ -17,11 +17,15 @@
 
 namespace llvm {
 
+  class BasicBlock;
   class Value;
   class Use;
   class DataLayout;
   class Instruction;
   class DominatorTree;
+
+  typedef DenseMap<std::pair<const BasicBlock *, const BasicBlock *>, bool>
+      CaptureReachabilityCacheTy;
 
   /// getDefaultMaxUsesToExploreForCaptureTracking - Return default value of
   /// the maximal number of uses to explore before giving up. It is used by
@@ -57,7 +61,8 @@ namespace llvm {
   /// is zero, a default value is assumed.
   bool PointerMayBeCapturedBefore(
       const Value *V, bool ReturnCaptures, bool StoreCaptures,
-      const Instruction *I, const DominatorTree *DT, bool IncludeI = false,
+      const Instruction *I, const DominatorTree *DT,
+      CaptureReachabilityCacheTy &ReachabilityCache, bool IncludeI = false,
       unsigned MaxUsesToExplore = 0);
 
   /// This callback is used in conjunction with PointerMayBeCaptured. In

@@ -97,10 +97,10 @@ namespace {
   /// Only support the case where the Value is defined in the same basic block
   /// as the given instruction and the use.
   struct CapturesBefore : public CaptureTracker {
-
-    CapturesBefore(bool ReturnCaptures, const Instruction *I, const DominatorTree *DT,
-                   bool IncludeI)
-      : BeforeHere(I), DT(DT),
+    CapturesBefore(bool ReturnCaptures, const Instruction *I,
+                   const DominatorTree *DT,
+                   CaptureReachabilityCacheTy &ReachabilityCache, bool IncludeI)
+      : BeforeHere(I), DT(DT), ReachabilityCache(ReachabilityCache),
         ReturnCaptures(ReturnCaptures), IncludeI(IncludeI), Captured(false) {}
 
     void tooManyUses() override { Captured = true; }
@@ -142,14 +142,18 @@ namespace {
         return !isPotentiallyReachableFromMany(Worklist, BB, nullptr, DT);
       }
 
-      // If the value is defined in the same basic block as use and BeforeHere,
-      // there is no need to explore the use if BeforeHere dominates use.
-      // Check whether there is a path from I to BeforeHere.
-      if (DT->dominates(BeforeHere, I) &&
-          !isPotentiallyReachable(I, BeforeHere, nullptr, DT))
-        return true;
+      // Compile-time optimization.
+      if (!DT->dominates(BeforeHere, I))
+        return false;
 
-      return false;
+      // Check whether there is a path from I to BeforeHere.
+      const BasicBlock *BeforeHereBB = BeforeHere->getParent();
+      auto Res = ReachabilityCache.try_emplace({BB, BeforeHereBB}, false);
+      if (Res.second)
+        Res.first->second =
+            isPotentiallyReachable(BB, BeforeHereBB, nullptr, DT);
+
+      return !Res.first->second;
     }
 
     bool shouldExplore(const Use *U) override {
@@ -171,6 +175,7 @@ namespace {
 
     const Instruction *BeforeHere;
     const DominatorTree *DT;
+    CaptureReachabilityCacheTy &ReachabilityCache;
 
     bool ReturnCaptures;
     bool IncludeI;
@@ -216,10 +221,11 @@ bool llvm::PointerMayBeCaptured(const Value *V,
 /// it or not.  The boolean StoreCaptures specified whether storing the value
 /// (or part of it) into memory anywhere automatically counts as capturing it
 /// or not.
-bool llvm::PointerMayBeCapturedBefore(const Value *V, bool ReturnCaptures,
-                                      bool StoreCaptures, const Instruction *I,
-                                      const DominatorTree *DT, bool IncludeI,
-                                      unsigned MaxUsesToExplore) {
+bool llvm::PointerMayBeCapturedBefore(
+    const Value *V, bool ReturnCaptures, bool StoreCaptures,
+    const Instruction *I, const DominatorTree *DT,
+    CaptureReachabilityCacheTy &ReachabilityCache, bool IncludeI,
+    unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
@@ -230,7 +236,7 @@ bool llvm::PointerMayBeCapturedBefore(const Value *V, bool ReturnCaptures,
   // TODO: See comment in PointerMayBeCaptured regarding what could be done
   // with StoreCaptures.
 
-  CapturesBefore CB(ReturnCaptures, I, DT, IncludeI);
+  CapturesBefore CB(ReturnCaptures, I, DT, ReachabilityCache, IncludeI);
   PointerMayBeCaptured(V, &CB, MaxUsesToExplore);
   if (CB.Captured)
     ++NumCapturedBefore;

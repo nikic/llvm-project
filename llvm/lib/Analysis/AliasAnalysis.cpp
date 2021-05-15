@@ -733,6 +733,7 @@ ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
 
   if (PointerMayBeCapturedBefore(Object, /* ReturnCaptures */ true,
                                  /* StoreCaptures */ true, I, DT,
+                                 AAQI.ReachabilityCache,
                                  /* include Object */ true))
     return ModRefInfo::ModRef;
 

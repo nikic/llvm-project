@@ -1956,9 +1956,13 @@ bool isNotCapturedBeforeOrInLoop(const Value *V, const Loop *L,
   // loop header, as the loop header is reachable from any instruction inside
   // the loop.
   // TODO: ReturnCaptures=true shouldn't be necessary here.
+  // TODO: ReachabilityCache could be pushed higher up, but this code is
+  // called rarely enough that it doesn't particularly matter.
+  CaptureReachabilityCacheTy ReachabilityCache;
   return !PointerMayBeCapturedBefore(V, /* ReturnCaptures */ true,
                                      /* StoreCaptures */ true,
-                                     L->getHeader()->getTerminator(), DT);
+                                     L->getHeader()->getTerminator(), DT,
+                                     ReachabilityCache);
 }
 
 /// Return true iff we can prove that a caller of this function can not inspect

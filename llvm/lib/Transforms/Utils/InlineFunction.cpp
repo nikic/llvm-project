@@ -967,6 +967,8 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
   DenseMap<const Argument *, MDNode *> NewScopes;
   MDBuilder MDB(CalledFunc->getContext());
 
+  CaptureReachabilityCacheTy ReachabilityCache;
+
   // Create a new scope domain for this function.
   MDNode *NewDomain =
     MDB.createAnonymousAliasScopeDomain(CalledFunc->getName());
@@ -1134,7 +1136,8 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
                                  // that the value cannot be locally captured.
                                  !PointerMayBeCapturedBefore(A,
                                    /* ReturnCaptures */ false,
-                                   /* StoreCaptures */ false, I, &DT)))
+                                   /* StoreCaptures */ false, I, &DT,
+                                   ReachabilityCache)))
           NoAliases.push_back(NewScopes[A]);
       }
 
