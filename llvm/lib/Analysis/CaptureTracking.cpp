@@ -142,10 +142,6 @@ namespace {
         return !isPotentiallyReachableFromMany(Worklist, BB, nullptr, DT);
       }
 
-      // Compile-time optimization.
-      if (!DT->dominates(BeforeHere, I))
-        return false;
-
       // Check whether there is a path from I to BeforeHere.
       const BasicBlock *BeforeHereBB = BeforeHere->getParent();
       auto Res = ReachabilityCache.try_emplace({BB, BeforeHereBB}, false);
