@@ -1247,7 +1247,9 @@ struct DSEState {
     // by using AA.callCapturesBefore(UseInst, DefLoc, &DT), but that showed to
     // be expensive compared to the benefits in practice. For now, avoid more
     // expensive analysis to limit compile-time.
-    return isRefSet(BatchAA.getModRefInfo(UseInst, DefLoc));
+    if (!isRefSet(BatchAA.getModRefInfo(UseInst, DefLoc)))
+      return false;
+    return isRefSet(BatchAA.callCapturesBefore(UseInst, DefLoc, &DT));
   }
 
   /// Returns true if \p Ptr is guaranteed to be loop invariant for any possible
