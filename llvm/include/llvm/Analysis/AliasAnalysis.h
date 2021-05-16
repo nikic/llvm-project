@@ -425,7 +425,7 @@ public:
   using AliasCacheT = SmallDenseMap<LocPair, CacheEntry, 8>;
   AliasCacheT AliasCache;
 
-  using IsCapturedCacheT = SmallDenseMap<const Value *, bool, 8>;
+  using IsCapturedCacheT = SmallDenseMap<const Value *, const Instruction *, 8>;
   IsCapturedCacheT IsCapturedCache;
 
   /// Query depth used to distinguish recursive queries.

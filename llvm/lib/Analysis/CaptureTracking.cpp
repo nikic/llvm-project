@@ -78,24 +78,25 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
 namespace {
   struct SimpleCaptureTracker : public CaptureTracker {
     explicit SimpleCaptureTracker(bool ReturnCaptures)
-      : ReturnCaptures(ReturnCaptures), Captured(false) {}
+      : ReturnCaptures(ReturnCaptures), Captured(nullptr) {}
 
     void tooManyUses() override {
       ++NumCapturedLimit;
-      Captured = true;
+      Captured = CaptureResultLimitExceeded;
     }
 
     bool captured(const Use *U) override {
-      if (isa<ReturnInst>(U->getUser()) && !ReturnCaptures)
+      const Instruction *I = cast<Instruction>(U->getUser());
+      if (isa<ReturnInst>(I) && !ReturnCaptures)
         return false;
 
-      Captured = true;
+      Captured = I;
       return true;
     }
 
     bool ReturnCaptures;
 
-    bool Captured;
+    CaptureResult Captured;
   };
 
   /// Only find pointer captures which happen before the given instruction. Uses
@@ -107,11 +108,11 @@ namespace {
     CapturesBefore(bool ReturnCaptures, const Instruction *I, const DominatorTree *DT,
                    bool IncludeI)
       : BeforeHere(I), DT(DT),
-        ReturnCaptures(ReturnCaptures), IncludeI(IncludeI), Captured(false) {}
+        ReturnCaptures(ReturnCaptures), IncludeI(IncludeI), Captured(nullptr) {}
 
     void tooManyUses() override {
       ++NumCapturedBeforeLimit;
-      Captured = true;
+      Captured = CaptureResultLimitExceeded;
     }
 
     bool isSafeToPrune(Instruction *I) {
@@ -138,7 +139,7 @@ namespace {
       if (isSafeToPrune(I))
         return false;
 
-      Captured = true;
+      Captured = I;
       return true;
     }
 
@@ -148,7 +149,7 @@ namespace {
     bool ReturnCaptures;
     bool IncludeI;
 
-    bool Captured;
+    CaptureResult Captured;
   };
 }
 
@@ -159,9 +160,9 @@ namespace {
 /// counts as capturing it or not.  The boolean StoreCaptures specified whether
 /// storing the value (or part of it) into memory anywhere automatically
 /// counts as capturing it or not.
-bool llvm::PointerMayBeCaptured(const Value *V,
-                                bool ReturnCaptures, bool StoreCaptures,
-                                unsigned MaxUsesToExplore) {
+CaptureResult llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+                                         bool StoreCaptures,
+                                         unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
@@ -189,10 +190,10 @@ bool llvm::PointerMayBeCaptured(const Value *V,
 /// it or not.  The boolean StoreCaptures specified whether storing the value
 /// (or part of it) into memory anywhere automatically counts as capturing it
 /// or not.
-bool llvm::PointerMayBeCapturedBefore(const Value *V, bool ReturnCaptures,
-                                      bool StoreCaptures, const Instruction *I,
-                                      const DominatorTree *DT, bool IncludeI,
-                                      unsigned MaxUsesToExplore) {
+CaptureResult llvm::PointerMayBeCapturedBefore(
+    const Value *V, bool ReturnCaptures, bool StoreCaptures,
+    const Instruction *I, const DominatorTree *DT, bool IncludeI,
+    unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
@@ -384,28 +385,51 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
 }
 
 bool llvm::isNonEscapingLocalObject(
-    const Value *V, SmallDenseMap<const Value *, bool, 8> *IsCapturedCache) {
-  SmallDenseMap<const Value *, bool, 8>::iterator CacheIt;
+    const Value *V, CaptureCacheTy *IsCapturedCache) {
+  if (!isIdentifiedFunctionLocal(V))
+    return false;
+
+  CaptureCacheTy::iterator CacheIt;
   if (IsCapturedCache) {
     bool Inserted;
-    std::tie(CacheIt, Inserted) = IsCapturedCache->insert({V, false});
+    std::tie(CacheIt, Inserted) = IsCapturedCache->insert({V, nullptr});
     if (!Inserted)
       // Found cached result, return it!
-      return CacheIt->second;
+      return !CacheIt->second;
   }
 
-  // If this is an identified function-local object, check to see if it escapes.
-  if (isIdentifiedFunctionLocal(V)) {
-    // Set StoreCaptures to True so that we can assume in our callers that the
-    // pointer is not the result of a load instruction. Currently
-    // PointerMayBeCaptured doesn't have any special analysis for the
-    // StoreCaptures=false case; if it did, our callers could be refined to be
-    // more precise.
-    auto Ret = !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
-    if (IsCapturedCache)
-      CacheIt->second = Ret;
-    return Ret;
-  }
+  // Set StoreCaptures to True so that we can assume in our callers that the
+  // pointer is not the result of a load instruction. Currently
+  // PointerMayBeCaptured doesn't have any special analysis for the
+  // StoreCaptures=false case; if it did, our callers could be refined to be
+  // more precise.
+  CaptureResult CR = PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
+  if (IsCapturedCache)
+    CacheIt->second = CR;
+  return !CR;
+}
 
-  return false;
+bool llvm::isNonEscapingLocalObjectBefore(
+    const Value *V, const Instruction *I, DominatorTree *DT,
+    CaptureCacheTy &IsCapturedCache) {
+  if (!isIdentifiedFunctionLocal(V))
+    return false;
+
+  // Fetch or populate the cache result for whole-function capture.
+  auto Res = IsCapturedCache.insert({V, nullptr});
+  if (Res.second)
+    Res.first->second = PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
+
+  CaptureResult CR = Res.first->second;
+  // Not captured in whole function, so definitely not captured before I.
+  if (!CR)
+    return true;
+  // Limit was reached, we will not be able to improve on this result.
+  if (CR == CaptureResultLimitExceeded)
+    return false;
+
+  // Okay, try to refine the result using captured-before.
+  return !PointerMayBeCapturedBefore(V, /* ReturnCaptures */ true,
+                                     /* StoreCaptures */ true, I, DT,
+                                     /* include Object */ true);
 }

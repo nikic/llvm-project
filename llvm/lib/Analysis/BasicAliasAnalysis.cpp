@@ -794,17 +794,6 @@ AliasResult BasicAAResult::alias(const MemoryLocation &LocA,
   return aliasCheck(LocA.Ptr, LocA.Size, LocB.Ptr, LocB.Size, AAQI);
 }
 
-static bool isNonEscapingLocalObjectBefore(const Value *Object,
-                                           const Instruction *I,
-                                           DominatorTree *DT) {
-  if (!DT || !isIdentifiedFunctionLocal(Object))
-    return false;
-
-  return !PointerMayBeCapturedBefore(Object, /* ReturnCaptures */ true,
-                                     /* StoreCaptures */ true, I, DT,
-                                     /* include Object */ true);
-}
-
 /// Checks to see if the specified callsite can clobber the specified memory
 /// object.
 ///
@@ -840,8 +829,7 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   // then the call can not mod/ref the pointer unless the call takes the pointer
   // as an argument, and itself doesn't capture it.
   if (!isa<Constant>(Object) && Call != Object &&
-      (isNonEscapingLocalObject(Object, &AAQI.IsCapturedCache) ||
-       isNonEscapingLocalObjectBefore(Object, Call, DT))) {
+      isNonEscapingLocalObjectBefore(Object, Call, DT, AAQI.IsCapturedCache)) {
 
     // Optimistically assume that call doesn't touch Object and check this
     // assumption in the following loop.

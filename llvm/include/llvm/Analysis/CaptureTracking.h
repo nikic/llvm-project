@@ -23,12 +23,24 @@ namespace llvm {
   class Instruction;
   class DominatorTree;
 
+  /// May be one of:
+  ///  * nullptr: The value is not captured.
+  ///  * CaptureResultLimitExceeded: The value is captured because the use
+  ///    limit was exceeded.
+  ///  * Otherwise: A witness instruction for the capture (there may be other
+  ///    capturing instructions as well.)
+  using CaptureResult = const Instruction *;
+  static const CaptureResult CaptureResultLimitExceeded =
+      reinterpret_cast<CaptureResult>(-1);
+
+  using CaptureCacheTy = SmallDenseMap<const Value *, CaptureResult, 8>;
+
   /// getDefaultMaxUsesToExploreForCaptureTracking - Return default value of
   /// the maximal number of uses to explore before giving up. It is used by
   /// PointerMayBeCaptured family analysis.
   unsigned getDefaultMaxUsesToExploreForCaptureTracking();
 
-  /// PointerMayBeCaptured - Return true if this pointer value may be captured
+  /// Return non-null if this pointer value may be captured
   /// by the enclosing function (which is required to exist).  This routine can
   /// be expensive, so consider caching the results.  The boolean ReturnCaptures
   /// specifies whether returning the value (or part of it) from the function
@@ -38,11 +50,11 @@ namespace llvm {
   /// MaxUsesToExplore specifies how many uses the analysis should explore for
   /// one value before giving up due too "too many uses". If MaxUsesToExplore
   /// is zero, a default value is assumed.
-  bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
-                            bool StoreCaptures,
-                            unsigned MaxUsesToExplore = 0);
+  CaptureResult PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+                                     bool StoreCaptures,
+                                     unsigned MaxUsesToExplore = 0);
 
-  /// PointerMayBeCapturedBefore - Return true if this pointer value may be
+  /// Return non-null if this pointer value may be
   /// captured by the enclosing function (which is required to exist). If a
   /// DominatorTree is provided, only captures which happen before the given
   /// instruction are considered. This routine can be expensive, so consider
@@ -55,7 +67,7 @@ namespace llvm {
   /// MaxUsesToExplore specifies how many uses the analysis should explore for
   /// one value before giving up due too "too many uses". If MaxUsesToExplore
   /// is zero, a default value is assumed.
-  bool PointerMayBeCapturedBefore(
+  CaptureResult PointerMayBeCapturedBefore(
       const Value *V, bool ReturnCaptures, bool StoreCaptures,
       const Instruction *I, const DominatorTree *DT, bool IncludeI = false,
       unsigned MaxUsesToExplore = 0);
@@ -100,8 +112,13 @@ namespace llvm {
   /// Returns true if the pointer is to a function-local object that never
   /// escapes from the function.
   bool isNonEscapingLocalObject(
-      const Value *V,
-      SmallDenseMap<const Value *, bool, 8> *IsCapturedCache = nullptr);
+      const Value *V, CaptureCacheTy *IsCapturedCache = nullptr);
+
+  /// Returns true if the pointer is to a function-local object that does not
+  /// escape before (or at) I.
+  bool isNonEscapingLocalObjectBefore(
+      const Value *V, const Instruction *I, DominatorTree *DT,
+      CaptureCacheTy &IsCapturedCache);
 } // end namespace llvm
 
 #endif
