@@ -980,8 +980,6 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpyLoad,
   ModRefInfo MR = AA->getModRefInfo(C, cpyDest, LocationSize::precise(srcSize));
   // If necessary, perform additional analysis.
   if (isModOrRefSet(MR))
-    MR = AA->callCapturesBefore(C, cpyDest, LocationSize::precise(srcSize), DT);
-  if (isModOrRefSet(MR))
     return false;
 
   // We can't create address space casts here because we don't know if they're

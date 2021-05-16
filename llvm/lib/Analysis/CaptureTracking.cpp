@@ -36,6 +36,9 @@ STATISTIC(NumCaptured,          "Number of pointers maybe captured");
 STATISTIC(NumNotCaptured,       "Number of pointers not captured");
 STATISTIC(NumCapturedBefore,    "Number of pointers maybe captured before");
 STATISTIC(NumNotCapturedBefore, "Number of pointers not captured before");
+STATISTIC(NumCapturedLimit,     "Number of times use limit reached");
+STATISTIC(NumCapturedBeforeLimit,
+    "Number of times use limit reached (for captured-before)");
 
 /// The default value for MaxUsesToExplore argument. It's relatively small to
 /// keep the cost of analysis reasonable for clients like BasicAliasAnalysis,
@@ -77,7 +80,10 @@ namespace {
     explicit SimpleCaptureTracker(bool ReturnCaptures)
       : ReturnCaptures(ReturnCaptures), Captured(false) {}
 
-    void tooManyUses() override { Captured = true; }
+    void tooManyUses() override {
+      ++NumCapturedLimit;
+      Captured = true;
+    }
 
     bool captured(const Use *U) override {
       if (isa<ReturnInst>(U->getUser()) && !ReturnCaptures)
@@ -103,7 +109,10 @@ namespace {
       : BeforeHere(I), DT(DT),
         ReturnCaptures(ReturnCaptures), IncludeI(IncludeI), Captured(false) {}
 
-    void tooManyUses() override { Captured = true; }
+    void tooManyUses() override {
+      ++NumCapturedBeforeLimit;
+      Captured = true;
+    }
 
     bool isSafeToPrune(Instruction *I) {
       if (BeforeHere == I)
