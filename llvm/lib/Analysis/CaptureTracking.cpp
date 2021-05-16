@@ -427,8 +427,13 @@ bool llvm::isNonEscapingLocalObjectBefore(
   // Limit was reached, we will not be able to improve on this result.
   if (CR == CaptureResultLimitExceeded)
     return false;
+  // CR is one witness of the capture. Check whether it can reach I, in which
+  // case there definitely is a reachable capture.
+  if (isPotentiallyReachable(CR, I, nullptr, DT))
+    return false;
 
-  // Okay, try to refine the result using captured-before.
+  // Okay, the cached witness did not reach. Perform a full captured-before
+  // query in that case.
   return !PointerMayBeCapturedBefore(V, /* ReturnCaptures */ true,
                                      /* StoreCaptures */ true, I, DT,
                                      /* include Object */ true);
