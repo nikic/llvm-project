@@ -1488,8 +1488,12 @@ AttributeList::removeAttributes(LLVMContext &C, unsigned Index,
   if (Index >= AttrSets.size())
     AttrSets.resize(Index + 1);
 
-  AttrSets[Index] = AttrSets[Index].removeAttributes(C, AttrsToRemove);
+  AttributeSet NewAttrSet = AttrSets[Index].removeAttributes(C, AttrsToRemove);
+  // Don't bother looking up new list if nothing changed.
+  if (NewAttrSet == AttrSets[Index])
+    return AttributeList(pImpl);
 
+  AttrSets[Index] = NewAttrSet;
   return getImpl(C, AttrSets);
 }
 
