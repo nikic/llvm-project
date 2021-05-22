@@ -1106,24 +1106,37 @@ static LoopUnrollResult tryToUnrollLoop(
     return LoopUnrollResult::Unmodified;
   }
 
-  // Find trip count and trip multiple if count is not available
+  BasicBlock *Latch = L->getLoopLatch();
+  assert(Latch && "Loop simplify form must have latch");
+
+  // Find minimum (exact, constant) trip count for any exit. If not available,
+  // finr the maximum trip multiple.
   unsigned TripCount = 0;
   unsigned TripMultiple = 1;
-  // If there are multiple exiting blocks but one of them is the latch, use the
-  // latch for the trip count estimation. Otherwise insist on a single exiting
-  // block for the trip count estimation.
-  BasicBlock *ExitingBlock = L->getLoopLatch();
-  if (!ExitingBlock || !L->isLoopExiting(ExitingBlock))
-    ExitingBlock = L->getExitingBlock();
-  // If the latch is not exiting and there's no single exiting block, check if
-  // the header is exiting and use it to estimate the trip count. This can
-  // happen when unrolling non-rotated loops.
-  if (!ExitingBlock && L->isLoopExiting(L->getHeader()))
-    ExitingBlock = L->getHeader();
-  if (ExitingBlock) {
-    TripCount = SE.getSmallConstantTripCount(L, ExitingBlock);
-    TripMultiple = SE.getSmallConstantTripMultiple(L, ExitingBlock);
+  BasicBlock *AnalyzedExit = nullptr;
+  SmallVector<BasicBlock *, 8> ExitingBlocks;
+  L->getExitingBlocks(ExitingBlocks);
+  for (BasicBlock *ExitingBlock : ExitingBlocks) {
+    // Only unroll against latch-dominating exit blocks.
+    if (!DT.dominates(ExitingBlock, Latch))
+      continue;
+
+    if (unsigned TC = SE.getSmallConstantTripCount(L, ExitingBlock)) {
+      if (!TripCount || TC < TripCount) {
+        TripMultiple = TripCount = TC;
+        AnalyzedExit = ExitingBlock;
+      }
+    }
+
+    if (!TripCount)
+      if (unsigned TM = SE.getSmallConstantTripMultiple(L, ExitingBlock))
+        TripMultiple = std::max(TM, TripMultiple);
   }
+
+  // Determine whether the trip count is for an early exit, i.e. neither the
+  // unique exit nor the latch exit.
+  bool IsEarlyExit =
+      AnalyzedExit && ExitingBlocks.size() != 1 && AnalyzedExit != Latch;
 
   // If the loop contains a convergent operation, the prelude we'd add
   // to do the first few instructions before we hit the unrolled loop
@@ -1164,13 +1177,14 @@ static LoopUnrollResult tryToUnrollLoop(
   // Save loop properties before it is transformed.
   MDNode *OrigLoopID = L->getLoopID();
 
-  // Unroll the loop.
+  // Unroll the loop. Preserve the latch branch for upper-bound and early-exit
+  // unrolling.
   Loop *RemainderLoop = nullptr;
   LoopUnrollResult UnrollResult = UnrollLoop(
       L,
       {UP.Count, TripCount, UP.Force, UP.Runtime, UP.AllowExpensiveTripCount,
-       UseUpperBound, MaxOrZero, TripMultiple, PP.PeelCount, UP.UnrollRemainder,
-       ForgetAllSCEV},
+       UseUpperBound || IsEarlyExit, MaxOrZero, TripMultiple, PP.PeelCount,
+       UP.UnrollRemainder, ForgetAllSCEV},
       LI, &SE, &DT, &AC, &TTI, &ORE, PreserveLCSSA, &RemainderLoop);
   if (UnrollResult == LoopUnrollResult::Unmodified)
     return LoopUnrollResult::Unmodified;
