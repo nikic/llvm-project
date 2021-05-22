@@ -1115,6 +1115,11 @@ static LoopUnrollResult tryToUnrollLoop(
   BasicBlock *ExitingBlock = L->getLoopLatch();
   if (!ExitingBlock || !L->isLoopExiting(ExitingBlock))
     ExitingBlock = L->getExitingBlock();
+  // If the latch is not exiting and there's no single exiting block, check if
+  // the header is exiting and use it to estimate the trip count. This can
+  // happen when unrolling non-rotated loops.
+  if (!ExitingBlock && L->isLoopExiting(L->getHeader()))
+    ExitingBlock = L->getHeader();
   if (ExitingBlock) {
     TripCount = SE.getSmallConstantTripCount(L, ExitingBlock);
     TripMultiple = SE.getSmallConstantTripMultiple(L, ExitingBlock);

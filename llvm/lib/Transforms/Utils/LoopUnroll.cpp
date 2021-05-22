@@ -245,14 +245,17 @@ void llvm::simplifyLoopAfterUnroll(Loop *L, bool SimplifyIVs, LoopInfo *LI,
 /// branch instruction. However, if the trip count (and multiple) are not known,
 /// loop unrolling will mostly produce more code that is no faster.
 ///
-/// TripCount is the upper bound of the iteration on which control exits
-/// LatchBlock. Control may exit the loop prior to TripCount iterations either
-/// via an early branch in other loop block or via LatchBlock terminator. This
-/// is relaxed from the general definition of trip count which is the number of
-/// times the loop header executes. Note that UnrollLoop assumes that the loop
-/// counter test is in LatchBlock in order to remove unnecesssary instances of
-/// the test.  If control can exit the loop from the LatchBlock's terminator
-/// prior to TripCount iterations, flag PreserveCondBr needs to be set.
+/// TripCount is the upper bound of the iteration on which control exits via
+/// latch block (if it exits), the header (if it exits) or the unique exiting
+/// block of the loop, if there is one. Control may exit the loop prior to
+/// TripCount iterations via any of its exits. This is relaxed from the general
+/// definition of trip count which is the number of times the loop header
+/// executes. Note that UnrollLoop assumes that the loop counter test is in
+/// LatchBlock or in the unique exiting block in order to remove unnecesssary
+/// instances of the test. Otherwise the conditional branches are preserved,
+/// pending simplification after unrolling. If control can exit the loop from
+/// the LatchBlock's terminator prior to TripCount iterations, flag
+/// PreserveCondBr needs to be set.
 ///
 /// PreserveCondBr indicates whether the conditional branch of the LatchBlock
 /// needs to be preserved.  It is needed when we use trip count upper bound to
