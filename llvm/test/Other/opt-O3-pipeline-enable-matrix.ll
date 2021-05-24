@@ -168,8 +168,8 @@
 ; LEGACY-NEXT:         Function Alias Analysis Results
 ; LEGACY-NEXT:         Memory SSA
 ; LEGACY-NEXT:         MemCpy Optimization
-; LEGACY-NEXT:         Dead Store Elimination
 ; LEGACY-NEXT:         Natural Loop Information
+; LEGACY-NEXT:         Dead Store Elimination
 ; LEGACY-NEXT:         Canonicalize natural loops
 ; LEGACY-NEXT:         LCSSA Verifier
 ; LEGACY-NEXT:         Loop-Closed SSA Form Pass

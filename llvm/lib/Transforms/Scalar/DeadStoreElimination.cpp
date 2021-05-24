@@ -40,10 +40,12 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
+#include "llvm/Analysis/MustExecute.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -853,6 +855,11 @@ struct DSEState {
   PostDominatorTree &PDT;
   const TargetLibraryInfo &TLI;
   const DataLayout &DL;
+  const LoopInfo &LI;
+
+  // Whether the function contains any irreducible control flow, useful for
+  // being accurately able to detect loops.
+  bool ContainsIrreducibleLoops;
 
   // All MemoryDefs that potentially could kill other MemDefs.
   SmallVector<MemoryDef *, 64> MemDefs;
@@ -876,14 +883,15 @@ struct DSEState {
   DenseMap<BasicBlock *, InstOverlapIntervalsTy> IOLs;
 
   DSEState(Function &F, AliasAnalysis &AA, MemorySSA &MSSA, DominatorTree &DT,
-           PostDominatorTree &PDT, const TargetLibraryInfo &TLI)
+           PostDominatorTree &PDT, const TargetLibraryInfo &TLI,
+           const LoopInfo &LI)
       : F(F), AA(AA), BatchAA(AA), MSSA(MSSA), DT(DT), PDT(PDT), TLI(TLI),
-        DL(F.getParent()->getDataLayout()) {}
+        DL(F.getParent()->getDataLayout()), LI(LI) {}
 
   static DSEState get(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
                       DominatorTree &DT, PostDominatorTree &PDT,
-                      const TargetLibraryInfo &TLI) {
-    DSEState State(F, AA, MSSA, DT, PDT, TLI);
+                      const TargetLibraryInfo &TLI, const LoopInfo &LI) {
+    DSEState State(F, AA, MSSA, DT, PDT, TLI, LI);
     // Collect blocks with throwing instructions not modeled in MemorySSA and
     // alloc-like objects.
     unsigned PO = 0;
@@ -911,6 +919,9 @@ struct DSEState {
         State.InvisibleToCallerAfterRet.insert({&AI, true});
       }
 
+    // Collect whether there is any irreducible control flow in the function.
+    State.ContainsIrreducibleLoops = mayContainIrreducibleControl(F, &LI);
+
     return State;
   }
 
@@ -925,6 +936,12 @@ struct DSEState {
   isOverwrite(const Instruction *LaterI, const Instruction *EarlierI,
               const MemoryLocation &Later, const MemoryLocation &Earlier,
               int64_t &EarlierOff, int64_t &LaterOff) {
+    // AliasAnalysis does not account for loops. Limit overwrite checks to
+    // candidates for which we can guarantee they always store to the same
+    // memory location and not located in different loops.
+    if (!IsGuaranteedLoopInvariant(EarlierI, LaterI, Later))
+      return OW_Unknown;
+
     // FIXME: Vet that this works for size upper-bounds. Seems unlikely that we'll
     // get imprecise values here, though (except for unknown sizes).
     if (!Later.Size.isPrecise() || !Earlier.Size.isPrecise()) {
@@ -1253,8 +1270,21 @@ struct DSEState {
   /// Returns true if \p Ptr is guaranteed to be loop invariant for any possible
   /// loop. In particular, this guarantees that it only references a single
   /// MemoryLocation during execution of the containing function.
-  bool IsGuaranteedLoopInvariant(Value *Ptr) {
-    auto IsGuaranteedLoopInvariantBase = [this](Value *Ptr) {
+  bool IsGuaranteedLoopInvariant(const Instruction *Current,
+                                 const Instruction *KillingDef,
+                                 MemoryLocation CurrentLoc) {
+    // Limit elimination to candidates for which we can guarantee they always
+    // store to the same memory location and not located in different loops. But
+    // also be careful with irreducible control flow, which can create cycles
+    // without appearing as loops.
+    if (Current->getParent() == KillingDef->getParent())
+      return true;
+    const Loop *CurrentLI = LI.getLoopFor(Current->getParent());
+    if (!ContainsIrreducibleLoops && CurrentLI &&
+        CurrentLI == LI.getLoopFor(KillingDef->getParent()))
+      return true;
+
+    auto IsGuaranteedLoopInvariantBase = [this](const Value *Ptr) {
       Ptr = Ptr->stripPointerCasts();
       if (auto *I = dyn_cast<Instruction>(Ptr)) {
         if (isa<AllocaInst>(Ptr))
@@ -1268,7 +1298,7 @@ struct DSEState {
       return true;
     };
 
-    Ptr = Ptr->stripPointerCasts();
+    const Value *Ptr = CurrentLoc.Ptr->stripPointerCasts();
     if (auto *I = dyn_cast<Instruction>(Ptr)) {
       if (I->getParent()->isEntryBlock())
         return true;
@@ -1398,9 +1428,9 @@ struct DSEState {
 
       // AliasAnalysis does not account for loops. Limit elimination to
       // candidates for which we can guarantee they always store to the same
-      // memory location and not multiple locations in a loop.
-      if (Current->getBlock() != KillingDef->getBlock() &&
-          !IsGuaranteedLoopInvariant(const_cast<Value *>(CurrentLoc->Ptr))) {
+      // memory location and not located in different loops.
+      if (!IsGuaranteedLoopInvariant(CurrentI, KillingI, *CurrentLoc)) {
+        LLVM_DEBUG(dbgs() << "  ... not guaranteed loop invariant\n");
         StepAgain = true;
         Current = CurrentDef->getDefiningAccess();
         WalkerStepLimit -= 1;
@@ -1836,12 +1866,13 @@ struct DSEState {
   }
 };
 
-bool eliminateDeadStores(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
-                         DominatorTree &DT, PostDominatorTree &PDT,
-                         const TargetLibraryInfo &TLI) {
+static bool eliminateDeadStores(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
+                                DominatorTree &DT, PostDominatorTree &PDT,
+                                const TargetLibraryInfo &TLI,
+                                const LoopInfo &LI) {
   bool MadeChange = false;
 
-  DSEState State = DSEState::get(F, AA, MSSA, DT, PDT, TLI);
+  DSEState State = DSEState::get(F, AA, MSSA, DT, PDT, TLI, LI);
   // For each store:
   for (unsigned I = 0; I < State.MemDefs.size(); I++) {
     MemoryDef *KillingDef = State.MemDefs[I];
@@ -2014,8 +2045,9 @@ PreservedAnalyses DSEPass::run(Function &F, FunctionAnalysisManager &AM) {
   DominatorTree &DT = AM.getResult<DominatorTreeAnalysis>(F);
   MemorySSA &MSSA = AM.getResult<MemorySSAAnalysis>(F).getMSSA();
   PostDominatorTree &PDT = AM.getResult<PostDominatorTreeAnalysis>(F);
+  LoopInfo &LI = AM.getResult<LoopAnalysis>(F);
 
-  bool Changed = eliminateDeadStores(F, AA, MSSA, DT, PDT, TLI);
+  bool Changed = eliminateDeadStores(F, AA, MSSA, DT, PDT, TLI, LI);
 
 #ifdef LLVM_ENABLE_STATS
   if (AreStatisticsEnabled())
@@ -2029,6 +2061,7 @@ PreservedAnalyses DSEPass::run(Function &F, FunctionAnalysisManager &AM) {
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<MemorySSAAnalysis>();
+  PA.preserve<LoopAnalysis>();
   return PA;
 }
 
@@ -2054,8 +2087,9 @@ public:
     MemorySSA &MSSA = getAnalysis<MemorySSAWrapperPass>().getMSSA();
     PostDominatorTree &PDT =
         getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
+    LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
-    bool Changed = eliminateDeadStores(F, AA, MSSA, DT, PDT, TLI);
+    bool Changed = eliminateDeadStores(F, AA, MSSA, DT, PDT, TLI, LI);
 
 #ifdef LLVM_ENABLE_STATS
     if (AreStatisticsEnabled())
@@ -2077,6 +2111,8 @@ public:
     AU.addRequired<MemorySSAWrapperPass>();
     AU.addPreserved<PostDominatorTreeWrapperPass>();
     AU.addPreserved<MemorySSAWrapperPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
+    AU.addPreserved<LoopInfoWrapperPass>();
   }
 };
 
@@ -2093,6 +2129,7 @@ INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(MemoryDependenceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_END(DSELegacyPass, "dse", "Dead Store Elimination", false,
                     false)
 
