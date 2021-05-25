@@ -1391,7 +1391,7 @@ private:
     bool MaxOrZero = false;
 
     /// SCEV expressions used in any of the ExitNotTakenInfo counts.
-    DenseSet<const SCEV *> Operands;
+    SmallPtrSet<const SCEV *, 4> Operands;
 
     bool isComplete() const { return IsComplete; }
     const SCEV *getConstantMax() const { return ConstantMax; }

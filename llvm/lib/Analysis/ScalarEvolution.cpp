@@ -7436,10 +7436,10 @@ ScalarEvolution::ExitLimit::ExitLimit(const SCEV *E, const SCEV *M,
 }
 
 class SCEVRecordOperands {
-  DenseSet<const SCEV *> &Operands;
+  SmallPtrSetImpl<const SCEV *> &Operands;
 
 public:
-  SCEVRecordOperands(DenseSet<const SCEV *> &Operands) : Operands(Operands) {}
+  SCEVRecordOperands(SmallPtrSetImpl<const SCEV *> &Operands) : Operands(Operands) {}
   bool follow(const SCEV *S) {
     Operands.insert(S);
     return true;
