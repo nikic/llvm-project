@@ -739,17 +739,41 @@ static unsigned getFullUnrollBoostingFactor(const EstimatedUnrollCost &Cost,
 // cheaply estimate cost for full unrolling when we don't want to symbolically
 // evaluate all iterations.
 class UnrollCostEstimator {
+  Loop &TheLoop;
+  const TargetTransformInfo &TTI;
+  ScalarEvolution &SE;
+  // Note: Both "size" fields here are in units of TTI->getUserCost(, CodeSize),
+  // not instruction counts.
   const unsigned LoopSize;
+  Optional<unsigned> UniformSize;
 
 public:
-  UnrollCostEstimator(Loop &L, unsigned LoopSize) : LoopSize(LoopSize) {}
+  UnrollCostEstimator(Loop &L, const TargetTransformInfo &TTI,
+                      ScalarEvolution &SE, unsigned LoopSize)
+    : TheLoop(L), TTI(TTI), SE(SE), LoopSize(LoopSize) {}
 
   // Returns loop size estimation for unrolled loop, given the unrolling
   // configuration specified by UP.
   uint64_t getUnrolledLoopSize(TargetTransformInfo::UnrollingPreferences &UP) {
-    assert(LoopSize >= UP.BEInsns &&
+    unsigned UniformSize = computeUniformInstCost();
+    assert(LoopSize >= (UP.BEInsns + UniformSize) &&
            "LoopSize should not be less than BEInsns!");
-    return (uint64_t)(LoopSize - UP.BEInsns) * UP.Count + UP.BEInsns;
+    return (uint64_t)(LoopSize - UP.BEInsns - UniformSize) * UP.Count +
+      UP.BEInsns + UniformSize;
+  }
+
+private:
+  unsigned computeUniformInstCost() {
+    if (!UniformSize) {
+      InstructionCost Size = 0;
+      for (BasicBlock *BB : TheLoop.blocks())
+        for (Instruction &I : *BB)
+          if (SE.isSCEVable(I.getType()) &&
+              SE.isLoopInvariant(SE.getSCEV(&I), &TheLoop))
+            Size += TTI.getUserCost(&I, TargetTransformInfo::TCK_CodeSize);
+      UniformSize = *Size.getValue();
+    }
+    return *UniformSize;
   }
 };
 
@@ -769,7 +793,7 @@ bool llvm::computeUnrollCount(
     TargetTransformInfo::UnrollingPreferences &UP,
     TargetTransformInfo::PeelingPreferences &PP, bool &UseUpperBound) {
 
-  UnrollCostEstimator UCE(*L, LoopSize);
+  UnrollCostEstimator UCE(*L, TTI, SE, LoopSize);
 
   // Check for explicit Count.
   // 1st priority is unroll count set by "unroll-count" option.
