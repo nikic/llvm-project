@@ -495,11 +495,8 @@ define i32 @test_dom_condition(i32 %limit) {
 ; CHECK:       loop.preheader:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[SUM:%.*]] = phi i32 [ [[SUM_NEXT:%.*]], [[BACKEDGE:%.*]] ], [ 0, [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[IV_NEXT:%.*]], [[BACKEDGE]] ], [ 0, [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[SUB:%.*]] = sub i32 0, [[SUM]]
-; CHECK-NEXT:    [[IS_POSITIVE:%.*]] = icmp sle i32 [[SUB]], [[LIMIT]]
-; CHECK-NEXT:    br i1 [[IS_POSITIVE]], label [[BACKEDGE]], label [[IF_FALSE:%.*]]
+; CHECK-NEXT:    [[IS_POSITIVE:%.*]] = icmp sle i32 0, [[LIMIT]]
+; CHECK-NEXT:    br i1 [[IS_POSITIVE]], label [[BACKEDGE:%.*]], label [[IF_FALSE:%.*]]
 ; CHECK:       if.false:
 ; CHECK-NEXT:    call void @foo()
 ; CHECK-NEXT:    call void @foo()
@@ -517,15 +514,161 @@ define i32 @test_dom_condition(i32 %limit) {
 ; CHECK-NEXT:    call void @foo()
 ; CHECK-NEXT:    br label [[BACKEDGE]]
 ; CHECK:       backedge:
-; CHECK-NEXT:    [[SUM_NEXT]] = add i32 [[SUM]], [[SUB]]
-; CHECK-NEXT:    [[IV_NEXT]] = add i32 [[IV]], 1
-; CHECK-NEXT:    [[LOOP_COND:%.*]] = icmp ne i32 [[IV]], 8
-; CHECK-NEXT:    br i1 [[LOOP_COND]], label [[LOOP]], label [[DONE:%.*]]
-; CHECK:       done:
-; CHECK-NEXT:    [[SUM_NEXT_LCSSA:%.*]] = phi i32 [ [[SUM_NEXT]], [[BACKEDGE]] ]
-; CHECK-NEXT:    ret i32 [[SUM_NEXT_LCSSA]]
+; CHECK-NEXT:    [[IS_POSITIVE_1:%.*]] = icmp sle i32 0, [[LIMIT]]
+; CHECK-NEXT:    br i1 [[IS_POSITIVE_1]], label [[BACKEDGE_1:%.*]], label [[IF_FALSE_1:%.*]]
 ; CHECK:       failure:
 ; CHECK-NEXT:    unreachable
+; CHECK:       if.false.1:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_1]]
+; CHECK:       backedge.1:
+; CHECK-NEXT:    [[IS_POSITIVE_2:%.*]] = icmp sle i32 0, [[LIMIT]]
+; CHECK-NEXT:    br i1 [[IS_POSITIVE_2]], label [[BACKEDGE_2:%.*]], label [[IF_FALSE_2:%.*]]
+; CHECK:       if.false.2:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_2]]
+; CHECK:       backedge.2:
+; CHECK-NEXT:    [[IS_POSITIVE_3:%.*]] = icmp sle i32 0, [[LIMIT]]
+; CHECK-NEXT:    br i1 [[IS_POSITIVE_3]], label [[BACKEDGE_3:%.*]], label [[IF_FALSE_3:%.*]]
+; CHECK:       if.false.3:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_3]]
+; CHECK:       backedge.3:
+; CHECK-NEXT:    [[IS_POSITIVE_4:%.*]] = icmp sle i32 0, [[LIMIT]]
+; CHECK-NEXT:    br i1 [[IS_POSITIVE_4]], label [[BACKEDGE_4:%.*]], label [[IF_FALSE_4:%.*]]
+; CHECK:       if.false.4:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_4]]
+; CHECK:       backedge.4:
+; CHECK-NEXT:    [[IS_POSITIVE_5:%.*]] = icmp sle i32 0, [[LIMIT]]
+; CHECK-NEXT:    br i1 [[IS_POSITIVE_5]], label [[BACKEDGE_5:%.*]], label [[IF_FALSE_5:%.*]]
+; CHECK:       if.false.5:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_5]]
+; CHECK:       backedge.5:
+; CHECK-NEXT:    [[IS_POSITIVE_6:%.*]] = icmp sle i32 0, [[LIMIT]]
+; CHECK-NEXT:    br i1 [[IS_POSITIVE_6]], label [[BACKEDGE_6:%.*]], label [[IF_FALSE_6:%.*]]
+; CHECK:       if.false.6:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_6]]
+; CHECK:       backedge.6:
+; CHECK-NEXT:    [[IS_POSITIVE_7:%.*]] = icmp sle i32 0, [[LIMIT]]
+; CHECK-NEXT:    br i1 [[IS_POSITIVE_7]], label [[BACKEDGE_7:%.*]], label [[IF_FALSE_7:%.*]]
+; CHECK:       if.false.7:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_7]]
+; CHECK:       backedge.7:
+; CHECK-NEXT:    [[IS_POSITIVE_8:%.*]] = icmp sle i32 0, [[LIMIT]]
+; CHECK-NEXT:    br i1 [[IS_POSITIVE_8]], label [[BACKEDGE_8:%.*]], label [[IF_FALSE_8:%.*]]
+; CHECK:       if.false.8:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_8]]
+; CHECK:       backedge.8:
+; CHECK-NEXT:    ret i32 0
 ;
 entry:
   %loop_guard = icmp sge i32 %limit, 0
@@ -579,11 +722,8 @@ define i32 @test_both(i32 %limit) {
 ; CHECK:       loop.preheader:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[SUM:%.*]] = phi i32 [ [[SUM_NEXT:%.*]], [[BACKEDGE:%.*]] ], [ 0, [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[IV_NEXT:%.*]], [[BACKEDGE]] ], [ 0, [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[SUB:%.*]] = sub i32 [[LIMIT]], [[SUM]]
-; CHECK-NEXT:    [[IS_POSITIVE:%.*]] = icmp sge i32 [[SUB]], 0
-; CHECK-NEXT:    br i1 [[IS_POSITIVE]], label [[BACKEDGE]], label [[IF_FALSE:%.*]]
+; CHECK-NEXT:    [[IS_POSITIVE:%.*]] = icmp sge i32 [[LIMIT]], 0
+; CHECK-NEXT:    br i1 [[IS_POSITIVE]], label [[BACKEDGE:%.*]], label [[IF_FALSE:%.*]]
 ; CHECK:       if.false:
 ; CHECK-NEXT:    call void @foo()
 ; CHECK-NEXT:    call void @foo()
@@ -601,15 +741,153 @@ define i32 @test_both(i32 %limit) {
 ; CHECK-NEXT:    call void @foo()
 ; CHECK-NEXT:    br label [[BACKEDGE]]
 ; CHECK:       backedge:
-; CHECK-NEXT:    [[SUM_NEXT]] = add i32 [[SUM]], [[SUB]]
-; CHECK-NEXT:    [[IV_NEXT]] = add i32 [[IV]], 1
-; CHECK-NEXT:    [[LOOP_COND:%.*]] = icmp ne i32 [[IV]], 8
-; CHECK-NEXT:    br i1 [[LOOP_COND]], label [[LOOP]], label [[DONE:%.*]]
-; CHECK:       done:
-; CHECK-NEXT:    [[SUM_NEXT_LCSSA:%.*]] = phi i32 [ [[SUM_NEXT]], [[BACKEDGE]] ]
-; CHECK-NEXT:    ret i32 [[SUM_NEXT_LCSSA]]
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE_1:%.*]], label [[IF_FALSE_1:%.*]]
 ; CHECK:       failure:
 ; CHECK-NEXT:    unreachable
+; CHECK:       if.false.1:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_1]]
+; CHECK:       backedge.1:
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE_2:%.*]], label [[IF_FALSE_2:%.*]]
+; CHECK:       if.false.2:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_2]]
+; CHECK:       backedge.2:
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE_3:%.*]], label [[IF_FALSE_3:%.*]]
+; CHECK:       if.false.3:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_3]]
+; CHECK:       backedge.3:
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE_4:%.*]], label [[IF_FALSE_4:%.*]]
+; CHECK:       if.false.4:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_4]]
+; CHECK:       backedge.4:
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE_5:%.*]], label [[IF_FALSE_5:%.*]]
+; CHECK:       if.false.5:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_5]]
+; CHECK:       backedge.5:
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE_6:%.*]], label [[IF_FALSE_6:%.*]]
+; CHECK:       if.false.6:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_6]]
+; CHECK:       backedge.6:
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE_7:%.*]], label [[IF_FALSE_7:%.*]]
+; CHECK:       if.false.7:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_7]]
+; CHECK:       backedge.7:
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE_8:%.*]], label [[IF_FALSE_8:%.*]]
+; CHECK:       if.false.8:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BACKEDGE_8]]
+; CHECK:       backedge.8:
+; CHECK-NEXT:    ret i32 [[LIMIT]]
 ;
 entry:
   %loop_guard = icmp sge i32 %limit, 0

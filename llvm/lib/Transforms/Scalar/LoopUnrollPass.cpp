@@ -580,14 +580,33 @@ static Optional<EstimatedUnrollCost> analyzeLoopUnrollCost(
       BasicBlock *KnownSucc = nullptr;
       if (BranchInst *BI = dyn_cast<BranchInst>(TI)) {
         if (BI->isConditional()) {
-          if (auto *SimpleCond = getSimplifiedConstant(BI->getCondition())) {
+          auto evaluateCondition = [&](Value *Cond) -> Optional<bool> {
+            if (SimplifiedValues.count(Cond))
+              Cond = SimplifiedValues[Cond];
+
             // Just take the first successor if condition is undef
-            if (isa<UndefValue>(SimpleCond))
-              KnownSucc = BI->getSuccessor(0);
-            else if (ConstantInt *SimpleCondVal =
-                         dyn_cast<ConstantInt>(SimpleCond))
-              KnownSucc = BI->getSuccessor(SimpleCondVal->isZero() ? 1 : 0);
-          }
+            if (isa<UndefValue>(Cond))
+              return true;
+            if (auto *CI = dyn_cast<ConstantInt>(Cond))
+              return !CI->isZero();
+
+            auto *ICI = dyn_cast<ICmpInst>(Cond);
+            if (!ICI)
+              return None;
+            Value *LHS = ICI->getOperand(0);
+            if (SimplifiedValues.count(LHS))
+              LHS = SimplifiedValues[LHS];
+            Value *RHS = ICI->getOperand(1);
+            if (SimplifiedValues.count(RHS))
+              RHS = SimplifiedValues[RHS];
+            if (!SE.isSCEVable(RHS->getType()))
+              return None;
+            return SE.evaluatePredicateAt(ICI->getPredicate(),
+                                          SE.getSCEV(LHS),
+                                          SE.getSCEV(RHS), BI);
+          };
+          if (auto Opt = evaluateCondition(BI->getCondition()))
+            KnownSucc = BI->getSuccessor(*Opt ? 0 : 1);
         }
       } else if (SwitchInst *SI = dyn_cast<SwitchInst>(TI)) {
         if (auto *SimpleCond = getSimplifiedConstant(SI->getCondition())) {
