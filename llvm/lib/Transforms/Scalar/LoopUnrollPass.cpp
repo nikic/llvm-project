@@ -739,17 +739,76 @@ static unsigned getFullUnrollBoostingFactor(const EstimatedUnrollCost &Cost,
 // cheaply estimate cost for full unrolling when we don't want to symbolically
 // evaluate all iterations.
 class UnrollCostEstimator {
+  Loop &TheLoop;
+  const TargetTransformInfo &TTI;
+  ScalarEvolution &SE;
+  // Note: Both "size" fields here are in units of TTI->getUserCost(, CodeSize),
+  // not instruction counts.
   const unsigned LoopSize;
+  Optional<unsigned> UniformSize;
 
 public:
-  UnrollCostEstimator(Loop &L, unsigned LoopSize) : LoopSize(LoopSize) {}
+  UnrollCostEstimator(Loop &L, const TargetTransformInfo &TTI,
+                      ScalarEvolution &SE, unsigned LoopSize)
+    : TheLoop(L), TTI(TTI), SE(SE), LoopSize(LoopSize) {}
+
+
+  bool
+  isUnrolledLoopUnderThreshold(TargetTransformInfo::UnrollingPreferences &UP,
+                               unsigned Threshold) {
+    // Check the cheap form first before falling back to the expensive
+    // SCEV queries.  Most loops are small, so the expensive path should
+    // rarely run.
+    if (getUnrolledLoopSize(UP, false) < Threshold)
+      return true;
+    return getUnrolledLoopSize(UP, true) < Threshold;
+  }
+
+private:
 
   // Returns loop size estimation for unrolled loop, given the unrolling
   // configuration specified by UP.
-  uint64_t getUnrolledLoopSize(TargetTransformInfo::UnrollingPreferences &UP) {
-    assert(LoopSize >= UP.BEInsns &&
+  uint64_t getUnrolledLoopSize(TargetTransformInfo::UnrollingPreferences &UP,
+                               bool UseUniform) {
+    unsigned UniformSize = UseUniform ? computeUniformInstCost() : 0;
+    assert(LoopSize >= (UP.BEInsns + UniformSize) &&
            "LoopSize should not be less than BEInsns!");
-    return (uint64_t)(LoopSize - UP.BEInsns) * UP.Count + UP.BEInsns;
+    return (uint64_t)(LoopSize - UP.BEInsns - UniformSize) * UP.Count +
+      UP.BEInsns + UniformSize;
+  }
+
+  unsigned computeUniformInstCost() {
+    if (UniformSize)
+      return *UniformSize;
+
+    // We want to use SCEV's notion of invariance to handle cases such as:
+    // loop:
+    //   %a = udiv i32 %arg1, %arg2
+    //   %b = zext i32 %a to i64
+    // (both a and b are invariant)
+    // However, computing SCEVs is expensive.  We defer that work until
+    // we've found at least one trivially invariant operation.  For an
+    // example like the above, we must have at least one trivially
+    // invariant instruction (%a in this example).
+    const bool CouldBeInvariant =
+      llvm::any_of(TheLoop.blocks(),
+                   [&](BasicBlock *BB) {
+                     return llvm::any_of(*BB, [&](Instruction &I) {
+                       return TheLoop.hasLoopInvariantOperands(&I);
+                     });
+                   });
+    if (!CouldBeInvariant) {
+      UniformSize = 0;
+      return *UniformSize;
+    }
+    InstructionCost Size = 0;
+    for (BasicBlock *BB : TheLoop.blocks())
+      for (Instruction &I : *BB)
+        if (SE.isSCEVable(I.getType()) &&
+            SE.isLoopInvariant(SE.getSCEV(&I), &TheLoop))
+          Size += TTI.getUserCost(&I, TargetTransformInfo::TCK_CodeSize);
+    UniformSize = *Size.getValue();
+    return *UniformSize;
   }
 };
 
@@ -769,7 +828,7 @@ bool llvm::computeUnrollCount(
     TargetTransformInfo::UnrollingPreferences &UP,
     TargetTransformInfo::PeelingPreferences &PP, bool &UseUpperBound) {
 
-  UnrollCostEstimator UCE(*L, LoopSize);
+  UnrollCostEstimator UCE(*L, TTI, SE, LoopSize);
 
   // Check for explicit Count.
   // 1st priority is unroll count set by "unroll-count" option.
@@ -778,7 +837,7 @@ bool llvm::computeUnrollCount(
     UP.Count = UnrollCount;
     UP.AllowExpensiveTripCount = true;
     UP.Force = true;
-    if (UP.AllowRemainder && UCE.getUnrolledLoopSize(UP) < UP.Threshold)
+    if (UP.AllowRemainder && UCE.isUnrolledLoopUnderThreshold(UP, UP.Threshold))
       return true;
   }
 
@@ -790,13 +849,13 @@ bool llvm::computeUnrollCount(
     UP.AllowExpensiveTripCount = true;
     UP.Force = true;
     if ((UP.AllowRemainder || (TripMultiple % PragmaCount == 0)) &&
-        UCE.getUnrolledLoopSize(UP) < PragmaUnrollThreshold)
+        UCE.isUnrolledLoopUnderThreshold(UP, PragmaUnrollThreshold))
       return true;
   }
   bool PragmaFullUnroll = hasUnrollFullPragma(L);
   if (PragmaFullUnroll && TripCount != 0) {
     UP.Count = TripCount;
-    if (UCE.getUnrolledLoopSize(UP) < PragmaUnrollThreshold)
+    if (UCE.isUnrolledLoopUnderThreshold(UP, PragmaUnrollThreshold))
       return false;
   }
 
@@ -845,7 +904,7 @@ bool llvm::computeUnrollCount(
   if (FullUnrollTripCount && FullUnrollTripCount <= UP.FullUnrollMaxCount) {
     // When computing the unrolled size, note that BEInsns are not replicated
     // like the rest of the loop body.
-    if (UCE.getUnrolledLoopSize(UP) < UP.Threshold) {
+    if (UCE.isUnrolledLoopUnderThreshold(UP, UP.Threshold)) {
       UseUpperBound = (FullUnrollMaxTripCount == FullUnrollTripCount);
       TripCount = FullUnrollTripCount;
       TripMultiple = UP.UpperBound ? 1 : TripMultiple;
@@ -892,7 +951,7 @@ bool llvm::computeUnrollCount(
       UP.Count = TripCount;
     if (UP.PartialThreshold != NoThreshold) {
       // Reduce unroll count to be modulo of TripCount for partial unrolling.
-      if (UCE.getUnrolledLoopSize(UP) > UP.PartialThreshold)
+      if (!UCE.isUnrolledLoopUnderThreshold(UP, UP.PartialThreshold))
         UP.Count =
             (std::max(UP.PartialThreshold, UP.BEInsns + 1) - UP.BEInsns) /
             (LoopSize - UP.BEInsns);
@@ -907,7 +966,7 @@ bool llvm::computeUnrollCount(
         // remainder loop is allowed.
         UP.Count = UP.DefaultUnrollRuntimeCount;
         while (UP.Count != 0 &&
-               UCE.getUnrolledLoopSize(UP) > UP.PartialThreshold)
+               !UCE.isUnrolledLoopUnderThreshold(UP, UP.PartialThreshold))
           UP.Count >>= 1;
       }
       if (UP.Count < 2) {
@@ -991,7 +1050,7 @@ bool llvm::computeUnrollCount(
   // Reduce unroll count to be the largest power-of-two factor of
   // the original count which satisfies the threshold limit.
   while (UP.Count != 0 &&
-         UCE.getUnrolledLoopSize(UP) > UP.PartialThreshold)
+         !UCE.isUnrolledLoopUnderThreshold(UP, UP.PartialThreshold))
     UP.Count >>= 1;
 
 #ifndef NDEBUG
