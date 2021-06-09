@@ -54,6 +54,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
@@ -76,6 +77,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
+#include "llvm/Transforms/Utils/BuildLibCalls.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 #include <cassert>
@@ -503,7 +505,11 @@ memoryIsNotModifiedBetween(Instruction *FirstI, Instruction *SecondI,
   BasicBlock::iterator SecondBBI(SecondI);
   BasicBlock *FirstBB = FirstI->getParent();
   BasicBlock *SecondBB = SecondI->getParent();
-  MemoryLocation MemLoc = MemoryLocation::get(SecondI);
+  MemoryLocation MemLoc;
+  if (auto *MemSet = dyn_cast<MemSetInst>(SecondI))
+    MemLoc = MemoryLocation::getForDest(MemSet);
+  else
+    MemLoc = MemoryLocation::get(SecondI);
   auto *MemLocPtr = const_cast<Value *>(MemLoc.Ptr);
 
   // Start checking the SecondBB.
@@ -807,13 +813,17 @@ bool isNoopIntrinsic(Instruction *I) {
 }
 
 // Check if we can ignore \p D for DSE.
-bool canSkipDef(MemoryDef *D, bool DefVisibleToCaller) {
+bool canSkipDef(MemoryDef *D, bool DefVisibleToCaller,
+                const TargetLibraryInfo &TLI) {
   Instruction *DI = D->getMemoryInst();
   // Calls that only access inaccessible memory cannot read or write any memory
   // locations we consider for elimination.
   if (auto *CB = dyn_cast<CallBase>(DI))
-    if (CB->onlyAccessesInaccessibleMemory())
+    if (CB->onlyAccessesInaccessibleMemory()) {
+      if (isAllocLikeFn(DI, &TLI))
+        return false;
       return true;
+    }
 
   // We can eliminate stores to locations not visible to the caller across
   // throwing instructions.
@@ -829,7 +839,7 @@ bool canSkipDef(MemoryDef *D, bool DefVisibleToCaller) {
     return true;
 
   // Skip intrinsics that do not really read or modify memory.
-  if (isNoopIntrinsic(D->getMemoryInst()))
+  if (isNoopIntrinsic(DI))
     return true;
 
   return false;
@@ -1342,7 +1352,7 @@ struct DSEState {
       MemoryDef *CurrentDef = cast<MemoryDef>(Current);
       Instruction *CurrentI = CurrentDef->getMemoryInst();
 
-      if (canSkipDef(CurrentDef, !isInvisibleToCallerBeforeRet(DefUO))) {
+      if (canSkipDef(CurrentDef, !isInvisibleToCallerBeforeRet(DefUO), TLI)) {
         StepAgain = true;
         Current = CurrentDef->getDefiningAccess();
         continue;
@@ -1774,14 +1784,48 @@ struct DSEState {
       StoredConstant = dyn_cast<Constant>(MemSet->getValue());
 
     if (StoredConstant && StoredConstant->isNullValue()) {
-      auto *DefUOInst = dyn_cast<Instruction>(DefUO);
-      if (DefUOInst && isCallocLikeFn(DefUOInst, &TLI)) {
-        auto *UnderlyingDef = cast<MemoryDef>(MSSA.getMemoryAccess(DefUOInst));
-        // If UnderlyingDef is the clobbering access of Def, no instructions
-        // between them can modify the memory location.
-        auto *ClobberDef =
-            MSSA.getSkipSelfWalker()->getClobberingMemoryAccess(Def);
-        return UnderlyingDef == ClobberDef;
+      auto *DefUOInst = const_cast<Instruction *>(dyn_cast<Instruction>(DefUO));
+      if (DefUOInst) {
+        if (isCallocLikeFn(DefUOInst, &TLI)) {
+          auto *UnderlyingDef =
+              cast<MemoryDef>(MSSA.getMemoryAccess(DefUOInst));
+          // If UnderlyingDef is the clobbering access of Def, no instructions
+          // between them can modify the memory location.
+          auto *ClobberDef =
+              MSSA.getSkipSelfWalker()->getClobberingMemoryAccess(Def);
+          return UnderlyingDef == ClobberDef;
+        }
+
+        if (MemSet) {
+          auto *Malloc = dyn_cast<CallInst>(DefUOInst);
+          if (!Malloc)
+            return false;
+          auto *InnerCallee = Malloc->getCalledFunction();
+          if (!InnerCallee)
+            return false;
+          LibFunc Func;
+          if (!TLI.getLibFunc(*InnerCallee, Func) || !TLI.has(Func) ||
+              Func != LibFunc_malloc)
+            return false;
+          if (Malloc->getOperand(0) == MemSet->getLength()) {
+            if (DT.dominates(DefUOInst, cast<Instruction>(MemSet)) &&
+                memoryIsNotModifiedBetween(Malloc, MemSet, BatchAA, DL, &DT)) {
+              IRBuilder<> IRB(Malloc);
+              const auto &DL = Malloc->getModule()->getDataLayout();
+              auto *SizeType =
+                  DL.getIntPtrType(IRB.GetInsertBlock()->getContext());
+              AttributeList EmptyList;
+              if (auto *Calloc = emitCalloc(ConstantInt::get(SizeType, 1),
+                                            Malloc->getArgOperand(0), EmptyList,
+                                            IRB, TLI)) {
+                Malloc->replaceAllUsesWith(Calloc);
+                Malloc->eraseFromParent();
+                return true;
+              }
+              return false;
+            }
+          }
+        }
       }
     }
 

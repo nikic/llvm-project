@@ -309,6 +309,36 @@ entry:
   ret void
 }
 
+declare noalias i8* @malloc(i64)
+declare void @clobber_memory(float*)
+
+; based on pr25892_lite
+define i8* @zero_memset_after_malloc(i64 %size) {
+; CHECK-LABEL: @zero_memset_after_malloc(
+; CHECK-NEXT:    [[CALL:%.*]] = call i8* @calloc(i64 1, i64 [[SIZE:%.*]])
+; CHECK-NEXT:    ret i8* [[CALL]]
+;
+  %call = call i8* @malloc(i64 %size) inaccessiblememonly
+  call void @llvm.memset.p0i8.i64(i8* %call, i8 0, i64 %size, i1 false)
+  ret i8* %call
+}
+
+; based on pr25892_lite
+define i8* @zero_memset_after_malloc_with_intermediate_clobbering(i64 %size) {
+; CHECK-LABEL: @zero_memset_after_malloc_with_intermediate_clobbering(
+; CHECK-NEXT:    [[CALL:%.*]] = call i8* @malloc(i64 [[SIZE:%.*]])
+; CHECK-NEXT:    [[BC:%.*]] = bitcast i8* [[CALL]] to float*
+; CHECK-NEXT:    call void @clobber_memory(float* [[BC]])
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* [[CALL]], i8 0, i64 [[SIZE]], i1 false)
+; CHECK-NEXT:    ret i8* [[CALL]]
+;
+  %call = call i8* @malloc(i64 %size) inaccessiblememonly
+  %bc = bitcast i8* %call to float*
+  call void @clobber_memory(float* %bc)
+  call void @llvm.memset.p0i8.i64(i8* %call, i8 0, i64 %size, i1 false)
+  ret i8* %call
+}
+
 ; PR50143
 define i8* @store_zero_after_calloc_inaccessiblememonly() {
 ; CHECK-LABEL: @store_zero_after_calloc_inaccessiblememonly(
