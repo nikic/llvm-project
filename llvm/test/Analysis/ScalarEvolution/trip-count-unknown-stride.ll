@@ -106,5 +106,31 @@ for.end:                                          ; preds = %for.body, %entry
   ret void
 }
 
+; Without explicit mustprogress, but the combination of nsw flags, the
+; condition being branched on, and the fact the step is known non-zero
+; is enough to prove this loop finite.
+
+; CHECK: Determining loop execution counts for: @non_zero_stride
+; CHECK: Loop %for.body4: backedge-taken count is ((-1 + (-1 * %arg) + ((%arg + %div) smax %n)) /u %div)
+; CHECK: Loop %for.body4: max backedge-taken count is -1
+
+define void @non_zero_stride(i64 %arg, i64 %div, i64 %n) {
+entry:
+  %assume = icmp sgt i64 %div, 0
+  call void @llvm.assume(i1 %assume)
+  br label %for.body4
+
+for.body4:                                        ; preds = %for.cond1.preheader, %for.body4
+  %i.020 = phi i64 [ %add5, %for.body4 ], [ %arg, %entry ]
+  %add5 = add nsw i64 %i.020, %div
+  %cmp2 = icmp slt i64 %add5, %n
+  br i1 %cmp2, label %for.body4, label %exit
+
+exit:
+  ret void
+}
+
+declare void @llvm.assume(i1)
+
 !8 = distinct !{!8, !9}
 !9 = !{!"llvm.loop.mustprogress"}

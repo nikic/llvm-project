@@ -11447,14 +11447,14 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
     //
     // a) IV is either nuw or nsw depending upon signedness (indicated by the
     //    NoWrap flag).
-    // b) loop is single exit with no side effects.
-    //
+    // b) s is non-zero (and thus the loop is non-infinite)
     //
     // Precondition a) implies that if the stride is negative, this is a single
     // trip loop. The backedge taken count formula reduces to zero in this case.
     //
-    // Precondition b) implies that the unknown stride cannot be zero otherwise
-    // we have UB.
+    // Precondition b) implies that the loop can't be infinite (as a non-zero
+    // stride requires the comparison to eventually produce poison and we know
+    // this condition value reaches the branch exit)
     //
     // The positive stride case is the same as isKnownPositive(Stride) returning
     // true (original behavior of the function).
@@ -11471,8 +11471,12 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
     // for(i=127; i<128; i+=129)
     //   A[i] = i;
     //
-    if (PredicatedIV || !NoWrap || isKnownNonPositive(Stride) ||
-        !loopIsFiniteByAssumption(L))
+
+    bool StrideNonZero = loopIsFiniteByAssumption(L) ||
+      isLoopEntryGuardedByCond(L, ICmpInst::ICMP_NE, Stride,
+                               getZero(Stride->getType()));
+
+    if (PredicatedIV || !NoWrap || isKnownNonPositive(Stride) || !StrideNonZero)
       return getCouldNotCompute();
   } else if (!Stride->isOne() && !NoWrap) {
     auto isUBOnWrap = [&]() {
