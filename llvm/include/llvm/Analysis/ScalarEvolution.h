@@ -1793,13 +1793,13 @@ private:
   ///
   /// If \p AllowPredicates is set, this call will try to use a minimal set of
   /// SCEV predicates in order to return an exact answer.
+  ///
+  /// If \p Invert is set, the input is actually a greater-than comparison.
+  /// The code will use a binary NOT on the operands, and adjust other logic to
+  /// try to be more precise.
   ExitLimit howManyLessThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                              bool isSigned, bool ControlsExit,
-                             bool AllowPredicates = false);
-
-  ExitLimit howManyGreaterThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
-                                bool isSigned, bool IsSubExpr,
-                                bool AllowPredicates = false);
+                             bool AllowPredicates, bool Invert);
 
   /// Return a predecessor of BB (which may not be an immediate predecessor)
   /// which has exactly one successor from which BB is reachable, or null if
@@ -2037,11 +2037,6 @@ private:
   /// less-than comparison, knowing the invariant term of the comparison,
   /// the stride.
   bool canIVOverflowOnLT(const SCEV *RHS, const SCEV *Stride, bool IsSigned);
-
-  /// Verify if an linear IV with negative stride can overflow when in a
-  /// greater-than comparison, knowing the invariant term of the comparison,
-  /// the stride.
-  bool canIVOverflowOnGT(const SCEV *RHS, const SCEV *Stride, bool IsSigned);
 
   /// Get add expr already created or create a new one.
   const SCEV *getOrCreateAddExpr(ArrayRef<const SCEV *> Ops,
