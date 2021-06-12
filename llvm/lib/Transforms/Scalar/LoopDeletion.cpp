@@ -34,6 +34,7 @@ using namespace llvm;
 #define DEBUG_TYPE "loop-delete"
 
 STATISTIC(NumDeleted, "Number of loops deleted");
+STATISTIC(NumBackedgesBroken, "Number of backedges broken");
 
 static cl::opt<bool> EnableSymbolicExecution(
     "loop-deletion-enable-symbolic-execution", cl::Hidden, cl::init(true),
@@ -358,6 +359,7 @@ breakBackedgeIfNotTaken(Loop *L, DominatorTree &DT, ScalarEvolution &SE,
     return LoopDeletionResult::Unmodified;
 
   breakLoopBackedge(L, DT, SE, LI, MSSA);
+  ++NumBackedgesBroken;
   return LoopDeletionResult::Deleted;
 }
 
