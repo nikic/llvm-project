@@ -169,20 +169,24 @@ static bool isLoopNeverExecuted(Loop *L) {
 }
 
 static Value *
-getValueOnFirstIteration(Value *V, const DataLayout &DL,
+getValueOnFirstIteration(Value *V, Loop *L, const DataLayout &DL,
                          DenseMap<Value *, Value *> &FirstIterValue) {
   // Fist, check in cache.
   auto Existing = FirstIterValue.find(V);
   if (Existing != FirstIterValue.end())
     return Existing->second;
+  auto *I = dyn_cast<Instruction>(V);
   Value *S = nullptr;
-  if (auto *BO = dyn_cast<BinaryOperator>(V))
-    S = SimplifyBinOp(BO->getOpcode(),
-                      getValueOnFirstIteration(BO->getOperand(0), DL,
-                                               FirstIterValue),
-                      getValueOnFirstIteration(BO->getOperand(1), DL,
-                                               FirstIterValue),
-                      DL);
+  if (I && L->contains(I)) {
+    if (auto *BO = dyn_cast<BinaryOperator>(I))
+      S = SimplifyBinOp(BO->getOpcode(),
+                        getValueOnFirstIteration(BO->getOperand(0), L, DL,
+                                                 FirstIterValue),
+                        getValueOnFirstIteration(BO->getOperand(1), L, DL,
+                                                 FirstIterValue),
+                        DL);
+  }
+
   if (!S)
     S = V;
   FirstIterValue[V] = S;
@@ -286,7 +290,7 @@ static bool canProveExitOnFirstIteration(Loop *L, DominatorTree &DT,
         auto *Incoming = PN.getIncomingValueForBlock(OnlyPred);
         if (DT.dominates(Incoming, BB->getTerminator())) {
           Value *IncValue =
-              getValueOnFirstIteration(Incoming, DL, FirstIterValue);
+              getValueOnFirstIteration(Incoming, L, DL, FirstIterValue);
           FirstIterValue[&PN] = IncValue;
         }
       }
@@ -309,8 +313,8 @@ static bool canProveExitOnFirstIteration(Loop *L, DominatorTree &DT,
     }
 
     // Can we prove constant true or false for this condition?
-    Value *LHSS = getValueOnFirstIteration(LHS, DL, FirstIterValue);
-    Value *RHSS = getValueOnFirstIteration(RHS, DL, FirstIterValue);
+    Value *LHSS = getValueOnFirstIteration(LHS, L, DL, FirstIterValue);
+    Value *RHSS = getValueOnFirstIteration(RHS, L, DL, FirstIterValue);
     auto IsKnownPredicate = [&](ICmpInst::Predicate Pred, Value *L, Value *R) {
       Value *S = SimplifyICmpInst(Pred, L, R, {DL, Term});
       if (auto *CI = dyn_cast_or_null<ConstantInt>(S))
