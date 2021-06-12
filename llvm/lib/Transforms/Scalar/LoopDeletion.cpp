@@ -18,6 +18,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/MemorySSA.h"
@@ -167,35 +168,24 @@ static bool isLoopNeverExecuted(Loop *L) {
   return true;
 }
 
-static const SCEV *
-getSCEVOnFirstIteration(Value *V, Loop *L, ScalarEvolution &SE,
-                        DenseMap<Value *, const SCEV *> &FirstIterSCEV) {
+static Value *
+getValueOnFirstIteration(Value *V, const DataLayout &DL,
+                         DenseMap<Value *, Value *> &FirstIterValue) {
   // Fist, check in cache.
-  auto Existing = FirstIterSCEV.find(V);
-  if (Existing != FirstIterSCEV.end())
+  auto Existing = FirstIterValue.find(V);
+  if (Existing != FirstIterValue.end())
     return Existing->second;
-  const SCEV *S = nullptr;
-  // TODO: Once ScalarEvolution supports getValueOnNthIteration for anything
-  // else but AddRecs, it's a good use case for it. So far, just consider some
-  // simple cases, like arithmetic operations.
-  Value *LHS, *RHS;
-  using namespace PatternMatch;
-  if (match(V, m_Add(m_Value(LHS), m_Value(RHS)))) {
-    const SCEV *LHSS = getSCEVOnFirstIteration(LHS, L, SE, FirstIterSCEV);
-    const SCEV *RHSS = getSCEVOnFirstIteration(RHS, L, SE, FirstIterSCEV);
-    S = SE.getAddExpr(LHSS, RHSS);
-  } else if (match(V, m_Sub(m_Value(LHS), m_Value(RHS)))) {
-    const SCEV *LHSS = getSCEVOnFirstIteration(LHS, L, SE, FirstIterSCEV);
-    const SCEV *RHSS = getSCEVOnFirstIteration(RHS, L, SE, FirstIterSCEV);
-    S = SE.getMinusSCEV(LHSS, RHSS);
-  } else if (match(V, m_Mul(m_Value(LHS), m_Value(RHS)))) {
-    const SCEV *LHSS = getSCEVOnFirstIteration(LHS, L, SE, FirstIterSCEV);
-    const SCEV *RHSS = getSCEVOnFirstIteration(RHS, L, SE, FirstIterSCEV);
-    S = SE.getMulExpr(LHSS, RHSS);
-  } else
-    S = SE.getSCEV(V);
-  assert(S && "Case not handled?");
-  FirstIterSCEV[V] = S;
+  Value *S = nullptr;
+  if (auto *BO = dyn_cast<BinaryOperator>(V))
+    S = SimplifyBinOp(BO->getOpcode(),
+                      getValueOnFirstIteration(BO->getOperand(0), DL,
+                                               FirstIterValue),
+                      getValueOnFirstIteration(BO->getOperand(1), DL,
+                                               FirstIterValue),
+                      DL);
+  if (!S)
+    S = V;
+  FirstIterValue[V] = S;
   return S;
 }
 
@@ -264,7 +254,8 @@ static bool canProveExitOnFirstIteration(Loop *L, DominatorTree &DT,
     assert(OnlyPred && "No live predecessors?");
     return OnlyPred;
   };
-  DenseMap<Value *, const SCEV *> FirstIterSCEV;
+  DenseMap<Value *, Value *> FirstIterValue;
+  const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
 
   // Use the following algorithm to prove we never take the latch on the 1st
   // iteration:
@@ -292,13 +283,11 @@ static bool canProveExitOnFirstIteration(Loop *L, DominatorTree &DT,
     // If this block has only one live pred, map its phis onto their SCEVs.
     if (auto *OnlyPred = GetSolePredecessorOnFirstIteration(BB))
       for (auto &PN : BB->phis()) {
-        if (!SE.isSCEVable(PN.getType()))
-          continue;
         auto *Incoming = PN.getIncomingValueForBlock(OnlyPred);
         if (DT.dominates(Incoming, BB->getTerminator())) {
-          const SCEV *IncSCEV =
-              getSCEVOnFirstIteration(Incoming, L, SE, FirstIterSCEV);
-          FirstIterSCEV[&PN] = IncSCEV;
+          Value *IncValue =
+              getValueOnFirstIteration(Incoming, DL, FirstIterValue);
+          FirstIterValue[&PN] = IncValue;
         }
       }
 
@@ -320,17 +309,22 @@ static bool canProveExitOnFirstIteration(Loop *L, DominatorTree &DT,
     }
 
     // Can we prove constant true or false for this condition?
-    const SCEV *LHSS = getSCEVOnFirstIteration(LHS, L, SE, FirstIterSCEV);
-    const SCEV *RHSS = getSCEVOnFirstIteration(RHS, L, SE, FirstIterSCEV);
+    Value *LHSS = getValueOnFirstIteration(LHS, DL, FirstIterValue);
+    Value *RHSS = getValueOnFirstIteration(RHS, DL, FirstIterValue);
+    auto IsKnownPredicate = [&](ICmpInst::Predicate Pred, Value *L, Value *R) {
+      Value *S = SimplifyICmpInst(Pred, L, R, {DL, Term});
+      if (auto *CI = dyn_cast_or_null<ConstantInt>(S))
+        return CI->isOne();
+      return false;
+    };
     // Only query for liveness of in-loop edge if another successor is also
     // in-loop.
     // TODO: isKnownPredicateAt is more powerful, but it's too compile time
     // consuming. So we avoid using it here.
-    if (L->contains(IfFalse) && SE.isKnownPredicate(Pred, LHSS, RHSS))
+    if (L->contains(IfFalse) && IsKnownPredicate(Pred, LHSS, RHSS))
       MarkLiveEdge(BB, IfTrue);
     else if (L->contains(IfTrue) &&
-             SE.isKnownPredicate(ICmpInst::getInversePredicate(Pred), LHSS,
-                                 RHSS))
+             IsKnownPredicate(ICmpInst::getInversePredicate(Pred), LHSS, RHSS))
       MarkLiveEdge(BB, IfFalse);
     else
       MarkAllSuccessorsLive(BB);
