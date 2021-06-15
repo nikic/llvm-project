@@ -342,8 +342,7 @@ define void @loop_with_header_1(i32 %x) {
 ; SCCP-NEXT:    [[C_1:%.*]] = icmp slt i32 [[IV]], 2
 ; SCCP-NEXT:    br i1 [[C_1]], label [[LOOP_BODY]], label [[EXIT:%.*]]
 ; SCCP:       loop.body:
-; SCCP-NEXT:    [[T_1:%.*]] = icmp slt i32 [[IV]], 2
-; SCCP-NEXT:    call void @use(i1 [[T_1]])
+; SCCP-NEXT:    call void @use(i1 true)
 ; SCCP-NEXT:    [[IV_NEXT]] = add nsw i32 [[IV]], 1
 ; SCCP-NEXT:    br label [[LOOP_HEADER]]
 ; SCCP:       exit:
@@ -390,8 +389,7 @@ define void @loop_with_header_2(i32 %x) {
 ; SCCP-NEXT:    [[C_1:%.*]] = icmp slt i32 [[IV]], 200
 ; SCCP-NEXT:    br i1 [[C_1]], label [[LOOP_BODY]], label [[EXIT:%.*]]
 ; SCCP:       loop.body:
-; SCCP-NEXT:    [[T_1:%.*]] = icmp slt i32 [[IV]], 200
-; SCCP-NEXT:    call void @use(i1 [[T_1]])
+; SCCP-NEXT:    call void @use(i1 true)
 ; SCCP-NEXT:    [[IV_NEXT]] = add nsw i32 [[IV]], 1
 ; SCCP-NEXT:    br label [[LOOP_HEADER]]
 ; SCCP:       exit:
@@ -643,11 +641,10 @@ define i8* @wobble(%struct.blam.2* %arg, i32 %arg1) align 2 {
 ; SCCP-NEXT:    [[C_2:%.*]] = icmp eq i32 [[TMP11]], 8
 ; SCCP-NEXT:    br i1 [[C_2]], label [[BB39:%.*]], label [[BB58:%.*]]
 ; SCCP:       bb39:
-; SCCP-NEXT:    [[TMP40:%.*]] = add nsw i32 [[TMP11]], -1
 ; SCCP-NEXT:    [[TMP41:%.*]] = trunc i32 [[TMP3]] to i16
 ; SCCP-NEXT:    store i16 [[TMP41]], i16* bitcast ([4 x i8]* @global.11 to i16*), align 1
 ; SCCP-NEXT:    [[TMP42:%.*]] = getelementptr inbounds [[STRUCT_BLAM_2]], %struct.blam.2* [[ARG]], i32 0, i32 0
-; SCCP-NEXT:    [[TMP43:%.*]] = add i32 [[TMP7]], [[TMP40]]
+; SCCP-NEXT:    [[TMP43:%.*]] = add i32 [[TMP7]], 7
 ; SCCP-NEXT:    [[TMP44:%.*]] = mul i32 [[TMP43]], 4
 ; SCCP-NEXT:    [[TMP45:%.*]] = add i32 [[TMP44]], 2
 ; SCCP-NEXT:    [[TMP46:%.*]] = call dereferenceable(1) i8* @spam(%struct.baz.1* [[TMP42]], i32 [[TMP45]])
@@ -662,14 +659,13 @@ define i8* @wobble(%struct.blam.2* %arg, i32 %arg1) align 2 {
 ; SCCP-NEXT:    [[TMP55:%.*]] = icmp sgt i32 [[TMP48]], [[TMP54]]
 ; SCCP-NEXT:    br i1 [[TMP55]], label [[BB56:%.*]], label [[BB60:%.*]]
 ; SCCP:       bb56:
-; SCCP-NEXT:    [[TMP57:%.*]] = add nsw i32 [[TMP40]], -1
 ; SCCP-NEXT:    br label [[BB60]]
 ; SCCP:       bb58:
 ; SCCP-NEXT:    [[TMP59:%.*]] = bitcast i16* [[TMP33]] to i8*
 ; SCCP-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 getelementptr inbounds ([4 x i8], [4 x i8]* @global.11, i64 0, i64 0), i8* align 2 [[TMP59]], i64 4, i1 false)
 ; SCCP-NEXT:    br label [[BB60]]
 ; SCCP:       bb60:
-; SCCP-NEXT:    [[TMP61:%.*]] = phi i32 [ [[TMP57]], [[BB56]] ], [ [[TMP40]], [[BB39]] ], [ [[TMP11]], [[BB58]] ]
+; SCCP-NEXT:    [[TMP61:%.*]] = phi i32 [ 6, [[BB56]] ], [ 7, [[BB39]] ], [ [[TMP11]], [[BB58]] ]
 ; SCCP-NEXT:    [[TMP62:%.*]] = getelementptr inbounds [[STRUCT_BLAM_2]], %struct.blam.2* [[ARG]], i32 0, i32 0
 ; SCCP-NEXT:    [[TMP63:%.*]] = add i32 [[TMP7]], 1
 ; SCCP-NEXT:    [[TMP64:%.*]] = mul i32 [[TMP63]], 4
