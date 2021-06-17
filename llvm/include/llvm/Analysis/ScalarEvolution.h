@@ -963,6 +963,11 @@ public:
   bool isKnownPredicate(ICmpInst::Predicate Pred, const SCEV *LHS,
                         const SCEV *RHS);
 
+  /// Test whether the condition described by Pred, LHS, and RHS is true.
+  /// Use only simple non-recursive types of checks, such as range analysis etc.
+  bool isKnownViaNonRecursiveReasoning(ICmpInst::Predicate Pred,
+                                       const SCEV *LHS, const SCEV *RHS);
+
   /// Check whether the condition described by Pred, LHS, and RHS is true or
   /// false. If we know it, return the evaluation of this condition. If neither
   /// is proved, return None.
@@ -1851,11 +1856,6 @@ private:
                               const SCEV *LHS, const SCEV *RHS,
                               const SCEV *FoundLHS, const SCEV *FoundRHS,
                               unsigned Depth = 0);
-
-  /// Test whether the condition described by Pred, LHS, and RHS is true.
-  /// Use only simple non-recursive types of checks, such as range analysis etc.
-  bool isKnownViaNonRecursiveReasoning(ICmpInst::Predicate Pred,
-                                       const SCEV *LHS, const SCEV *RHS);
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
