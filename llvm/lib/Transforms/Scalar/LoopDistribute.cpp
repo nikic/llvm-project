@@ -116,7 +116,7 @@ static cl::opt<unsigned> PragmaDistributeSCEVCheckThreshold(
 static cl::opt<bool> EnableLoopDistribute(
     "enable-loop-distribute", cl::Hidden,
     cl::desc("Enable the new, experimental LoopDistribution Pass"),
-    cl::init(false));
+    cl::init(true));
 
 STATISTIC(NumLoopsDistributed, "Number of loops distributed");
 
