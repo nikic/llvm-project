@@ -22,6 +22,7 @@
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/ValueHandle.h"
 #include <memory>
 #include <utility>
@@ -78,6 +79,7 @@ enum ConstantPreference { WantInteger, WantBlockAddress };
 /// revectored to the false side of the second if.
 class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   TargetLibraryInfo *TLI;
+  TargetTransformInfo *TTI;
   LazyValueInfo *LVI;
   AAResults *AA;
   DomTreeUpdater *DTU;
@@ -99,9 +101,9 @@ public:
   JumpThreadingPass(bool InsertFreezeWhenUnfoldingSelect = false, int T = -1);
 
   // Glue for old PM.
-  bool runImpl(Function &F, TargetLibraryInfo *TLI, LazyValueInfo *LVI,
-               AAResults *AA, DomTreeUpdater *DTU, bool HasProfileData,
-               std::unique_ptr<BlockFrequencyInfo> BFI,
+  bool runImpl(Function &F, TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
+               LazyValueInfo *LVI, AAResults *AA, DomTreeUpdater *DTU,
+               bool HasProfileData, std::unique_ptr<BlockFrequencyInfo> BFI,
                std::unique_ptr<BranchProbabilityInfo> BPI);
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
