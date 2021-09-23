@@ -120,9 +120,6 @@ static bool isEscapeSource(const Value *V) {
   if (isa<CallBase>(V))
     return true;
 
-  if (isa<Argument>(V))
-    return true;
-
   // The load case works because isNonEscapingLocalObject considers all
   // stores to be escapes (it passes true for the StoreCaptures argument
   // to PointerMayBeCaptured).
@@ -224,6 +221,35 @@ static bool isObjectSize(const Value *V, uint64_t Size, const DataLayout &DL,
                          const TargetLibraryInfo &TLI, bool NullIsValidLoc) {
   uint64_t ObjectSize = getObjectSize(V, DL, TLI, NullIsValidLoc);
   return ObjectSize != MemoryLocation::UnknownSize && ObjectSize == Size;
+}
+
+static bool isNotCapturedBeforeOrAt(AAQueryInfo &AAQI, const Value *Object,
+                                    const Instruction *I, DominatorTree *DT) {
+  if (!isIdentifiedFunctionLocal(Object))
+    return false;
+
+  if (!AAQI.EnableExpensiveCaptureChecks)
+    return isNonEscapingLocalObject(Object, &AAQI.IsCapturedCache);
+
+  auto Iter = AAQI.EarliestEscapes.insert({Object, nullptr});
+  if (Iter.second) {
+    Instruction *EarliestCapture = FindEarliestCapture(
+        Object, *const_cast<Function *>(I->getFunction()),
+        /*ReturnCaptures=*/false, /*StoreCaptures=*/true, *DT);
+    if (EarliestCapture) {
+      auto Ins = AAQI.Inst2Obj.insert({EarliestCapture, {}});
+      Ins.first->second.push_back(Object);
+    }
+    Iter.first->second = EarliestCapture;
+  }
+
+  // No capturing instruction.
+  if (!Iter.first->second)
+    return true;
+
+  // TODO: No LI?
+  return I != Iter.first->second &&
+         !isPotentiallyReachable(Iter.first->second, I, nullptr, DT);
 }
 
 //===----------------------------------------------------------------------===//
@@ -838,7 +864,7 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   // then the call can not mod/ref the pointer unless the call takes the pointer
   // as an argument, and itself doesn't capture it.
   if (!isa<Constant>(Object) && Call != Object &&
-      isNonEscapingLocalObject(Object, &AAQI.IsCapturedCache)) {
+      isNotCapturedBeforeOrAt(AAQI, Object, Call, DT)) {
 
     // Optimistically assume that call doesn't touch Object and check this
     // assumption in the following loop.
@@ -1517,10 +1543,10 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // location if that memory location doesn't escape. Or it may pass a
     // nocapture value to other functions as long as they don't capture it.
     if (isEscapeSource(O1) &&
-        isNonEscapingLocalObject(O2, &AAQI.IsCapturedCache))
+        isNotCapturedBeforeOrAt(AAQI, O2, cast<Instruction>(O1), DT))
       return AliasResult::NoAlias;
     if (isEscapeSource(O2) &&
-        isNonEscapingLocalObject(O1, &AAQI.IsCapturedCache))
+        isNotCapturedBeforeOrAt(AAQI, O1, cast<Instruction>(O2), DT))
       return AliasResult::NoAlias;
   }
 

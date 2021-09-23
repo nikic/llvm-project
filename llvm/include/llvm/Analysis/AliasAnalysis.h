@@ -428,6 +428,10 @@ public:
   using IsCapturedCacheT = SmallDenseMap<const Value *, bool, 8>;
   IsCapturedCacheT IsCapturedCache;
 
+  bool EnableExpensiveCaptureChecks = false;
+  DenseMap<const Value *, Instruction *> EarliestEscapes;
+  DenseMap<Instruction *, TinyPtrVector<const Value *>> Inst2Obj;
+
   /// Query depth used to distinguish recursive queries.
   unsigned Depth = 0;
 
@@ -899,6 +903,22 @@ class BatchAAResults {
 
 public:
   BatchAAResults(AAResults &AAR) : AA(AAR), AAQI() {}
+
+  void enableExpensiveCaptureChecks() {
+    AAQI.EnableExpensiveCaptureChecks = true;
+  }
+
+  void removeInstruction(Instruction *I) {
+    // Clear any cached escape info for objects associated with the
+    // removed instructions.
+    auto Iter = AAQI.Inst2Obj.find(I);
+    if (Iter != AAQI.Inst2Obj.end()) {
+      for (const Value *Obj : Iter->second)
+        AAQI.EarliestEscapes.erase(Obj);
+      AAQI.Inst2Obj.erase(I);
+    }
+  }
+
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
     return AA.alias(LocA, LocB, AAQI);
   }
