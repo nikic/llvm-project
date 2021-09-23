@@ -855,6 +855,7 @@ bool canSkipDef(MemoryDef *D, bool DefVisibleToCaller,
 struct DSEState {
   Function &F;
   AliasAnalysis &AA;
+  EarliestEscapeInfo EI;
 
   /// The single BatchAA instance that is used to cache AA queries. It will
   /// not be invalidated over the whole run. This is safe, because:
@@ -900,10 +901,8 @@ struct DSEState {
   DSEState(Function &F, AliasAnalysis &AA, MemorySSA &MSSA, DominatorTree &DT,
            PostDominatorTree &PDT, const TargetLibraryInfo &TLI,
            const LoopInfo &LI)
-      : F(F), AA(AA), BatchAA(AA), MSSA(MSSA), DT(DT), PDT(PDT), TLI(TLI),
-        DL(F.getParent()->getDataLayout()), LI(LI) {
-    BatchAA.enableExpensiveCaptureChecks();
-  }
+      : F(F), AA(AA), EI(DT, LI), BatchAA(AA, &EI), MSSA(MSSA), DT(DT),
+        PDT(PDT), TLI(TLI), DL(F.getParent()->getDataLayout()), LI(LI) { }
 
   static DSEState get(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
                       DominatorTree &DT, PostDominatorTree &PDT,
@@ -1708,7 +1707,7 @@ struct DSEState {
       if (MemoryAccess *MA = MSSA.getMemoryAccess(DeadInst)) {
         if (MemoryDef *MD = dyn_cast<MemoryDef>(MA)) {
           SkipStores.insert(MD);
-          BatchAA.removeInstruction(DeadInst);
+          EI.removeInstruction(DeadInst);
         }
 
         Updater.removeMemoryAccess(MA);

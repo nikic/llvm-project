@@ -61,6 +61,7 @@ class DominatorTree;
 class FenceInst;
 class Function;
 class InvokeInst;
+class LoopInfo;
 class PreservedAnalyses;
 class TargetLibraryInfo;
 class Value;
@@ -378,6 +379,35 @@ createModRefInfo(const FunctionModRefBehavior FMRB) {
   return ModRefInfo(FMRB & static_cast<int>(ModRefInfo::ModRef));
 }
 
+class CaptureInfo {
+public:
+  virtual bool isNotCapturedBeforeOrAt(const Value *Object,
+                                       const Instruction *I);
+};
+
+class SimpleCaptureInfo final : public CaptureInfo {
+  SmallDenseMap<const Value *, bool, 8> IsCapturedCache;
+
+public:
+  bool isNotCapturedBeforeOrAt(const Value *Object,
+                               const Instruction *I) override;
+};
+
+class EarliestEscapeInfo final : public CaptureInfo {
+  DominatorTree &DT;
+  const LoopInfo &LI;
+  DenseMap<const Value *, Instruction *> EarliestEscapes;
+  DenseMap<Instruction *, TinyPtrVector<const Value *>> Inst2Obj;
+
+public:
+  EarliestEscapeInfo(DominatorTree &DT, const LoopInfo &LI) : DT(DT), LI(LI) {}
+
+  bool isNotCapturedBeforeOrAt(const Value *Object,
+                               const Instruction *I) override;
+
+  void removeInstruction(Instruction *I);
+};
+
 /// Reduced version of MemoryLocation that only stores a pointer and size.
 /// Used for caching AATags independent BasicAA results.
 struct AACacheLoc {
@@ -425,12 +455,7 @@ public:
   using AliasCacheT = SmallDenseMap<LocPair, CacheEntry, 8>;
   AliasCacheT AliasCache;
 
-  using IsCapturedCacheT = SmallDenseMap<const Value *, bool, 8>;
-  IsCapturedCacheT IsCapturedCache;
-
-  bool EnableExpensiveCaptureChecks = false;
-  DenseMap<const Value *, Instruction *> EarliestEscapes;
-  DenseMap<Instruction *, TinyPtrVector<const Value *>> Inst2Obj;
+  CaptureInfo *CI;
 
   /// Query depth used to distinguish recursive queries.
   unsigned Depth = 0;
@@ -443,16 +468,24 @@ public:
   /// assumption is disproven.
   SmallVector<AAQueryInfo::LocPair, 4> AssumptionBasedResults;
 
-  AAQueryInfo() : AliasCache(), IsCapturedCache() {}
+  AAQueryInfo(CaptureInfo *CI) : CI(CI) {}
 
   /// Create a new AAQueryInfo based on this one, but with the cache cleared.
   /// This is used for recursive queries across phis, where cache results may
   /// not be valid.
   AAQueryInfo withEmptyCache() {
-    AAQueryInfo NewAAQI;
+    AAQueryInfo NewAAQI(CI);
     NewAAQI.Depth = Depth;
     return NewAAQI;
   }
+};
+
+/// AAQueryInfo that uses SimpleCaptureInfo.
+class SimpleAAQueryInfo : public AAQueryInfo {
+  SimpleCaptureInfo CI;
+
+public:
+  SimpleAAQueryInfo() : AAQueryInfo(&CI) {}
 };
 
 class BatchAAResults;
@@ -774,7 +807,7 @@ public:
   /// helpers above.
   ModRefInfo getModRefInfo(const Instruction *I,
                            const Optional<MemoryLocation> &OptLoc) {
-    AAQueryInfo AAQIP;
+    SimpleAAQueryInfo AAQIP;
     return getModRefInfo(I, OptLoc, AAQIP);
   }
 
@@ -801,7 +834,7 @@ public:
   ModRefInfo callCapturesBefore(const Instruction *I,
                                 const MemoryLocation &MemLoc,
                                 DominatorTree *DT) {
-    AAQueryInfo AAQIP;
+    SimpleAAQueryInfo AAQIP;
     return callCapturesBefore(I, MemLoc, DT, AAQIP);
   }
 
@@ -900,24 +933,11 @@ private:
 class BatchAAResults {
   AAResults &AA;
   AAQueryInfo AAQI;
+  SimpleCaptureInfo SimpleCI;
 
 public:
-  BatchAAResults(AAResults &AAR) : AA(AAR), AAQI() {}
-
-  void enableExpensiveCaptureChecks() {
-    AAQI.EnableExpensiveCaptureChecks = true;
-  }
-
-  void removeInstruction(Instruction *I) {
-    // Clear any cached escape info for objects associated with the
-    // removed instructions.
-    auto Iter = AAQI.Inst2Obj.find(I);
-    if (Iter != AAQI.Inst2Obj.end()) {
-      for (const Value *Obj : Iter->second)
-        AAQI.EarliestEscapes.erase(Obj);
-      AAQI.Inst2Obj.erase(I);
-    }
-  }
+  BatchAAResults(AAResults &AAR) : AA(AAR), AAQI(&SimpleCI) {}
+  BatchAAResults(AAResults &AAR, CaptureInfo *CI) : AA(AAR), AAQI(CI) {}
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
     return AA.alias(LocA, LocB, AAQI);
