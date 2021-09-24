@@ -495,7 +495,7 @@ bool LoopInvariantCodeMotion::runOnLoop(
     MSSA->verifyMemorySSA();
 
   if (Changed && SE)
-    SE->forgetLoopDispositions(L);
+    SE->forgetLoop(L);
   return Changed;
 }
 

@@ -899,13 +899,6 @@ public:
   /// def-use chain linking it to a loop.
   void forgetValue(Value *V);
 
-  /// Called when the client has changed the disposition of values in
-  /// this loop.
-  ///
-  /// We don't have a way to invalidate per-loop dispositions. Clear and
-  /// recompute is simpler.
-  void forgetLoopDispositions(const Loop *L);
-
   /// Determine the minimum number of zero bits that S is guaranteed to end in
   /// (at every loop iteration).  It is, at the same time, the minimum number
   /// of times S is divisible by 2.  For example, given {4,+,8} it returns 2.
@@ -1625,6 +1618,18 @@ private:
   /// This is more general than getConstantMaxBackedgeTakenCount as it returns
   /// an arbitrary expression as opposed to only constants.
   const SCEV *computeSymbolicMaxBackedgeTakenCount(const Loop *L);
+
+  /// Called when the the disposition of values in some loop might changed.
+  ///
+  /// We don't have a way to invalidate per-loop dispositions. Clear and
+  /// recompute is simpler.
+  void forgetLoopDispositions();
+
+  /// Called when the the disposition of values in some loop might changed.
+  ///
+  /// We don't have a way to invalidate per-block dispositions. Clear and
+  /// recompute is simpler.
+  void forgetBlockDispositions();
 
   // Helper functions for computeExitLimitFromCond to avoid exponential time
   // complexity.

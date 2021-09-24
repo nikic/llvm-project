@@ -7504,6 +7504,10 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     // ValuesAtScopes map.
     LoopWorklist.append(CurrL->begin(), CurrL->end());
   }
+
+  // Drop disposition dependencies on forgotten loop and its blocks.
+  forgetLoopDispositions();
+  forgetBlockDispositions();
 }
 
 void ScalarEvolution::forgetTopmostLoop(const Loop *L) {
@@ -7537,11 +7541,16 @@ void ScalarEvolution::forgetValue(Value *V) {
 
     PushDefUseChildren(I, Worklist);
   }
+
+  // We don't know what SCEVs may depend on this value's disposition, so drop
+  // all of them.
+  forgetLoopDispositions();
+  forgetBlockDispositions();
 }
 
-void ScalarEvolution::forgetLoopDispositions(const Loop *L) {
-  LoopDispositions.clear();
-}
+void ScalarEvolution::forgetLoopDispositions() { LoopDispositions.clear(); }
+
+void ScalarEvolution::forgetBlockDispositions() { BlockDispositions.clear(); }
 
 /// Get the exact loop backedge taken count considering all loop exits. A
 /// computable result can only be returned for loops with all exiting blocks

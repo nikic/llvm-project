@@ -96,7 +96,7 @@ static bool isLoopDead(Loop *L, ScalarEvolution &SE,
   }
 
   if (Changed)
-    SE.forgetLoopDispositions(L);
+    SE.forgetLoop(L);
 
   if (!AllEntriesInvariant || !AllOutgoingValuesSame)
     return false;
