@@ -461,9 +461,7 @@ exit:
   ret i32 1
 }
 
-
 ; Same as test_01a, but non-negativity of %b is known without context.
-; FIXME: We can remove 2nd check in loop.
 define i32 @test_05a(i32 %a, i32* %bp) {
 ; CHECK-LABEL: @test_05a(
 ; CHECK-NEXT:  entry:
@@ -477,8 +475,7 @@ define i32 @test_05a(i32 %a, i32* %bp) {
 ; CHECK-NEXT:    [[SIGNED_COND:%.*]] = icmp ult i32 [[IV]], [[B]]
 ; CHECK-NEXT:    br i1 [[SIGNED_COND]], label [[INNER_1:%.*]], label [[SIDE_EXIT:%.*]]
 ; CHECK:       inner.1:
-; CHECK-NEXT:    [[UNSIGNED_COND:%.*]] = icmp slt i32 [[IV]], [[B]]
-; CHECK-NEXT:    br i1 [[UNSIGNED_COND]], label [[INNER_BACKEDGE]], label [[SIDE_EXIT]]
+; CHECK-NEXT:    br i1 true, label [[INNER_BACKEDGE]], label [[SIDE_EXIT]]
 ; CHECK:       inner.backedge:
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i32 [[IV]], 1
 ; CHECK-NEXT:    [[INNER_LOOP_COND:%.*]] = call i1 @cond()
