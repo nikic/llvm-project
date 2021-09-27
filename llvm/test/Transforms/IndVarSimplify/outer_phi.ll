@@ -79,7 +79,6 @@ exit:
   ret i32 1
 }
 
-; FIXME: iv <u b, b >=s 0 --> iv <s b. We should be able to remove the 2nd check.
 define i32 @test_01a(i32 %a, i32 %b) {
 ; CHECK-LABEL: @test_01a(
 ; CHECK-NEXT:  entry:
@@ -95,8 +94,7 @@ define i32 @test_01a(i32 %a, i32 %b) {
 ; CHECK-NEXT:    [[SIGNED_COND:%.*]] = icmp ult i32 [[IV]], [[B]]
 ; CHECK-NEXT:    br i1 [[SIGNED_COND]], label [[INNER_1:%.*]], label [[SIDE_EXIT:%.*]]
 ; CHECK:       inner.1:
-; CHECK-NEXT:    [[UNSIGNED_COND:%.*]] = icmp slt i32 [[IV]], [[B]]
-; CHECK-NEXT:    br i1 [[UNSIGNED_COND]], label [[INNER_BACKEDGE]], label [[SIDE_EXIT]]
+; CHECK-NEXT:    br i1 true, label [[INNER_BACKEDGE]], label [[SIDE_EXIT]]
 ; CHECK:       inner.backedge:
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i32 [[IV]], 1
 ; CHECK-NEXT:    [[INNER_LOOP_COND:%.*]] = call i1 @cond()

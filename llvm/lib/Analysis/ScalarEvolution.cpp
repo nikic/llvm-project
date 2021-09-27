@@ -10711,13 +10711,25 @@ bool ScalarEvolution::isImpliedCondBalancedTypes(
   if (IsSignFlippedPredicate(Pred, FoundPred)) {
     // Unsigned comparison is the same as signed comparison when both the
     // operands are non-negative or negative.
-    if ((isKnownNonNegative(FoundLHS) && isKnownNonNegative(FoundRHS)) ||
-        (isKnownNegative(FoundLHS) && isKnownNegative(FoundRHS)))
+    auto IsKnownNonNegative = [&](const SCEV *S) {
+      if (CtxI)
+        return isKnownPredicateAt(ICmpInst::ICMP_SGE, S, getZero(S->getType()),
+                                  CtxI);
+      return isKnownNonNegative(S);
+    };
+    auto IsKnownNegative = [&](const SCEV *S) {
+      if (CtxI)
+        return isKnownPredicateAt(ICmpInst::ICMP_SLT, S, getZero(S->getType()),
+                                  CtxI);
+      return isKnownNegative(S);
+    };
+    if ((IsKnownNonNegative(FoundLHS) && IsKnownNonNegative(FoundRHS)) ||
+        (IsKnownNegative(FoundLHS) && IsKnownNegative(FoundRHS)))
       return isImpliedCondOperands(Pred, LHS, RHS, FoundLHS, FoundRHS, CtxI);
     // TODO: A symmetrical fact should be provable for replacing an unsigned
     // predicate with signed.
     if (Pred == ICmpInst::ICMP_SLT || Pred == ICmpInst::ICMP_SLE)
-      if (isKnownNonNegative(RHS))
+      if (IsKnownNonNegative(RHS))
         // We need to prove that LHS <s RHS. Knowing that RHS is non-negative,
         // if we can prove that LHS <u RHS, this will automatically imply the
         // fact we need.
