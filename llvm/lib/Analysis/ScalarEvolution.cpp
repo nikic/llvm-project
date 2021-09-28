@@ -233,6 +233,12 @@ static cl::opt<bool> UseExpensiveRangeSharpening(
     cl::desc("Use more powerful methods of sharpening expression ranges. May "
              "be costly in terms of compile time"));
 
+static cl::opt<unsigned> MaxPhiSCCAnalysisSize(
+    "scalar-evolution-max-scc-analysis-depth", cl::Hidden,
+    cl::desc("Maximum amount of nodes to process while searching SCEVUnknown "
+             "Phi strongly connected components"),
+    cl::init(8));
+
 //===----------------------------------------------------------------------===//
 //                           SCEV class definitions
 //===----------------------------------------------------------------------===//
@@ -6236,21 +6242,93 @@ ScalarEvolution::getRangeRef(const SCEV *S,
 
     // A range of Phi is a subset of union of all ranges of its input.
     if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue())) {
-      // Make sure that we do not run over cycled Phis.
-      if (PendingPhiRanges.insert(Phi).second) {
-        ConstantRange RangeFromOps(BitWidth, /*isFullSet=*/false);
-        for (auto &Op : Phi->operands()) {
-          auto OpRange = getRangeRef(getSCEV(Op), SignHint);
-          RangeFromOps = RangeFromOps.unionWith(OpRange);
+      if (!PendingPhiRanges.count(Phi)) {
+        // Collect strongly connected component (further on - SCC ) composed of
+        // Phis. Analyze all values that are incoming to this SCC (we call them
+        // roots). All SCC elements have range that is not wider than union of
+        // ranges of roots.
+        SmallVector<const PHINode *, 4> Worklist;
+        SmallPtrSet<const PHINode *, 4> Reachable;
+        Reachable.insert(Phi);
+        Worklist.push_back(Phi);
+        // First, find all PHI nodes that are reachable from Phi.
+        while (!Worklist.empty()) {
+          if (Reachable.size() > MaxPhiSCCAnalysisSize) {
+            // Too many nodes to process. Assume that SCC is composed of Phi
+            // alone.
+            Reachable.clear();
+            break;
+          }
+          auto *Curr = Worklist.pop_back_val();
+          for (auto &Op : Curr->operands()) {
+            if (auto *PhiOp = dyn_cast<PHINode>(&*Op)) {
+              if (PendingPhiRanges.count(PhiOp))
+                continue;
+              if (Reachable.insert(PhiOp).second)
+                Worklist.push_back(PhiOp);
+            }
+          }
+        }
+
+        SmallPtrSet<const PHINode *, 4> SCC;
+        SCC.insert(Phi);
+        Worklist.push_back(Phi);
+        // Out of reachable nodes, find those from which Phi is also reachable.
+        // This defines a SCC.
+        while (!Worklist.empty()) {
+          auto *Curr = Worklist.pop_back_val();
+          for (auto *User : Curr->users()) {
+            auto *PN = dyn_cast<PHINode>(User);
+            if (PN && Reachable.count(PN) && SCC.insert(PN).second)
+              Worklist.push_back(PN);
+          }
+        }
+        Reachable.clear();
+
+        // Collect roots: inputs of SCC nodes that come from outside of SCC.
+        SmallPtrSet<Value *, 4> Roots;
+        for (auto *PN : SCC)
+          for (auto &Op : PN->operands()) {
+            auto *PhiInput = dyn_cast<PHINode>(Op);
+            if (!PhiInput || !SCC.count(PhiInput))
+              Roots.insert(Op);
+          }
+
+        // Mark SCC elements as pending to avoid infinite recursion if there is
+        // a cyclic dependency through some instruction that is not a PHI.
+        for (auto *PN : SCC) {
+          bool Inserted = PendingPhiRanges.insert(PN).second;
+          assert(Inserted && "PHI is already pending?");
+          (void)Inserted;
+        }
+
+        ConstantRange RangeFromRoots(BitWidth, /*isFullSet=*/false);
+        for (auto *Root : Roots) {
+          auto OpRange = getRangeRef(getSCEV(Root), SignHint);
+          RangeFromRoots = RangeFromRoots.unionWith(OpRange);
           // No point to continue if we already have a full set.
-          if (RangeFromOps.isFullSet())
+          if (RangeFromRoots.isFullSet())
             break;
         }
         ConservativeResult =
-            ConservativeResult.intersectWith(RangeFromOps, RangeType);
-        bool Erased = PendingPhiRanges.erase(Phi);
-        assert(Erased && "Failed to erase Phi properly?");
-        (void) Erased;
+            ConservativeResult.intersectWith(RangeFromRoots, RangeType);
+
+        // Entire SCC has the same range.
+        for (auto *PN : SCC) {
+          bool Erased = PendingPhiRanges.erase(PN);
+          assert(Erased && "Failed to erase Phi properly?");
+          (void)Erased;
+          auto *PNSCEV = getSCEV(const_cast<PHINode *>(PN));
+          DenseMap<const SCEV *, ConstantRange>::iterator I =
+              Cache.find(PNSCEV);
+          if (I == Cache.end())
+            setRange(PNSCEV, SignHint, ConservativeResult);
+          else {
+            auto SharpenedRange =
+                I->second.intersectWith(ConservativeResult, RangeType);
+            setRange(PNSCEV, SignHint, SharpenedRange);
+          }
+        }
       }
     }
 
