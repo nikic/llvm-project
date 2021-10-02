@@ -148,7 +148,7 @@ define amdgpu_kernel void @kernel_call_i32_fastcc_i32_i32_unused_result(i32 %a, 
   ; GCN-NEXT:   [[C:%[0-9]+]]:_(s32) = G_CONSTANT i32 0
   ; GCN-NEXT:   [[C1:%[0-9]+]]:_(s32) = G_CONSTANT i32 1
   ; GCN-NEXT:   [[INT:%[0-9]+]]:_(p4) = G_INTRINSIC intrinsic(@llvm.amdgcn.kernarg.segment.ptr)
-  ; GCN-NEXT:   [[LOAD:%[0-9]+]]:_(<2 x s32>) = G_LOAD [[INT]](p4) :: (dereferenceable invariant load (<2 x s32>) from %ir.0, align 16, addrspace 4)
+  ; GCN-NEXT:   [[LOAD:%[0-9]+]]:_(<2 x s32>) = G_LOAD [[INT]](p4) :: (invariant load (<2 x s32>) from %ir.0, align 16, addrspace 4)
   ; GCN-NEXT:   [[EVEC:%[0-9]+]]:_(s32) = G_EXTRACT_VECTOR_ELT [[LOAD]](<2 x s32>), [[C]](s32)
   ; GCN-NEXT:   [[EVEC1:%[0-9]+]]:_(s32) = G_EXTRACT_VECTOR_ELT [[LOAD]](<2 x s32>), [[C1]](s32)
   ; GCN-NEXT:   [[C2:%[0-9]+]]:_(s64) = G_CONSTANT i64 4

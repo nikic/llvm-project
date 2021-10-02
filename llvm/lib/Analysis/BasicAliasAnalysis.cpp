@@ -209,6 +209,7 @@ static uint64_t getMinimalExtentFrom(const Value &V,
   uint64_t DerefBytes =
     V.getPointerDereferenceableBytes(DL, CanBeNull, CanBeFreed);
   DerefBytes = (CanBeNull && NullIsValidLoc) ? 0 : DerefBytes;
+  // TODO: We may be able to do better for a potentially freed pointer here
   DerefBytes = CanBeFreed ? 0 : DerefBytes;
   // If queried with a precise location size, we assume that location size to be
   // accessed, thus valid.

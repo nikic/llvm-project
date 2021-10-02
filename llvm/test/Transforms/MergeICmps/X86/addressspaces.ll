@@ -10,16 +10,19 @@ define void @form_memcmp([2 x i64]* dereferenceable(16) %a, [2 x i64]* dereferen
 ; CHECK-NEXT:    [[PTR_A1:%.*]] = getelementptr inbounds [2 x i64], [2 x i64]* [[A]], i64 0, i64 1
 ; CHECK-NEXT:    [[PTR_B0:%.*]] = getelementptr inbounds [2 x i64], [2 x i64]* [[B:%.*]], i64 0, i64 0
 ; CHECK-NEXT:    [[PTR_B1:%.*]] = getelementptr inbounds [2 x i64], [2 x i64]* [[B]], i64 0, i64 1
-; CHECK-NEXT:    br label %"bb1+bb2"
-; CHECK:       "bb1+bb2":
-; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds [2 x i64], [2 x i64]* [[A]], i64 0, i64 0
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds [2 x i64], [2 x i64]* [[B]], i64 0, i64 0
-; CHECK-NEXT:    [[CSTR:%.*]] = bitcast i64* [[TMP0]] to i8*
-; CHECK-NEXT:    [[CSTR1:%.*]] = bitcast i64* [[TMP1]] to i8*
-; CHECK-NEXT:    [[MEMCMP:%.*]] = call i32 @memcmp(i8* [[CSTR]], i8* [[CSTR1]], i64 16)
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i32 [[MEMCMP]], 0
-; CHECK-NEXT:    br label [[BB3:%.*]]
+; CHECK-NEXT:    br label [[BB1:%.*]]
+; CHECK:       bb1:
+; CHECK-NEXT:    [[A0:%.*]] = load i64, i64* [[PTR_A0]], align 4
+; CHECK-NEXT:    [[B0:%.*]] = load i64, i64* [[PTR_B0]], align 4
+; CHECK-NEXT:    [[COND0:%.*]] = icmp eq i64 [[A0]], [[B0]]
+; CHECK-NEXT:    br i1 [[COND0]], label [[BB2:%.*]], label [[BB3:%.*]]
+; CHECK:       bb2:
+; CHECK-NEXT:    [[A1:%.*]] = load i64, i64* [[PTR_A1]], align 4
+; CHECK-NEXT:    [[B1:%.*]] = load i64, i64* [[PTR_B1]], align 4
+; CHECK-NEXT:    [[COND1:%.*]] = icmp eq i64 [[A1]], [[B1]]
+; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
+; CHECK-NEXT:    [[NECESSARY:%.*]] = phi i1 [ [[COND1]], [[BB2]] ], [ false, [[BB1]] ]
 ; CHECK-NEXT:    ret void
 ;
 bb0:

@@ -63,7 +63,7 @@ bb:
 
 define i32 @local_and_deref_ret_2() {
 ; CHECK:     Function: local_and_deref_ret_2: 2 pointers, 2 call sites
-; CHECK-NEXT:  NoAlias:	i32* %obj, i32* %ret
+; CHECK-NEXT:  MayAlias:	i32* %obj, i32* %ret
 bb:
   %obj = alloca i32
   call void @unknown(i32* %obj)

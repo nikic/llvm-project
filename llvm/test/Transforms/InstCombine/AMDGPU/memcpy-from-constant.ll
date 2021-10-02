@@ -9,9 +9,12 @@ target datalayout = "e-p:64:64-p1:64:64-p2:32:32-p3:32:32-p4:64:64-p5:32:32-p6:3
 ; Simple memcpy to alloca from constant address space argument.
 define i8 @memcpy_constant_arg_ptr_to_alloca([32 x i8] addrspace(4)* noalias readonly align 4 dereferenceable(32) %arg, i32 %idx) {
 ; CHECK-LABEL: @memcpy_constant_arg_ptr_to_alloca(
-; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[IDX:%.*]] to i64
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr [32 x i8], [32 x i8] addrspace(4)* [[ARG:%.*]], i64 0, i64 [[TMP1]]
-; CHECK-NEXT:    [[LOAD:%.*]] = load i8, i8 addrspace(4)* [[GEP]], align 1
+; CHECK-NEXT:    [[ALLOCA:%.*]] = alloca [32 x i8], align 4, addrspace(5)
+; CHECK-NEXT:    [[ALLOCA_CAST:%.*]] = getelementptr inbounds [32 x i8], [32 x i8] addrspace(5)* [[ALLOCA]], i32 0, i32 0
+; CHECK-NEXT:    [[ARG_CAST:%.*]] = getelementptr inbounds [32 x i8], [32 x i8] addrspace(4)* [[ARG:%.*]], i64 0, i64 0
+; CHECK-NEXT:    call void @llvm.memcpy.p5i8.p4i8.i64(i8 addrspace(5)* noundef align 4 dereferenceable(32) [[ALLOCA_CAST]], i8 addrspace(4)* noundef align 4 dereferenceable(32) [[ARG_CAST]], i64 32, i1 false)
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds [32 x i8], [32 x i8] addrspace(5)* [[ALLOCA]], i32 0, i32 [[IDX:%.*]]
+; CHECK-NEXT:    [[LOAD:%.*]] = load i8, i8 addrspace(5)* [[GEP]], align 1
 ; CHECK-NEXT:    ret i8 [[LOAD]]
 ;
   %alloca = alloca [32 x i8], align 4, addrspace(5)
@@ -25,9 +28,12 @@ define i8 @memcpy_constant_arg_ptr_to_alloca([32 x i8] addrspace(4)* noalias rea
 
 define i8 @memcpy_constant_arg_ptr_to_alloca_load_metadata([32 x i8] addrspace(4)* noalias readonly align 4 dereferenceable(32) %arg, i32 %idx) {
 ; CHECK-LABEL: @memcpy_constant_arg_ptr_to_alloca_load_metadata(
-; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[IDX:%.*]] to i64
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr [32 x i8], [32 x i8] addrspace(4)* [[ARG:%.*]], i64 0, i64 [[TMP1]]
-; CHECK-NEXT:    [[LOAD:%.*]] = load i8, i8 addrspace(4)* [[GEP]], align 1, !noalias !0
+; CHECK-NEXT:    [[ALLOCA:%.*]] = alloca [32 x i8], align 4, addrspace(5)
+; CHECK-NEXT:    [[ALLOCA_CAST:%.*]] = getelementptr inbounds [32 x i8], [32 x i8] addrspace(5)* [[ALLOCA]], i32 0, i32 0
+; CHECK-NEXT:    [[ARG_CAST:%.*]] = getelementptr inbounds [32 x i8], [32 x i8] addrspace(4)* [[ARG:%.*]], i64 0, i64 0
+; CHECK-NEXT:    call void @llvm.memcpy.p5i8.p4i8.i64(i8 addrspace(5)* noundef align 4 dereferenceable(32) [[ALLOCA_CAST]], i8 addrspace(4)* noundef align 4 dereferenceable(32) [[ARG_CAST]], i64 32, i1 false)
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds [32 x i8], [32 x i8] addrspace(5)* [[ALLOCA]], i32 0, i32 [[IDX:%.*]]
+; CHECK-NEXT:    [[LOAD:%.*]] = load i8, i8 addrspace(5)* [[GEP]], align 1, !noalias !0
 ; CHECK-NEXT:    ret i8 [[LOAD]]
 ;
   %alloca = alloca [32 x i8], align 4, addrspace(5)
@@ -41,9 +47,12 @@ define i8 @memcpy_constant_arg_ptr_to_alloca_load_metadata([32 x i8] addrspace(4
 
 define i64 @memcpy_constant_arg_ptr_to_alloca_load_alignment([32 x i64] addrspace(4)* noalias readonly align 4 dereferenceable(256) %arg, i32 %idx) {
 ; CHECK-LABEL: @memcpy_constant_arg_ptr_to_alloca_load_alignment(
-; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[IDX:%.*]] to i64
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr [32 x i64], [32 x i64] addrspace(4)* [[ARG:%.*]], i64 0, i64 [[TMP1]]
-; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64 addrspace(4)* [[GEP]], align 16
+; CHECK-NEXT:    [[ALLOCA:%.*]] = alloca [32 x i64], align 4, addrspace(5)
+; CHECK-NEXT:    [[ALLOCA_CAST:%.*]] = bitcast [32 x i64] addrspace(5)* [[ALLOCA]] to i8 addrspace(5)*
+; CHECK-NEXT:    [[ARG_CAST:%.*]] = bitcast [32 x i64] addrspace(4)* [[ARG:%.*]] to i8 addrspace(4)*
+; CHECK-NEXT:    call void @llvm.memcpy.p5i8.p4i8.i64(i8 addrspace(5)* noundef align 4 dereferenceable(256) [[ALLOCA_CAST]], i8 addrspace(4)* noundef align 4 dereferenceable(256) [[ARG_CAST]], i64 256, i1 false)
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds [32 x i64], [32 x i64] addrspace(5)* [[ALLOCA]], i32 0, i32 [[IDX:%.*]]
+; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64 addrspace(5)* [[GEP]], align 16
 ; CHECK-NEXT:    ret i64 [[LOAD]]
 ;
   %alloca = alloca [32 x i64], align 4, addrspace(5)
@@ -77,9 +86,12 @@ define i64 @memcpy_constant_arg_ptr_to_alloca_load_atomic([32 x i64] addrspace(4
 ; Simple memmove to alloca from constant address space argument.
 define i8 @memmove_constant_arg_ptr_to_alloca([32 x i8] addrspace(4)* noalias readonly align 4 dereferenceable(32) %arg, i32 %idx) {
 ; CHECK-LABEL: @memmove_constant_arg_ptr_to_alloca(
-; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[IDX:%.*]] to i64
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr [32 x i8], [32 x i8] addrspace(4)* [[ARG:%.*]], i64 0, i64 [[TMP1]]
-; CHECK-NEXT:    [[LOAD:%.*]] = load i8, i8 addrspace(4)* [[GEP]], align 1
+; CHECK-NEXT:    [[ALLOCA:%.*]] = alloca [32 x i8], align 4, addrspace(5)
+; CHECK-NEXT:    [[ALLOCA_CAST:%.*]] = getelementptr inbounds [32 x i8], [32 x i8] addrspace(5)* [[ALLOCA]], i32 0, i32 0
+; CHECK-NEXT:    [[ARG_CAST:%.*]] = getelementptr inbounds [32 x i8], [32 x i8] addrspace(4)* [[ARG:%.*]], i64 0, i64 0
+; CHECK-NEXT:    call void @llvm.memmove.p5i8.p4i8.i32(i8 addrspace(5)* noundef align 4 dereferenceable(32) [[ALLOCA_CAST]], i8 addrspace(4)* noundef align 4 dereferenceable(32) [[ARG_CAST]], i32 32, i1 false)
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds [32 x i8], [32 x i8] addrspace(5)* [[ALLOCA]], i32 0, i32 [[IDX:%.*]]
+; CHECK-NEXT:    [[LOAD:%.*]] = load i8, i8 addrspace(5)* [[GEP]], align 1
 ; CHECK-NEXT:    ret i8 [[LOAD]]
 ;
   %alloca = alloca [32 x i8], align 4, addrspace(5)

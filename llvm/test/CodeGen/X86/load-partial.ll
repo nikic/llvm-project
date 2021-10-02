@@ -157,14 +157,30 @@ define <4 x float> @load_float4_float3_as_float2_float_0122(<4 x float>* nocaptu
 }
 
 define <4 x float> @load_float4_float3_trunc(<4 x float>* nocapture readonly dereferenceable(16)) {
-; SSE-LABEL: load_float4_float3_trunc:
-; SSE:       # %bb.0:
-; SSE-NEXT:    movaps (%rdi), %xmm0
-; SSE-NEXT:    retq
+; SSE2-LABEL: load_float4_float3_trunc:
+; SSE2:       # %bb.0:
+; SSE2-NEXT:    movss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; SSE2-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
+; SSE2-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
+; SSE2-NEXT:    retq
+;
+; SSSE3-LABEL: load_float4_float3_trunc:
+; SSSE3:       # %bb.0:
+; SSSE3-NEXT:    movss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; SSSE3-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
+; SSSE3-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
+; SSSE3-NEXT:    retq
+;
+; SSE41-LABEL: load_float4_float3_trunc:
+; SSE41:       # %bb.0:
+; SSE41-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
+; SSE41-NEXT:    insertps {{.*#+}} xmm0 = xmm0[0,1],mem[0],xmm0[3]
+; SSE41-NEXT:    retq
 ;
 ; AVX-LABEL: load_float4_float3_trunc:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vmovaps (%rdi), %xmm0
+; AVX-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; AVX-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0,1],mem[0],xmm0[3]
 ; AVX-NEXT:    retq
   %2 = bitcast <4 x float>* %0 to i64*
   %3 = load i64, i64* %2, align 16

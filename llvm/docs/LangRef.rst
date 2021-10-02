@@ -1293,15 +1293,21 @@ Currently, only the following parameter attributes are defined:
     to ensure a pointer is not null or otherwise the behavior is undefined.
 
 ``dereferenceable(<n>)``
-    This indicates that the parameter or return pointer is dereferenceable. This
-    attribute may only be applied to pointer typed parameters. A pointer that
-    is dereferenceable can be loaded from speculatively without a risk of
-    trapping. The number of bytes known to be dereferenceable must be provided
-    in parentheses. It is legal for the number of bytes to be less than the
-    size of the pointee type. The ``nonnull`` attribute does not imply
-    dereferenceability (consider a pointer to one element past the end of an
-    array), however ``dereferenceable(<n>)`` does imply ``nonnull`` in
-    ``addrspace(0)`` (which is the default address space), except if the
+    This indicates that the parameter or return pointer is dereferenceable at
+    the instant of the call. This attribute may only be applied to pointer
+    typed parameters. The number of bytes known to be dereferenceable must
+    be provided in parentheses. It is legal for the number of bytes to be less
+    than the size of the pointee type.
+
+    A pointer that is dereferenceable at a particular location in the program
+    can be loaded from speculatively without a risk of trapping at that
+    location. In general, once a memory location becomes dereferenceable, it
+    will remain dereferenceable until the underlying object is freed.
+
+    The ``nonnull`` attribute does not imply dereferenceability (consider a
+    pointer to one element past the end of an array), however
+    ``dereferenceable(<n>)`` does imply ``nonnull`` in ``addrspace(0)``
+    (which is the default address space), except if the
     ``null_pointer_is_valid`` function attribute is present.
     ``n`` should be a positive number. The pointer should be well defined,
     otherwise it is undefined behavior. This means ``dereferenceable(<n>)``
@@ -6294,10 +6300,10 @@ or switch that it is attached to is completely unpredictable.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The existence of the ``!dereferenceable`` metadata on the instruction
-tells the optimizer that the value loaded is known to be dereferenceable.
-The number of bytes known to be dereferenceable is specified by the integer
-value in the metadata node. This is analogous to the ''dereferenceable''
-attribute on parameters and return values.
+tells the optimizer that the value loaded is known to be dereferenceable at
+that program location. The number of bytes known to be dereferenceable is
+specified by the integer value in the metadata node. This is analogous to the
+''dereferenceable'' attribute on parameters and return values.
 
 .. _md_dereferenceable_or_null:
 
@@ -6306,7 +6312,7 @@ attribute on parameters and return values.
 
 The existence of the ``!dereferenceable_or_null`` metadata on the
 instruction tells the optimizer that the value loaded is known to be either
-dereferenceable or null.
+dereferenceable or null at that program location.
 The number of bytes known to be dereferenceable is specified by the integer
 value in the metadata node. This is analogous to the ''dereferenceable_or_null''
 attribute on parameters and return values.

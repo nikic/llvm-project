@@ -559,7 +559,7 @@ define i32 @no_stackify_store_past_load(i32 %a, i32* %p1, i32* %p2) {
 ; NOREGS: call callee
 ; NOREGS: i32.load 0
 ; NOREGS: return
-define i32 @store_past_invar_load(i32 %a, i32* %p1, i32* dereferenceable(4) %p2) {
+define i32 @store_past_invar_load(i32 %a, i32* %p1, i32* byval(i32) %p2) {
   store i32 %a, i32* %p1
   %b = load i32, i32* %p2, !invariant.load !0
   call i32 @callee(i32 %a)

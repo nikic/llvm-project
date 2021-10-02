@@ -553,12 +553,9 @@ void test_get_workgroup_size(int d, global int *out)
 }
 
 // CHECK-LABEL: @test_get_grid_size(
+// CHECK: phi i64 [ 20, %sw.bb2 ], [ 16, %sw.bb1 ], [ 12, %entry ]
 // CHECK: call align 4 dereferenceable(64) i8 addrspace(4)* @llvm.amdgcn.dispatch.ptr()
-// CHECK: getelementptr i8, i8 addrspace(4)* %{{.*}}, i64 12
-// CHECK: load i32, i32 addrspace(4)* %{{.*}}, align 4, !invariant.load
-// CHECK: getelementptr i8, i8 addrspace(4)* %{{.*}}, i64 16
-// CHECK: load i32, i32 addrspace(4)* %{{.*}}, align 4, !invariant.load
-// CHECK: getelementptr i8, i8 addrspace(4)* %{{.*}}, i64 20
+// CHECK: getelementptr i8, i8 addrspace(4)* %{{.*}}, i64 %{{.*}}
 // CHECK: load i32, i32 addrspace(4)* %{{.*}}, align 4, !invariant.load
 void test_get_grid_size(int d, global int *out)
 {
