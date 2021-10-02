@@ -6589,14 +6589,10 @@ SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
 const Instruction *ScalarEvolution::getDefinedScopeRoot(const SCEV *S) {
   if (auto *AddRec = dyn_cast<SCEVAddRecExpr>(S))
     return &*AddRec->getLoop()->getHeader()->begin();
-  if (isa<SCEVConstant>(S))
-    return &*F.getEntryBlock().begin();
-  if (auto *U = dyn_cast<SCEVUnknown>(S)) {
+  if (auto *U = dyn_cast<SCEVUnknown>(S))
     if (auto *I = dyn_cast<Instruction>(U->getValue()))
       return I;
-    return &*F.getEntryBlock().begin();
-  }
-  return nullptr;
+  return &*F.getEntryBlock().begin();
 }
 
 static bool
