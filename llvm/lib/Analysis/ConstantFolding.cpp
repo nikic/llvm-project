@@ -651,9 +651,6 @@ Constant *getConstantAtOffset(Constant *Base, APInt Offset,
   if (Offset.isZero())
     return Base;
 
-  if (!isa<ConstantAggregate>(Base) && !isa<ConstantDataSequential>(Base))
-    return nullptr;
-
   Type *ElemTy = Base->getType();
   SmallVector<APInt> Indices = DL.getGEPIndicesForOffset(ElemTy, Offset);
   if (!Offset.isZero() || !Indices[0].isZero())
