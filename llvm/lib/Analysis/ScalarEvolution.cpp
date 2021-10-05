@@ -6591,19 +6591,18 @@ const Instruction *ScalarEvolution::getDefiningScopeBound(const SCEV *S) {
   if (auto *U = dyn_cast<SCEVUnknown>(S))
     if (auto *I = dyn_cast<Instruction>(U->getValue()))
       return I;
-  // All SCEVs are bound by the entry to F
-  return &*F.getEntryBlock().begin();
+  return nullptr;
 }
 
 const Instruction *
 ScalarEvolution::getDefiningScopeBound(ArrayRef<const SCEV *> Ops) {
-  const Instruction *Bound = &*F.getEntryBlock().begin();
+  const Instruction *Bound = nullptr;
   for (auto *S : Ops) {
     auto *DefI = getDefiningScopeBound(S);
-    if (DT.dominates(Bound, DefI))
+    if (DefI && (!Bound || DT.dominates(Bound, DefI)))
       Bound = DefI;
   }
-  return Bound;
+  return Bound ? Bound : &*F.getEntryBlock().begin();
 }
 
 
