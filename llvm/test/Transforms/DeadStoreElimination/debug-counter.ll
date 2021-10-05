@@ -20,29 +20,29 @@ target datalayout = "e-m:e-p:32:32-i64:64-v128:64:128-a:0:32-n32-S64"
 
 define void @test(i32* noalias %P, i32* noalias %Q, i32* noalias %R) {
 ; SKIP0-COUNT1-LABEL: @test(
-; SKIP0-COUNT1-NEXT:    store i32 1, i32* [[P:%.*]]
+; SKIP0-COUNT1-NEXT:    store i32 1, i32* [[P:%.*]], align 4
 ; SKIP0-COUNT1-NEXT:    br i1 true, label [[BB1:%.*]], label [[BB2:%.*]]
 ; SKIP0-COUNT1:       bb1:
 ; SKIP0-COUNT1-NEXT:    br label [[BB3:%.*]]
 ; SKIP0-COUNT1:       bb2:
 ; SKIP0-COUNT1-NEXT:    br label [[BB3]]
 ; SKIP0-COUNT1:       bb3:
-; SKIP0-COUNT1-NEXT:    store i32 0, i32* [[Q:%.*]]
-; SKIP0-COUNT1-NEXT:    store i32 0, i32* [[R:%.*]]
-; SKIP0-COUNT1-NEXT:    store i32 0, i32* [[P]]
+; SKIP0-COUNT1-NEXT:    store i32 0, i32* [[Q:%.*]], align 4
+; SKIP0-COUNT1-NEXT:    store i32 0, i32* [[R:%.*]], align 4
+; SKIP0-COUNT1-NEXT:    store i32 0, i32* [[P]], align 4
 ; SKIP0-COUNT1-NEXT:    ret void
 ;
 ; SKIP1-COUNT1-LABEL: @test(
-; SKIP1-COUNT1-NEXT:    store i32 1, i32* [[R:%.*]]
+; SKIP1-COUNT1-NEXT:    store i32 1, i32* [[R:%.*]], align 4
 ; SKIP1-COUNT1-NEXT:    br i1 true, label [[BB1:%.*]], label [[BB2:%.*]]
 ; SKIP1-COUNT1:       bb1:
 ; SKIP1-COUNT1-NEXT:    br label [[BB3:%.*]]
 ; SKIP1-COUNT1:       bb2:
 ; SKIP1-COUNT1-NEXT:    br label [[BB3]]
 ; SKIP1-COUNT1:       bb3:
-; SKIP1-COUNT1-NEXT:    store i32 0, i32* [[Q:%.*]]
-; SKIP1-COUNT1-NEXT:    store i32 0, i32* [[R]]
-; SKIP1-COUNT1-NEXT:    store i32 0, i32* [[P:%.*]]
+; SKIP1-COUNT1-NEXT:    store i32 0, i32* [[Q:%.*]], align 4
+; SKIP1-COUNT1-NEXT:    store i32 0, i32* [[R]], align 4
+; SKIP1-COUNT1-NEXT:    store i32 0, i32* [[P:%.*]], align 4
 ; SKIP1-COUNT1-NEXT:    ret void
 ;
 ; SKIP0-COUNT2-LABEL: @test(
@@ -52,23 +52,22 @@ define void @test(i32* noalias %P, i32* noalias %Q, i32* noalias %R) {
 ; SKIP0-COUNT2:       bb2:
 ; SKIP0-COUNT2-NEXT:    br label [[BB3]]
 ; SKIP0-COUNT2:       bb3:
-; SKIP0-COUNT2-NEXT:    store i32 0, i32* [[Q:%.*]]
-; SKIP0-COUNT2-NEXT:    store i32 0, i32* [[R:%.*]]
-; SKIP0-COUNT2-NEXT:    store i32 0, i32* [[P:%.*]]
+; SKIP0-COUNT2-NEXT:    store i32 0, i32* [[Q:%.*]], align 4
+; SKIP0-COUNT2-NEXT:    store i32 0, i32* [[R:%.*]], align 4
+; SKIP0-COUNT2-NEXT:    store i32 0, i32* [[P:%.*]], align 4
 ; SKIP0-COUNT2-NEXT:    ret void
 ;
 ; SKIP2-COUNT1-LABEL: @test(
-; SKIP2-COUNT1-NEXT:    store i32 1, i32* [[P:%.*]]
-; SKIP2-COUNT1-NEXT:    store i32 1, i32* [[R:%.*]]
+; SKIP2-COUNT1-NEXT:    store i32 1, i32* [[P:%.*]], align 4
 ; SKIP2-COUNT1-NEXT:    br i1 true, label [[BB1:%.*]], label [[BB2:%.*]]
 ; SKIP2-COUNT1:       bb1:
 ; SKIP2-COUNT1-NEXT:    br label [[BB3:%.*]]
 ; SKIP2-COUNT1:       bb2:
 ; SKIP2-COUNT1-NEXT:    br label [[BB3]]
 ; SKIP2-COUNT1:       bb3:
-; SKIP2-COUNT1-NEXT:    store i32 0, i32* [[Q:%.*]]
-; SKIP2-COUNT1-NEXT:    store i32 0, i32* [[R]]
-; SKIP2-COUNT1-NEXT:    store i32 0, i32* [[P]]
+; SKIP2-COUNT1-NEXT:    store i32 0, i32* [[Q:%.*]], align 4
+; SKIP2-COUNT1-NEXT:    store i32 0, i32* [[R:%.*]], align 4
+; SKIP2-COUNT1-NEXT:    store i32 0, i32* [[P]], align 4
 ; SKIP2-COUNT1-NEXT:    ret void
 ;
   store i32 1, i32* %P
