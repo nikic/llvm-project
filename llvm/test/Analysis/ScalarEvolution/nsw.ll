@@ -25,7 +25,7 @@ define void @test1(double* %p) nounwind {
 ; CHECK-NEXT:    %phitmp = sext i32 %tmp8 to i64
 ; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%bb> U: [1,-9223372036854775808) S: [1,-9223372036854775808) Exits: <<Unknown>> LoopDispositions: { %bb: Computable }
 ; CHECK-NEXT:    %tmp9 = getelementptr inbounds double, double* %p, i64 %phitmp
-; CHECK-NEXT:    --> {(8 + %p),+,8}<%bb> U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb: Computable }
+; CHECK-NEXT:    --> {(8 + %p),+,8}<nuw><%bb> U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @test1
 ; CHECK-NEXT:  Loop %bb: Unpredictable backedge-taken count.
 ; CHECK-NEXT:  Loop %bb: Unpredictable max backedge-taken count.

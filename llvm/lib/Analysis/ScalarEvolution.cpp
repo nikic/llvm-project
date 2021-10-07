@@ -6632,6 +6632,16 @@ ScalarEvolution::getDefiningScopeBound(ArrayRef<const SCEV *> Ops) {
 }
 
 
+bool ScalarEvolution::
+isGuaranteedToTransferExecutionToSuccessor(const BasicBlock *BB) {
+  assert(LI.getLoopFor(BB) && "must be in a loop for invalidation!");
+  if (!BlockTransferExecutionToSuccessorCache.count(BB))
+    BlockTransferExecutionToSuccessorCache[BB] =
+      llvm::isGuaranteedToTransferExecutionToSuccessor(BB);
+
+  return BlockTransferExecutionToSuccessorCache[BB];
+}
+
 static bool
 isGuaranteedToTransferExecutionToSuccessor(BasicBlock::const_iterator Begin,
                                            BasicBlock::const_iterator End) {
@@ -6657,15 +6667,72 @@ bool ScalarEvolution::isGuaranteedToTransferExecutionTo(const Instruction *A,
                                                    B->getIterator()))
     return true;
 
-  auto *BLoop = LI.getLoopFor(B->getParent());
-  if (BLoop && BLoop->getHeader() == B->getParent() &&
-      BLoop->getLoopPreheader() == A->getParent() &&
-      ::isGuaranteedToTransferExecutionToSuccessor(A->getIterator(),
-                                                   A->getParent()->end()) &&
-      ::isGuaranteedToTransferExecutionToSuccessor(B->getParent()->begin(),
-                                                   B->getIterator()))
-    return true;
-  return false;
+  // First find a path from B to A where if all blocks along path
+  // are transparent, then we can prove A reaches B.  Defer the actual
+  // checks for transparence until the end as (even cached) that's expensive.
+  SmallVector<const BasicBlock *> Path;
+  Path.push_back(B->getParent());
+
+  auto getPrevBB = [&](const BasicBlock *BB) -> const BasicBlock * {
+    auto *L = LI.getLoopFor(BB);
+    if (L && L->getHeader() == BB)
+      return L->getLoopPreheader();
+
+    auto *PrevBB = BB->getUniquePredecessor();
+    return PrevBB && PrevBB->getUniqueSuccessor() ? PrevBB : nullptr;
+  };
+
+  auto *PrevBB = getPrevBB(B->getParent());
+  if (!PrevBB)
+    return false;
+
+  while (true) {
+    Path.push_back(PrevBB);
+    if (PrevBB == A->getParent())
+      break;
+
+    PrevBB = getPrevBB(PrevBB);
+    if (!PrevBB)
+      return false;
+  }
+  assert(Path.front() == B->getParent());
+  assert(Path.back() == A->getParent());
+  assert(Path.size() >= 2);
+
+  // We rely on forgetLoop for invalidation of the cache, as a result, we
+  // can only query blocks in loops.  This restriction can be removed once
+  // we find a better cache update mechanism.
+  for (unsigned i = 1; i < Path.size() - 1; i++)
+    if (!LI.getLoopFor(Path[i]))
+      return false;
+
+  // Do the cacheable part first
+  for (unsigned i = 1; i < Path.size() - 1; i++)
+    if (!isGuaranteedToTransferExecutionToSuccessor(Path[i]))
+      return false;
+
+  // Finally, check the prefix of B's block and the suffix of A's.  For the
+  // local search, we use the block local cache as a filter.
+  auto doLocalSearch = [&](BasicBlock::const_iterator Begin,
+                           BasicBlock::const_iterator End) {
+    if (Begin == End)
+      return true;
+
+    auto *BB = Begin->getParent();
+
+    // Knowing the block isn't transparent isn't enough to answer this query;
+    // we'd need to know where in the block the blockage is.
+    if (BlockTransferExecutionToSuccessorCache.count(BB) &&
+        BlockTransferExecutionToSuccessorCache[BB])
+      return true;
+
+    // It's tempting to cache this, but since we're using a bounded search
+    // here, we'd risk saving false positives into the block cache.
+    return ::isGuaranteedToTransferExecutionToSuccessor(Begin, End);
+  };
+
+  return (doLocalSearch(B->getParent()->begin(), B->getIterator()) &&
+          doLocalSearch(A->getIterator(), A->getParent()->end()));
 }
 
 
@@ -6774,15 +6841,22 @@ ScalarEvolution::getLoopProperties(const Loop *L) {
     LoopProperties LP = {/* HasNoAbnormalExits */ true,
                          /*HasNoSideEffects*/ true};
 
-    for (auto *BB : L->getBlocks())
+    for (auto *BB : L->getBlocks()) {
+      LoopProperties Local = {true, true};
       for (auto &I : *BB) {
-        if (!isGuaranteedToTransferExecutionToSuccessor(&I))
-          LP.HasNoAbnormalExits = false;
+        if (!llvm::isGuaranteedToTransferExecutionToSuccessor(&I))
+          Local.HasNoAbnormalExits = false;
         if (HasSideEffects(&I))
-          LP.HasNoSideEffects = false;
-        if (!LP.HasNoAbnormalExits && !LP.HasNoSideEffects)
+          Local.HasNoSideEffects = false;
+        if (!Local.HasNoAbnormalExits && !Local.HasNoSideEffects)
           break; // We're already as pessimistic as we can get.
       }
+      BlockTransferExecutionToSuccessorCache[BB] = Local.HasNoAbnormalExits; 
+      LP.HasNoAbnormalExits &= Local.HasNoAbnormalExits;
+      LP.HasNoSideEffects &= Local.HasNoSideEffects;
+      if (!LP.HasNoAbnormalExits && !LP.HasNoSideEffects)
+        break; // We're already as pessimistic as we can get.
+    }
 
     auto InsertPair = LoopPropertiesCache.insert({L, LP});
     assert(InsertPair.second && "We just checked!");
@@ -7514,6 +7588,7 @@ void ScalarEvolution::forgetAllLoops() {
   // result.
   BackedgeTakenCounts.clear();
   PredicatedBackedgeTakenCounts.clear();
+  BlockTransferExecutionToSuccessorCache.clear();
   LoopPropertiesCache.clear();
   ConstantEvolutionLoopExitValue.clear();
   ValueExprMap.clear();
@@ -7578,6 +7653,11 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
       PushDefUseChildren(I, Worklist);
     }
 
+    // Removing the blocks is probably overly conservative here, but it's not
+    // clear what client code might assume that forgetLoop handled the code
+    // motion invalidation required.
+    for (auto *BB : CurrL->getBlocks())
+      BlockTransferExecutionToSuccessorCache.erase(BB);
     LoopPropertiesCache.erase(CurrL);
     // Forget all contained loops too, to avoid dangling entries in the
     // ValuesAtScopes map.
@@ -12391,6 +12471,7 @@ ScalarEvolution::ScalarEvolution(ScalarEvolution &&Arg)
           std::move(Arg.ConstantEvolutionLoopExitValue)),
       ValuesAtScopes(std::move(Arg.ValuesAtScopes)),
       LoopDispositions(std::move(Arg.LoopDispositions)),
+      BlockTransferExecutionToSuccessorCache(std::move(Arg.BlockTransferExecutionToSuccessorCache)),
       LoopPropertiesCache(std::move(Arg.LoopPropertiesCache)),
       BlockDispositions(std::move(Arg.BlockDispositions)),
       UnsignedRanges(std::move(Arg.UnsignedRanges)),

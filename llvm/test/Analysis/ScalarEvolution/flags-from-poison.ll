@@ -451,9 +451,9 @@ define void @test-add-not-header(float* %input, i32 %offset, i32 %numIterations)
 ; CHECK-NEXT:    %i = phi i32 [ %nexti, %loop2 ], [ 0, %entry ]
 ; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,-2147483648) Exits: (-1 + %numIterations) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %index32 = add nsw i32 %i, %offset
-; CHECK-NEXT:    --> {%offset,+,1}<nw><%loop> U: full-set S: full-set Exits: (-1 + %offset + %numIterations) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {%offset,+,1}<nsw><%loop> U: full-set S: full-set Exits: (-1 + %offset + %numIterations) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %ptr = getelementptr inbounds float, float* %input, i32 %index32
-; CHECK-NEXT:    --> ((4 * (sext i32 {%offset,+,1}<nw><%loop> to i64))<nsw> + %input) U: full-set S: full-set Exits: ((4 * (sext i32 (-1 + %offset + %numIterations) to i64))<nsw> + %input) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {((4 * (sext i32 %offset to i64))<nsw> + %input),+,4}<nw><%loop> U: full-set S: full-set Exits: ((4 * (zext i32 (-1 + %numIterations) to i64))<nuw><nsw> + (4 * (sext i32 %offset to i64))<nsw> + %input) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %nexti = add nsw i32 %i, 1
 ; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,-2147483648) S: [1,-2147483648) Exits: %numIterations LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @test-add-not-header

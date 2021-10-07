@@ -1455,6 +1455,13 @@ private:
            SmallVector<PointerIntPair<const Loop *, 2, LoopDisposition>, 2>>
       LoopDispositions;
 
+  /// Cache for \c isGuaranteedToTransferExecutionToSuccessor(BB)
+  DenseMap<const BasicBlock *, bool> BlockTransferExecutionToSuccessorCache;
+
+  /// A version of the ValueTracking routine, but cached for efficiency, and
+  /// restricted to blocks inside a Loop.
+  bool isGuaranteedToTransferExecutionToSuccessor(const BasicBlock *BB);
+
   struct LoopProperties {
     /// Set to true if the loop contains no instruction that can abnormally exit
     /// the loop (i.e. via throwing an exception, by terminating the thread
