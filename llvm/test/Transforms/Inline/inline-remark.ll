@@ -26,7 +26,7 @@ bb2:
 define void @test1() {
 ; CHECK-LABEL: @test1
 ; CHECK-NEXT: call void @bar(i1 true) [[ATTR1:#[0-9]+]]
-; CHECK-NEXT: call void @bar(i1 false) [[ATTR2:#[0-9]+]]
+; CHECK-NEXT: call void @bar(i1 false) [[ATTR1]]
   call void @bar(i1 true)
   call void @bar(i1 false)
   ret void
@@ -55,7 +55,6 @@ define void @test3() {
   ret void
 }
 
-; CHECK: attributes [[ATTR1]] = { "inline-remark"="(cost=25, threshold=0)" }
-; CHECK: attributes [[ATTR2]] = { "inline-remark"="(cost=never): recursive" }
+; CHECK: attributes [[ATTR1]] = { "inline-remark"="recursive" }
 ; CHECK: attributes [[ATTR3]] = { "inline-remark"="unsupported operand bundle; (cost={{.*}}, threshold={{.*}})" }
 ; CHECK: attributes [[ATTR4]] = { alwaysinline "inline-remark"="(cost=never): recursive call" }

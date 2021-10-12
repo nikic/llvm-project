@@ -963,12 +963,36 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       // trigger infinite inlining, much like is prevented within the inliner
       // itself by the InlineHistory above, but spread across CGSCC iterations
       // and thus hidden from the full inline history.
+      auto CalleeSCC = CG.lookupSCC(*CG.lookup(Callee));
       if (CG.lookupSCC(*CG.lookup(Callee)) == C &&
           UR.InlinedInternalEdges.count({&N, C})) {
         LLVM_DEBUG(dbgs() << "Skipping inlining internal SCC edge from a node "
                              "previously split out of this SCC by inlining: "
                           << F.getName() << " -> " << Callee.getName() << "\n");
         setInlineRemark(*CB, "recursive SCC split");
+        continue;
+      }
+
+      // Do not inline a function involved in a mutual-recursive cycle. Due to
+      // the lack of a global inline history, such inlining may cause an
+      // exponential size growth as the inlining extends up along the call
+      // graph. Consider the following example,
+      //   void A() { B(); B();}
+      //   void B() { A(); }
+      //   void C() { B(); }
+      //   void D() { C(); }
+      // When processing C, inlining B will result in
+      //   void C() { B(); B(); }
+      // When processing D, inlining C and futher the two B callsites will
+      // result in
+      //   void D() { B(); B(); B(); B(); }
+      // Note that we are only checking mutual-recursion here. Self-recurision
+      // is handled by inline cost analyzer.
+      if (CalleeSCC != C && CalleeSCC->size() > 1) {
+        LLVM_DEBUG(dbgs() << "Skipping inlining a node that is involved in a "
+                             "mutual-recursive SCC"
+                          << F.getName() << " -> " << Callee.getName() << "\n");
+        setInlineRemark(*CB, "recursive");
         continue;
       }
 
