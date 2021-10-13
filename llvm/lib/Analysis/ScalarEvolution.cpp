@@ -4447,6 +4447,7 @@ void ScalarEvolution::forgetSymbolicName(Instruction *PN, const SCEV *SymName) {
 
   SmallPtrSet<Instruction *, 8> Visited;
   Visited.insert(PN);
+  SmallVector<const SCEV *, 8> ToForget;
   while (!Worklist.empty()) {
     Instruction *I = Worklist.pop_back_val();
     if (!Visited.insert(I).second)
@@ -4472,12 +4473,13 @@ void ScalarEvolution::forgetSymbolicName(Instruction *PN, const SCEV *SymName) {
           !isa<SCEVUnknown>(Old) ||
           (I != PN && Old == SymName)) {
         eraseValueFromMap(It->first);
-        forgetMemoizedResults(Old);
+        ToForget.push_back(Old);
       }
     }
 
     PushDefUseChildren(I, Worklist);
   }
+  forgetMemoizedResults(ToForget);
 }
 
 namespace {
@@ -7452,6 +7454,7 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
     PushLoopPHIs(L, Worklist);
 
     SmallPtrSet<Instruction *, 8> Discovered;
+    SmallVector<const SCEV *, 8> ToForget;
     while (!Worklist.empty()) {
       Instruction *I = Worklist.pop_back_val();
 
@@ -7468,7 +7471,7 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
         // own when it gets to that point.
         if (!isa<PHINode>(I) || !isa<SCEVUnknown>(Old)) {
           eraseValueFromMap(It->first);
-          forgetMemoizedResults(Old);
+          ToForget.push_back(Old);
         }
         if (PHINode *PN = dyn_cast<PHINode>(I))
           ConstantEvolutionLoopExitValue.erase(PN);
@@ -7500,6 +7503,7 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
             Worklist.push_back(I);
         }
     }
+    forgetMemoizedResults(ToForget);
   }
 
   // Re-lookup the insert position, since the call to
@@ -7536,6 +7540,7 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
   SmallVector<const Loop *, 16> LoopWorklist(1, L);
   SmallVector<Instruction *, 32> Worklist;
   SmallPtrSet<Instruction *, 16> Visited;
+  SmallVector<const SCEV *, 16> ToForget;
 
   // Iterate over all the loops and sub-loops to drop SCEV information.
   while (!LoopWorklist.empty()) {
@@ -7557,8 +7562,8 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
 
     auto LoopUsersItr = LoopUsers.find(CurrL);
     if (LoopUsersItr != LoopUsers.end()) {
-      for (auto *S : LoopUsersItr->second)
-        forgetMemoizedResults(S);
+      ToForget.insert(ToForget.end(), LoopUsersItr->second.begin(),
+                      LoopUsersItr->second.end());
       LoopUsers.erase(LoopUsersItr);
     }
 
@@ -7574,7 +7579,7 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
           ValueExprMap.find_as(static_cast<Value *>(I));
       if (It != ValueExprMap.end()) {
         eraseValueFromMap(It->first);
-        forgetMemoizedResults(It->second);
+        ToForget.push_back(It->second);
         if (PHINode *PN = dyn_cast<PHINode>(I))
           ConstantEvolutionLoopExitValue.erase(PN);
       }
@@ -7587,6 +7592,8 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     // ValuesAtScopes map.
     LoopWorklist.append(CurrL->begin(), CurrL->end());
   }
+
+  forgetMemoizedResults(ToForget);
 }
 
 void ScalarEvolution::forgetTopmostLoop(const Loop *L) {
@@ -7604,6 +7611,7 @@ void ScalarEvolution::forgetValue(Value *V) {
   Worklist.push_back(I);
 
   SmallPtrSet<Instruction *, 8> Visited;
+  SmallVector<const SCEV *, 8> ToForget;
   while (!Worklist.empty()) {
     I = Worklist.pop_back_val();
     if (!Visited.insert(I).second)
@@ -7613,13 +7621,14 @@ void ScalarEvolution::forgetValue(Value *V) {
       ValueExprMap.find_as(static_cast<Value *>(I));
     if (It != ValueExprMap.end()) {
       eraseValueFromMap(It->first);
-      forgetMemoizedResults(It->second);
+      ToForget.push_back(It->second);
       if (PHINode *PN = dyn_cast<PHINode>(I))
         ConstantEvolutionLoopExitValue.erase(PN);
     }
 
     PushDefUseChildren(I, Worklist);
   }
+  forgetMemoizedResults(ToForget);
 }
 
 void ScalarEvolution::forgetLoopDispositions(const Loop *L) {
@@ -12806,11 +12815,13 @@ bool ScalarEvolution::hasOperand(const SCEV *S, const SCEV *Op) const {
   return SCEVExprContains(S, [&](const SCEV *Expr) { return Expr == Op; });
 }
 
-void ScalarEvolution::forgetMemoizedResults(const SCEV *S) {
+void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs) {
   SmallPtrSet<const SCEV *, 16> Visited;
   SmallVector<const SCEV *, 16> Worklist;
-  Visited.insert(S);
-  Worklist.push_back(S);
+  for (auto *S : SCEVs)
+    if (Visited.insert(S).second)
+      Worklist.push_back(S);
+
   while (!Worklist.empty()) {
     const SCEV *Curr = Worklist.pop_back_val();
     auto Users = SCEVUsers.find(Curr);

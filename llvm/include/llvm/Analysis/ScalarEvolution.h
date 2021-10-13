@@ -1886,8 +1886,8 @@ private:
   bool splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R,
                       SCEV::NoWrapFlags &Flags);
 
-  /// Drop memoized information computed for S.
-  void forgetMemoizedResults(const SCEV *S);
+  /// Drop memoized information for all \p SCEVs.
+  void forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs);
 
   void forgetMemoizedResultsImpl(const SCEV *S);
 
