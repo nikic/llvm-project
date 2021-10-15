@@ -10550,6 +10550,10 @@ bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
     return false;
   };
 
+  // The defining scope is the first point at which our operands are both
+  // defined.
+  auto *DefI = getDefiningScopeBound({LHS, RHS});
+
   // Starting at the block's predecessor, climb up the predecessor chain, as long
   // as there are predecessors that can be found that have unique successors
   // leading to the original block.
@@ -10563,6 +10567,11 @@ bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
        Pair.first; Pair = getPredecessorWithUniqueSuccessorForBB(Pair.first)) {
     if (ProveViaGuard(Pair.first))
       return true;
+
+    // There's no need to scan above the defining scope for Expr, by definition
+    // there's nothing to find in terms of further relevant conditions.
+    if (!DT.dominates(DefI, Pair.first->getTerminator()))
+      break;
 
     const BranchInst *LoopEntryPredicate =
         dyn_cast<BranchInst>(Pair.first->getTerminator());
@@ -10581,6 +10590,10 @@ bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
       continue;
     auto *CI = cast<CallInst>(AssumeVH);
     if (!DT.dominates(CI, BB))
+      continue;
+    // There's no need to scan above the defining scope for Expr, by definition
+    // there's nothing to find in terms of further relevant conditions.
+    if (!DT.dominates(DefI, CI))
       continue;
 
     if (ProveViaCond(CI->getArgOperand(0), false))
@@ -13699,6 +13712,7 @@ const SCEV *ScalarEvolution::applyLoopGuards(const SCEV *Expr, const Loop *L) {
     if (RewrittenRHS)
       RewriteMap[LHSUnknown->getValue()] = RewrittenRHS;
   };
+
   // Starting at the loop predecessor, climb up the predecessor chain, as long
   // as there are predecessors that can be found that have unique successors
   // leading to the original header.
