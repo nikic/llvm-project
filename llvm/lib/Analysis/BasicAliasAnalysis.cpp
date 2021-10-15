@@ -1255,10 +1255,12 @@ AliasResult BasicAAResult::aliasGEP(
                           (SignKnownOne && Scale.isNonNegative());
       }
 
-      Range = Range.add(
-          Index.Val.evaluateWith(computeConstantRange(Index.Val.V, true, &AC,
-                                                      Index.CxtI))
-          .sextOrTrunc(Range.getBitWidth()).smul_fast(ConstantRange(Scale)));
+      if (!Range.isFullSet()) {
+        Range = Range.add(
+            Index.Val.evaluateWith(computeConstantRange(Index.Val.V, true, &AC,
+                                                        Index.CxtI))
+            .sextOrTrunc(Range.getBitWidth()).smul_fast(ConstantRange(Scale)));
+      }
     }
 
     // We now have accesses at two offsets from the same base:
@@ -1290,7 +1292,7 @@ AliasResult BasicAAResult::aliasGEP(
         (-DecompGEP1.Offset).uge(V1Size.getValue()))
       return AliasResult::NoAlias;
 
-    if (!Range.isEmptySet()) {
+    if (!Range.isEmptySet() && !Range.isFullSet()) {
       // We know that Offset >= MinOffset.
       // (MinOffset >= V2Size) => (Offset >= V2Size) => NoAlias.
       if (V2Size.hasValue() && Range.getSignedMin().sge(V2Size.getValue()))
