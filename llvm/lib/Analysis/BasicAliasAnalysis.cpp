@@ -1256,10 +1256,13 @@ AliasResult BasicAAResult::aliasGEP(
       }
 
       if (!Range.isFullSet()) {
-        Range = Range.add(
-            Index.Val.evaluateWith(computeConstantRange(Index.Val.V, true, &AC,
-                                                        Index.CxtI))
-            .sextOrTrunc(Range.getBitWidth()).smul_fast(ConstantRange(Scale)));
+        ConstantRange R = Index.Val.evaluateWith(
+            computeConstantRange(Index.Val.V, true, &AC, Index.CxtI));
+        if (R.isFullSet())
+          Range = ConstantRange::getFull(Range.getBitWidth());
+        else
+          Range = Range.add(std::move(R).sextOrTrunc(Range.getBitWidth())
+                                        .smul_fast(ConstantRange(Scale)));
       }
     }
 
