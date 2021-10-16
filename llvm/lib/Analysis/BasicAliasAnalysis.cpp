@@ -1262,7 +1262,7 @@ AliasResult BasicAAResult::aliasGEP(
           Range = ConstantRange::getFull(Range.getBitWidth());
         else
           Range = Range.add(std::move(R).sextOrTrunc(Range.getBitWidth())
-                                        .smul_fast(ConstantRange(Scale)));
+                                        .smul_fast(Scale));
       }
     }
 
