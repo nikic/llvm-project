@@ -23,7 +23,7 @@ namespace llvm {
 // analyses after a module->function or cgscc->function adaptor.
 // TODO: make this a PipelineTuningOption.
 cl::opt<bool> EagerlyInvalidateAnalyses(
-    "eagerly-invalidate-analyses", cl::init(false), cl::Hidden,
+    "eagerly-invalidate-analyses", cl::init(true), cl::Hidden,
     cl::desc("Eagerly invalidate more analyses in default pipelines"));
 
 // Explicit template instantiations and specialization defininitions for core
