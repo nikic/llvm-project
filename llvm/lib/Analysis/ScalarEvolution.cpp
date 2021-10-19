@@ -10666,15 +10666,15 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
     if (!CmpInst::isSigned(FoundPred) && !FoundLHS->getType()->isPointerTy()) {
       auto *NarrowType = LHS->getType();
       auto *WideType = FoundLHS->getType();
-      auto BitWidth = getTypeSizeInBits(NarrowType);
-      const SCEV *MaxValue = getZeroExtendExpr(
-          getConstant(APInt::getMaxValue(BitWidth)), WideType);
-      if (isKnownPredicate(ICmpInst::ICMP_ULE, FoundLHS, MaxValue) &&
-          isKnownPredicate(ICmpInst::ICMP_ULE, FoundRHS, MaxValue)) {
-        const SCEV *TruncFoundLHS = getTruncateExpr(FoundLHS, NarrowType);
-        const SCEV *TruncFoundRHS = getTruncateExpr(FoundRHS, NarrowType);
-        if (isImpliedCondBalancedTypes(Pred, LHS, RHS, FoundPred, TruncFoundLHS,
-                                       TruncFoundRHS, CtxI))
+      const SCEV *TruncFoundLHS = getTruncateExpr(FoundLHS, NarrowType);
+      const SCEV *TruncFoundRHS = getTruncateExpr(FoundRHS, NarrowType);
+      if (isImpliedCondBalancedTypes(Pred, LHS, RHS, FoundPred, TruncFoundLHS,
+                                     TruncFoundRHS, CtxI)) {
+        auto BitWidth = getTypeSizeInBits(NarrowType);
+        const SCEV *MaxValue = getZeroExtendExpr(
+            getConstant(APInt::getMaxValue(BitWidth)), WideType);
+        if (isKnownPredicate(ICmpInst::ICMP_ULE, FoundLHS, MaxValue) &&
+            isKnownPredicate(ICmpInst::ICMP_ULE, FoundRHS, MaxValue))
           return true;
       }
     }
