@@ -182,11 +182,6 @@ define hidden void @test.shl.exact.equal() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
-; CHECK-NEXT:    [[K_021:%.*]] = phi i32 [ 1, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY]] ]
-; CHECK-NEXT:    [[SHL:%.*]] = shl i32 1, [[K_021]]
-; CHECK-NEXT:    [[SHR1:%.*]] = ashr exact i32 [[SHL]], 1
-; CHECK-NEXT:    [[SHR2:%.*]] = lshr exact i32 [[SHL]], 1
-; CHECK-NEXT:    [[INC]] = add nuw nsw i32 [[K_021]], 1
 ; CHECK-NEXT:    br i1 true, label [[FOR_END:%.*]], label [[FOR_BODY]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void
@@ -212,11 +207,6 @@ define hidden void @test.shl.exact.greater() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
-; CHECK-NEXT:    [[K_021:%.*]] = phi i32 [ 3, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY]] ]
-; CHECK-NEXT:    [[SHL:%.*]] = shl i32 1, [[K_021]]
-; CHECK-NEXT:    [[SHR1:%.*]] = ashr exact i32 [[SHL]], 2
-; CHECK-NEXT:    [[SHR2:%.*]] = lshr exact i32 [[SHL]], 2
-; CHECK-NEXT:    [[INC]] = add nuw nsw i32 [[K_021]], 1
 ; CHECK-NEXT:    br i1 true, label [[FOR_END:%.*]], label [[FOR_BODY]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void
@@ -242,11 +232,6 @@ define hidden void @test.shl.exact.unbound(i32 %arg) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
-; CHECK-NEXT:    [[K_021:%.*]] = phi i32 [ 2, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY]] ]
-; CHECK-NEXT:    [[SHL:%.*]] = shl i32 1, [[K_021]]
-; CHECK-NEXT:    [[SHR1:%.*]] = ashr exact i32 [[SHL]], 2
-; CHECK-NEXT:    [[SHR2:%.*]] = lshr exact i32 [[SHL]], 2
-; CHECK-NEXT:    [[INC]] = add nuw nsw i32 [[K_021]], 1
 ; CHECK-NEXT:    br i1 true, label [[FOR_END:%.*]], label [[FOR_BODY]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void
@@ -272,11 +257,6 @@ define hidden void @test.shl.nonexact() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
-; CHECK-NEXT:    [[K_021:%.*]] = phi i32 [ 2, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY]] ]
-; CHECK-NEXT:    [[SHL:%.*]] = shl i32 1, [[K_021]]
-; CHECK-NEXT:    [[SHR1:%.*]] = ashr i32 [[SHL]], 3
-; CHECK-NEXT:    [[SHR2:%.*]] = lshr i32 [[SHL]], 3
-; CHECK-NEXT:    [[INC]] = add nuw nsw i32 [[K_021]], 1
 ; CHECK-NEXT:    br i1 true, label [[FOR_END:%.*]], label [[FOR_BODY]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void

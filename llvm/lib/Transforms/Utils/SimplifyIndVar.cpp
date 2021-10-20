@@ -284,12 +284,31 @@ void SimplifyIndvar::eliminateIVComparison(ICmpInst *ICmp, Value *IVOperand) {
   SmallVector<Instruction *, 4> Users;
   for (auto *U : ICmp->users())
     Users.push_back(cast<Instruction>(U));
+  auto invalidateIfProfitable = [&]() {
+    // In general, we don't need to invalidate here as, at worst, we're leaving
+    // SCEV in a correct, but inprecise state.  Invalidating is expensive as
+    // it forces recomputation of potentially all SCEVs in the loop on the next
+    // instruction visited.  However, by not invalidating we can end up with
+    // very sub-optimal results.   This heuristic tries to invalidate only when
+    // we know we've discharged a loop exit condition and have thus discovered
+    // new information likely to greatly simplify SCEVs in the loop.
+    for (auto *I : Users) {
+      if (isa<BranchInst>(I) || isa<SwitchInst>(I)) {
+        if (ICmpLoop->isLoopExiting(I->getParent())) {
+          SE->forgetLoop(ICmpLoop);
+          return;
+        }
+      }
+    }
+  };
   const Instruction *CtxI = findCommonDominator(Users, *DT);
   if (auto Ev = SE->evaluatePredicateAt(Pred, S, X, CtxI)) {
     ICmp->replaceAllUsesWith(ConstantInt::getBool(ICmp->getContext(), *Ev));
     DeadInsts.emplace_back(ICmp);
+    invalidateIfProfitable();
     LLVM_DEBUG(dbgs() << "INDVARS: Eliminated comparison: " << *ICmp << '\n');
   } else if (makeIVComparisonInvariant(ICmp, IVOperand)) {
+    invalidateIfProfitable();
     // fallthrough to end of function
   } else if (ICmpInst::isSigned(OriginalPred) &&
              SE->isKnownNonNegative(S) && SE->isKnownNonNegative(X)) {
@@ -799,27 +818,6 @@ static void pushIVUsers(
   }
 }
 
-/// Return true if this instruction generates a simple SCEV
-/// expression in terms of that IV.
-///
-/// This is similar to IVUsers' isInteresting() but processes each instruction
-/// non-recursively when the operand is already known to be a simpleIVUser.
-///
-static bool isSimpleIVUser(Instruction *I, const Loop *L, ScalarEvolution *SE) {
-  if (!SE->isSCEVable(I->getType()))
-    return false;
-
-  // Get the symbolic expression for this instruction.
-  const SCEV *S = SE->getSCEV(I);
-
-  // Only consider affine recurrences.
-  const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(S);
-  if (AR && AR->getLoop() == L)
-    return true;
-
-  return false;
-}
-
 /// Iteratively perform simplification on a worklist of users
 /// of the specified induction variable. Each successive simplification may push
 /// more users which may themselves be candidates for simplification.
@@ -901,7 +899,7 @@ void SimplifyIndvar::simplifyUsers(PHINode *CurrIV, IVVisitor *V) {
       V->visitCast(Cast);
       continue;
     }
-    if (isSimpleIVUser(UseInst, L, SE)) {
+    if (SE->isSCEVable(UseInst->getType())) {
       pushIVUsers(UseInst, L, Simplified, SimpleIVUsers);
     }
   }

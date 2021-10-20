@@ -75,21 +75,22 @@ define i32 @testRem(i8* %p, i64* %p1) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP1:%.*]]
 ; CHECK:       loop1:
-; CHECK-NEXT:    [[LOCAL_0_:%.*]] = phi i32 [ 8, [[ENTRY:%.*]] ], [ [[I9:%.*]], [[LOOP2_EXIT:%.*]] ]
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i32 [[LOCAL_0_]], 15
+; CHECK-NEXT:    [[INDVARS_IV1:%.*]] = phi i64 [ [[INDVARS_IV_NEXT2:%.*]], [[LOOP2_EXIT:%.*]] ], [ 8, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[INDVARS_IV1]], 15
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[EXIT:%.*]], label [[GENERAL_CASE24:%.*]]
 ; CHECK:       general_case24:
 ; CHECK-NEXT:    br i1 false, label [[LOOP2_PREHEADER:%.*]], label [[LOOP2_EXIT]]
 ; CHECK:       loop2.preheader:
-; CHECK-NEXT:    [[TMP0:%.*]] = udiv i32 14, [[LOCAL_0_]]
-; CHECK-NEXT:    [[TMP1:%.*]] = udiv i32 60392, [[TMP0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = mul i32 [[TMP1]], -1
-; CHECK-NEXT:    [[TMP3:%.*]] = mul i32 [[TMP2]], [[TMP0]]
-; CHECK-NEXT:    [[TMP4:%.*]] = sext i32 [[TMP3]] to i64
-; CHECK-NEXT:    [[TMP5:%.*]] = add nsw i64 [[TMP4]], 60392
+; CHECK-NEXT:    [[TMP0:%.*]] = trunc i64 [[INDVARS_IV1]] to i32
+; CHECK-NEXT:    [[TMP1:%.*]] = udiv i32 14, [[TMP0]]
+; CHECK-NEXT:    [[TMP2:%.*]] = udiv i32 60392, [[TMP1]]
+; CHECK-NEXT:    [[TMP3:%.*]] = mul i32 [[TMP2]], -1
+; CHECK-NEXT:    [[TMP4:%.*]] = mul i32 [[TMP3]], [[TMP1]]
+; CHECK-NEXT:    [[TMP5:%.*]] = sext i32 [[TMP4]] to i64
+; CHECK-NEXT:    [[TMP6:%.*]] = add nsw i64 [[TMP5]], 60392
 ; CHECK-NEXT:    br label [[LOOP2:%.*]]
 ; CHECK:       loop2:
-; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[TMP5]], [[LOOP2_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[LOOP2]] ]
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[TMP6]], [[LOOP2_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[LOOP2]] ]
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nsw i64 [[INDVARS_IV]], -1
 ; CHECK-NEXT:    [[I4:%.*]] = load atomic i64, i64* [[P1:%.*]] unordered, align 8
 ; CHECK-NEXT:    [[I6:%.*]] = sub i64 [[I4]], [[INDVARS_IV_NEXT]]
@@ -98,7 +99,7 @@ define i32 @testRem(i8* %p, i64* %p1) {
 ; CHECK:       loop2.exit.loopexit:
 ; CHECK-NEXT:    br label [[LOOP2_EXIT]]
 ; CHECK:       loop2.exit:
-; CHECK-NEXT:    [[I9]] = add nuw nsw i32 [[LOCAL_0_]], 1
+; CHECK-NEXT:    [[INDVARS_IV_NEXT2]] = add nuw nsw i64 [[INDVARS_IV1]], 1
 ; CHECK-NEXT:    br i1 false, label [[EXIT]], label [[LOOP1]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret i32 0

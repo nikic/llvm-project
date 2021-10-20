@@ -23,7 +23,7 @@ define void @_Z3fn1v() {
 ; CHECK-NEXT:    [[TMP5:%.*]] = mul i64 [[TMP3]], [[TMP4]]
 ; CHECK-NEXT:    br label [[DOTPREHEADER4:%.*]]
 ; CHECK:       .preheader4:
-; CHECK-NEXT:    [[K_09:%.*]] = phi i8* [ undef, [[DOTPREHEADER4_LR_PH]] ], [ [[X25:%.*]], [[X22:%.*]] ]
+; CHECK-NEXT:    [[K_09:%.*]] = phi i8* [ undef, [[DOTPREHEADER4_LR_PH]] ], [ [[K_1_LCSSA:%.*]], [[X22:%.*]] ]
 ; CHECK-NEXT:    [[X8:%.*]] = icmp ult i32 0, 4
 ; CHECK-NEXT:    br i1 [[X8]], label [[DOTPREHEADER_LR_PH:%.*]], label [[X22]]
 ; CHECK:       .preheader.lr.ph:
@@ -36,8 +36,7 @@ define void @_Z3fn1v() {
 ; CHECK-NEXT:    [[SCEVGEP:%.*]] = getelementptr i8, i8* [[K_09]], i64 [[TMP5]]
 ; CHECK-NEXT:    br label [[X22]]
 ; CHECK:       x22:
-; CHECK-NEXT:    [[K_1_LCSSA:%.*]] = phi i8* [ [[SCEVGEP]], [[DOT_CRIT_EDGE_8]] ], [ [[K_09]], [[DOTPREHEADER4]] ]
-; CHECK-NEXT:    [[X25]] = getelementptr i8, i8* [[K_1_LCSSA]]
+; CHECK-NEXT:    [[K_1_LCSSA]] = phi i8* [ [[SCEVGEP]], [[DOT_CRIT_EDGE_8]] ], [ [[K_09]], [[DOTPREHEADER4]] ]
 ; CHECK-NEXT:    br label [[DOTPREHEADER4]]
 ;
   %x2 = load i32, i32* @d

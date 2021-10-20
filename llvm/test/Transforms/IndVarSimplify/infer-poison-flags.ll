@@ -347,8 +347,7 @@ define void @ashr_cr_nsw() {
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ -1024, [[ENTRY:%.*]] ], [ [[I_NEXT:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[I_NEXT]] = ashr i32 [[I]], 1
 ; CHECK-NEXT:    store i32 [[I]], i32* @A, align 4
-; CHECK-NEXT:    [[C:%.*]] = icmp ne i32 [[I_NEXT]], 1
-; CHECK-NEXT:    br i1 [[C]], label [[LOOP]], label [[LOOPEXIT:%.*]]
+; CHECK-NEXT:    br i1 true, label [[LOOP]], label [[LOOPEXIT:%.*]]
 ; CHECK:       loopexit:
 ; CHECK-NEXT:    ret void
 ;
