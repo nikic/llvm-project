@@ -8262,73 +8262,48 @@ ScalarEvolution::computeLoadConstantCompareExitLimit(
   LoadInst *LI,
   Constant *RHS,
   const Loop *L,
-  ICmpInst::Predicate predicate) {
+  ICmpInst::Predicate Predicate) {
   if (LI->isVolatile()) return getCouldNotCompute();
 
-  // Check to see if the loaded pointer is a getelementptr of a global.
-  // TODO: Use SCEV instead of manually grubbing with GEPs.
-  GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(LI->getOperand(0));
-  if (!GEP) return getCouldNotCompute();
+  const SCEV *Ptr = getSCEV(LI->getPointerOperand());
+  Ptr = getSCEVAtScope(Ptr, L);
 
-  // Make sure that it is really a constant global we are gepping, with an
-  // initializer, and make sure the first IDX is really 0.
-  GlobalVariable *GV = dyn_cast<GlobalVariable>(GEP->getOperand(0));
-  if (!GV || !GV->isConstant() || !GV->hasDefinitiveInitializer() ||
-      GEP->getNumOperands() < 3 || !isa<Constant>(GEP->getOperand(1)) ||
-      !cast<Constant>(GEP->getOperand(1))->isNullValue())
+  // Check whether this is a load from a constant with a definitive initializer.
+  Constant *Initializer = nullptr;
+  if (const auto *Base = dyn_cast<SCEVUnknown>(getPointerBase(Ptr))) {
+    auto *GV = dyn_cast<GlobalVariable>(Base->getValue());
+    if (GV && GV->isConstant() && GV->hasDefinitiveInitializer())
+      Initializer = GV->getInitializer();
+  }
+  if (!Initializer)
     return getCouldNotCompute();
 
-  // Okay, we allow one non-constant index into the GEP instruction.
-  Value *VarIdx = nullptr;
-  std::vector<Constant*> Indexes;
-  unsigned VarIdxNum = 0;
-  for (unsigned i = 2, e = GEP->getNumOperands(); i != e; ++i)
-    if (ConstantInt *CI = dyn_cast<ConstantInt>(GEP->getOperand(i))) {
-      Indexes.push_back(CI);
-    } else if (!isa<ConstantInt>(GEP->getOperand(i))) {
-      if (VarIdx) return getCouldNotCompute();  // Multiple non-constant idx's.
-      VarIdx = GEP->getOperand(i);
-      VarIdxNum = i-2;
-      Indexes.push_back(nullptr);
-    }
-
-  // Loop-invariant loads may be a byproduct of loop optimization. Skip them.
-  if (!VarIdx)
-    return getCouldNotCompute();
-
-  // Okay, we know we have a (load (gep GV, 0, X)) comparison with a constant.
-  // Check to see if X is a loop variant variable value now.
-  const SCEV *Idx = getSCEV(VarIdx);
-  Idx = getSCEVAtScope(Idx, L);
-
-  // We can only recognize very limited forms of loop index expressions, in
-  // particular, only affine AddRec's like {C1,+,C2}<L>.
-  const SCEVAddRecExpr *IdxExpr = dyn_cast<SCEVAddRecExpr>(Idx);
-  if (!IdxExpr || IdxExpr->getLoop() != L || !IdxExpr->isAffine() ||
-      isLoopInvariant(IdxExpr, L) ||
-      !isa<SCEVConstant>(IdxExpr->getOperand(0)) ||
-      !isa<SCEVConstant>(IdxExpr->getOperand(1)))
+  // Check whether the offset is an addrec with constant start.
+  const auto *Offset = dyn_cast<SCEVAddRecExpr>(removePointerBase(Ptr));
+  if (!Offset || Offset->getLoop() != L ||
+      !isa<SCEVConstant>(Offset->getStart()))
     return getCouldNotCompute();
 
   unsigned MaxSteps = MaxBruteForceIterations;
   for (unsigned IterationNum = 0; IterationNum != MaxSteps; ++IterationNum) {
-    ConstantInt *ItCst = ConstantInt::get(
-                           cast<IntegerType>(IdxExpr->getType()), IterationNum);
-    ConstantInt *Val = EvaluateConstantChrecAtConstant(IdxExpr, ItCst, *this);
+    // Determine the offset at the current iteration.
+    const SCEV *Iteration = getConstant(Offset->getType(), IterationNum);
+    const auto *CurrentOffset =
+        dyn_cast<SCEVConstant>(Offset->evaluateAtIteration(Iteration, *this));
+    if (!CurrentOffset)
+      break;
 
-    // Form the GEP offset.
-    Indexes[VarIdxNum] = Val;
-
-    Constant *Result = ConstantFoldLoadThroughGEPIndices(GV->getInitializer(),
-                                                         Indexes);
-    if (!Result) break;  // Cannot compute!
+    Constant *Result = ConstantFoldLoadFromConst(
+        Initializer, LI->getType(), CurrentOffset->getAPInt(), getDataLayout());
+    if (!Result)
+      break;
 
     // Evaluate the condition for this iteration.
-    Result = ConstantExpr::getICmp(predicate, Result, RHS);
+    Result = ConstantExpr::getICmp(Predicate, Result, RHS);
     if (!isa<ConstantInt>(Result)) break;  // Couldn't decide for sure
     if (cast<ConstantInt>(Result)->getValue().isMinValue()) {
       ++NumArrayLenItCounts;
-      return getConstant(ItCst);   // Found terminating iteration!
+      return Iteration;   // Found terminating iteration!
     }
   }
   return getCouldNotCompute();
