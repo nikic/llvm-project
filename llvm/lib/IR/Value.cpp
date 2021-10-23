@@ -706,6 +706,7 @@ const Value *Value::stripPointerCastsForAliasAnalysis() const {
 
 const Value *Value::stripAndAccumulateConstantOffsets(
     const DataLayout &DL, APInt &Offset, bool AllowNonInbounds,
+    bool AllowInvariant,
     function_ref<bool(Value &, APInt &)> ExternalAnalysis) const {
   if (!getType()->isPtrOrPtrVectorTy())
     return this;
@@ -765,6 +766,8 @@ const Value *Value::stripAndAccumulateConstantOffsets(
     } else if (const auto *Call = dyn_cast<CallBase>(V)) {
         if (const Value *RV = Call->getReturnedArgOperand())
           V = RV;
+        if (AllowInvariant && Call->isLaunderOrStripInvariantGroup())
+          V = Call->getArgOperand(0);
     }
     assert(V->getType()->isPtrOrPtrVectorTy() && "Unexpected operand type!");
   } while (Visited.insert(V).second);
