@@ -1510,7 +1510,7 @@ private:
   BlockDisposition computeBlockDisposition(const SCEV *S, const BasicBlock *BB);
 
   /// Stores all SCEV that use a given SCEV as its direct operand.
-  DenseMap<const SCEV *, SmallPtrSet<const SCEV *, 8> > SCEVUsers;
+  DenseMap<const SCEV *, SmallPtrSet<const SCEV *, 4> > SCEVUsers;
 
   /// Memoized results from getRange
   DenseMap<const SCEV *, ConstantRange> UnsignedRanges;
