@@ -1315,15 +1315,16 @@ AliasResult BasicAAResult::aliasGEP(
         (-DecompGEP1.Offset).uge(V1Size.getValue()))
       return AliasResult::NoAlias;
 
-    if (!Range.isEmptySet()) {
-      // We know that Offset >= MinOffset.
-      // (MinOffset >= V2Size) => (Offset >= V2Size) => NoAlias.
-      if (V2Size.hasValue() && Range.getSignedMin().sge(V2Size.getValue()))
-        return AliasResult::NoAlias;
-
-      // We know that Offset <= MaxOffset.
-      // (MaxOffset <= -V1Size) => (Offset <= -V1Size) => NoAlias.
-      if (V1Size.hasValue() && Range.getSignedMax().sle(-V1Size.getValue()))
+    if (V1Size.hasValue() && V2Size.hasValue()) {
+      // Range currently holds possible offsets. Convert it into a range of
+      // potentially accessed bytes and intersect it with potentially accessed
+      // bytes of the other access.
+      unsigned BW = Range.getBitWidth();
+      Range = Range.add(ConstantRange(APInt(BW, 0),
+                                      APInt(BW, V1Size.getValue())));
+      ConstantRange Range2 =
+          ConstantRange(APInt(BW, 0), APInt(BW, V2Size.getValue()));
+      if (Range.intersectWith(Range2).isEmptySet())
         return AliasResult::NoAlias;
     }
 
