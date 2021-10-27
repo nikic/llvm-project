@@ -1262,12 +1262,14 @@ AliasResult BasicAAResult::aliasGEP(
       CR = CR.intersectWith(
           ConstantRange::fromKnownBits(Known, /* Signed */ true),
           ConstantRange::Signed);
+      CR = Index.Val.evaluateWith(CR).sextOrTrunc(OffsetRange.getBitWidth());
 
       assert(OffsetRange.getBitWidth() == Scale.getBitWidth() &&
              "Bit widths are normalized to MaxPointerSize");
-      OffsetRange = OffsetRange.add(
-          Index.Val.evaluateWith(CR).sextOrTrunc(OffsetRange.getBitWidth())
-                                    .smul_fast(ConstantRange(Scale)));
+      if (Index.IsNSW)
+        OffsetRange = OffsetRange.add(CR.smul_sat(ConstantRange(Scale)));
+      else
+        OffsetRange = OffsetRange.add(CR.smul_fast(ConstantRange(Scale)));
     }
 
     // We now have accesses at two offsets from the same base:
