@@ -12952,6 +12952,18 @@ void ScalarEvolution::forgetMemoizedResultsImpl(const SCEV *S) {
   SignedRanges.erase(S);
   HasRecMap.erase(S);
   MinTrailingZerosCache.erase(S);
+
+  auto ExprIt = ExprValueMap.find(S);
+  if (ExprIt != ExprValueMap.end()) {
+    for (auto &ValueAndOffset : ExprIt->second) {
+      if (ValueAndOffset.second == nullptr) {
+        auto ValueIt = ValueExprMap.find_as(ValueAndOffset.first);
+        if (ValueIt != ValueExprMap.end())
+          ValueExprMap.erase(ValueIt);
+      }
+    }
+    ExprValueMap.erase(ExprIt);
+  }
 }
 
 void
