@@ -4111,14 +4111,7 @@ const SCEV *ScalarEvolution::getExistingSCEV(Value *V) {
   assert(isSCEVable(V->getType()) && "Value is not SCEVable!");
 
   ValueExprMapType::iterator I = ValueExprMap.find_as(V);
-  if (I != ValueExprMap.end()) {
-    const SCEV *S = I->second;
-    if (checkValidity(S))
-      return S;
-    eraseValueFromMap(V);
-    forgetMemoizedResults(S);
-  }
-  return nullptr;
+  return I != ValueExprMap.end() ? I->second : nullptr;
 }
 
 /// Return a SCEV corresponding to -V = -1*V
