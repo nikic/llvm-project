@@ -508,9 +508,9 @@ define i1 @PR42691_4_logical(i32 %x) {
 
 define i1 @PR42691_5(i32 %x) {
 ; CHECK-LABEL: @PR42691_5(
-; CHECK-NEXT:    [[X_OFF:%.*]] = add i32 [[X:%.*]], -1
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp ugt i32 [[X_OFF]], 2147483645
-; CHECK-NEXT:    ret i1 [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[X:%.*]], -2147483647
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i32 [[TMP1]], -2147483646
+; CHECK-NEXT:    ret i1 [[TMP2]]
 ;
   %c1 = icmp slt i32 %x, 1
   %c2 = icmp eq i32 %x, 2147483647
@@ -520,9 +520,9 @@ define i1 @PR42691_5(i32 %x) {
 
 define i1 @PR42691_5_logical(i32 %x) {
 ; CHECK-LABEL: @PR42691_5_logical(
-; CHECK-NEXT:    [[X_OFF:%.*]] = add i32 [[X:%.*]], -1
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp ugt i32 [[X_OFF]], 2147483645
-; CHECK-NEXT:    ret i1 [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[X:%.*]], -2147483647
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i32 [[TMP1]], -2147483646
+; CHECK-NEXT:    ret i1 [[TMP2]]
 ;
   %c1 = icmp slt i32 %x, 1
   %c2 = icmp eq i32 %x, 2147483647
@@ -532,9 +532,9 @@ define i1 @PR42691_5_logical(i32 %x) {
 
 define i1 @PR42691_6(i32 %x) {
 ; CHECK-LABEL: @PR42691_6(
-; CHECK-NEXT:    [[X_OFF:%.*]] = add i32 [[X:%.*]], 2147483647
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp ugt i32 [[X_OFF]], 2147483645
-; CHECK-NEXT:    ret i1 [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[X:%.*]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i32 [[TMP1]], -2147483646
+; CHECK-NEXT:    ret i1 [[TMP2]]
 ;
   %c1 = icmp ult i32 %x, 2147483649
   %c2 = icmp eq i32 %x, 4294967295
@@ -544,9 +544,9 @@ define i1 @PR42691_6(i32 %x) {
 
 define i1 @PR42691_6_logical(i32 %x) {
 ; CHECK-LABEL: @PR42691_6_logical(
-; CHECK-NEXT:    [[X_OFF:%.*]] = add i32 [[X:%.*]], 2147483647
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp ugt i32 [[X_OFF]], 2147483645
-; CHECK-NEXT:    ret i1 [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[X:%.*]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i32 [[TMP1]], -2147483646
+; CHECK-NEXT:    ret i1 [[TMP2]]
 ;
   %c1 = icmp ult i32 %x, 2147483649
   %c2 = icmp eq i32 %x, 4294967295
