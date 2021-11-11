@@ -794,8 +794,8 @@ define i32 @test45(i32 %x, i32 %y, i32 %z) {
 
 define i1 @test46(i8 signext %c)  {
 ; CHECK-LABEL: @test46(
-; CHECK-NEXT:    [[TMP1:%.*]] = and i8 [[C:%.*]], -33
-; CHECK-NEXT:    [[TMP2:%.*]] = add i8 [[TMP1]], -65
+; CHECK-NEXT:    [[TMP1:%.*]] = or i8 [[C:%.*]], 32
+; CHECK-NEXT:    [[TMP2:%.*]] = add i8 [[TMP1]], -97
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], 26
 ; CHECK-NEXT:    ret i1 [[TMP3]]
 ;
@@ -809,8 +809,8 @@ define i1 @test46(i8 signext %c)  {
 
 define i1 @test46_logical(i8 signext %c)  {
 ; CHECK-LABEL: @test46_logical(
-; CHECK-NEXT:    [[TMP1:%.*]] = and i8 [[C:%.*]], -33
-; CHECK-NEXT:    [[TMP2:%.*]] = add i8 [[TMP1]], -65
+; CHECK-NEXT:    [[TMP1:%.*]] = or i8 [[C:%.*]], 32
+; CHECK-NEXT:    [[TMP2:%.*]] = add i8 [[TMP1]], -97
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], 26
 ; CHECK-NEXT:    ret i1 [[TMP3]]
 ;
@@ -824,8 +824,8 @@ define i1 @test46_logical(i8 signext %c)  {
 
 define <2 x i1> @test46_uniform(<2 x i8> %c)  {
 ; CHECK-LABEL: @test46_uniform(
-; CHECK-NEXT:    [[TMP1:%.*]] = and <2 x i8> [[C:%.*]], <i8 -33, i8 -33>
-; CHECK-NEXT:    [[TMP2:%.*]] = add <2 x i8> [[TMP1]], <i8 -65, i8 -65>
+; CHECK-NEXT:    [[TMP1:%.*]] = or <2 x i8> [[C:%.*]], <i8 32, i8 32>
+; CHECK-NEXT:    [[TMP2:%.*]] = add <2 x i8> [[TMP1]], <i8 -97, i8 -97>
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult <2 x i8> [[TMP2]], <i8 26, i8 26>
 ; CHECK-NEXT:    ret <2 x i1> [[TMP3]]
 ;
@@ -856,8 +856,8 @@ define <2 x i1> @test46_undef(<2 x i8> %c)  {
 
 define i1 @test47(i8 signext %c)  {
 ; CHECK-LABEL: @test47(
-; CHECK-NEXT:    [[TMP1:%.*]] = and i8 [[C:%.*]], -33
-; CHECK-NEXT:    [[TMP2:%.*]] = add i8 [[TMP1]], -65
+; CHECK-NEXT:    [[TMP1:%.*]] = or i8 [[C:%.*]], 32
+; CHECK-NEXT:    [[TMP2:%.*]] = add i8 [[TMP1]], -97
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], 27
 ; CHECK-NEXT:    ret i1 [[TMP3]]
 ;
@@ -871,8 +871,8 @@ define i1 @test47(i8 signext %c)  {
 
 define i1 @test47_logical(i8 signext %c)  {
 ; CHECK-LABEL: @test47_logical(
-; CHECK-NEXT:    [[TMP1:%.*]] = and i8 [[C:%.*]], -33
-; CHECK-NEXT:    [[TMP2:%.*]] = add i8 [[TMP1]], -65
+; CHECK-NEXT:    [[TMP1:%.*]] = or i8 [[C:%.*]], 32
+; CHECK-NEXT:    [[TMP2:%.*]] = add i8 [[TMP1]], -97
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], 27
 ; CHECK-NEXT:    ret i1 [[TMP3]]
 ;

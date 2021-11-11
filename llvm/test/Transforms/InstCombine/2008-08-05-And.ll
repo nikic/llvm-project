@@ -8,12 +8,10 @@ define void @f(i8* %x) nounwind  {
 ; CHECK-NEXT:    br label [[BB:%.*]]
 ; CHECK:       bb:
 ; CHECK-NEXT:    [[L1:%.*]] = load i8, i8* [[X:%.*]], align 1
-; CHECK-NEXT:    [[TMP0:%.*]] = add i8 [[L1]], -9
-; CHECK-NEXT:    [[C1:%.*]] = icmp ult i8 [[TMP0]], -3
-; CHECK-NEXT:    [[TMP1:%.*]] = add i8 [[L1]], -13
-; CHECK-NEXT:    [[C2:%.*]] = icmp ult i8 [[TMP1]], -3
-; CHECK-NEXT:    [[A1:%.*]] = and i1 [[C1]], [[C2]]
-; CHECK-NEXT:    br i1 [[A1]], label [[INCOMPATIBLE:%.*]], label [[OKAY:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = or i8 [[L1]], 4
+; CHECK-NEXT:    [[TMP1:%.*]] = add i8 [[TMP0]], -13
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i8 [[TMP1]], -3
+; CHECK-NEXT:    br i1 [[TMP2]], label [[INCOMPATIBLE:%.*]], label [[OKAY:%.*]]
 ; CHECK:       okay:
 ; CHECK-NEXT:    ret void
 ; CHECK:       incompatible:
@@ -45,12 +43,10 @@ define void @f_logical(i8* %x) nounwind  {
 ; CHECK-NEXT:    br label [[BB:%.*]]
 ; CHECK:       bb:
 ; CHECK-NEXT:    [[L1:%.*]] = load i8, i8* [[X:%.*]], align 1
-; CHECK-NEXT:    [[TMP0:%.*]] = add i8 [[L1]], -9
-; CHECK-NEXT:    [[C1:%.*]] = icmp ult i8 [[TMP0]], -3
-; CHECK-NEXT:    [[TMP1:%.*]] = add i8 [[L1]], -13
-; CHECK-NEXT:    [[C2:%.*]] = icmp ult i8 [[TMP1]], -3
-; CHECK-NEXT:    [[A1:%.*]] = and i1 [[C1]], [[C2]]
-; CHECK-NEXT:    br i1 [[A1]], label [[INCOMPATIBLE:%.*]], label [[OKAY:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = or i8 [[L1]], 4
+; CHECK-NEXT:    [[TMP1:%.*]] = add i8 [[TMP0]], -13
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i8 [[TMP1]], -3
+; CHECK-NEXT:    br i1 [[TMP2]], label [[INCOMPATIBLE:%.*]], label [[OKAY:%.*]]
 ; CHECK:       okay:
 ; CHECK-NEXT:    ret void
 ; CHECK:       incompatible:
