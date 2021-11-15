@@ -2626,4 +2626,112 @@ TEST_F(ConstantRangeTest, isSizeLargerThan) {
   EXPECT_FALSE(One.isSizeLargerThan(1));
 }
 
+static Optional<std::pair<ConstantRange, APInt>>
+getRangeAndMask(const ConstantRange &CR1, const ConstantRange &CR2) {
+  Optional<ConstantRange> Combined = CR1.exactUnionWith(CR2);
+  if (Combined)
+    return None;
+  if (CR1.isWrappedSet() != CR2.isWrappedSet())
+    return None;
+
+  APInt LowerDiff = CR1.getLower() ^ CR2.getLower();
+  APInt UpperDiff = (CR1.getUpper()-1) ^ (CR2.getUpper()-1);
+  APInt Size1 = CR1.getUpper() - CR1.getLower();
+  APInt Size2 = CR2.getUpper() - CR2.getLower();
+  if (!LowerDiff.isPowerOf2() || LowerDiff != UpperDiff || Size1 != Size2)
+    return None;
+
+  return {{CR2.getLower().ugt(CR1.getLower()) ? CR2 : CR1, LowerDiff}};
+}
+
+static Optional<std::pair<ConstantRange, APInt>>
+getRangeAndMask2(const ConstantRange &CR1, const ConstantRange &CR2) {
+  Optional<ConstantRange> Combined = CR1.exactIntersectWith(CR2);
+  if (Combined)
+    return None;
+  if (CR1.isWrappedSet() != CR2.isWrappedSet())
+    return None;
+
+  APInt LowerDiff = CR1.getLower() ^ CR2.getLower();
+  APInt UpperDiff = (CR1.getUpper()-1) ^ (CR2.getUpper()-1);
+  APInt Size1 = CR1.getUpper() - CR1.getLower();
+  APInt Size2 = CR2.getUpper() - CR2.getLower();
+  if (!LowerDiff.isPowerOf2() || LowerDiff != UpperDiff || Size1 != Size2)
+    return None;
+
+  return {{CR2.getLower().ugt(CR1.getLower()) ? CR2 : CR1, LowerDiff}};
+}
+
+TEST_F(ConstantRangeTest, andOrOfICmpWithOrFold) {
+  unsigned Bits = 4;
+  EnumerateConstantRanges(Bits, [&](const ConstantRange &CR1) {
+    EnumerateConstantRanges(Bits, [&](const ConstantRange &CR2) {
+      if (auto Res = getRangeAndMask(CR1, CR2)) {
+        errs() << "CR1: " << CR1 << ", CR2: " << CR2
+               << ", CR: " << Res->first << ", Mask: " << Res->second << "\n";
+        EnumerateAPInts(Bits, [&](const APInt &N) {
+          EXPECT_EQ(CR1.contains(N) || CR2.contains(N),
+                    Res->first.contains(N | Res->second));
+        });
+      } else {
+#if 0
+        if (CR1.exactUnionWith(CR2)) return;
+        if (CR1.isWrappedSet() || CR2.isWrappedSet()) return;
+        EnumerateConstantRanges(Bits, [&](const ConstantRange &CR) {
+          if (CR != CR1 && CR != CR2) return;
+          EnumerateAPInts(Bits, [&](const APInt &Mask) {
+            bool AllPass = true;
+            EnumerateAPInts(Bits, [&](const APInt &N) {
+              AllPass &= (CR1.contains(N) || CR2.contains(N)) ==
+                             CR.contains(N | Mask);
+            });
+            if (AllPass) {
+              errs() << "CR1: " << CR1 << ", CR2: " << CR2
+                     << ", CR: " << CR << ", Mask: " << Mask << "\n";
+              EXPECT_FALSE(true);
+            }
+          });
+        });
+#endif
+      }
+    });
+  });
+}
+
+TEST_F(ConstantRangeTest, andOrOfICmpWithOrFold2) {
+  unsigned Bits = 4;
+  EnumerateConstantRanges(Bits, [&](const ConstantRange &CR1) {
+    EnumerateConstantRanges(Bits, [&](const ConstantRange &CR2) {
+      if (auto Res = getRangeAndMask2(CR1, CR2)) {
+        errs() << "CR1: " << CR1 << ", CR2: " << CR2
+               << ", CR: " << Res->first << ", Mask: " << Res->second << "\n";
+        EnumerateAPInts(Bits, [&](const APInt &N) {
+          EXPECT_EQ(CR1.contains(N) && CR2.contains(N),
+                    Res->first.contains(N | Res->second));
+        });
+      } else {
+#if 1
+        if (CR1.exactIntersectWith(CR2)) return;
+        //if (CR1.isWrappedSet() || CR2.isWrappedSet()) return;
+        EnumerateConstantRanges(Bits, [&](const ConstantRange &CR) {
+          if (CR != CR1 && CR != CR2) return;
+          EnumerateAPInts(Bits, [&](const APInt &Mask) {
+            bool AllPass = true;
+            EnumerateAPInts(Bits, [&](const APInt &N) {
+              AllPass &= (CR1.contains(N) && CR2.contains(N)) ==
+                             CR.contains(N | Mask);
+            });
+            if (AllPass) {
+              errs() << "CR1: " << CR1 << ", CR2: " << CR2
+                     << ", CR: " << CR << ", Mask: " << Mask << "\n";
+              EXPECT_FALSE(true);
+            }
+          });
+        });
+#endif
+      }
+    });
+  });
+}
+
 } // anonymous namespace
