@@ -97,9 +97,10 @@ TEST_F(ModuleWithFunctionTest, CallInst) {
     Idx++;
   }
 
-  Call->addRetAttr(Attribute::get(Call->getContext(), "test-str-attr"));
-  EXPECT_TRUE(Call->hasRetAttr("test-str-attr"));
-  EXPECT_FALSE(Call->hasRetAttr("not-on-call"));
+  Call->addRetAttr(Attribute::get(Call->getContext(),
+                                  AttributeKey::Create("test-str-attr")));
+  EXPECT_TRUE(Call->hasRetAttr(AttributeKey::Create("test-str-attr")));
+  EXPECT_FALSE(Call->hasRetAttr(AttributeKey::Create("not-on-call")));
 }
 
 TEST_F(ModuleWithFunctionTest, InvokeInst) {

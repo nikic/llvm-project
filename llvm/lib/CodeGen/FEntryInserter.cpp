@@ -36,7 +36,7 @@ struct FEntryInserter : public MachineFunctionPass {
 
 bool FEntryInserter::runOnMachineFunction(MachineFunction &MF) {
   const std::string FEntryName = std::string(
-      MF.getFunction().getFnAttribute("fentry-call").getValueAsString());
+      MF.getFunction().getFnAttribute(FentryCallAttr).getValueAsString());
   if (FEntryName != "true")
     return false;
 

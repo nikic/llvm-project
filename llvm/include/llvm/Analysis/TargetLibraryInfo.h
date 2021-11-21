@@ -235,7 +235,7 @@ public:
       : Impl(&Impl), OverrideAsUnavailable(NumLibFuncs) {
     if (!F)
       return;
-    if ((*F)->hasFnAttribute("no-builtins"))
+    if ((*F)->hasFnAttribute(NoBuiltinsAttr))
       disableAllFunctions();
     else {
       // Disable individual libc/libm calls in TargetLibraryInfo.
@@ -244,7 +244,7 @@ public:
       for (const Attribute &Attr : FnAttrs) {
         if (!Attr.isStringAttribute())
           continue;
-        auto AttrStr = Attr.getKindAsString();
+        auto AttrStr = Attr.getKindAsKey().value();
         if (!AttrStr.consume_front("no-builtin-"))
           continue;
         if (getLibFunc(AttrStr, LF))

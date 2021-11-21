@@ -1141,9 +1141,8 @@ bool FastISel::lowerCall(const CallInst *CI) {
   bool IsTailCall = CI->isTailCall();
   if (IsTailCall && !isInTailCallPosition(*CI, TM))
     IsTailCall = false;
-  if (IsTailCall && MF->getFunction()
-                            .getFnAttribute("disable-tail-calls")
-                            .getValueAsBool())
+  if (IsTailCall &&
+      MF->getFunction().getFnAttribute(DisableTailCallsAttr).getValueAsBool())
     IsTailCall = false;
 
   CallLoweringInfo CLI;
@@ -1538,7 +1537,7 @@ bool FastISel::selectInstruction(const Instruction *I) {
 
     // Don't handle Intrinsic::trap if a trap function is specified.
     if (F && F->getIntrinsicID() == Intrinsic::trap &&
-        Call->hasFnAttr("trap-func-name"))
+        Call->hasFnAttr(TrapFuncNameAttr))
       return false;
   }
 

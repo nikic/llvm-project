@@ -4673,7 +4673,7 @@ struct AANoCaptureImpl : public AANoCapture {
       if (isAssumedNoCapture())
         Attrs.emplace_back(Attribute::get(Ctx, Attribute::NoCapture));
       else if (ManifestInternal)
-        Attrs.emplace_back(Attribute::get(Ctx, "no-capture-maybe-returned"));
+        Attrs.emplace_back(Attribute::get(Ctx, NoCaptureMaybeReturned));
     }
   }
 

@@ -696,19 +696,19 @@ public:
 
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const {
-    return (Caller->getFnAttribute("target-cpu") ==
-            Callee->getFnAttribute("target-cpu")) &&
-           (Caller->getFnAttribute("target-features") ==
-            Callee->getFnAttribute("target-features"));
+    return (Caller->getFnAttribute(TargetCPUAttr) ==
+            Callee->getFnAttribute(TargetCPUAttr)) &&
+           (Caller->getFnAttribute(TargetFeaturesAttr) ==
+            Callee->getFnAttribute(TargetFeaturesAttr));
   }
 
   bool areFunctionArgsABICompatible(const Function *Caller,
                                     const Function *Callee,
                                     SmallPtrSetImpl<Argument *> &Args) const {
-    return (Caller->getFnAttribute("target-cpu") ==
-            Callee->getFnAttribute("target-cpu")) &&
-           (Caller->getFnAttribute("target-features") ==
-            Callee->getFnAttribute("target-features"));
+    return (Caller->getFnAttribute(TargetCPUAttr) ==
+            Callee->getFnAttribute(TargetCPUAttr)) &&
+           (Caller->getFnAttribute(TargetFeaturesAttr) ==
+            Callee->getFnAttribute(TargetFeaturesAttr));
   }
 
   bool isIndexedLoadLegal(TTI::MemIndexedMode Mode, Type *Ty,

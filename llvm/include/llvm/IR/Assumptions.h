@@ -18,14 +18,12 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
+#include "llvm/IR/Attributes.h"
 
 namespace llvm {
 
 class Function;
 class CallBase;
-
-/// The key we use for assumption attributes.
-constexpr StringRef AssumptionAttrKey = "llvm.assume";
 
 /// A set of known assumption strings that are accepted without warning and
 /// which can be recommended as typo correction.

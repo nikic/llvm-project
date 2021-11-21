@@ -67,11 +67,11 @@ static void insertCall(Function &CurFn, StringRef Func,
 }
 
 static bool runOnFunction(Function &F, bool PostInlining) {
-  StringRef EntryAttr = PostInlining ? "instrument-function-entry-inlined"
-                                     : "instrument-function-entry";
+  AttributeKey EntryAttr = PostInlining ? InstrumentFunctionEntryInlinedAttr
+                                        : InstrumentFunctionEntryAttr;
 
-  StringRef ExitAttr = PostInlining ? "instrument-function-exit-inlined"
-                                    : "instrument-function-exit";
+  AttributeKey ExitAttr = PostInlining ? InstrumentFunctionExitInlinedAttr
+                                       : InstrumentFunctionExitAttr;
 
   StringRef EntryFunc = F.getFnAttribute(EntryAttr).getValueAsString();
   StringRef ExitFunc = F.getFnAttribute(ExitAttr).getValueAsString();

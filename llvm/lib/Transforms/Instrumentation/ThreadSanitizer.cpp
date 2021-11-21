@@ -621,7 +621,7 @@ bool ThreadSanitizer::sanitizeFunction(Function &F,
       Res |= instrumentMemIntrinsic(Inst);
     }
 
-  if (F.hasFnAttribute("sanitize_thread_no_checking_at_run_time")) {
+  if (F.hasFnAttribute(SanitizeThreadNoCheckingAtRunTimeAttr)) {
     assert(!F.hasFnAttribute(Attribute::SanitizeThread));
     if (HasCalls)
       InsertRuntimeIgnores(F);

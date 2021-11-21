@@ -243,7 +243,7 @@ bool lowertypetests::isJumpTableCanonical(Function *F) {
       F->getParent()->getModuleFlag("CFI Canonical Jump Tables"));
   if (!CI || CI->getZExtValue() != 0)
     return true;
-  return F->hasFnAttribute("cfi-canonical-jump-table");
+  return F->hasFnAttribute(CfiCanonicalJumpTablesAttr);
 }
 
 namespace {
@@ -1353,7 +1353,7 @@ void LowerTypeTestsModule::replaceWeakDeclarationWithJumpTablePtr(
 }
 
 static bool isThumbFunction(Function *F, Triple::ArchType ModuleArch) {
-  Attribute TFAttr = F->getFnAttribute("target-features");
+  Attribute TFAttr = F->getFnAttribute(TargetFeaturesAttr);
   if (TFAttr.isValid()) {
     SmallVector<StringRef, 6> Features;
     TFAttr.getValueAsString().split(Features, ',');
@@ -1415,16 +1415,16 @@ void LowerTypeTestsModule::createJumpTable(
   if (OS != Triple::Win32)
     F->addFnAttr(Attribute::Naked);
   if (JumpTableArch == Triple::arm)
-    F->addFnAttr("target-features", "-thumb-mode");
+    F->addFnAttr(TargetFeaturesAttr, "-thumb-mode");
   if (JumpTableArch == Triple::thumb) {
-    F->addFnAttr("target-features", "+thumb-mode");
+    F->addFnAttr(TargetFeaturesAttr, "+thumb-mode");
     // Thumb jump table assembly needs Thumb2. The following attribute is added
     // by Clang for -march=armv7.
-    F->addFnAttr("target-cpu", "cortex-a8");
+    F->addFnAttr(TargetCPUAttr, "cortex-a8");
   }
   if (JumpTableArch == Triple::aarch64) {
-    F->addFnAttr("branch-target-enforcement", "false");
-    F->addFnAttr("sign-return-address", "none");
+    F->addFnAttr(BranchTargetEnforcementAttr, "false");
+    F->addFnAttr(SignReturnAddressAttr, "none");
   }
   // Make sure we don't emit .eh_frame for this function.
   F->addFnAttr(Attribute::NoUnwind);

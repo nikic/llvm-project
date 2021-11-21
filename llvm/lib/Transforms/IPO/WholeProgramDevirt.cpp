@@ -1322,7 +1322,7 @@ void DevirtModule::applyICallBranchFunnel(VTableSlotInfo &SlotInfo,
       CallBase &CB = VCallSite.CB;
 
       // Jump tables are only profitable if the retpoline mitigation is enabled.
-      Attribute FSAttr = CB.getCaller()->getFnAttribute("target-features");
+      Attribute FSAttr = CB.getCaller()->getFnAttribute(TargetFeaturesAttr);
       if (!FSAttr.isValid() ||
           !FSAttr.getValueAsString().contains("+retpoline"))
         continue;

@@ -262,7 +262,7 @@ bool CFGuard::runOnFunction(Function &F) {
   for (BasicBlock &BB : F.getBasicBlockList()) {
     for (Instruction &I : BB.getInstList()) {
       auto *CB = dyn_cast<CallBase>(&I);
-      if (CB && CB->isIndirectCall() && !CB->hasFnAttr("guard_nocf")) {
+      if (CB && CB->isIndirectCall() && !CB->hasFnAttr(GuardNocfAttr)) {
         IndirectCalls.push_back(CB);
         CFGuardCounter++;
       }

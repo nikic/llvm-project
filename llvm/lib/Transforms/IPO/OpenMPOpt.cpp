@@ -2202,8 +2202,7 @@ struct AAICVTrackerFunction : public AAICVTracker {
                                     InternalControlVar &ICV) const {
 
     const auto *CB = dyn_cast<CallBase>(I);
-    if (!CB || CB->hasFnAttr("no_openmp") ||
-        CB->hasFnAttr("no_openmp_routines"))
+    if (!CB || CB->hasFnAttr(NoOpenmp) || CB->hasFnAttr(NoOpenmpRoutines))
       return None;
 
     auto &OMPInfoCache = static_cast<OMPInformationCache &>(A.getInfoCache());
@@ -4155,10 +4154,10 @@ struct AAFoldRuntimeCallCallSiteReturned : AAFoldRuntimeCall {
       Changed |= foldParallelLevel(A);
       break;
     case OMPRTL___kmpc_get_hardware_num_threads_in_block:
-      Changed = Changed | foldKernelFnAttribute(A, "omp_target_thread_limit");
+      Changed = Changed | foldKernelFnAttribute(A, OmpTargetThreadLimitAttr);
       break;
     case OMPRTL___kmpc_get_hardware_num_blocks:
-      Changed = Changed | foldKernelFnAttribute(A, "omp_target_num_teams");
+      Changed = Changed | foldKernelFnAttribute(A, OmpTargetNumTeamsAttr);
       break;
     default:
       llvm_unreachable("Unhandled OpenMP runtime function!");
@@ -4348,7 +4347,7 @@ private:
                                                     : ChangeStatus::CHANGED;
   }
 
-  ChangeStatus foldKernelFnAttribute(Attributor &A, llvm::StringRef Attr) {
+  ChangeStatus foldKernelFnAttribute(Attributor &A, AttributeKey Attr) {
     // Specialize only if all the calls agree with the attribute constant value
     int32_t CurrentAttrValue = -1;
     Optional<Value *> SimplifiedValueBefore = SimplifiedValue;

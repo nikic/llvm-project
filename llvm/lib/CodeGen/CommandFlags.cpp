@@ -599,14 +599,15 @@ std::vector<std::string> codegen::getFeatureList() {
   return Features.getFeatures();
 }
 
-void codegen::renderBoolStringAttr(AttrBuilder &B, StringRef Name, bool Val) {
+void codegen::renderBoolStringAttr(AttrBuilder &B, AttributeKey Name,
+                                   bool Val) {
   B.addAttribute(Name, Val ? "true" : "false");
 }
 
-#define HANDLE_BOOL_ATTR(CL, AttrName)                                         \
+#define HANDLE_BOOL_ATTR(CL, Attr)                                             \
   do {                                                                         \
-    if (CL->getNumOccurrences() > 0 && !F.hasFnAttribute(AttrName))            \
-      renderBoolStringAttr(NewAttrs, AttrName, *CL);                           \
+    if (CL->getNumOccurrences() > 0 && !F.hasFnAttribute(Attr))                \
+      renderBoolStringAttr(NewAttrs, Attr, *CL);                               \
   } while (0)
 
 /// Set function attributes of function \p F based on CPU, Features, and command
@@ -617,58 +618,57 @@ void codegen::setFunctionAttributes(StringRef CPU, StringRef Features,
   AttributeList Attrs = F.getAttributes();
   AttrBuilder NewAttrs;
 
-  if (!CPU.empty() && !F.hasFnAttribute("target-cpu"))
-    NewAttrs.addAttribute("target-cpu", CPU);
+  if (!CPU.empty() && !F.hasFnAttribute(TargetCPUAttr))
+    NewAttrs.addAttribute(TargetCPUAttr, CPU);
   if (!Features.empty()) {
     // Append the command line features to any that are already on the function.
     StringRef OldFeatures =
-        F.getFnAttribute("target-features").getValueAsString();
+        F.getFnAttribute(TargetFeaturesAttr).getValueAsString();
     if (OldFeatures.empty())
-      NewAttrs.addAttribute("target-features", Features);
+      NewAttrs.addAttribute(TargetFeaturesAttr, Features);
     else {
       SmallString<256> Appended(OldFeatures);
       Appended.push_back(',');
       Appended.append(Features);
-      NewAttrs.addAttribute("target-features", Appended);
+      NewAttrs.addAttribute(TargetFeaturesAttr, Appended);
     }
   }
   if (FramePointerUsageView->getNumOccurrences() > 0 &&
-      !F.hasFnAttribute("frame-pointer")) {
+      !F.hasFnAttribute(FramePointerAttr)) {
     if (getFramePointerUsage() == FramePointerKind::All)
-      NewAttrs.addAttribute("frame-pointer", "all");
+      NewAttrs.addAttribute(FramePointerAttr, "all");
     else if (getFramePointerUsage() == FramePointerKind::NonLeaf)
-      NewAttrs.addAttribute("frame-pointer", "non-leaf");
+      NewAttrs.addAttribute(FramePointerAttr, "non-leaf");
     else if (getFramePointerUsage() == FramePointerKind::None)
-      NewAttrs.addAttribute("frame-pointer", "none");
+      NewAttrs.addAttribute(FramePointerAttr, "none");
   }
   if (DisableTailCallsView->getNumOccurrences() > 0)
-    NewAttrs.addAttribute("disable-tail-calls",
+    NewAttrs.addAttribute(DisableTailCallsAttr,
                           toStringRef(getDisableTailCalls()));
   if (getStackRealign())
-    NewAttrs.addAttribute("stackrealign");
+    NewAttrs.addAttribute(StackrealignAttr);
 
-  HANDLE_BOOL_ATTR(EnableUnsafeFPMathView, "unsafe-fp-math");
-  HANDLE_BOOL_ATTR(EnableNoInfsFPMathView, "no-infs-fp-math");
-  HANDLE_BOOL_ATTR(EnableNoNaNsFPMathView, "no-nans-fp-math");
-  HANDLE_BOOL_ATTR(EnableNoSignedZerosFPMathView, "no-signed-zeros-fp-math");
+  HANDLE_BOOL_ATTR(EnableUnsafeFPMathView, UnsafeFPMathAttr);
+  HANDLE_BOOL_ATTR(EnableNoInfsFPMathView, NoInfsFPMathAttr);
+  HANDLE_BOOL_ATTR(EnableNoNaNsFPMathView, NoNansFPMathAttr);
+  HANDLE_BOOL_ATTR(EnableNoSignedZerosFPMathView, NoSignedZerosFPMathAttr);
 
   if (DenormalFPMathView->getNumOccurrences() > 0 &&
-      !F.hasFnAttribute("denormal-fp-math")) {
+      !F.hasFnAttribute(DenormalFPMathAttr)) {
     DenormalMode::DenormalModeKind DenormKind = getDenormalFPMath();
 
     // FIXME: Command line flag should expose separate input/output modes.
-    NewAttrs.addAttribute("denormal-fp-math",
+    NewAttrs.addAttribute(DenormalFPMathAttr,
                           DenormalMode(DenormKind, DenormKind).str());
   }
 
   if (DenormalFP32MathView->getNumOccurrences() > 0 &&
-      !F.hasFnAttribute("denormal-fp-math-f32")) {
+      !F.hasFnAttribute(DenormalFPMathf32Attr)) {
     // FIXME: Command line flag should expose separate input/output modes.
     DenormalMode::DenormalModeKind DenormKind = getDenormalFP32Math();
 
-    NewAttrs.addAttribute(
-      "denormal-fp-math-f32",
-      DenormalMode(DenormKind, DenormKind).str());
+    NewAttrs.addAttribute(DenormalFPMathf32Attr,
+                          DenormalMode(DenormKind, DenormKind).str());
   }
 
   if (TrapFuncNameView->getNumOccurrences() > 0)
@@ -679,7 +679,7 @@ void codegen::setFunctionAttributes(StringRef CPU, StringRef Features,
             if (F->getIntrinsicID() == Intrinsic::debugtrap ||
                 F->getIntrinsicID() == Intrinsic::trap)
               Call->addFnAttr(
-                  Attribute::get(Ctx, "trap-func-name", getTrapFuncName()));
+                  Attribute::get(Ctx, TrapFuncNameAttr, getTrapFuncName()));
 
   // Let NewAttrs override Attrs.
   F.setAttributes(Attrs.addFnAttributes(Ctx, NewAttrs));

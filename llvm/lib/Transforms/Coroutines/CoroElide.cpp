@@ -444,7 +444,7 @@ struct CoroElideLegacy : FunctionPass {
 
     bool Changed = false;
 
-    if (F.hasFnAttribute(CORO_PRESPLIT_ATTR))
+    if (F.hasFnAttribute(CoroutinePresplitAttr))
       Changed = replaceDevirtTrigger(F);
 
     L->CoroIds.clear();

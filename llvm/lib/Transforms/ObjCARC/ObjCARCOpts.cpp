@@ -912,7 +912,7 @@ static bool isInertARCValue(Value *V, SmallPtrSet<Value *, 1> &VisitedPhis) {
 
   // See if this is a global attribute annotated with an 'objc_arc_inert'.
   if (auto *GV = dyn_cast<GlobalVariable>(V))
-    if (GV->hasAttribute("objc_arc_inert"))
+    if (GV->hasAttribute(ObjcArcInertAttr))
       return true;
 
   if (auto PN = dyn_cast<PHINode>(V)) {

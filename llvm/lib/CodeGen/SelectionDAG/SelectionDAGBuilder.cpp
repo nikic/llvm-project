@@ -6705,7 +6705,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
   case Intrinsic::debugtrap:
   case Intrinsic::trap: {
     StringRef TrapFuncName =
-        I.getAttributes().getFnAttr("trap-func-name").getValueAsString();
+        I.getAttributes().getFnAttr(TrapFuncNameAttr).getValueAsString();
     if (TrapFuncName.empty()) {
       switch (Intrinsic) {
       case Intrinsic::trap:
@@ -7602,8 +7602,9 @@ void SelectionDAGBuilder::LowerCallTo(const CallBase &CB, SDValue Callee,
     // Avoid emitting tail calls in functions with the disable-tail-calls
     // attribute.
     auto *Caller = CB.getParent()->getParent();
-    if (Caller->getFnAttribute("disable-tail-calls").getValueAsString() ==
-        "true" && !isMustTailCall)
+    if (Caller->getFnAttribute(DisableTailCallsAttr).getValueAsString() ==
+            "true" &&
+        !isMustTailCall)
       isTailCall = false;
 
     // We can't tail call inside a function with a swifterror argument. Lowering

@@ -36,7 +36,6 @@ void initializeCoroCleanupLegacyPass(PassRegistry &);
 // adds coroutine subfunctions to the SCC to be processed by IPO pipeline.
 // Async lowering similarily triggers a restart of the pipeline after it has
 // split the coroutine.
-#define CORO_PRESPLIT_ATTR "coroutine.presplit"
 #define UNPREPARED_FOR_SPLIT "0"
 #define PREPARED_FOR_SPLIT "1"
 #define ASYNC_RESTART_AFTER_SPLIT "2"

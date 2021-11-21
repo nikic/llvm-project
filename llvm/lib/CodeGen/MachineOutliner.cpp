@@ -623,8 +623,8 @@ MachineFunction *MachineOutliner::createOutlinedFunction(
   // must necessarily support the instructions that are in the outlined region.
   Candidate &FirstCand = OF.Candidates.front();
   const Function &ParentFn = FirstCand.getMF()->getFunction();
-  if (ParentFn.hasFnAttribute("target-features"))
-    F->addFnAttr(ParentFn.getFnAttribute("target-features"));
+  if (ParentFn.hasFnAttribute(TargetFeaturesAttr))
+    F->addFnAttr(ParentFn.getFnAttribute(TargetFeaturesAttr));
 
   // Set nounwind, so we don't generate eh_frame.
   if (llvm::all_of(OF.Candidates, [](const outliner::Candidate &C) {

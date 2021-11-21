@@ -283,13 +283,13 @@ bool X86DynAllocaExpander::runOnMachineFunction(MachineFunction &MF) {
   SlotSize = TRI->getSlotSize();
 
   StackProbeSize = 4096;
-  if (MF.getFunction().hasFnAttribute("stack-probe-size")) {
+  if (MF.getFunction().hasFnAttribute(StackProbeSizeAttr)) {
     MF.getFunction()
-        .getFnAttribute("stack-probe-size")
+        .getFnAttribute(StackProbeSizeAttr)
         .getValueAsString()
         .getAsInteger(0, StackProbeSize);
   }
-  NoStackArgProbe = MF.getFunction().hasFnAttribute("no-stack-arg-probe");
+  NoStackArgProbe = MF.getFunction().hasFnAttribute(NoStackArgProbeAttr);
   if (NoStackArgProbe)
     StackProbeSize = INT64_MAX;
 

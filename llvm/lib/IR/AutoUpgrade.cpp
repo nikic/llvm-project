@@ -4467,29 +4467,29 @@ std::string llvm::UpgradeDataLayoutString(StringRef DL, StringRef TT) {
 
 void llvm::UpgradeAttributes(AttrBuilder &B) {
   StringRef FramePointer;
-  if (B.contains("no-frame-pointer-elim")) {
+  if (B.contains(NoFramePointerElimAttr)) {
     // The value can be "true" or "false".
     for (const auto &I : B.td_attrs())
-      if (I.first == "no-frame-pointer-elim")
+      if (I.first == NoFramePointerElimAttr)
         FramePointer = I.second == "true" ? "all" : "none";
-    B.removeAttribute("no-frame-pointer-elim");
+    B.removeAttribute(NoFramePointerElimAttr);
   }
-  if (B.contains("no-frame-pointer-elim-non-leaf")) {
+  if (B.contains(NoFramePointerElimNonLeafAttr)) {
     // The value is ignored. "no-frame-pointer-elim"="true" takes priority.
     if (FramePointer != "all")
       FramePointer = "non-leaf";
-    B.removeAttribute("no-frame-pointer-elim-non-leaf");
+    B.removeAttribute(NoFramePointerElimNonLeafAttr);
   }
   if (!FramePointer.empty())
-    B.addAttribute("frame-pointer", FramePointer);
+    B.addAttribute(FramePointerAttr, FramePointer);
 
-  if (B.contains("null-pointer-is-valid")) {
+  if (B.contains(NullPointerIsValidAttr)) {
     // The value can be "true" or "false".
     bool NullPointerIsValid = false;
     for (const auto &I : B.td_attrs())
-      if (I.first == "null-pointer-is-valid")
+      if (I.first == NullPointerIsValidAttr)
         NullPointerIsValid = I.second == "true";
-    B.removeAttribute("null-pointer-is-valid");
+    B.removeAttribute(NullPointerIsValidAttr);
     if (NullPointerIsValid)
       B.addAttribute(Attribute::NullPointerIsValid);
   }

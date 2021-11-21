@@ -180,7 +180,7 @@ bool Lowerer::lowerEarlyIntrinsics(Function &F) {
         // with a coroutine attribute.
         if (auto *CII = cast<CoroIdInst>(&I)) {
           if (CII->getInfo().isPreSplit()) {
-            F.addFnAttr(CORO_PRESPLIT_ATTR, UNPREPARED_FOR_SPLIT);
+            F.addFnAttr(CoroutinePresplitAttr, UNPREPARED_FOR_SPLIT);
             setCannotDuplicate(CII);
             CII->setCoroutineSelf();
             CoroId = cast<CoroIdInst>(&I);
@@ -190,7 +190,7 @@ bool Lowerer::lowerEarlyIntrinsics(Function &F) {
       case Intrinsic::coro_id_retcon:
       case Intrinsic::coro_id_retcon_once:
       case Intrinsic::coro_id_async:
-        F.addFnAttr(CORO_PRESPLIT_ATTR, PREPARED_FOR_SPLIT);
+        F.addFnAttr(CoroutinePresplitAttr, PREPARED_FOR_SPLIT);
         break;
       case Intrinsic::coro_resume:
         lowerResumeOrDestroy(*CB, CoroSubFnInst::ResumeIndex);

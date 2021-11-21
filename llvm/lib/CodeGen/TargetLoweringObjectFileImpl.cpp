@@ -742,19 +742,20 @@ static MCSection *selectExplicitSectionGlobal(
   const GlobalVariable *GV = dyn_cast<GlobalVariable>(GO);
   if (GV && GV->hasImplicitSection()) {
     auto Attrs = GV->getAttributes();
-    if (Attrs.hasAttribute("bss-section") && Kind.isBSS()) {
-      SectionName = Attrs.getAttribute("bss-section").getValueAsString();
-    } else if (Attrs.hasAttribute("rodata-section") && Kind.isReadOnly()) {
-      SectionName = Attrs.getAttribute("rodata-section").getValueAsString();
-    } else if (Attrs.hasAttribute("relro-section") && Kind.isReadOnlyWithRel()) {
-      SectionName = Attrs.getAttribute("relro-section").getValueAsString();
-    } else if (Attrs.hasAttribute("data-section") && Kind.isData()) {
-      SectionName = Attrs.getAttribute("data-section").getValueAsString();
+    if (Attrs.hasAttribute(BssSectionAttr) && Kind.isBSS()) {
+      SectionName = Attrs.getAttribute(BssSectionAttr).getValueAsString();
+    } else if (Attrs.hasAttribute(RodataSectionAttr) && Kind.isReadOnly()) {
+      SectionName = Attrs.getAttribute(RodataSectionAttr).getValueAsString();
+    } else if (Attrs.hasAttribute(RelroSectionAttr) &&
+               Kind.isReadOnlyWithRel()) {
+      SectionName = Attrs.getAttribute(RelroSectionAttr).getValueAsString();
+    } else if (Attrs.hasAttribute(DataSectionAttr) && Kind.isData()) {
+      SectionName = Attrs.getAttribute(DataSectionAttr).getValueAsString();
     }
   }
   const Function *F = dyn_cast<Function>(GO);
-  if (F && F->hasFnAttribute("implicit-section-name")) {
-    SectionName = F->getFnAttribute("implicit-section-name").getValueAsString();
+  if (F && F->hasFnAttribute(ImplicitSectionNameAttr)) {
+    SectionName = F->getFnAttribute(ImplicitSectionNameAttr).getValueAsString();
   }
 
   // Infer section flags from the section name if we can.
@@ -896,7 +897,7 @@ MCSection *TargetLoweringObjectFileELF::getUniqueSectionForFunction(
   unsigned Flags = getELFSectionFlags(Kind);
   // If the function's section names is pre-determined via pragma or a
   // section attribute, call selectExplicitSectionGlobal.
-  if (F.hasSection() || F.hasFnAttribute("implicit-section-name"))
+  if (F.hasSection() || F.hasFnAttribute(ImplicitSectionNameAttr))
     return selectExplicitSectionGlobal(
         &F, Kind, TM, getContext(), getMangler(), NextUniqueID,
         Used.count(&F), /* ForceUnique = */true);
@@ -1226,8 +1227,8 @@ MCSection *TargetLoweringObjectFileMachO::getExplicitSectionGlobal(
   StringRef SectionName = GO->getSection();
 
   const Function *F = dyn_cast<Function>(GO);
-  if (F && F->hasFnAttribute("implicit-section-name")) {
-    SectionName = F->getFnAttribute("implicit-section-name").getValueAsString();
+  if (F && F->hasFnAttribute(ImplicitSectionNameAttr)) {
+    SectionName = F->getFnAttribute(ImplicitSectionNameAttr).getValueAsString();
   }
 
   // Parse the section specifier and create it if valid.
@@ -2221,7 +2222,7 @@ TargetLoweringObjectFileXCOFF::getTargetSymbol(const GlobalValue *GV,
   // here.
   if (const GlobalObject *GO = dyn_cast<GlobalObject>(GV)) {
     if (const GlobalVariable *GVar = dyn_cast<GlobalVariable>(GV))
-      if (GVar->hasAttribute("toc-data"))
+      if (GVar->hasAttribute(TocDataAttr))
         return cast<MCSectionXCOFF>(
                    SectionForGlobal(GVar, SectionKind::getData(), TM))
             ->getQualNameSymbol();
@@ -2254,7 +2255,7 @@ MCSection *TargetLoweringObjectFileXCOFF::getExplicitSectionGlobal(
 
   // Handle the XCOFF::TD case first, then deal with the rest.
   if (const GlobalVariable *GVar = dyn_cast<GlobalVariable>(GO))
-    if (GVar->hasAttribute("toc-data"))
+    if (GVar->hasAttribute(TocDataAttr))
       return getContext().getXCOFFSection(
           SectionName, Kind,
           XCOFF::CsectProperties(/*MappingClass*/ XCOFF::XMC_TD, XCOFF::XTY_SD),
@@ -2298,7 +2299,7 @@ MCSection *TargetLoweringObjectFileXCOFF::SelectSectionForGlobal(
     const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const {
   // Handle the XCOFF::TD case first, then deal with the rest.
   if (const GlobalVariable *GVar = dyn_cast<GlobalVariable>(GO))
-    if (GVar->hasAttribute("toc-data")) {
+    if (GVar->hasAttribute(TocDataAttr)) {
       SmallString<128> Name;
       getNameWithPrefix(Name, GO, TM);
       return getContext().getXCOFFSection(

@@ -166,7 +166,7 @@ void MachineFunction::init() {
   // We can realign the stack if the target supports it and the user hasn't
   // explicitly asked us not to.
   bool CanRealignSP = STI->getFrameLowering()->isStackRealignable() &&
-                      !F.hasFnAttribute("no-realign-stack");
+                      !F.hasFnAttribute(NoRealignStack);
   FrameInfo = new (Allocator) MachineFrameInfo(
       getFnStackAlignment(STI, F), /*StackRealignable=*/CanRealignSP,
       /*ForcedRealign=*/CanRealignSP &&
@@ -279,7 +279,7 @@ DenormalMode MachineFunction::getDenormalMode(const fltSemantics &FPType) const 
 
 /// Should we be emitting segmented stack stuff for the function
 bool MachineFunction::shouldSplitStack() const {
-  return getFunction().hasFnAttribute("split-stack");
+  return getFunction().hasFnAttribute(SplitStackAttr);
 }
 
 LLVM_NODISCARD unsigned

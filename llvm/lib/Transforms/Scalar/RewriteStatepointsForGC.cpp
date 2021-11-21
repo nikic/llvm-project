@@ -1528,16 +1528,15 @@ public:
 } // end anonymous namespace
 
 static StringRef getDeoptLowering(CallBase *Call) {
-  const char *DeoptLowering = "deopt-lowering";
-  if (Call->hasFnAttr(DeoptLowering)) {
+  if (Call->hasFnAttr(DeoptLoweringAttr)) {
     // FIXME: Calls have a *really* confusing interface around attributes
     // with values.
     const AttributeList &CSAS = Call->getAttributes();
-    if (CSAS.hasFnAttr(DeoptLowering))
-      return CSAS.getFnAttr(DeoptLowering).getValueAsString();
+    if (CSAS.hasFnAttr(DeoptLoweringAttr))
+      return CSAS.getFnAttr(DeoptLoweringAttr).getValueAsString();
     Function *F = Call->getCalledFunction();
-    assert(F && F->hasFnAttribute(DeoptLowering));
-    return F->getFnAttribute(DeoptLowering).getValueAsString();
+    assert(F && F->hasFnAttribute(DeoptLoweringAttr));
+    return F->getFnAttribute(DeoptLoweringAttr).getValueAsString();
   }
   return "live-through";
 }

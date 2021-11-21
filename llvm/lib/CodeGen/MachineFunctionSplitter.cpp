@@ -102,7 +102,7 @@ bool MachineFunctionSplitter::runOnMachineFunction(MachineFunction &MF) {
   // be more beneficial to augment the linker to ensure contiguous layout of
   // split functions within the same section as specified by the attribute.
   if (MF.getFunction().hasSection() ||
-      MF.getFunction().hasFnAttribute("implicit-section-name"))
+      MF.getFunction().hasFnAttribute(ImplicitSectionNameAttr))
     return false;
 
   // We don't want to proceed further for cold functions

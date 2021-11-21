@@ -856,27 +856,28 @@ public:
       if (const auto *Attr = FD->getAttr<WebAssemblyImportModuleAttr>()) {
         llvm::Function *Fn = cast<llvm::Function>(GV);
         llvm::AttrBuilder B;
-        B.addAttribute("wasm-import-module", Attr->getImportModule());
+        B.addAttribute(llvm::WasmImportModuleAttr, Attr->getImportModule());
         Fn->addFnAttrs(B);
       }
       if (const auto *Attr = FD->getAttr<WebAssemblyImportNameAttr>()) {
         llvm::Function *Fn = cast<llvm::Function>(GV);
         llvm::AttrBuilder B;
-        B.addAttribute("wasm-import-name", Attr->getImportName());
+        B.addAttribute(llvm::WasmImportNameAttr, Attr->getImportName());
         Fn->addFnAttrs(B);
       }
       if (const auto *Attr = FD->getAttr<WebAssemblyExportNameAttr>()) {
         llvm::Function *Fn = cast<llvm::Function>(GV);
         llvm::AttrBuilder B;
-        B.addAttribute("wasm-export-name", Attr->getExportName());
+        B.addAttribute(llvm::WasmExportNameAttr, Attr->getExportName());
         Fn->addFnAttrs(B);
       }
     }
 
     if (auto *FD = dyn_cast_or_null<FunctionDecl>(D)) {
       llvm::Function *Fn = cast<llvm::Function>(GV);
-      if (!FD->doesThisDeclarationHaveABody() && !FD->hasPrototype())
-        Fn->addFnAttr("no-prototype");
+      if (!FD->doesThisDeclarationHaveABody() && !FD->hasPrototype()) {
+        Fn->addFnAttr(llvm::NoPrototypeAttr);
+      }
     }
   }
 };
@@ -2166,7 +2167,7 @@ void X86_32TargetCodeGenInfo::setTargetAttributes(
   if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
     if (FD->hasAttr<X86ForceAlignArgPointerAttr>()) {
       llvm::Function *Fn = cast<llvm::Function>(GV);
-      Fn->addFnAttr("stackrealign");
+      Fn->addFnAttr(llvm::StackrealignAttr);
     }
 
     addX86InterruptAttrs(FD, GV, CGM);
@@ -2532,7 +2533,7 @@ public:
     if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
       if (FD->hasAttr<X86ForceAlignArgPointerAttr>()) {
         llvm::Function *Fn = cast<llvm::Function>(GV);
-        Fn->addFnAttr("stackrealign");
+        Fn->addFnAttr(llvm::StackrealignAttr);
       }
 
       addX86InterruptAttrs(FD, GV, CGM);
@@ -2683,11 +2684,13 @@ static void addStackProbeTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                                           CodeGen::CodeGenModule &CGM) {
   if (llvm::Function *Fn = dyn_cast_or_null<llvm::Function>(GV)) {
 
-    if (CGM.getCodeGenOpts().StackProbeSize != 4096)
-      Fn->addFnAttr("stack-probe-size",
+    if (CGM.getCodeGenOpts().StackProbeSize != 4096) {
+      Fn->addFnAttr(llvm::StackProbeSizeAttr,
                     llvm::utostr(CGM.getCodeGenOpts().StackProbeSize));
-    if (CGM.getCodeGenOpts().NoStackArgProbe)
-      Fn->addFnAttr("no-stack-arg-probe");
+    }
+    if (CGM.getCodeGenOpts().NoStackArgProbe) {
+      Fn->addFnAttr(llvm::NoStackArgProbeAttr);
+    }
   }
 }
 
@@ -2743,7 +2746,7 @@ void WinX86_64TargetCodeGenInfo::setTargetAttributes(
   if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
     if (FD->hasAttr<X86ForceAlignArgPointerAttr>()) {
       llvm::Function *Fn = cast<llvm::Function>(GV);
-      Fn->addFnAttr("stackrealign");
+      Fn->addFnAttr(llvm::StackrealignAttr);
     }
 
     addX86InterruptAttrs(FD, GV, CGM);
@@ -5563,16 +5566,17 @@ public:
 
     auto *Fn = cast<llvm::Function>(GV);
     static const char *SignReturnAddrStr[] = {"none", "non-leaf", "all"};
-    Fn->addFnAttr("sign-return-address", SignReturnAddrStr[static_cast<int>(BPI.SignReturnAddr)]);
+    Fn->addFnAttr(llvm::SignReturnAddressAttr,
+                  SignReturnAddrStr[static_cast<int>(BPI.SignReturnAddr)]);
 
     if (BPI.SignReturnAddr != LangOptions::SignReturnAddressScopeKind::None) {
-      Fn->addFnAttr("sign-return-address-key",
+      Fn->addFnAttr(llvm::SignReturnAddressAttr,
                     BPI.SignKey == LangOptions::SignReturnAddressKeyKind::AKey
                         ? "a_key"
                         : "b_key");
     }
 
-    Fn->addFnAttr("branch-target-enforcement",
+    Fn->addFnAttr(llvm::BranchTargetEnforcementAttr,
                   BPI.BranchTargetEnforcement ? "true" : "false");
   }
 
@@ -6381,7 +6385,7 @@ public:
 
     llvm::Function *Fn = cast<llvm::Function>(GV);
 
-    Fn->addFnAttr("interrupt", Kind);
+    Fn->addFnAttr(llvm::InterruptAttr, Kind);
 
     ARMABIInfo::ABIKind ABI = cast<ARMABIInfo>(getABIInfo()).getABIKind();
     if (ABI == ARMABIInfo::APCS)
@@ -7745,8 +7749,8 @@ void MSP430TargetCodeGenInfo::setTargetAttributes(
   if (GV->isDeclaration())
     return;
   if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
-    const auto *InterruptAttr = FD->getAttr<MSP430InterruptAttr>();
-    if (!InterruptAttr)
+    const auto *Interrupt_Attr = FD->getAttr<MSP430InterruptAttr>();
+    if (!Interrupt_Attr)
       return;
 
     // Handle 'interrupt' attribute:
@@ -7757,7 +7761,8 @@ void MSP430TargetCodeGenInfo::setTargetAttributes(
 
     // Step 2: Add attributes goodness.
     F->addFnAttr(llvm::Attribute::NoInline);
-    F->addFnAttr("interrupt", llvm::utostr(InterruptAttr->getNumber()));
+    F->addFnAttr(llvm::InterruptAttr,
+                 llvm::utostr(Interrupt_Attr->getNumber()));
   }
 }
 
@@ -7805,26 +7810,28 @@ public:
     if (!FD) return;
     llvm::Function *Fn = cast<llvm::Function>(GV);
 
-    if (FD->hasAttr<MipsLongCallAttr>())
-      Fn->addFnAttr("long-call");
-    else if (FD->hasAttr<MipsShortCallAttr>())
-      Fn->addFnAttr("short-call");
+    if (FD->hasAttr<MipsLongCallAttr>()) {
+      Fn->addFnAttr(llvm::LongCallAttr);
+    } else if (FD->hasAttr<MipsShortCallAttr>()) {
+      Fn->addFnAttr(llvm::ShortCallAttr);
+    }
 
     // Other attributes do not have a meaning for declarations.
     if (GV->isDeclaration())
       return;
 
     if (FD->hasAttr<Mips16Attr>()) {
-      Fn->addFnAttr("mips16");
+      Fn->addFnAttr(llvm::Mips16KAttr);
     }
     else if (FD->hasAttr<NoMips16Attr>()) {
-      Fn->addFnAttr("nomips16");
+      Fn->addFnAttr(llvm::Nomips16Attr);
     }
 
-    if (FD->hasAttr<MicroMipsAttr>())
-      Fn->addFnAttr("micromips");
-    else if (FD->hasAttr<NoMicroMipsAttr>())
-      Fn->addFnAttr("nomicromips");
+    if (FD->hasAttr<MicroMipsAttr>()) {
+      Fn->addFnAttr(llvm::MicromipsAttr);
+    } else if (FD->hasAttr<NoMicroMipsAttr>()) {
+      Fn->addFnAttr(llvm::NoMicromipsAttr);
+    }
 
     const MipsInterruptAttr *Attr = FD->getAttr<MipsInterruptAttr>();
     if (!Attr)
@@ -7843,8 +7850,7 @@ public:
     case MipsInterruptAttr::hw5:     Kind = "hw5"; break;
     }
 
-    Fn->addFnAttr("interrupt", Kind);
-
+    Fn->addFnAttr(llvm::InterruptAttr, Kind);
   }
 
   bool initDwarfEHRegSizeTable(CodeGen::CodeGenFunction &CGF,
@@ -8277,11 +8283,13 @@ public:
     if (!FD) return;
     auto *Fn = cast<llvm::Function>(GV);
 
-    if (FD->getAttr<AVRInterruptAttr>())
-      Fn->addFnAttr("interrupt");
+    if (FD->getAttr<AVRInterruptAttr>()) {
+      Fn->addFnAttr(llvm::InterruptAttr);
+    }
 
-    if (FD->getAttr<AVRSignalAttr>())
-      Fn->addFnAttr("signal");
+    if (FD->getAttr<AVRSignalAttr>()) {
+      Fn->addFnAttr(llvm::SignalAttr);
+    }
   }
 };
 }
@@ -9206,12 +9214,13 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
   const bool IsHIPKernel = M.getLangOpts().HIP &&
                            FD->hasAttr<CUDAGlobalAttr>();
   if ((IsOpenCLKernel || IsHIPKernel) &&
-      (M.getTriple().getOS() == llvm::Triple::AMDHSA))
-    F->addFnAttr("amdgpu-implicitarg-num-bytes", "56");
+      (M.getTriple().getOS() == llvm::Triple::AMDHSA)) {
+    F->addFnAttr(llvm::AmdgpuImplicitargNumBytesAttr, "56");
+  }
 
-  if (IsHIPKernel)
-    F->addFnAttr("uniform-work-group-size", "true");
-
+  if (IsHIPKernel) {
+    F->addFnAttr(llvm::UniformWorkGroupSizeAttr, "true");
+  }
 
   const auto *FlatWGS = FD->getAttr<AMDGPUFlatWorkGroupSizeAttr>();
   if (ReqdWGS || FlatWGS) {
@@ -9232,7 +9241,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
       assert(Min <= Max && "Min must be less than or equal Max");
 
       std::string AttrVal = llvm::utostr(Min) + "," + llvm::utostr(Max);
-      F->addFnAttr("amdgpu-flat-work-group-size", AttrVal);
+      F->addFnAttr(llvm::AmdgpuFlatWorkGroupSizeAttr, AttrVal);
     } else
       assert(Max == 0 && "Max must be zero");
   } else if (IsOpenCLKernel || IsHIPKernel) {
@@ -9244,7 +9253,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
                        : M.getLangOpts().GPUMaxThreadsPerBlock;
     std::string AttrVal =
         std::string("1,") + llvm::utostr(DefaultMaxWorkGroupSize);
-    F->addFnAttr("amdgpu-flat-work-group-size", AttrVal);
+    F->addFnAttr(llvm::AmdgpuFlatWorkGroupSizeAttr, AttrVal);
   }
 
   if (const auto *Attr = FD->getAttr<AMDGPUWavesPerEUAttr>()) {
@@ -9261,7 +9270,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
       std::string AttrVal = llvm::utostr(Min);
       if (Max != 0)
         AttrVal = AttrVal + "," + llvm::utostr(Max);
-      F->addFnAttr("amdgpu-waves-per-eu", AttrVal);
+      F->addFnAttr(llvm::AmdgpuWavesPerEuAttr, AttrVal);
     } else
       assert(Max == 0 && "Max must be zero");
   }
@@ -9269,22 +9278,26 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
   if (const auto *Attr = FD->getAttr<AMDGPUNumSGPRAttr>()) {
     unsigned NumSGPR = Attr->getNumSGPR();
 
-    if (NumSGPR != 0)
-      F->addFnAttr("amdgpu-num-sgpr", llvm::utostr(NumSGPR));
+    if (NumSGPR != 0) {
+      F->addFnAttr(llvm::AmdgpuNumSgprAttr, llvm::utostr(NumSGPR));
+    }
   }
 
   if (const auto *Attr = FD->getAttr<AMDGPUNumVGPRAttr>()) {
     uint32_t NumVGPR = Attr->getNumVGPR();
 
-    if (NumVGPR != 0)
-      F->addFnAttr("amdgpu-num-vgpr", llvm::utostr(NumVGPR));
+    if (NumVGPR != 0) {
+      F->addFnAttr(llvm::AmdgpuNumVgprAttr, llvm::utostr(NumVGPR));
+    }
   }
 
-  if (M.getContext().getTargetInfo().allowAMDGPUUnsafeFPAtomics())
-    F->addFnAttr("amdgpu-unsafe-fp-atomics", "true");
+  if (M.getContext().getTargetInfo().allowAMDGPUUnsafeFPAtomics()) {
+    F->addFnAttr(llvm::AmdgpuUnsafeFpAtomicsAttr, "true");
+  }
 
-  if (!getABIInfo().getCodeGenOpts().EmitIEEENaNCompliantInsts)
-    F->addFnAttr("amdgpu-ieee", "false");
+  if (!getABIInfo().getCodeGenOpts().EmitIEEENaNCompliantInsts) {
+    F->addFnAttr(llvm::AmdgpuIeeeAttr, "false");
+  }
 }
 
 unsigned AMDGPUTargetCodeGenInfo::getOpenCLKernelCallingConv() const {
@@ -11016,7 +11029,7 @@ public:
 
     auto *Fn = cast<llvm::Function>(GV);
 
-    Fn->addFnAttr("interrupt", Kind);
+    Fn->addFnAttr(llvm::InterruptAttr, Kind);
   }
 };
 } // namespace
@@ -11367,7 +11380,7 @@ llvm::Function *AMDGPUTargetCodeGenInfo::createEnqueuedBlockKernel(
   auto *FT = llvm::FunctionType::get(llvm::Type::getVoidTy(C), ArgTys, false);
   auto *F = llvm::Function::Create(FT, llvm::GlobalValue::InternalLinkage, Name,
                                    &CGF.CGM.getModule());
-  F->addFnAttr("enqueued-block");
+  F->addFnAttr(llvm::EnqueuedBlockAttr);
   auto IP = CGF.Builder.saveIP();
   auto *BB = llvm::BasicBlock::Create(C, "entry", F);
   Builder.SetInsertPoint(BB);

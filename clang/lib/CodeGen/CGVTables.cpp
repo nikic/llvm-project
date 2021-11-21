@@ -562,8 +562,9 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
   // that the return type is meaningless. These thunks can be used to call
   // functions with differing return types, and the caller is required to cast
   // the prototype appropriately to extract the correct value.
-  if (IsUnprototyped)
-    ThunkFn->addFnAttr("thunk");
+  if (IsUnprototyped) {
+    ThunkFn->addFnAttr(llvm::ThunkAttr);
+  }
 
   CGM.SetLLVMFunctionAttributesForDefinition(GD.getDecl(), ThunkFn);
 

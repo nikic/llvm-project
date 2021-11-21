@@ -712,7 +712,7 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
          getLangOpts().GPUAllowDeviceInit);
   if (getLangOpts().HIP && getLangOpts().CUDAIsDevice) {
     Fn->setCallingConv(llvm::CallingConv::AMDGPU_KERNEL);
-    Fn->addFnAttr("device-init");
+    Fn->addFnAttr(llvm::DeviceInitAttr);
   }
 
   CXXGlobalInits.clear();

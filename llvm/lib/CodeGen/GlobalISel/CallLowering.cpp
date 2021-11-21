@@ -89,7 +89,7 @@ bool CallLowering::lowerCall(MachineIRBuilder &MIRBuilder, const CallBase &CB,
   bool CanBeTailCalled = CB.isTailCall() &&
                          isInTailCallPosition(CB, MF.getTarget()) &&
                          (MF.getFunction()
-                              .getFnAttribute("disable-tail-calls")
+                              .getFnAttribute(DisableTailCallsAttr)
                               .getValueAsString() != "true");
 
   CallingConv::ID CallConv = CB.getCallingConv();

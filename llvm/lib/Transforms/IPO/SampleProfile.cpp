@@ -932,7 +932,7 @@ bool SampleProfileLoader::tryPromoteAndInlineCandidate(
   // recursive. As llvm does not inline recursive calls, we will
   // simply ignore it instead of handling it explicitly.
   if (!R->getValue()->isDeclaration() && R->getValue()->getSubprogram() &&
-      R->getValue()->hasFnAttribute("use-sample-profile") &&
+      R->getValue()->hasFnAttribute(UseSampleProfileAttr) &&
       R->getValue() != &F && isLegalToPromote(CI, R->getValue(), &Reason)) {
     // For promoted target, set its value with NOMORE_ICP_MAGICNUM count
     // in the value profile metadata so the target won't be promoted again.
@@ -1108,7 +1108,7 @@ bool SampleProfileLoader::inlineHotFunctions(
   // Profile symbol list is ignored when profile-sample-accurate is on.
   assert((!ProfAccForSymsInList ||
           (!ProfileSampleAccurate &&
-           !F.hasFnAttribute("profile-sample-accurate"))) &&
+           !F.hasFnAttribute(ProfileSampleAccurateAttr))) &&
          "ProfAccForSymsInList should be false when profile-sample-accurate "
          "is enabled");
 
@@ -1432,7 +1432,7 @@ bool SampleProfileLoader::inlineHotFunctionsWithPriority(
   // Profile symbol list is ignored when profile-sample-accurate is on.
   assert((!ProfAccForSymsInList ||
           (!ProfileSampleAccurate &&
-           !F.hasFnAttribute("profile-sample-accurate"))) &&
+           !F.hasFnAttribute(ProfileSampleAccurateAttr))) &&
          "ProfAccForSymsInList should be false when profile-sample-accurate "
          "is enabled");
 
@@ -1765,7 +1765,7 @@ SampleProfileLoader::buildProfiledCallGraph(CallGraph &CG) {
   // gets a chance to be processed.
   for (auto &Node : CG) {
     const auto *F = Node.first;
-    if (!F || F->isDeclaration() || !F->hasFnAttribute("use-sample-profile"))
+    if (!F || F->isDeclaration() || !F->hasFnAttribute(UseSampleProfileAttr))
       continue;
     ProfiledCG->addProfiledFunction(FunctionSamples::getCanonicalFnName(*F));
   }
@@ -1793,7 +1793,7 @@ SampleProfileLoader::buildFunctionOrder(Module &M, CallGraph *CG) {
     }
 
     for (Function &F : M)
-      if (!F.isDeclaration() && F.hasFnAttribute("use-sample-profile"))
+      if (!F.isDeclaration() && F.hasFnAttribute(UseSampleProfileAttr))
         FunctionOrderList.push_back(&F);
     return FunctionOrderList;
   }
@@ -1855,7 +1855,7 @@ SampleProfileLoader::buildFunctionOrder(Module &M, CallGraph *CG) {
     while (!CGI.isAtEnd()) {
       for (ProfiledCallGraphNode *Node : *CGI) {
         Function *F = SymbolMap.lookup(Node->Name);
-        if (F && !F->isDeclaration() && F->hasFnAttribute("use-sample-profile"))
+        if (F && !F->isDeclaration() && F->hasFnAttribute(UseSampleProfileAttr))
           FunctionOrderList.push_back(F);
       }
       ++CGI;
@@ -1865,7 +1865,7 @@ SampleProfileLoader::buildFunctionOrder(Module &M, CallGraph *CG) {
     while (!CGI.isAtEnd()) {
       for (CallGraphNode *Node : *CGI) {
         auto *F = Node->getFunction();
-        if (F && !F->isDeclaration() && F->hasFnAttribute("use-sample-profile"))
+        if (F && !F->isDeclaration() && F->hasFnAttribute(UseSampleProfileAttr))
           FunctionOrderList.push_back(F);
       }
       ++CGI;
@@ -2056,7 +2056,7 @@ bool SampleProfileLoader::runOnFunction(Function &F, ModuleAnalysisManager *AM) 
   uint64_t initialEntryCount = -1;
 
   ProfAccForSymsInList = ProfileAccurateForSymsInList && PSL;
-  if (ProfileSampleAccurate || F.hasFnAttribute("profile-sample-accurate")) {
+  if (ProfileSampleAccurate || F.hasFnAttribute(ProfileSampleAccurateAttr)) {
     // initialize all the function entry counts to 0. It means all the
     // functions without profile will be regarded as cold.
     initialEntryCount = 0;

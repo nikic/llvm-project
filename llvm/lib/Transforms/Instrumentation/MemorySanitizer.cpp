@@ -4196,7 +4196,7 @@ struct VarArgAMD64Helper : public VarArgHelper {
     AMD64FpEndOffset = AMD64FpEndOffsetSSE;
     for (const auto &Attr : F.getAttributes().getFnAttrs()) {
       if (Attr.isStringAttribute() &&
-          (Attr.getKindAsString() == "target-features")) {
+          (Attr.getKindAsKey().value() == "target-features")) {
         if (Attr.getValueAsString().contains("-sse"))
           AMD64FpEndOffset = AMD64FpEndOffsetNoSSE;
         break;
@@ -5071,7 +5071,7 @@ struct VarArgSystemZHelper : public VarArgHelper {
 
   void visitCallBase(CallBase &CB, IRBuilder<> &IRB) override {
     bool IsSoftFloatABI = CB.getCalledFunction()
-                              ->getFnAttribute("use-soft-float")
+                              ->getFnAttribute(UseSoftFloatAttr)
                               .getValueAsBool();
     unsigned GpOffset = SystemZGpOffset;
     unsigned FpOffset = SystemZFpOffset;

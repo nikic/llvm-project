@@ -144,15 +144,15 @@ void XRayInstrumentation::prependRetWithPatchableExit(
 
 bool XRayInstrumentation::runOnMachineFunction(MachineFunction &MF) {
   auto &F = MF.getFunction();
-  auto InstrAttr = F.getFnAttribute("function-instrument");
+  auto InstrAttr = F.getFnAttribute(FunctionInstrumentAttr);
   bool AlwaysInstrument = InstrAttr.isStringAttribute() &&
                           InstrAttr.getValueAsString() == "xray-always";
   bool NeverInstrument = InstrAttr.isStringAttribute() &&
                          InstrAttr.getValueAsString() == "xray-never";
   if (NeverInstrument && !AlwaysInstrument)
     return false;
-  auto ThresholdAttr = F.getFnAttribute("xray-instruction-threshold");
-  auto IgnoreLoopsAttr = F.getFnAttribute("xray-ignore-loops");
+  auto ThresholdAttr = F.getFnAttribute(XrayInstructionThresholdAttr);
+  auto IgnoreLoopsAttr = F.getFnAttribute(XrayIgnoreLoopsAttr);
   unsigned int XRayThreshold = 0;
   if (!AlwaysInstrument) {
     if (!ThresholdAttr.isStringAttribute())
@@ -214,14 +214,14 @@ bool XRayInstrumentation::runOnMachineFunction(MachineFunction &MF) {
     return false;
   }
 
-  if (!F.hasFnAttribute("xray-skip-entry")) {
+  if (!F.hasFnAttribute(XraySkipEntryAttr)) {
     // First, insert an PATCHABLE_FUNCTION_ENTER as the first instruction of the
     // MachineFunction.
     BuildMI(FirstMBB, FirstMI, FirstMI.getDebugLoc(),
             TII->get(TargetOpcode::PATCHABLE_FUNCTION_ENTER));
   }
 
-  if (!F.hasFnAttribute("xray-skip-exit")) {
+  if (!F.hasFnAttribute(XraySkipExitAttr)) {
     switch (MF.getTarget().getTargetTriple().getArch()) {
     case Triple::ArchType::arm:
     case Triple::ArchType::thumb:

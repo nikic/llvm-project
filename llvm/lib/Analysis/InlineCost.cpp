@@ -138,7 +138,7 @@ class InlineCostCallAnalyzer;
 /// This function behaves more like CallBase::hasFnAttr: when it looks for the
 /// requested attribute, it check both the call instruction and the called
 /// function (if it's available and operand bundles don't prohibit that).
-Attribute getFnAttr(CallBase &CB, StringRef AttrKind) {
+Attribute getFnAttr(CallBase &CB, AttributeKey AttrKind) {
   Attribute CallAttr = CB.getFnAttr(AttrKind);
   if (CallAttr.isValid())
     return CallAttr;
@@ -152,7 +152,7 @@ Attribute getFnAttr(CallBase &CB, StringRef AttrKind) {
   return {};
 }
 
-Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind) {
+Optional<int> getStringFnAttrAsInt(CallBase &CB, AttributeKey AttrKind) {
   Attribute Attr = getFnAttr(CB, AttrKind);
   int AttrValue;
   if (Attr.getValueAsString().getAsInteger(10, AttrValue))
@@ -599,11 +599,11 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
   bool onCallBaseVisitStart(CallBase &Call) override {
     if (Optional<int> AttrCallThresholdBonus =
-            getStringFnAttrAsInt(Call, "call-threshold-bonus"))
+            getStringFnAttrAsInt(Call, CallThresholdBonus))
       Threshold += *AttrCallThresholdBonus;
 
     if (Optional<int> AttrCallCost =
-            getStringFnAttrAsInt(Call, "call-inline-cost")) {
+            getStringFnAttrAsInt(Call, CallInlineCost)) {
       addCost(*AttrCallCost);
       // Prevent further processing of the call since we want to override its
       // inline cost, not just add to it.
@@ -902,11 +902,11 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       Threshold -= VectorBonus / 2;
 
     if (Optional<int> AttrCost =
-            getStringFnAttrAsInt(CandidateCall, "function-inline-cost"))
+            getStringFnAttrAsInt(CandidateCall, FunctionInlineCost))
       Cost = *AttrCost;
 
     if (Optional<int> AttrThreshold =
-            getStringFnAttrAsInt(CandidateCall, "function-inline-threshold"))
+            getStringFnAttrAsInt(CandidateCall, FunctionInlineThreshold))
       Threshold = *AttrThreshold;
 
     if (auto Result = costBenefitAnalysis()) {

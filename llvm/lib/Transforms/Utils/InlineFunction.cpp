@@ -1506,7 +1506,7 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
 
   // Check if we are not generating inline line tables and want to use
   // the call site location instead.
-  bool NoInlineLineTables = Fn->hasFnAttribute("no-inline-line-tables");
+  bool NoInlineLineTables = Fn->hasFnAttribute(NoInlineLineTablesAttr);
 
   for (; FI != Fn->end(); ++FI) {
     for (BasicBlock::iterator BI = FI->begin(), BE = FI->end();

@@ -2058,7 +2058,7 @@ MicrosoftCXXABI::EmitVirtualMemPtrThunk(const CXXMethodDecl *MD,
   // meaningless. These thunks can be used to call functions with differing
   // return types, and the caller is required to cast the prototype
   // appropriately to extract the correct value.
-  ThunkFn->addFnAttr("thunk");
+  ThunkFn->addFnAttr(llvm::ThunkAttr);
 
   // These thunks can be compared, so they are not unnamed.
   ThunkFn->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::None);

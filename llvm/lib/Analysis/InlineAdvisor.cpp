@@ -348,7 +348,7 @@ void llvm::setInlineRemark(CallBase &CB, StringRef Message) {
   if (!InlineRemarkAttribute)
     return;
 
-  Attribute Attr = Attribute::get(CB.getContext(), "inline-remark", Message);
+  Attribute Attr = Attribute::get(CB.getContext(), InlineRemarkAttr, Message);
   CB.addFnAttr(Attr);
 }
 

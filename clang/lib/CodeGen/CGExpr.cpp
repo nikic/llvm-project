@@ -3494,7 +3494,7 @@ void CodeGenFunction::EmitTrapCheck(llvm::Value *Checked,
                            llvm::ConstantInt::get(CGM.Int8Ty, CheckHandlerID));
 
     if (!CGM.getCodeGenOpts().TrapFuncName.empty()) {
-      auto A = llvm::Attribute::get(getLLVMContext(), "trap-func-name",
+      auto A = llvm::Attribute::get(getLLVMContext(), llvm::TrapFuncNameAttr,
                                     CGM.getCodeGenOpts().TrapFuncName);
       TrapCall->addFnAttr(A);
     }
@@ -3518,7 +3518,7 @@ llvm::CallInst *CodeGenFunction::EmitTrapCall(llvm::Intrinsic::ID IntrID) {
       Builder.CreateCall(CGM.getIntrinsic(IntrID));
 
   if (!CGM.getCodeGenOpts().TrapFuncName.empty()) {
-    auto A = llvm::Attribute::get(getLLVMContext(), "trap-func-name",
+    auto A = llvm::Attribute::get(getLLVMContext(), llvm::TrapFuncNameAttr,
                                   CGM.getCodeGenOpts().TrapFuncName);
     TrapCall->addFnAttr(A);
   }

@@ -162,20 +162,20 @@ void CodeGenFunction::CGFPOptionsRAII::ConstructorHelper(FPOptions FPFeatures) {
            NewRoundingBehavior == llvm::RoundingMode::NearestTiesToEven)) &&
          "FPConstrained should be enabled on entire function");
 
-  auto mergeFnAttrValue = [&](StringRef Name, bool Value) {
+  auto mergeFnAttrValue = [&](llvm::AttributeKey Name, bool Value) {
     auto OldValue =
         CGF.CurFn->getFnAttribute(Name).getValueAsBool();
     auto NewValue = OldValue & Value;
     if (OldValue != NewValue)
       CGF.CurFn->addFnAttr(Name, llvm::toStringRef(NewValue));
   };
-  mergeFnAttrValue("no-infs-fp-math", FPFeatures.getNoHonorInfs());
-  mergeFnAttrValue("no-nans-fp-math", FPFeatures.getNoHonorNaNs());
-  mergeFnAttrValue("no-signed-zeros-fp-math", FPFeatures.getNoSignedZero());
-  mergeFnAttrValue("unsafe-fp-math", FPFeatures.getAllowFPReassociate() &&
-                                         FPFeatures.getAllowReciprocal() &&
-                                         FPFeatures.getAllowApproxFunc() &&
-                                         FPFeatures.getNoSignedZero());
+  mergeFnAttrValue(llvm::NoInfsFPMathAttr, FPFeatures.getNoHonorInfs());
+  mergeFnAttrValue(llvm::NoNansFPMathAttr, FPFeatures.getNoHonorNaNs());
+  mergeFnAttrValue(llvm::NoSignedZerosFPMathAttr, FPFeatures.getNoSignedZero());
+  mergeFnAttrValue(
+      llvm::UnsafeFPMathAttr,
+      FPFeatures.getAllowFPReassociate() && FPFeatures.getAllowReciprocal() &&
+          FPFeatures.getAllowApproxFunc() && FPFeatures.getNoSignedZero());
 }
 
 CodeGenFunction::CGFPOptionsRAII::~CGFPOptionsRAII() {
@@ -375,11 +375,14 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   llvm::DebugLoc Loc = EmitReturnBlock();
 
   if (ShouldInstrumentFunction()) {
-    if (CGM.getCodeGenOpts().InstrumentFunctions)
-      CurFn->addFnAttr("instrument-function-exit", "__cyg_profile_func_exit");
-    if (CGM.getCodeGenOpts().InstrumentFunctionsAfterInlining)
-      CurFn->addFnAttr("instrument-function-exit-inlined",
+    if (CGM.getCodeGenOpts().InstrumentFunctions) {
+      CurFn->addFnAttr(llvm::InstrumentFunctionExitAttr,
                        "__cyg_profile_func_exit");
+    }
+    if (CGM.getCodeGenOpts().InstrumentFunctionsAfterInlining) {
+      CurFn->addFnAttr(llvm::InstrumentFunctionExitInlinedAttr,
+                       "__cyg_profile_func_exit");
+    }
   }
 
   if (ShouldSkipSanitizerInstrumentation())
@@ -494,7 +497,8 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   // 4. Width of vector arguments and return types for this function.
   // 5. Width of vector aguments and return types for functions called by this
   //    function.
-  CurFn->addFnAttr("min-legal-vector-width", llvm::utostr(LargestVectorWidth));
+  CurFn->addFnAttr(llvm::MinLegalVectorWidthAttr,
+                   llvm::utostr(LargestVectorWidth));
 
   // Add vscale_range attribute if appropriate.
   Optional<std::pair<unsigned, unsigned>> VScaleRange =
@@ -664,7 +668,7 @@ static bool endsWithReturn(const Decl* F) {
 
 void CodeGenFunction::markAsIgnoreThreadCheckingAtRuntime(llvm::Function *Fn) {
   if (SanOpts.has(SanitizerKind::Thread)) {
-    Fn->addFnAttr("sanitize_thread_no_checking_at_run_time");
+    Fn->addFnAttr(llvm::SanitizeThreadNoCheckingAtRunTimeAttr);
     Fn->removeFnAttr(llvm::Attribute::SanitizeThread);
   }
 }
@@ -823,34 +827,39 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
         CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
             XRayInstrKind::FunctionExit)) {
       if (XRayAttr->alwaysXRayInstrument() && ShouldXRayInstrumentFunction()) {
-        Fn->addFnAttr("function-instrument", "xray-always");
+        Fn->addFnAttr(llvm::FunctionInstrumentAttr, "xray-always");
         AlwaysXRayAttr = true;
       }
       if (XRayAttr->neverXRayInstrument())
-        Fn->addFnAttr("function-instrument", "xray-never");
+        Fn->addFnAttr(llvm::FunctionInstrumentAttr, "xray-never");
       if (const auto *LogArgs = D->getAttr<XRayLogArgsAttr>())
-        if (ShouldXRayInstrumentFunction())
-          Fn->addFnAttr("xray-log-args",
+        if (ShouldXRayInstrumentFunction()) {
+          Fn->addFnAttr(llvm::XrayLogArgsAttr,
                         llvm::utostr(LogArgs->getArgumentCount()));
+        }
     }
   } else {
-    if (ShouldXRayInstrumentFunction() && !CGM.imbueXRayAttrs(Fn, Loc))
+    if (ShouldXRayInstrumentFunction() && !CGM.imbueXRayAttrs(Fn, Loc)) {
       Fn->addFnAttr(
-          "xray-instruction-threshold",
+          llvm::XrayInstructionThresholdAttr,
           llvm::itostr(CGM.getCodeGenOpts().XRayInstructionThreshold));
+    }
   }
 
   if (ShouldXRayInstrumentFunction()) {
-    if (CGM.getCodeGenOpts().XRayIgnoreLoops)
-      Fn->addFnAttr("xray-ignore-loops");
+    if (CGM.getCodeGenOpts().XRayIgnoreLoops) {
+      Fn->addFnAttr(llvm::XrayIgnoreLoopsAttr);
+    }
 
     if (!CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
-            XRayInstrKind::FunctionExit))
-      Fn->addFnAttr("xray-skip-exit");
+            XRayInstrKind::FunctionExit)) {
+      Fn->addFnAttr(llvm::XraySkipExitAttr);
+    }
 
     if (!CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
-            XRayInstrKind::FunctionEntry))
-      Fn->addFnAttr("xray-skip-entry");
+            XRayInstrKind::FunctionEntry)) {
+      Fn->addFnAttr(llvm::XraySkipEntryAttr);
+    }
 
     auto FuncGroups = CGM.getCodeGenOpts().XRayTotalFunctionGroups;
     if (FuncGroups > 1) {
@@ -858,8 +867,9 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
           CurFn->getName().bytes_begin(), CurFn->getName().bytes_end());
       auto Group = crc32(FuncName) % FuncGroups;
       if (Group != CGM.getCodeGenOpts().XRaySelectedFunctionGroup &&
-          !AlwaysXRayAttr)
-        Fn->addFnAttr("function-instrument", "xray-never");
+          !AlwaysXRayAttr) {
+        Fn->addFnAttr(llvm::FunctionInstrumentAttr, "xray-never");
+      }
     }
   }
 
@@ -877,28 +887,35 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     Offset = CGM.getCodeGenOpts().PatchableFunctionEntryOffset;
   }
   if (Count && Offset <= Count) {
-    Fn->addFnAttr("patchable-function-entry", std::to_string(Count - Offset));
-    if (Offset)
-      Fn->addFnAttr("patchable-function-prefix", std::to_string(Offset));
+    Fn->addFnAttr(llvm::PatchableFunctionEntryAttr,
+                  std::to_string(Count - Offset));
+    if (Offset) {
+      Fn->addFnAttr(llvm::PatchableFunctionPrefixAttr, std::to_string(Offset));
+    }
   }
 
   // Add no-jump-tables value.
-  if (CGM.getCodeGenOpts().NoUseJumpTables)
-    Fn->addFnAttr("no-jump-tables", "true");
+  if (CGM.getCodeGenOpts().NoUseJumpTables) {
+    Fn->addFnAttr(llvm::NoJumpTablesAttr, "true");
+  }
 
   // Add no-inline-line-tables value.
-  if (CGM.getCodeGenOpts().NoInlineLineTables)
-    Fn->addFnAttr("no-inline-line-tables");
+  if (CGM.getCodeGenOpts().NoInlineLineTables) {
+    Fn->addFnAttr(llvm::NoInlineLineTablesAttr);
+  }
 
   // Add profile-sample-accurate value.
-  if (CGM.getCodeGenOpts().ProfileSampleAccurate)
-    Fn->addFnAttr("profile-sample-accurate");
+  if (CGM.getCodeGenOpts().ProfileSampleAccurate) {
+    Fn->addFnAttr(llvm::ProfileSampleAccurateAttr);
+  }
 
-  if (!CGM.getCodeGenOpts().SampleProfileFile.empty())
-    Fn->addFnAttr("use-sample-profile");
+  if (!CGM.getCodeGenOpts().SampleProfileFile.empty()) {
+    Fn->addFnAttr(llvm::UseSampleProfileAttr);
+  }
 
-  if (D && D->hasAttr<CFICanonicalJumpTableAttr>())
-    Fn->addFnAttr("cfi-canonical-jump-table");
+  if (D && D->hasAttr<CFICanonicalJumpTableAttr>()) {
+    Fn->addFnAttr(llvm::CfiCanonicalJumpTablesAttr);
+  }
 
   if (D && D->hasAttr<NoProfileFunctionAttr>())
     Fn->addFnAttr(llvm::Attribute::NoProfile);
@@ -970,8 +987,9 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   // If a custom alignment is used, force realigning to this alignment on
   // any main function which certainly will need it.
   if (FD && ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
-             CGM.getCodeGenOpts().StackAlignment))
-    Fn->addFnAttr("stackrealign");
+             CGM.getCodeGenOpts().StackAlignment)) {
+    Fn->addFnAttr(llvm::StackrealignAttr);
+  }
 
   llvm::BasicBlock *EntryBB = createBasicBlock("entry", CurFn);
 
@@ -1004,14 +1022,18 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   }
 
   if (ShouldInstrumentFunction()) {
-    if (CGM.getCodeGenOpts().InstrumentFunctions)
-      CurFn->addFnAttr("instrument-function-entry", "__cyg_profile_func_enter");
-    if (CGM.getCodeGenOpts().InstrumentFunctionsAfterInlining)
-      CurFn->addFnAttr("instrument-function-entry-inlined",
+    if (CGM.getCodeGenOpts().InstrumentFunctions) {
+      CurFn->addFnAttr(llvm::InstrumentFunctionEntryAttr,
                        "__cyg_profile_func_enter");
-    if (CGM.getCodeGenOpts().InstrumentFunctionEntryBare)
-      CurFn->addFnAttr("instrument-function-entry-inlined",
+    }
+    if (CGM.getCodeGenOpts().InstrumentFunctionsAfterInlining) {
+      CurFn->addFnAttr(llvm::InstrumentFunctionEntryInlinedAttr,
+                       "__cyg_profile_func_enter");
+    }
+    if (CGM.getCodeGenOpts().InstrumentFunctionEntryBare) {
+      CurFn->addFnAttr(llvm::InstrumentFunctionEntryInlinedAttr,
                        "__cyg_profile_func_enter_bare");
+    }
   }
 
   // Since emitting the mcount call here impacts optimizations such as function
@@ -1022,24 +1044,25 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     // Calls to fentry/mcount should not be generated if function has
     // the no_instrument_function attribute.
     if (!CurFuncDecl || !CurFuncDecl->hasAttr<NoInstrumentFunctionAttr>()) {
-      if (CGM.getCodeGenOpts().CallFEntry)
-        Fn->addFnAttr("fentry-call", "true");
-      else {
-        Fn->addFnAttr("instrument-function-entry-inlined",
+      if (CGM.getCodeGenOpts().CallFEntry) {
+        Fn->addFnAttr(llvm::FentryCallAttr, "true");
+      } else {
+        Fn->addFnAttr(llvm::InstrumentFunctionEntryInlinedAttr,
                       getTarget().getMCountName());
       }
+
       if (CGM.getCodeGenOpts().MNopMCount) {
         if (!CGM.getCodeGenOpts().CallFEntry)
           CGM.getDiags().Report(diag::err_opt_not_valid_without_opt)
             << "-mnop-mcount" << "-mfentry";
-        Fn->addFnAttr("mnop-mcount");
+        Fn->addFnAttr(llvm::MnopMcountAttr);
       }
 
       if (CGM.getCodeGenOpts().RecordMCount) {
         if (!CGM.getCodeGenOpts().CallFEntry)
           CGM.getDiags().Report(diag::err_opt_not_valid_without_opt)
             << "-mrecord-mcount" << "-mfentry";
-        Fn->addFnAttr("mrecord-mcount");
+        Fn->addFnAttr(llvm::MrecordMcountAttr);
       }
     }
   }
@@ -1049,13 +1072,14 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
         llvm::Triple::systemz)
       CGM.getDiags().Report(diag::err_opt_not_valid_on_target)
         << "-mpacked-stack";
-    Fn->addFnAttr("packed-stack");
+    Fn->addFnAttr(llvm::PackedStackAttr);
   }
 
   if (CGM.getCodeGenOpts().WarnStackSize != UINT_MAX &&
-      !CGM.getDiags().isIgnored(diag::warn_fe_backend_frame_larger_than, Loc))
-    Fn->addFnAttr("warn-stack-size",
+      !CGM.getDiags().isIgnored(diag::warn_fe_backend_frame_larger_than, Loc)) {
+    Fn->addFnAttr(llvm::WarnStackSizeAttr,
                   std::to_string(CGM.getCodeGenOpts().WarnStackSize));
+  }
 
   if (RetTy->isVoidType()) {
     // Void type; nothing to return.

@@ -287,12 +287,12 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
 
   // If attribute NoCallerSavedRegisters exists then we set X86_INTR calling
   // convention because it has the CSR list.
-  if (MF->getFunction().hasFnAttribute("no_caller_saved_registers"))
+  if (MF->getFunction().hasFnAttribute(NoCallerSavedRegistersAttr))
     CC = CallingConv::X86_INTR;
 
   // If atribute specified, override the CSRs normally specified by the
   // calling convention and use the empty set instead.
-  if (MF->getFunction().hasFnAttribute("no_callee_saved_registers"))
+  if (MF->getFunction().hasFnAttribute(NoCalleeSavedRegistersAttr))
     return CSR_NoRegs_SaveList;
 
   switch (CC) {

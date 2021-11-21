@@ -2891,7 +2891,7 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
   // If this is a call to a thunk function, don't remove the cast. Thunks are
   // used to transparently forward all incoming parameters and outgoing return
   // values, so it's important to leave the cast in place.
-  if (Callee->hasFnAttribute("thunk"))
+  if (Callee->hasFnAttribute(ThunkAttr))
     return false;
 
   // If this is a musttail call, the callee's prototype must match the caller's

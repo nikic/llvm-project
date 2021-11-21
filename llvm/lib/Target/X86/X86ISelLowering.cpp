@@ -2916,7 +2916,7 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // For example, when they are used for argument passing.
   bool ShouldDisableCalleeSavedRegister =
       CallConv == CallingConv::X86_RegCall ||
-      MF.getFunction().hasFnAttribute("no_caller_saved_registers");
+      MF.getFunction().hasFnAttribute(NoCallerSavedRegistersAttr);
 
   if (CallConv == CallingConv::X86_INTR && !Outs.empty())
     report_fatal_error("X86 interrupts may not return any value");
@@ -4063,7 +4063,7 @@ SDValue X86TargetLowering::LowerFormalArguments(
   }
 
   if (CallConv == CallingConv::X86_RegCall ||
-      F.hasFnAttribute("no_caller_saved_registers")) {
+      F.hasFnAttribute(NoCallerSavedRegistersAttr)) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
     for (std::pair<Register, Register> Pair : MRI.liveins())
       MRI.disableCalleeSavedRegister(Pair.first);
@@ -4158,8 +4158,8 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       CallConv == CallingConv::Tail || CallConv == CallingConv::SwiftTail;
   bool IsCalleePopSRet = !IsGuaranteeTCO && hasCalleePopSRet(Outs, Subtarget);
   X86MachineFunctionInfo *X86Info = MF.getInfo<X86MachineFunctionInfo>();
-  bool HasNCSR = (CB && isa<CallInst>(CB) &&
-                  CB->hasFnAttr("no_caller_saved_registers"));
+  bool HasNCSR =
+      (CB && isa<CallInst>(CB) && CB->hasFnAttr(NoCallerSavedRegistersAttr));
   bool HasNoCfCheck = (CB && CB->doesNoCfCheck());
   bool IsIndirectCall = (CB && isa<CallInst>(CB) && CB->isIndirectCall());
   const Module *M = MF.getMMI().getModule();
@@ -4593,7 +4593,7 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       AdaptedCC = (CallingConv::ID)CallingConv::X86_INTR;
     // If NoCalleeSavedRegisters is requested, than use GHC since it happens
     // to use the CSR_NoRegs_RegMask.
-    if (CB && CB->hasFnAttr("no_callee_saved_registers"))
+    if (CB && CB->hasFnAttr(NoCalleeSavedRegistersAttr))
       AdaptedCC = (CallingConv::ID)CallingConv::GHC;
     return RegInfo->getCallPreservedMask(MF, AdaptedCC);
   }();
@@ -54379,12 +54379,12 @@ bool X86TargetLowering::hasInlineStackProbe(MachineFunction &MF) const {
 
   // No inline stack probe for Windows, they have their own mechanism.
   if (Subtarget.isOSWindows() ||
-      MF.getFunction().hasFnAttribute("no-stack-arg-probe"))
+      MF.getFunction().hasFnAttribute(NoStackArgProbeAttr))
     return false;
 
   // If the function specifically requests inline stack probes, emit them.
-  if (MF.getFunction().hasFnAttribute("probe-stack"))
-    return MF.getFunction().getFnAttribute("probe-stack").getValueAsString() ==
+  if (MF.getFunction().hasFnAttribute(ProbeStackAttr))
+    return MF.getFunction().getFnAttribute(ProbeStackAttr).getValueAsString() ==
            "inline-asm";
 
   return false;
@@ -54399,13 +54399,13 @@ X86TargetLowering::getStackProbeSymbolName(MachineFunction &MF) const {
     return "";
 
   // If the function specifically requests stack probes, emit them.
-  if (MF.getFunction().hasFnAttribute("probe-stack"))
-    return MF.getFunction().getFnAttribute("probe-stack").getValueAsString();
+  if (MF.getFunction().hasFnAttribute(ProbeStackAttr))
+    return MF.getFunction().getFnAttribute(ProbeStackAttr).getValueAsString();
 
   // Generally, if we aren't on Windows, the platform ABI does not include
   // support for stack probes, so don't emit them.
   if (!Subtarget.isOSWindows() || Subtarget.isTargetMachO() ||
-      MF.getFunction().hasFnAttribute("no-stack-arg-probe"))
+      MF.getFunction().hasFnAttribute(NoStackArgProbeAttr))
     return "";
 
   // We need a stack probe to conform to the Windows ABI. Choose the right
@@ -54421,8 +54421,8 @@ X86TargetLowering::getStackProbeSize(MachineFunction &MF) const {
   // attribute.
   unsigned StackProbeSize = 4096;
   const Function &Fn = MF.getFunction();
-  if (Fn.hasFnAttribute("stack-probe-size"))
-    Fn.getFnAttribute("stack-probe-size")
+  if (Fn.hasFnAttribute(StackProbeSizeAttr))
+    Fn.getFnAttribute(StackProbeSizeAttr)
         .getValueAsString()
         .getAsInteger(0, StackProbeSize);
   return StackProbeSize;

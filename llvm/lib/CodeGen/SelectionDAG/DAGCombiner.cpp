@@ -14727,7 +14727,7 @@ static SDValue foldFPToIntToFP(SDNode *N, SelectionDAG &DAG,
   // unexpected results. Ie, programs may be relying on the platform-specific
   // undefined behavior when the float-to-int conversion overflows.
   const Function &F = DAG.getMachineFunction().getFunction();
-  Attribute StrictOverflow = F.getFnAttribute("strict-float-cast-overflow");
+  Attribute StrictOverflow = F.getFnAttribute(StrictFloatCastOverflowAttr);
   if (StrictOverflow.getValueAsString().equals("false"))
     return SDValue();
 

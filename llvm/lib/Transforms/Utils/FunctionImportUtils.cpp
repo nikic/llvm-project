@@ -243,7 +243,7 @@ void FunctionImportGlobalProcessing::processGlobalForThinLTO(GlobalValue &GV) {
           ImportIndex.findSummaryInModule(VI, M.getModuleIdentifier()));
       if (GVS &&
           (ImportIndex.isReadOnly(GVS) || ImportIndex.isWriteOnly(GVS))) {
-        V->addAttribute("thinlto-internalize");
+        V->addAttribute(ThinltoInternalizeAttr);
         // Objects referenced by writeonly GV initializer should not be
         // promoted, because there is no any kind of read access to them
         // on behalf of this writeonly GV. To avoid promotion we convert

@@ -57,7 +57,7 @@ bool Lowerer::lowerRemainingCoroIntrinsics(Function &F) {
   bool Changed = false;
 
   bool IsPrivateAndUnprocessed =
-      F.hasFnAttribute(CORO_PRESPLIT_ATTR) && F.hasLocalLinkage();
+      F.hasFnAttribute(CoroutinePresplitAttr) && F.hasLocalLinkage();
 
   for (Instruction &I : llvm::make_early_inc_range(instructions(F))) {
     if (auto *II = dyn_cast<IntrinsicInst>(&I)) {

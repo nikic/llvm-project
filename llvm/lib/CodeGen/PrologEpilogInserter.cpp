@@ -275,9 +275,9 @@ bool PEI::runOnMachineFunction(MachineFunction &MF) {
   uint64_t StackSize = MFI.getStackSize();
 
   unsigned Threshold = UINT_MAX;
-  if (MF.getFunction().hasFnAttribute("warn-stack-size")) {
+  if (MF.getFunction().hasFnAttribute(WarnStackSizeAttr)) {
     bool Failed = MF.getFunction()
-                      .getFnAttribute("warn-stack-size")
+                      .getFnAttribute(WarnStackSizeAttr)
                       .getValueAsString()
                       .getAsInteger(10, Threshold);
     // Verifier should have caught this.

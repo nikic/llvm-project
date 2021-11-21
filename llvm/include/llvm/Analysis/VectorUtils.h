@@ -189,9 +189,6 @@ std::string mangleTLIVectorName(StringRef VectorName, StringRef ScalarName,
 /// Retrieve the `VFParamKind` from a string token.
 VFParamKind getVFParamKindFromString(const StringRef Token);
 
-// Name of the attribute where the variant mappings are stored.
-static constexpr char const *MappingsAttrName = "vector-function-abi-variant";
-
 /// Populates a set of strings representing the Vector Function ABI variants
 /// associated to the CallInst CI. If the CI does not contain the
 /// vector-function-abi-variant attribute, we return without populating

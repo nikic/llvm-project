@@ -420,7 +420,7 @@ Function *WinEHStatePass::generateLSDAInEAXThunk(Function *ParentFunc) {
 void WinEHStatePass::linkExceptionRegistration(IRBuilder<> &Builder,
                                                Function *Handler) {
   // Emit the .safeseh directive for this function.
-  Handler->addFnAttr("safeseh");
+  Handler->addFnAttr(SafesehAttr);
 
   Type *LinkTy = getEHLinkRegistrationType();
   // Handler = Handler

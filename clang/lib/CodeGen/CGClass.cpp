@@ -1691,7 +1691,7 @@ namespace {
         return;
 
       // Prevent the current stack frame from disappearing from the stack trace.
-      CGF.CurFn->addFnAttr("disable-tail-calls", "true");
+      CGF.CurFn->addFnAttr(llvm::DisableTailCallsAttr, "true");
 
       // Construct pointer to region to begin poisoning, and calculate poison
       // size, so that only members declared in this class are poisoned.

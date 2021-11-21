@@ -6611,13 +6611,13 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
   int32_t DefaultValTeams = -1;
   getNumTeamsExprForTargetDirective(CGF, D, DefaultValTeams);
   if (DefaultValTeams > 0) {
-    OutlinedFn->addFnAttr("omp_target_num_teams",
+    OutlinedFn->addFnAttr(llvm::OmpTargetNumTeamsAttr,
                           std::to_string(DefaultValTeams));
   }
   int32_t DefaultValThreads = -1;
   getNumThreadsExprForTargetDirective(CGF, D, DefaultValThreads);
   if (DefaultValThreads > 0) {
-    OutlinedFn->addFnAttr("omp_target_thread_limit",
+    OutlinedFn->addFnAttr(llvm::OmpTargetThreadLimitAttr,
                           std::to_string(DefaultValThreads));
   }
 }
@@ -11644,7 +11644,7 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
           Out << 'a' << ParamAttr.Alignment;
       }
       Out << '_' << Fn->getName();
-      Fn->addFnAttr(Out.str());
+      Fn->addFnAttr(llvm::AttributeKey::Create(Out.str()));
     }
   }
 }
@@ -11802,7 +11802,7 @@ static void addAArch64VectorName(T VLEN, StringRef LMask, StringRef Prefix,
   if (OutputBecomesInput)
     Out << "v";
   Out << ParSeq << "_" << MangledName;
-  Fn->addFnAttr(Out.str());
+  Fn->addFnAttr(llvm::AttributeKey::Create(Out.str()));
 }
 
 // Helper function to generate the Advanced SIMD names depending on

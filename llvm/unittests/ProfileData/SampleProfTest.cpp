@@ -359,7 +359,7 @@ struct SampleProfTest : ::testing::Test {
     auto Inserted = M->getOrInsertFunction(Fname, FnType);
     auto Fcn = cast<Function>(Inserted.getCallee());
     if (Policy != "")
-      Fcn->addFnAttr("sample-profile-suffix-elision-policy", Policy);
+      Fcn->addFnAttr(SampleProfileSuffixElisionPolicyAttr, Policy);
   }
 
   void setupModuleForElisionTest(Module *M, StringRef Policy) {

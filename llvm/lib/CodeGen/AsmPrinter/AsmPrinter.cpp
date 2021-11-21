@@ -776,10 +776,10 @@ void AsmPrinter::emitFunctionHeader() {
   // place prefix data before NOPs.
   unsigned PatchableFunctionPrefix = 0;
   unsigned PatchableFunctionEntry = 0;
-  (void)F.getFnAttribute("patchable-function-prefix")
+  (void)F.getFnAttribute(PatchableFunctionPrefixAttr)
       .getValueAsString()
       .getAsInteger(10, PatchableFunctionPrefix);
-  (void)F.getFnAttribute("patchable-function-entry")
+  (void)F.getFnAttribute(PatchableFunctionEntryAttr)
       .getValueAsString()
       .getAsInteger(10, PatchableFunctionEntry);
   if (PatchableFunctionPrefix) {
@@ -2002,9 +2002,9 @@ void AsmPrinter::SetupMachineFunction(MachineFunction &MF) {
   MBBSectionRanges.clear();
   MBBSectionExceptionSyms.clear();
   bool NeedsLocalForSize = MAI->needsLocalForSize();
-  if (F.hasFnAttribute("patchable-function-entry") ||
-      F.hasFnAttribute("function-instrument") ||
-      F.hasFnAttribute("xray-instruction-threshold") ||
+  if (F.hasFnAttribute(PatchableFunctionEntryAttr) ||
+      F.hasFnAttribute(FunctionInstrumentAttr) ||
+      F.hasFnAttribute(XrayInstructionThresholdAttr) ||
       needFuncLabelsForEHOrDebugInfo(MF) || NeedsLocalForSize ||
       MF.getTarget().Options.EmitStackSizeSection || MF.hasBBLabels()) {
     CurrentFnBegin = createTempSymbol("func_begin");
@@ -3570,8 +3570,8 @@ void AsmPrinter::emitXRayTable() {
 void AsmPrinter::recordSled(MCSymbol *Sled, const MachineInstr &MI,
                             SledKind Kind, uint8_t Version) {
   const Function &F = MI.getMF()->getFunction();
-  auto Attr = F.getFnAttribute("function-instrument");
-  bool LogArgs = F.hasFnAttribute("xray-log-args");
+  auto Attr = F.getFnAttribute(FunctionInstrumentAttr);
+  bool LogArgs = F.hasFnAttribute(XrayLogArgsAttr);
   bool AlwaysInstrument =
     Attr.isStringAttribute() && Attr.getValueAsString() == "xray-always";
   if (Kind == SledKind::FUNCTION_ENTER && LogArgs)
@@ -3583,10 +3583,10 @@ void AsmPrinter::recordSled(MCSymbol *Sled, const MachineInstr &MI,
 void AsmPrinter::emitPatchableFunctionEntries() {
   const Function &F = MF->getFunction();
   unsigned PatchableFunctionPrefix = 0, PatchableFunctionEntry = 0;
-  (void)F.getFnAttribute("patchable-function-prefix")
+  (void)F.getFnAttribute(PatchableFunctionPrefixAttr)
       .getValueAsString()
       .getAsInteger(10, PatchableFunctionPrefix);
-  (void)F.getFnAttribute("patchable-function-entry")
+  (void)F.getFnAttribute(PatchableFunctionEntryAttr)
       .getValueAsString()
       .getAsInteger(10, PatchableFunctionEntry);
   if (!PatchableFunctionPrefix && !PatchableFunctionEntry)

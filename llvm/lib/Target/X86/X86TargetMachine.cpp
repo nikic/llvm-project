@@ -237,9 +237,9 @@ X86TargetMachine::~X86TargetMachine() = default;
 
 const X86Subtarget *
 X86TargetMachine::getSubtargetImpl(const Function &F) const {
-  Attribute CPUAttr = F.getFnAttribute("target-cpu");
-  Attribute TuneAttr = F.getFnAttribute("tune-cpu");
-  Attribute FSAttr = F.getFnAttribute("target-features");
+  Attribute CPUAttr = F.getFnAttribute(TargetCPUAttr);
+  Attribute TuneAttr = F.getFnAttribute(TuneCPUAttr);
+  Attribute FSAttr = F.getFnAttribute(TargetFeaturesAttr);
 
   StringRef CPU =
       CPUAttr.isValid() ? CPUAttr.getValueAsString() : (StringRef)TargetCPU;
@@ -256,7 +256,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
 
   // Extract prefer-vector-width attribute.
   unsigned PreferVectorWidthOverride = 0;
-  Attribute PreferVecWidthAttr = F.getFnAttribute("prefer-vector-width");
+  Attribute PreferVecWidthAttr = F.getFnAttribute(PreferVectorWidthAttr);
   if (PreferVecWidthAttr.isValid()) {
     StringRef Val = PreferVecWidthAttr.getValueAsString();
     unsigned Width;
@@ -269,7 +269,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
 
   // Extract min-legal-vector-width attribute.
   unsigned RequiredVectorWidth = UINT32_MAX;
-  Attribute MinLegalVecWidthAttr = F.getFnAttribute("min-legal-vector-width");
+  Attribute MinLegalVecWidthAttr = F.getFnAttribute(MinLegalVectorWidthAttr);
   if (MinLegalVecWidthAttr.isValid()) {
     StringRef Val = MinLegalVecWidthAttr.getValueAsString();
     unsigned Width;
@@ -294,7 +294,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
   // function before we can generate a subtarget. We also need to use
   // it as a key for the subtarget since that can be the only difference
   // between two functions.
-  bool SoftFloat = F.getFnAttribute("use-soft-float").getValueAsBool();
+  bool SoftFloat = F.getFnAttribute(UseSoftFloatAttr).getValueAsBool();
   // If the soft float attribute is set on the function turn on the soft float
   // subtarget feature.
   if (SoftFloat)

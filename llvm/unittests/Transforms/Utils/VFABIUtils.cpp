@@ -47,6 +47,7 @@ TEST_F(VFABIAttrTest, Write) {
   Mappings.push_back("_ZGVnN2v_g(custom_vg)");
   VFABI::setVectorVariantNames(CI, Mappings);
   const StringRef S =
-      CI->getFnAttr("vector-function-abi-variant").getValueAsString();
+      CI->getFnAttr(llvm::AttributeKey::Create("vector-function-abi-variant"))
+          .getValueAsString();
   EXPECT_EQ(S, "_ZGVnN8v_g,_ZGVnN2v_g(custom_vg)");
 }

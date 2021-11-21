@@ -17,6 +17,7 @@
 
 #include "llvm-c/Types.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
@@ -29,7 +30,58 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <utility>
+namespace llvm {
+constexpr uint32_t dj2(const char *str) {
+  uint32_t hash = 5381;
+  int c = 0;
+
+  while ((c = *str++))
+    hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+  return hash;
+}
+
+class AttributeKey {
+  const char *value_;
+  uint32_t hash_;
+  uint32_t size_;
+
+  AttributeKey(StringRef s)
+      : value_(strndup(s.data(), s.size())), hash_(dj2(s.data())),
+        size_(s.size()) {}
+
+public:
+  static AttributeKey Create(StringRef s);
+
+  template <std::size_t N>
+  explicit constexpr AttributeKey(const char (&s)[N])
+      : value_(s), hash_(dj2(s)), size_(N - 1) {
+    static_assert(N - 1 < std::numeric_limits<decltype(size_)>::max(),
+                  "large enough size storage");
+  }
+  constexpr AttributeKey() : AttributeKey("") {}
+  StringRef value() const { return StringRef(value_, size_); }
+  uint32_t hash() const { return hash_; }
+  uint32_t size() const { return size_; }
+  bool operator==(AttributeKey const &other) const {
+    return size_ == other.size_ && strncmp(value_, other.value_, size_) == 0;
+  }
+  bool operator!=(AttributeKey const &other) const {
+    return !((*this) == other);
+  }
+  bool operator<(AttributeKey const &other) const {
+    return strcmp(value_, other.value_) < 0;
+  }
+};
+} // namespace llvm
+
+template <> struct std::hash<llvm::AttributeKey> {
+  std::size_t operator()(llvm::AttributeKey const &s) const noexcept {
+    return s.hash();
+  }
+};
 
 namespace llvm {
 
@@ -108,7 +160,7 @@ public:
 
   /// Return a uniquified Attribute object.
   static Attribute get(LLVMContext &Context, AttrKind Kind, uint64_t Val = 0);
-  static Attribute get(LLVMContext &Context, StringRef Kind,
+  static Attribute get(LLVMContext &Context, AttributeKey Kind,
                        StringRef Val = StringRef());
   static Attribute get(LLVMContext &Context, AttrKind Kind, Type *Ty);
 
@@ -170,7 +222,7 @@ public:
   bool hasAttribute(AttrKind Val) const;
 
   /// Return true if the target-dependent attribute is present.
-  bool hasAttribute(StringRef Val) const;
+  bool hasAttribute(AttributeKey Val) const;
 
   /// Return the attribute's kind as an enum (Attribute::AttrKind). This
   /// requires the attribute to be an enum, integer, or type attribute.
@@ -186,7 +238,7 @@ public:
 
   /// Return the attribute's kind as a string. This requires the
   /// attribute to be a string attribute.
-  StringRef getKindAsString() const;
+  AttributeKey getKindAsKey() const;
 
   /// Return the attribute's value as a string. This requires the
   /// attribute to be a string attribute.
@@ -296,7 +348,7 @@ public:
 
   /// Add a target-dependent attribute. Returns a new set because attribute sets
   /// are immutable.
-  LLVM_NODISCARD AttributeSet addAttribute(LLVMContext &C, StringRef Kind,
+  LLVM_NODISCARD AttributeSet addAttribute(LLVMContext &C, AttributeKey Kind,
                                            StringRef Value = StringRef()) const;
 
   /// Add attributes to the attribute set. Returns a new set because attribute
@@ -312,7 +364,7 @@ public:
   /// Remove the specified attribute from this set. Returns a new set because
   /// attribute sets are immutable.
   LLVM_NODISCARD AttributeSet removeAttribute(LLVMContext &C,
-                                              StringRef Kind) const;
+                                              AttributeKey Kind) const;
 
   /// Remove the specified attributes from this set. Returns a new set because
   /// attribute sets are immutable.
@@ -329,13 +381,13 @@ public:
   bool hasAttribute(Attribute::AttrKind Kind) const;
 
   /// Return true if the attribute exists in this set.
-  bool hasAttribute(StringRef Kind) const;
+  bool hasAttribute(AttributeKey Kind) const;
 
   /// Return the attribute object.
   Attribute getAttribute(Attribute::AttrKind Kind) const;
 
   /// Return the target-dependent attribute object.
-  Attribute getAttribute(StringRef Kind) const;
+  Attribute getAttribute(AttributeKey Kind) const;
 
   MaybeAlign getAlignment() const;
   MaybeAlign getStackAlignment() const;
@@ -450,7 +502,7 @@ public:
                            ArrayRef<Attribute::AttrKind> Kinds,
                            ArrayRef<uint64_t> Values);
   static AttributeList get(LLVMContext &C, unsigned Index,
-                           ArrayRef<StringRef> Kind);
+                           ArrayRef<AttributeKey> Kind);
   static AttributeList get(LLVMContext &C, unsigned Index,
                            const AttrBuilder &B);
 
@@ -463,7 +515,7 @@ public:
   /// Add an attribute to the attribute set at the given index.
   /// Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList
-  addAttributeAtIndex(LLVMContext &C, unsigned Index, StringRef Kind,
+  addAttributeAtIndex(LLVMContext &C, unsigned Index, AttributeKey Kind,
                       StringRef Value = StringRef()) const;
 
   /// Add an attribute to the attribute set at the given index.
@@ -495,7 +547,7 @@ public:
   /// Add a function attribute to the list. Returns a new list because
   /// attribute lists are immutable.
   LLVM_NODISCARD AttributeList addFnAttribute(
-      LLVMContext &C, StringRef Kind, StringRef Value = StringRef()) const {
+      LLVMContext &C, AttributeKey Kind, StringRef Value = StringRef()) const {
     return addAttributeAtIndex(C, FunctionIndex, Kind, Value);
   }
 
@@ -537,7 +589,7 @@ public:
   /// Add an argument attribute to the list. Returns a new list because
   /// attribute lists are immutable.
   LLVM_NODISCARD AttributeList
-  addParamAttribute(LLVMContext &C, unsigned ArgNo, StringRef Kind,
+  addParamAttribute(LLVMContext &C, unsigned ArgNo, AttributeKey Kind,
                     StringRef Value = StringRef()) const {
     return addAttributeAtIndex(C, ArgNo + FirstArgIndex, Kind, Value);
   }
@@ -565,9 +617,9 @@ public:
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList removeAttributeAtIndex(LLVMContext &C,
                                                       unsigned Index,
-                                                      StringRef Kind) const;
+                                                      AttributeKey Kind) const;
   LLVM_NODISCARD AttributeList removeAttribute(LLVMContext &C, unsigned Index,
-                                               StringRef Kind) const {
+                                               AttributeKey Kind) const {
     return removeAttributeAtIndex(C, Index, Kind);
   }
 
@@ -591,7 +643,7 @@ public:
   /// Remove the specified attribute at the function index from this
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList removeFnAttribute(LLVMContext &C,
-                                                 StringRef Kind) const {
+                                                 AttributeKey Kind) const {
     return removeAttributeAtIndex(C, FunctionIndex, Kind);
   }
 
@@ -618,7 +670,7 @@ public:
   /// Remove the specified attribute at the return value index from this
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList removeRetAttribute(LLVMContext &C,
-                                                  StringRef Kind) const {
+                                                  AttributeKey Kind) const {
     return removeAttributeAtIndex(C, ReturnIndex, Kind);
   }
 
@@ -640,7 +692,7 @@ public:
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList removeParamAttribute(LLVMContext &C,
                                                     unsigned ArgNo,
-                                                    StringRef Kind) const {
+                                                    AttributeKey Kind) const {
     return removeAttributeAtIndex(C, ArgNo + FirstArgIndex, Kind);
   }
 
@@ -712,7 +764,7 @@ public:
   bool hasAttributeAtIndex(unsigned Index, Attribute::AttrKind Kind) const;
 
   /// Return true if the attribute exists at the given index.
-  bool hasAttributeAtIndex(unsigned Index, StringRef Kind) const;
+  bool hasAttributeAtIndex(unsigned Index, AttributeKey Kind) const;
 
   /// Return true if attribute exists at the given index.
   bool hasAttributesAtIndex(unsigned Index) const;
@@ -723,7 +775,7 @@ public:
   }
 
   /// Return true if the attribute exists for the given argument
-  bool hasParamAttr(unsigned ArgNo, StringRef Kind) const {
+  bool hasParamAttr(unsigned ArgNo, AttributeKey Kind) const {
     return hasAttributeAtIndex(ArgNo + FirstArgIndex, Kind);
   }
 
@@ -738,7 +790,7 @@ public:
   }
 
   /// Return true if the attribute exists for the return value.
-  bool hasRetAttr(StringRef Kind) const {
+  bool hasRetAttr(AttributeKey Kind) const {
     return hasAttributeAtIndex(ReturnIndex, Kind);
   }
 
@@ -749,7 +801,7 @@ public:
   bool hasFnAttr(Attribute::AttrKind Kind) const;
 
   /// Return true if the attribute exists for the function.
-  bool hasFnAttr(StringRef Kind) const;
+  bool hasFnAttr(AttributeKey Kind) const;
 
   /// Return true the attributes exist for the function.
   bool hasFnAttrs() const { return hasAttributesAtIndex(FunctionIndex); }
@@ -764,7 +816,7 @@ public:
   Attribute getAttributeAtIndex(unsigned Index, Attribute::AttrKind Kind) const;
 
   /// Return the attribute object that exists at the given index.
-  Attribute getAttributeAtIndex(unsigned Index, StringRef Kind) const;
+  Attribute getAttributeAtIndex(unsigned Index, AttributeKey Kind) const;
 
   /// Return the attribute object that exists at the arg index.
   Attribute getParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
@@ -772,7 +824,7 @@ public:
   }
 
   /// Return the attribute object that exists at the given index.
-  Attribute getParamAttr(unsigned ArgNo, StringRef Kind) const {
+  Attribute getParamAttr(unsigned ArgNo, AttributeKey Kind) const {
     return getAttributeAtIndex(ArgNo + FirstArgIndex, Kind);
   }
 
@@ -782,7 +834,7 @@ public:
   }
 
   /// Return the attribute object that exists for the function.
-  Attribute getFnAttr(StringRef Kind) const {
+  Attribute getFnAttr(AttributeKey Kind) const {
     return getAttributeAtIndex(FunctionIndex, Kind);
   }
 
@@ -921,6 +973,164 @@ template <> struct DenseMapInfo<AttributeList, void> {
   }
 };
 
+constexpr llvm::AttributeKey
+    AmdgpuFlatWorkGroupSizeAttr("amdgpu-flat-work-group-size");
+constexpr llvm::AttributeKey AmdgpuIeeeAttr("amdgpu-ieee");
+constexpr llvm::AttributeKey
+    AmdgpuImplicitargNumBytesAttr("amdgpu-implicitarg-num-bytes");
+constexpr llvm::AttributeKey AmdgpuNumSgprAttr("amdgpu-num-sgpr");
+constexpr llvm::AttributeKey AmdgpuNumVgprAttr("amdgpu-num-vgpr");
+constexpr llvm::AttributeKey
+    AmdgpuUnsafeFpAtomicsAttr("amdgpu-unsafe-fp-atomics");
+constexpr llvm::AttributeKey AmdgpuWavesPerEuAttr("amdgpu-waves-per-eu");
+constexpr llvm::AttributeKey ApproxFuncFPMathAttr("approx-func-fp-math");
+constexpr llvm::AttributeKey BackchainAttr("backchain");
+constexpr llvm::AttributeKey
+    BranchTargetEnforcementAttr("branch-target-enforcement");
+constexpr llvm::AttributeKey BssSectionAttr("bss-section");
+constexpr llvm::AttributeKey CallThresholdBonus("call-threshold-bonus");
+constexpr llvm::AttributeKey CallInlineCost("call-inline-cost");
+constexpr llvm::AttributeKey
+    CfiCanonicalJumpTablesAttr("cfi-canonical-jump-table");
+constexpr llvm::AttributeKey CmseNonsecureEntryAttr("cmse_nonsecure_entry");
+constexpr llvm::AttributeKey CoroutinePresplitAttr("coroutine.presplit");
+constexpr llvm::AttributeKey DataSectionAttr("data-section");
+constexpr llvm::AttributeKey DenormalFPMathAttr("denormal-fp-math");
+constexpr llvm::AttributeKey DenormalFPMathf32Attr("denormal-fp-math-f32");
+constexpr llvm::AttributeKey DeoptLoweringAttr("deopt-lowering");
+constexpr llvm::AttributeKey DeviceInitAttr("device-init");
+constexpr llvm::AttributeKey DisableTailCallsAttr("disable-tail-calls");
+constexpr llvm::AttributeKey DontcallErrorAttr("dontcall-error");
+constexpr llvm::AttributeKey DontcallWarnAttr("dontcall-warn");
+constexpr llvm::AttributeKey EnqueuedBlockAttr("enqueued-block");
+constexpr llvm::AttributeKey FentryCallAttr("fentry-call");
+constexpr llvm::AttributeKey FramePointerAttr("frame-pointer");
+constexpr llvm::AttributeKey FunctionInlineCost("function-inline-cost");
+constexpr llvm::AttributeKey
+    FunctionInlineThreshold("function-inline-threshold");
+constexpr llvm::AttributeKey FunctionInstrumentAttr("function-instrument");
+constexpr llvm::AttributeKey GcLeafFunctionAttr("gc-leaf-function");
+constexpr llvm::AttributeKey GuardNocfAttr("guard_nocf");
+constexpr llvm::AttributeKey ImplicitSectionNameAttr("implicit-section-name");
+constexpr llvm::AttributeKey IndirectTLSSegRefsAttr("indirect-tls-seg-refs");
+constexpr llvm::AttributeKey InlineRemarkAttr("inline-remark");
+constexpr llvm::AttributeKey
+    InstrumentFunctionEntryAttr("instrument-function-entry");
+constexpr llvm::AttributeKey
+    InstrumentFunctionEntryInlinedAttr("instrument-function-entry-inlined");
+constexpr llvm::AttributeKey
+    InstrumentFunctionExitAttr("instrument-function-exit");
+constexpr llvm::AttributeKey
+    InstrumentFunctionExitInlinedAttr("instrument-function-exit-inlined");
+constexpr llvm::AttributeKey InterruptAttr("interrupt");
+constexpr llvm::AttributeKey LLVMAssumeAttr("llvm.assume");
+constexpr llvm::AttributeKey LessPreciseFPMADAttr("less-precise-fpmad");
+constexpr llvm::AttributeKey LongCallAttr("long-call");
+constexpr llvm::AttributeKey MicromipsAttr("micromips");
+constexpr llvm::AttributeKey MinLegalVectorWidthAttr("min-legal-vector-width");
+constexpr llvm::AttributeKey Mips16KAttr("mips16");
+constexpr llvm::AttributeKey MnopMcountAttr("mnop-mcount");
+constexpr llvm::AttributeKey MrecordMcountAttr("mrecord-mcount");
+constexpr llvm::AttributeKey MustProgressAttr("must-progress");
+constexpr llvm::AttributeKey NoBuiltinsAttr("no-builtins");
+constexpr llvm::AttributeKey
+    NoCalleeSavedRegistersAttr("no_callee_saved_registers");
+constexpr llvm::AttributeKey
+    NoCallerSavedRegistersAttr("no_caller_saved_registers");
+constexpr llvm::AttributeKey
+    NoCaptureMaybeReturned("no-capture-maybe-returned");
+constexpr llvm::AttributeKey NoFramePointerElimAttr("no-frame-pointer-elim");
+constexpr llvm::AttributeKey
+    NoFramePointerElimNonLeafAttr("no-frame-pointer-elim-non-leaf");
+constexpr llvm::AttributeKey NoImplicitFloatAttr("no-implicit-float");
+constexpr llvm::AttributeKey NoInfsFPMathAttr("no-infs-fp-math");
+constexpr llvm::AttributeKey NoInlineLineTablesAttr("no-inline-line-tables");
+constexpr llvm::AttributeKey NoJumpTablesAttr("no-jump-tables");
+constexpr llvm::AttributeKey NoOpenmp("no_openmp");
+constexpr llvm::AttributeKey NoOpenmpRoutines("no_openmp_routines");
+constexpr llvm::AttributeKey NoMicromipsAttr("no-micromips");
+constexpr llvm::AttributeKey NoNansFPMathAttr("no-nans-fp-math");
+constexpr llvm::AttributeKey NoProfileAttr("no-profile");
+constexpr llvm::AttributeKey NoPrototypeAttr("no-prototype");
+constexpr llvm::AttributeKey NoRealignStack("no-realign-stack");
+constexpr llvm::AttributeKey NoSignedZerosFPMathAttr("no-signed-zeros-fp-math");
+constexpr llvm::AttributeKey NoStackArgProbeAttr("no-stack-arg-probe");
+constexpr llvm::AttributeKey NoTrappingMathAttr("no-trapping-math");
+constexpr llvm::AttributeKey NomicromipsAttr("nomicromips");
+constexpr llvm::AttributeKey Nomips16Attr("nomips16");
+constexpr llvm::AttributeKey NullPointerIsValidAttr("null-pointer-is-valid");
+constexpr llvm::AttributeKey ObjcArcInertAttr("objc_arc_inert");
+constexpr llvm::AttributeKey OmpTargetNumTeamsAttr("omp_target_num_teams");
+constexpr llvm::AttributeKey
+    OmpTargetThreadLimitAttr("omp_target_thread_limit");
+constexpr llvm::AttributeKey PackedStackAttr("packed-stack");
+constexpr llvm::AttributeKey PatchableFunctionAttr("patchable-function");
+constexpr llvm::AttributeKey
+    PatchableFunctionEntryAttr("patchable-function-entry");
+constexpr llvm::AttributeKey
+    PatchableFunctionPrefixAttr("patchable-function-prefix");
+constexpr llvm::AttributeKey PreferVectorWidthAttr("prefer-vector-width");
+constexpr llvm::AttributeKey ProbeStackAttr("probe-stack");
+constexpr llvm::AttributeKey
+    ProfileSampleAccurateAttr("profile-sample-accurate");
+constexpr llvm::AttributeKey ReciprocalEstimatesAttr("reciprocal-estimates");
+constexpr llvm::AttributeKey RelroSectionAttr("relro-section");
+constexpr llvm::AttributeKey RodataSectionAttr("rodata-section");
+constexpr llvm::AttributeKey SafeStackAttr("safe-stack");
+constexpr llvm::AttributeKey SafesehAttr("safeseh");
+constexpr llvm::AttributeKey SampleProfileSuffixElisionPolicyAttr(
+    "sample-profile-suffix-elision-policy");
+constexpr llvm::AttributeKey SanitizeAddressAttr("sanitize-address");
+constexpr llvm::AttributeKey SanitizeHWAddressAttr("sanitize-hw-address");
+constexpr llvm::AttributeKey SanitizeMemTagAttr("sanitize-mem-tag");
+constexpr llvm::AttributeKey SanitizeMemoryAttr("sanitize-memory");
+constexpr llvm::AttributeKey SanitizeThreadAttr("sanitize-thread");
+constexpr llvm::AttributeKey SanitizeThreadNoCheckingAtRunTimeAttr(
+    "sanitize_thread_no_checking_at_run_time");
+constexpr llvm::AttributeKey ShadowCallStackAttr("shadow-call-stack");
+constexpr llvm::AttributeKey ShortCallAttr("short-call");
+constexpr llvm::AttributeKey SignReturnAddressAttr("sign-return-address");
+constexpr llvm::AttributeKey
+    SignReturnAddressKeyAttr("sign-return-address-key");
+constexpr llvm::AttributeKey SignalAttr("signal");
+constexpr llvm::AttributeKey
+    SpeculativeLoadHardeningAttr("speculative-load-hardening");
+constexpr llvm::AttributeKey SplitStackAttr("split-stack");
+constexpr llvm::AttributeKey StackProbeSizeAttr("stack-probe-size");
+constexpr llvm::AttributeKey
+    StackProtectorBufferSizeAttr("stack-protector-buffer-size");
+constexpr llvm::AttributeKey StackrealignAttr("stackrealign");
+constexpr llvm::AttributeKey StatepointIdAttr("statepoint-id");
+constexpr llvm::AttributeKey
+    StatepointNumPatchBytesAttr("statepoint-num-patch-bytes");
+constexpr llvm::AttributeKey
+    StrictFloatCastOverflowAttr("strict-float-cast-overflow");
+constexpr llvm::AttributeKey StrictfpAttr("strictfp");
+constexpr llvm::AttributeKey TargetCPUAttr("target-cpu");
+constexpr llvm::AttributeKey TargetFeaturesAttr("target-features");
+constexpr llvm::AttributeKey ThinltoInternalizeAttr("thinlto-internalize");
+constexpr llvm::AttributeKey ThunkAttr("thunk");
+constexpr llvm::AttributeKey TocDataAttr("toc-data");
+constexpr llvm::AttributeKey TrapFuncNameAttr("trap-func-name");
+constexpr llvm::AttributeKey TuneCPUAttr("tune-cpu");
+constexpr llvm::AttributeKey
+    UniformWorkGroupSizeAttr("uniform-work-group-size");
+constexpr llvm::AttributeKey UnsafeFPMathAttr("unsafe-fp-math");
+constexpr llvm::AttributeKey UseSampleProfileAttr("use-sample-profile");
+constexpr llvm::AttributeKey UseSoftFloatAttr("use-soft-float");
+constexpr llvm::AttributeKey
+    VectorFunctionAbiVariantAttr("vector-function-abi-variant");
+constexpr llvm::AttributeKey WarnStackSizeAttr("warn-stack-size");
+constexpr llvm::AttributeKey WasmExportNameAttr("wasm-export-name");
+constexpr llvm::AttributeKey WasmImportModuleAttr("wasm-import-module");
+constexpr llvm::AttributeKey WasmImportNameAttr("wasm-import-name");
+constexpr llvm::AttributeKey XrayIgnoreLoopsAttr("xray-ignore-loops");
+constexpr llvm::AttributeKey
+    XrayInstructionThresholdAttr("xray-instruction-threshold");
+constexpr llvm::AttributeKey XrayLogArgsAttr("xray-log-args");
+constexpr llvm::AttributeKey XraySkipEntryAttr("xray-skip-entry");
+constexpr llvm::AttributeKey XraySkipExitAttr("xray-skip-exit");
+
 //===----------------------------------------------------------------------===//
 /// \class
 /// This class is used in conjunction with the Attribute::get method to
@@ -929,7 +1139,7 @@ template <> struct DenseMapInfo<AttributeList, void> {
 /// equality, presence of attributes, etc.
 class AttrBuilder {
   std::bitset<Attribute::EndAttrKinds> Attrs;
-  std::map<SmallString<32>, SmallString<32>, std::less<>> TargetDepAttrs;
+  std::map<AttributeKey, SmallString<32>> TargetDepAttrs;
   std::array<uint64_t, Attribute::NumIntAttrKinds> IntAttrs = {};
   std::array<Type *, Attribute::NumTypeAttrKinds> TypeAttrs = {};
 
@@ -962,7 +1172,7 @@ public:
   AttrBuilder &addAttribute(Attribute A);
 
   /// Add the target-dependent attribute to the builder.
-  AttrBuilder &addAttribute(StringRef A, StringRef V = StringRef());
+  AttrBuilder &addAttribute(AttributeKey A, StringRef V = StringRef());
 
   /// Remove an attribute from the builder.
   AttrBuilder &removeAttribute(Attribute::AttrKind Val);
@@ -971,7 +1181,7 @@ public:
   AttrBuilder &removeAttributes(AttributeList A, uint64_t WithoutIndex);
 
   /// Remove the target-dependent attribute to the builder.
-  AttrBuilder &removeAttribute(StringRef A);
+  AttrBuilder &removeAttribute(AttributeKey A);
 
   /// Add the attributes from the builder.
   AttrBuilder &merge(const AttrBuilder &B);
@@ -991,7 +1201,7 @@ public:
 
   /// Return true if the builder has the specified target-dependent
   /// attribute.
-  bool contains(StringRef A) const;
+  bool contains(AttributeKey A) const;
 
   /// Return true if the builder has IR-level attributes.
   bool hasAttributes() const;

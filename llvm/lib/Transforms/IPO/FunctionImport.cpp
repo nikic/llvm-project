@@ -1203,7 +1203,7 @@ static void internalizeGVsAfterImport(Module &M) {
   for (auto &GV : M.globals())
     // Skip GVs which have been converted to declarations
     // by dropDeadSymbols.
-    if (!GV.isDeclaration() && GV.hasAttribute("thinlto-internalize")) {
+    if (!GV.isDeclaration() && GV.hasAttribute(ThinltoInternalizeAttr)) {
       GV.setLinkage(GlobalValue::InternalLinkage);
       GV.setVisibility(GlobalValue::DefaultVisibility);
     }

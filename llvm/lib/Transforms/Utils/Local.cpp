@@ -2732,10 +2732,10 @@ unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,
 bool llvm::callsGCLeafFunction(const CallBase *Call,
                                const TargetLibraryInfo &TLI) {
   // Check if the function is specifically marked as a gc leaf function.
-  if (Call->hasFnAttr("gc-leaf-function"))
+  if (Call->hasFnAttr(GcLeafFunctionAttr))
     return true;
   if (const Function *F = Call->getCalledFunction()) {
-    if (F->hasFnAttribute("gc-leaf-function"))
+    if (F->hasFnAttribute(GcLeafFunctionAttr))
       return true;
 
     if (auto IID = F->getIntrinsicID()) {

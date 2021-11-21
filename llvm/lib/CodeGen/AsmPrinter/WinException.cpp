@@ -54,7 +54,7 @@ void WinException::endModule() {
   auto &OS = *Asm->OutStreamer;
   const Module *M = MMI->getModule();
   for (const Function &F : *M)
-    if (F.hasFnAttribute("safeseh"))
+    if (F.hasFnAttribute(SafesehAttr))
       OS.EmitCOFFSafeSEH(Asm->getSymbol(&F));
 
   if (M->getModuleFlag("ehcontguard") && !EHContTargets.empty()) {

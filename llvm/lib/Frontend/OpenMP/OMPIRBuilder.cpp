@@ -2152,8 +2152,8 @@ static std::unique_ptr<TargetMachine>
 createTargetMachine(Function *F, CodeGenOpt::Level OptLevel) {
   Module *M = F->getParent();
 
-  StringRef CPU = F->getFnAttribute("target-cpu").getValueAsString();
-  StringRef Features = F->getFnAttribute("target-features").getValueAsString();
+  StringRef CPU = F->getFnAttribute(TargetCPUAttr).getValueAsString();
+  StringRef Features = F->getFnAttribute(TargetFeaturesAttr).getValueAsString();
   const std::string &Triple = M->getTargetTriple();
 
   std::string Error;

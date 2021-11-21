@@ -93,7 +93,7 @@ bool StackProtector::runOnFunction(Function &Fn) {
   HasPrologue = false;
   HasIRCheck = false;
 
-  Attribute Attr = Fn.getFnAttribute("stack-protector-buffer-size");
+  Attribute Attr = Fn.getFnAttribute(StackProtectorBufferSizeAttr);
   if (Attr.isStringAttribute() &&
       Attr.getValueAsString().getAsInteger(10, SSPBufferSize))
     return false; // Invalid integer string

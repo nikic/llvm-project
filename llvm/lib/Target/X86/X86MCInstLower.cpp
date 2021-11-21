@@ -1896,9 +1896,9 @@ void X86AsmPrinter::LowerPATCHABLE_FUNCTION_ENTER(const MachineInstr &MI,
   NoAutoPaddingScope NoPadScope(*OutStreamer);
 
   const Function &F = MF->getFunction();
-  if (F.hasFnAttribute("patchable-function-entry")) {
+  if (F.hasFnAttribute(PatchableFunctionEntryAttr)) {
     unsigned Num;
-    if (F.getFnAttribute("patchable-function-entry")
+    if (F.getFnAttribute(PatchableFunctionEntryAttr)
             .getValueAsString()
             .getAsInteger(10, Num))
       return;

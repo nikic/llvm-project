@@ -390,7 +390,7 @@ static bool addIfNotExistent(LLVMContext &Ctx, const Attribute &Attr,
     return true;
   }
   if (Attr.isStringAttribute()) {
-    StringRef Kind = Attr.getKindAsString();
+    AttributeKey Kind = Attr.getKindAsKey();
     if (Attrs.hasAttributeAtIndex(AttrIdx, Kind))
       if (!ForceReplace &&
           isEqualOrWorse(Attr, Attrs.getAttributeAtIndex(AttrIdx, Kind)))

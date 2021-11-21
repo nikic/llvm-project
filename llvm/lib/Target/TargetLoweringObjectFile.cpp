@@ -321,16 +321,16 @@ MCSection *TargetLoweringObjectFile::SectionForGlobal(
 
   if (auto *GVar = dyn_cast<GlobalVariable>(GO)) {
     auto Attrs = GVar->getAttributes();
-    if ((Attrs.hasAttribute("bss-section") && Kind.isBSS()) ||
-        (Attrs.hasAttribute("data-section") && Kind.isData()) ||
-        (Attrs.hasAttribute("relro-section") && Kind.isReadOnlyWithRel()) ||
-        (Attrs.hasAttribute("rodata-section") && Kind.isReadOnly()))  {
-       return getExplicitSectionGlobal(GO, Kind, TM);
+    if ((Attrs.hasAttribute(BssSectionAttr) && Kind.isBSS()) ||
+        (Attrs.hasAttribute(DataSectionAttr) && Kind.isData()) ||
+        (Attrs.hasAttribute(RelroSectionAttr) && Kind.isReadOnlyWithRel()) ||
+        (Attrs.hasAttribute(RodataSectionAttr) && Kind.isReadOnly())) {
+      return getExplicitSectionGlobal(GO, Kind, TM);
     }
   }
 
   if (auto *F = dyn_cast<Function>(GO)) {
-    if (F->hasFnAttribute("implicit-section-name"))
+    if (F->hasFnAttribute(ImplicitSectionNameAttr))
       return getExplicitSectionGlobal(GO, Kind, TM);
   }
 

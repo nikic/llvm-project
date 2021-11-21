@@ -1789,8 +1789,9 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
   if (CodeGenOpts.UnwindTables)
     B.addAttribute(llvm::Attribute::UWTable);
 
-  if (CodeGenOpts.StackClashProtector)
-    B.addAttribute("probe-stack", "inline-asm");
+  if (CodeGenOpts.StackClashProtector) {
+    B.addAttribute(llvm::ProbeStackAttr, "inline-asm");
+  }
 
   if (!hasUnwindExceptions(LangOpts))
     B.addAttribute(llvm::Attribute::NoUnwind);
@@ -1947,9 +1948,7 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
 void CodeGenModule::setLLVMFunctionFEnvAttributes(const FunctionDecl *D,
                                                   llvm::Function *F) {
   if (D->hasAttr<StrictFPAttr>()) {
-    llvm::AttrBuilder FuncAttrs;
-    FuncAttrs.addAttribute("strictfp");
-    F->addFnAttrs(FuncAttrs);
+    F->addFnAttr(llvm::StrictfpAttr);
   }
 }
 
@@ -2014,16 +2013,16 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
   }
 
   if (!TargetCPU.empty()) {
-    Attrs.addAttribute("target-cpu", TargetCPU);
+    Attrs.addAttribute(llvm::TargetCPUAttr, TargetCPU);
     AddedAttr = true;
   }
   if (!TuneCPU.empty()) {
-    Attrs.addAttribute("tune-cpu", TuneCPU);
+    Attrs.addAttribute(llvm::TuneCPUAttr, TuneCPU);
     AddedAttr = true;
   }
   if (!Features.empty()) {
     llvm::sort(Features);
-    Attrs.addAttribute("target-features", llvm::join(Features, ","));
+    Attrs.addAttribute(llvm::TargetFeaturesAttr, llvm::join(Features, ","));
     AddedAttr = true;
   }
 
@@ -2039,22 +2038,27 @@ void CodeGenModule::setNonAliasAttributes(GlobalDecl GD,
     if (auto *GV = dyn_cast<llvm::GlobalVariable>(GO)) {
       if (D->hasAttr<RetainAttr>())
         addUsedGlobal(GV);
-      if (auto *SA = D->getAttr<PragmaClangBSSSectionAttr>())
-        GV->addAttribute("bss-section", SA->getName());
-      if (auto *SA = D->getAttr<PragmaClangDataSectionAttr>())
-        GV->addAttribute("data-section", SA->getName());
-      if (auto *SA = D->getAttr<PragmaClangRodataSectionAttr>())
-        GV->addAttribute("rodata-section", SA->getName());
-      if (auto *SA = D->getAttr<PragmaClangRelroSectionAttr>())
-        GV->addAttribute("relro-section", SA->getName());
+      if (auto *SA = D->getAttr<PragmaClangBSSSectionAttr>()) {
+        GV->addAttribute(llvm::BssSectionAttr, SA->getName());
+      }
+      if (auto *SA = D->getAttr<PragmaClangDataSectionAttr>()) {
+        GV->addAttribute(llvm::DataSectionAttr, SA->getName());
+      }
+      if (auto *SA = D->getAttr<PragmaClangRodataSectionAttr>()) {
+        GV->addAttribute(llvm::RodataSectionAttr, SA->getName());
+      }
+      if (auto *SA = D->getAttr<PragmaClangRelroSectionAttr>()) {
+        GV->addAttribute(llvm::RelroSectionAttr, SA->getName());
+      }
     }
 
     if (auto *F = dyn_cast<llvm::Function>(GO)) {
       if (D->hasAttr<RetainAttr>())
         addUsedGlobal(F);
       if (auto *SA = D->getAttr<PragmaClangTextSectionAttr>())
-        if (!D->getAttr<SectionAttr>())
-          F->addFnAttr("implicit-section-name", SA->getName());
+        if (!D->getAttr<SectionAttr>()) {
+          F->addFnAttr(llvm::ImplicitSectionNameAttr, SA->getName());
+        }
 
       llvm::AttrBuilder Attrs;
       if (GetCPUAndFeaturesAttributes(GD, Attrs)) {
@@ -2062,9 +2066,9 @@ void CodeGenModule::setNonAliasAttributes(GlobalDecl GD,
         // newest set, since it has the newest possible FunctionDecl, so the
         // new ones should replace the old.
         llvm::AttrBuilder RemoveAttrs;
-        RemoveAttrs.addAttribute("target-cpu");
-        RemoveAttrs.addAttribute("target-features");
-        RemoveAttrs.addAttribute("tune-cpu");
+        RemoveAttrs.addAttribute(llvm::TargetCPUAttr);
+        RemoveAttrs.addAttribute(llvm::TargetFeaturesAttr);
+        RemoveAttrs.addAttribute(llvm::TuneCPUAttr);
         F->removeFnAttrs(RemoveAttrs);
         F->addFnAttrs(Attrs);
       }
@@ -2168,10 +2172,11 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
      F->setSection(SA->getName());
 
   if (const auto *EA = FD->getAttr<ErrorAttr>()) {
-    if (EA->isError())
-      F->addFnAttr("dontcall-error", EA->getUserDiagnostic());
-    else if (EA->isWarning())
-      F->addFnAttr("dontcall-warn", EA->getUserDiagnostic());
+    if (EA->isError()) {
+      F->addFnAttr(llvm::DontcallErrorAttr, EA->getUserDiagnostic());
+    } else if (EA->isWarning()) {
+      F->addFnAttr(llvm::DontcallWarnAttr, EA->getUserDiagnostic());
+    }
   }
 
   // If we plan on emitting this inline builtin, we can't treat it as a builtin.
@@ -2695,14 +2700,14 @@ bool CodeGenModule::imbueXRayAttrs(llvm::Function *Fn, SourceLocation Loc,
   case ImbueAttr::NONE:
     return false;
   case ImbueAttr::ALWAYS:
-    Fn->addFnAttr("function-instrument", "xray-always");
+    Fn->addFnAttr(llvm::FunctionInstrumentAttr, "xray-always");
     break;
   case ImbueAttr::ALWAYS_ARG1:
-    Fn->addFnAttr("function-instrument", "xray-always");
-    Fn->addFnAttr("xray-log-args", "1");
+    Fn->addFnAttr(llvm::FunctionInstrumentAttr, "xray-always");
+    Fn->addFnAttr(llvm::XrayLogArgsAttr, "1");
     break;
   case ImbueAttr::NEVER:
-    Fn->addFnAttr("function-instrument", "xray-never");
+    Fn->addFnAttr(llvm::FunctionInstrumentAttr, "xray-never");
     break;
   }
   return true;
@@ -5274,7 +5279,7 @@ CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
   GV = Fields.finishAndCreateGlobal("_unnamed_cfstring_", Alignment,
                                     /*isConstant=*/false,
                                     llvm::GlobalVariable::PrivateLinkage);
-  GV->addAttribute("objc_arc_inert");
+  GV->addAttribute(llvm::ObjcArcInertAttr);
   switch (Triple.getObjectFormat()) {
   case llvm::Triple::UnknownObjectFormat:
     llvm_unreachable("unknown file format");

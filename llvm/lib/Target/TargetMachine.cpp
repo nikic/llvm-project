@@ -59,10 +59,10 @@ void TargetMachine::resetTargetOptions(const Function &F) const {
     Options.X = F.getFnAttribute(Y).getValueAsBool();     \
   } while (0)
 
-  RESET_OPTION(UnsafeFPMath, "unsafe-fp-math");
-  RESET_OPTION(NoInfsFPMath, "no-infs-fp-math");
-  RESET_OPTION(NoNaNsFPMath, "no-nans-fp-math");
-  RESET_OPTION(NoSignedZerosFPMath, "no-signed-zeros-fp-math");
+  RESET_OPTION(UnsafeFPMath, UnsafeFPMathAttr);
+  RESET_OPTION(NoInfsFPMath, NoInfsFPMathAttr);
+  RESET_OPTION(NoNaNsFPMath, NoNansFPMathAttr);
+  RESET_OPTION(NoSignedZerosFPMath, NoSignedZerosFPMathAttr);
 }
 
 /// Returns the code generation relocation model. The choices are static, PIC,

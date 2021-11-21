@@ -2238,7 +2238,7 @@ bool IRTranslator::translateKnownIntrinsic(const CallInst &CI, Intrinsic::ID ID,
   case Intrinsic::debugtrap:
   case Intrinsic::ubsantrap: {
     StringRef TrapFuncName =
-        CI.getAttributes().getFnAttr("trap-func-name").getValueAsString();
+        CI.getAttributes().getFnAttr(TrapFuncNameAttr).getValueAsString();
     if (TrapFuncName.empty())
       break; // Use the default handling.
     CallLowering::CallLoweringInfo Info;

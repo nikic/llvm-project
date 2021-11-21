@@ -311,15 +311,15 @@ class CompatRule<string F> {
   string CompatFunc = F;
 }
 
-def : CompatRule<"isEqual<SanitizeAddressAttr>">;
-def : CompatRule<"isEqual<SanitizeThreadAttr>">;
-def : CompatRule<"isEqual<SanitizeMemoryAttr>">;
-def : CompatRule<"isEqual<SanitizeHWAddressAttr>">;
-def : CompatRule<"isEqual<SanitizeMemTagAttr>">;
-def : CompatRule<"isEqual<SafeStackAttr>">;
-def : CompatRule<"isEqual<ShadowCallStackAttr>">;
-def : CompatRule<"isEqual<UseSampleProfileAttr>">;
-def : CompatRule<"isEqual<NoProfileAttr>">;
+def : CompatRule<"isEqual<SanitizeAddress_Attr>">;
+def : CompatRule<"isEqual<SanitizeThread_Attr>">;
+def : CompatRule<"isEqual<SanitizeMemory_Attr>">;
+def : CompatRule<"isEqual<SanitizeHWAddress_Attr>">;
+def : CompatRule<"isEqual<SanitizeMemTag_Attr>">;
+def : CompatRule<"isEqual<SafeStack_Attr>">;
+def : CompatRule<"isEqual<ShadowCallStack_Attr>">;
+def : CompatRule<"isEqual<UseSampleProfile_Attr>">;
+def : CompatRule<"isEqual<NoProfile_Attr>">;
 
 class MergeRule<string F> {
   // The name of the function called to merge the attributes of the caller and
@@ -330,18 +330,18 @@ class MergeRule<string F> {
   string MergeFunc = F;
 }
 
-def : MergeRule<"setAND<LessPreciseFPMADAttr>">;
-def : MergeRule<"setAND<NoInfsFPMathAttr>">;
-def : MergeRule<"setAND<NoNansFPMathAttr>">;
-def : MergeRule<"setAND<NoSignedZerosFPMathAttr>">;
-def : MergeRule<"setAND<UnsafeFPMathAttr>">;
-def : MergeRule<"setOR<NoImplicitFloatAttr>">;
-def : MergeRule<"setOR<NoJumpTablesAttr>">;
-def : MergeRule<"setOR<ProfileSampleAccurateAttr>">;
-def : MergeRule<"setOR<SpeculativeLoadHardeningAttr>">;
+def : MergeRule<"setAND<LessPreciseFPMAD_Attr>">;
+def : MergeRule<"setAND<NoInfsFPMath_Attr>">;
+def : MergeRule<"setAND<NoNansFPMath_Attr>">;
+def : MergeRule<"setAND<NoSignedZerosFPMath_Attr>">;
+def : MergeRule<"setAND<UnsafeFPMath_Attr>">;
+def : MergeRule<"setOR<NoImplicitFloat_Attr>">;
+def : MergeRule<"setOR<NoJumpTables_Attr>">;
+def : MergeRule<"setOR<ProfileSampleAccurate_Attr>">;
+def : MergeRule<"setOR<SpeculativeLoadHardening_Attr>">;
 def : MergeRule<"adjustCallerSSPLevel">;
 def : MergeRule<"adjustCallerStackProbes">;
 def : MergeRule<"adjustCallerStackProbeSize">;
 def : MergeRule<"adjustMinLegalVectorWidth">;
 def : MergeRule<"adjustNullPointerValidAttr">;
-def : MergeRule<"setAND<MustProgressAttr>">;
+def : MergeRule<"setAND<MustProgress_Attr>">;

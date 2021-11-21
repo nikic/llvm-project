@@ -1758,7 +1758,7 @@ static void AddAttributesFromAssumes(llvm::AttrBuilder &FuncAttrs,
     AA->getAssumption().split(Attrs, ",");
 
   if (!Attrs.empty())
-    FuncAttrs.addAttribute(llvm::AssumptionAttrKey,
+    FuncAttrs.addAttribute(llvm::LLVMAssumeAttr,
                            llvm::join(Attrs.begin(), Attrs.end(), ","));
 }
 
@@ -1788,8 +1788,9 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
 
   if (CodeGenOpts.DisableRedZone)
     FuncAttrs.addAttribute(llvm::Attribute::NoRedZone);
-  if (CodeGenOpts.IndirectTlsSegRefs)
-    FuncAttrs.addAttribute("indirect-tls-seg-refs");
+  if (CodeGenOpts.IndirectTlsSegRefs) {
+    FuncAttrs.addAttribute(llvm::IndirectTLSSegRefsAttr);
+  }
   if (CodeGenOpts.NoImplicitFloat)
     FuncAttrs.addAttribute(llvm::Attribute::NoImplicitFloat);
 
@@ -1797,8 +1798,9 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
     // Attributes that should go on the call site only.
     if (!CodeGenOpts.SimplifyLibCalls || LangOpts.isNoBuiltinFunc(Name))
       FuncAttrs.addAttribute(llvm::Attribute::NoBuiltin);
-    if (!CodeGenOpts.TrapFuncName.empty())
-      FuncAttrs.addAttribute("trap-func-name", CodeGenOpts.TrapFuncName);
+    if (!CodeGenOpts.TrapFuncName.empty()) {
+      FuncAttrs.addAttribute(llvm::TrapFuncNameAttr, CodeGenOpts.TrapFuncName);
+    }
   } else {
     StringRef FpKind;
     switch (CodeGenOpts.getFramePointer()) {
@@ -1812,65 +1814,79 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
       FpKind = "all";
       break;
     }
-    FuncAttrs.addAttribute("frame-pointer", FpKind);
+    FuncAttrs.addAttribute(llvm::FramePointerAttr, FpKind);
 
-    if (CodeGenOpts.LessPreciseFPMAD)
-      FuncAttrs.addAttribute("less-precise-fpmad", "true");
+    if (CodeGenOpts.LessPreciseFPMAD) {
+      FuncAttrs.addAttribute(llvm::LessPreciseFPMADAttr, "true");
+    }
 
     if (CodeGenOpts.NullPointerIsValid)
       FuncAttrs.addAttribute(llvm::Attribute::NullPointerIsValid);
 
-    if (CodeGenOpts.FPDenormalMode != llvm::DenormalMode::getIEEE())
-      FuncAttrs.addAttribute("denormal-fp-math",
+    if (CodeGenOpts.FPDenormalMode != llvm::DenormalMode::getIEEE()) {
+      FuncAttrs.addAttribute(llvm::DenormalFPMathAttr,
                              CodeGenOpts.FPDenormalMode.str());
+    }
     if (CodeGenOpts.FP32DenormalMode != CodeGenOpts.FPDenormalMode) {
-      FuncAttrs.addAttribute(
-          "denormal-fp-math-f32",
-          CodeGenOpts.FP32DenormalMode.str());
+      FuncAttrs.addAttribute(llvm::DenormalFPMathf32Attr,
+                             CodeGenOpts.FP32DenormalMode.str());
     }
 
-    if (LangOpts.getFPExceptionMode() == LangOptions::FPE_Ignore)
-      FuncAttrs.addAttribute("no-trapping-math", "true");
+    if (LangOpts.getFPExceptionMode() == LangOptions::FPE_Ignore) {
+      FuncAttrs.addAttribute(llvm::NoTrappingMathAttr, "true");
+    }
 
     // Strict (compliant) code is the default, so only add this attribute to
     // indicate that we are trying to workaround a problem case.
-    if (!CodeGenOpts.StrictFloatCastOverflow)
-      FuncAttrs.addAttribute("strict-float-cast-overflow", "false");
+    if (!CodeGenOpts.StrictFloatCastOverflow) {
+      FuncAttrs.addAttribute(llvm::StrictFloatCastOverflowAttr, "false");
+    }
 
     // TODO: Are these all needed?
     // unsafe/inf/nan/nsz are handled by instruction-level FastMathFlags.
-    if (LangOpts.NoHonorInfs)
-      FuncAttrs.addAttribute("no-infs-fp-math", "true");
-    if (LangOpts.NoHonorNaNs)
-      FuncAttrs.addAttribute("no-nans-fp-math", "true");
-    if (LangOpts.ApproxFunc)
-      FuncAttrs.addAttribute("approx-func-fp-math", "true");
-    if (LangOpts.UnsafeFPMath)
-      FuncAttrs.addAttribute("unsafe-fp-math", "true");
-    if (CodeGenOpts.SoftFloat)
-      FuncAttrs.addAttribute("use-soft-float", "true");
-    FuncAttrs.addAttribute("stack-protector-buffer-size",
+    if (LangOpts.NoHonorInfs) {
+      FuncAttrs.addAttribute(llvm::NoInfsFPMathAttr, "true");
+    }
+    if (LangOpts.NoHonorNaNs) {
+      FuncAttrs.addAttribute(llvm::NoNansFPMathAttr, "true");
+    }
+    if (LangOpts.ApproxFunc) {
+      FuncAttrs.addAttribute(llvm::ApproxFuncFPMathAttr, "true");
+    }
+    if (LangOpts.UnsafeFPMath) {
+      FuncAttrs.addAttribute(llvm::UnsafeFPMathAttr, "true");
+    }
+    if (CodeGenOpts.SoftFloat) {
+      FuncAttrs.addAttribute(llvm::UseSoftFloatAttr, "true");
+    }
+    FuncAttrs.addAttribute(llvm::StackProtectorBufferSizeAttr,
                            llvm::utostr(CodeGenOpts.SSPBufferSize));
-    if (LangOpts.NoSignedZero)
-      FuncAttrs.addAttribute("no-signed-zeros-fp-math", "true");
+    if (LangOpts.NoSignedZero) {
+      FuncAttrs.addAttribute(llvm::NoSignedZerosFPMathAttr, "true");
+    }
 
     // TODO: Reciprocal estimate codegen options should apply to instructions?
     const std::vector<std::string> &Recips = CodeGenOpts.Reciprocals;
-    if (!Recips.empty())
-      FuncAttrs.addAttribute("reciprocal-estimates",
+    if (!Recips.empty()) {
+      FuncAttrs.addAttribute(llvm::ReciprocalEstimatesAttr,
                              llvm::join(Recips, ","));
+    }
 
     if (!CodeGenOpts.PreferVectorWidth.empty() &&
-        CodeGenOpts.PreferVectorWidth != "none")
-      FuncAttrs.addAttribute("prefer-vector-width",
+        CodeGenOpts.PreferVectorWidth != "none") {
+      FuncAttrs.addAttribute(llvm::PreferVectorWidthAttr,
                              CodeGenOpts.PreferVectorWidth);
+    }
 
-    if (CodeGenOpts.StackRealignment)
-      FuncAttrs.addAttribute("stackrealign");
-    if (CodeGenOpts.Backchain)
-      FuncAttrs.addAttribute("backchain");
-    if (CodeGenOpts.EnableSegmentedStacks)
-      FuncAttrs.addAttribute("split-stack");
+    if (CodeGenOpts.StackRealignment) {
+      FuncAttrs.addAttribute(llvm::StackrealignAttr);
+    }
+    if (CodeGenOpts.Backchain) {
+      FuncAttrs.addAttribute(llvm::BackchainAttr);
+    }
+    if (CodeGenOpts.EnableSegmentedStacks) {
+      FuncAttrs.addAttribute(llvm::SplitStackAttr);
+    }
 
     if (CodeGenOpts.SpeculativeLoadHardening)
       FuncAttrs.addAttribute(llvm::Attribute::SpeculativeLoadHardening);
@@ -1893,7 +1909,7 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
   for (StringRef Attr : CodeGenOpts.DefaultFunctionAttrs) {
     StringRef Var, Value;
     std::tie(Var, Value) = Attr.split('=');
-    FuncAttrs.addAttribute(Var, Value);
+    FuncAttrs.addAttribute(llvm::AttributeKey::Create(Var), Value);
   }
 }
 
@@ -1919,13 +1935,13 @@ static void addNoBuiltinAttributes(llvm::AttrBuilder &FuncAttrs,
     SmallString<32> AttributeName;
     AttributeName += "no-builtin-";
     AttributeName += BuiltinName;
-    FuncAttrs.addAttribute(AttributeName);
+    FuncAttrs.addAttribute(llvm::AttributeKey::Create(AttributeName));
   };
 
   // First, handle the language options passed through -fno-builtin.
   if (LangOpts.NoBuiltin) {
     // -fno-builtin disables them all.
-    FuncAttrs.addAttribute("no-builtins");
+    FuncAttrs.addAttribute(llvm::NoBuiltinsAttr);
     return;
   }
 
@@ -1940,7 +1956,7 @@ static void addNoBuiltinAttributes(llvm::AttrBuilder &FuncAttrs,
   // If there is a wildcard in the builtin names specified through the
   // attribute, disable them all.
   if (llvm::is_contained(NBA->builtinNames(), "*")) {
-    FuncAttrs.addAttribute("no-builtins");
+    FuncAttrs.addAttribute(llvm::NoBuiltinsAttr);
     return;
   }
 
@@ -2028,8 +2044,9 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
   CallingConv = FI.getEffectiveCallingConvention();
   if (FI.isNoReturn())
     FuncAttrs.addAttribute(llvm::Attribute::NoReturn);
-  if (FI.isCmseNSCall())
-    FuncAttrs.addAttribute("cmse_nonsecure_call");
+  if (FI.isCmseNSCall()) {
+    FuncAttrs.addAttribute(llvm::CmseNonsecureEntryAttr);
+  }
 
   // Collect function IR attributes from the callee prototype if we have one.
   AddAttributesFromFunctionProtoType(getContext(), FuncAttrs,
@@ -2110,8 +2127,9 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
     if (TargetDecl->hasAttr<ReturnsNonNullAttr>() &&
         !CodeGenOpts.NullPointerIsValid)
       RetAttrs.addAttribute(llvm::Attribute::NonNull);
-    if (TargetDecl->hasAttr<AnyX86NoCallerSavedRegistersAttr>())
-      FuncAttrs.addAttribute("no_caller_saved_registers");
+    if (TargetDecl->hasAttr<AnyX86NoCallerSavedRegistersAttr>()) {
+      FuncAttrs.addAttribute(llvm::NoCallerSavedRegistersAttr);
+    }
     if (TargetDecl->hasAttr<AnyX86NoCfCheckAttr>())
       FuncAttrs.addAttribute(llvm::Attribute::NoCfCheck);
     if (TargetDecl->hasAttr<LeafAttr>())
@@ -2129,14 +2147,14 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
     if (TargetDecl->hasAttr<OpenCLKernelAttr>()) {
       if (getLangOpts().OpenCLVersion <= 120) {
         // OpenCL v1.2 Work groups are always uniform
-        FuncAttrs.addAttribute("uniform-work-group-size", "true");
+        FuncAttrs.addAttribute(llvm::UniformWorkGroupSizeAttr, "true");
       } else {
         // OpenCL v2.0 Work groups may be whether uniform or not.
         // '-cl-uniform-work-group-size' compile option gets a hint
         // to the compiler that the global work-size be a multiple of
         // the work-group size specified to clEnqueueNDRangeKernel
         // (i.e. work groups are uniform).
-        FuncAttrs.addAttribute("uniform-work-group-size",
+        FuncAttrs.addAttribute(llvm::UniformWorkGroupSizeAttr,
                                llvm::toStringRef(CodeGenOpts.UniformWGSize));
       }
     }
@@ -2160,8 +2178,9 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
       FuncAttrs.removeAttribute(llvm::Attribute::SpeculativeLoadHardening);
     if (TargetDecl->hasAttr<SpeculativeLoadHardeningAttr>())
       FuncAttrs.addAttribute(llvm::Attribute::SpeculativeLoadHardening);
-    if (TargetDecl->hasAttr<NoSplitStackAttr>())
-      FuncAttrs.removeAttribute("split-stack");
+    if (TargetDecl->hasAttr<NoSplitStackAttr>()) {
+      FuncAttrs.removeAttribute(llvm::SplitStackAttr);
+    }
 
     // Add NonLazyBind attribute to function declarations when -fno-plt
     // is used.
@@ -2181,17 +2200,19 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
   if (TargetDecl && CodeGenOpts.UniqueInternalLinkageNames) {
     if (isa<FunctionDecl>(TargetDecl)) {
       if (this->getFunctionLinkage(CalleeInfo.getCalleeDecl()) ==
-          llvm::GlobalValue::InternalLinkage)
-        FuncAttrs.addAttribute("sample-profile-suffix-elision-policy",
+          llvm::GlobalValue::InternalLinkage) {
+        FuncAttrs.addAttribute(llvm::SampleProfileSuffixElisionPolicyAttr,
                                "selected");
+      }
     }
   }
 
   // Collect non-call-site function IR attributes from declaration-specific
   // information.
   if (!AttrOnCallSite) {
-    if (TargetDecl && TargetDecl->hasAttr<CmseNSEntryAttr>())
-      FuncAttrs.addAttribute("cmse_nonsecure_entry");
+    if (TargetDecl && TargetDecl->hasAttr<CmseNSEntryAttr>()) {
+      FuncAttrs.addAttribute(llvm::CmseNonsecureEntryAttr);
+    }
 
     // Whether tail calls are enabled.
     auto shouldDisableTailCalls = [&] {
@@ -2214,8 +2235,9 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
 
       return false;
     };
-    if (shouldDisableTailCalls())
-      FuncAttrs.addAttribute("disable-tail-calls", "true");
+    if (shouldDisableTailCalls()) {
+      FuncAttrs.addAttribute(llvm::DisableTailCallsAttr, "true");
+    }
 
     // CPU/feature overrides.  addDefaultFunctionDefinitionAttributes
     // handles these separately to set them based on the global defaults.
@@ -5263,8 +5285,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // Control Flow Guard checks should not be added, even if the call is inlined.
   if (const auto *FD = dyn_cast_or_null<FunctionDecl>(CurFuncDecl)) {
     if (const auto *A = FD->getAttr<CFGuardAttr>()) {
-      if (A->getGuard() == CFGuardAttr::GuardArg::nocf && !CI->getCalledFunction())
-        Attrs = Attrs.addFnAttribute(getLLVMContext(), "guard_nocf");
+      if (A->getGuard() == CFGuardAttr::GuardArg::nocf &&
+          !CI->getCalledFunction()) {
+        Attrs = Attrs.addFnAttribute(getLLVMContext(), llvm::GuardNocfAttr);
+      }
     }
   }
 

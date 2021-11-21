@@ -2048,7 +2048,7 @@ Align TargetLoweringBase::getPrefLoopAlignment(MachineLoop *ML) const {
 /// override the target defaults.
 static StringRef getRecipEstimateForFunc(MachineFunction &MF) {
   const Function &F = MF.getFunction();
-  return F.getFnAttribute("reciprocal-estimates").getValueAsString();
+  return F.getFnAttribute(ReciprocalEstimatesAttr).getValueAsString();
 }
 
 /// Construct a string for the given reciprocal operation of the given type.

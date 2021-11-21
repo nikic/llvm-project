@@ -60,7 +60,7 @@ bool addAssumptionsImpl(AttrSite &Site,
 
   LLVMContext &Ctx = Site.getContext();
   Site.addFnAttr(llvm::Attribute::get(
-      Ctx, llvm::AssumptionAttrKey,
+      Ctx, llvm::LLVMAssumeAttr,
       llvm::join(CurAssumptions.begin(), CurAssumptions.end(), ",")));
 
   return true;
@@ -69,7 +69,7 @@ bool addAssumptionsImpl(AttrSite &Site,
 
 bool llvm::hasAssumption(const Function &F,
                          const KnownAssumptionString &AssumptionStr) {
-  const Attribute &A = F.getFnAttribute(AssumptionAttrKey);
+  const Attribute &A = F.getFnAttribute(LLVMAssumeAttr);
   return ::hasAssumption(A, AssumptionStr);
 }
 
@@ -79,17 +79,17 @@ bool llvm::hasAssumption(const CallBase &CB,
     if (hasAssumption(*F, AssumptionStr))
       return true;
 
-  const Attribute &A = CB.getFnAttr(AssumptionAttrKey);
+  const Attribute &A = CB.getFnAttr(LLVMAssumeAttr);
   return ::hasAssumption(A, AssumptionStr);
 }
 
 DenseSet<StringRef> llvm::getAssumptions(const Function &F) {
-  const Attribute &A = F.getFnAttribute(AssumptionAttrKey);
+  const Attribute &A = F.getFnAttribute(LLVMAssumeAttr);
   return ::getAssumptions(A);
 }
 
 DenseSet<StringRef> llvm::getAssumptions(const CallBase &CB) {
-  const Attribute &A = CB.getFnAttr(AssumptionAttrKey);
+  const Attribute &A = CB.getFnAttr(LLVMAssumeAttr);
   return ::getAssumptions(A);
 }
 

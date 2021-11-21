@@ -55,7 +55,7 @@ static bool doesNotGeneratecode(const MachineInstr &MI) {
 }
 
 bool PatchableFunction::runOnMachineFunction(MachineFunction &MF) {
-  if (MF.getFunction().hasFnAttribute("patchable-function-entry")) {
+  if (MF.getFunction().hasFnAttribute(PatchableFunctionEntryAttr)) {
     MachineBasicBlock &FirstMBB = *MF.begin();
     const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
     // The initial .loc covers PATCHABLE_FUNCTION_ENTER.
@@ -64,11 +64,11 @@ bool PatchableFunction::runOnMachineFunction(MachineFunction &MF) {
     return true;
   }
 
-  if (!MF.getFunction().hasFnAttribute("patchable-function"))
+  if (!MF.getFunction().hasFnAttribute(PatchableFunctionAttr))
     return false;
 
 #ifndef NDEBUG
-  Attribute PatchAttr = MF.getFunction().getFnAttribute("patchable-function");
+  Attribute PatchAttr = MF.getFunction().getFnAttribute(PatchableFunctionAttr);
   StringRef PatchType = PatchAttr.getValueAsString();
   assert(PatchType == "prologue-short-redirect" && "Only possibility today!");
 #endif

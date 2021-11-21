@@ -1912,9 +1912,9 @@ static void prepareForSplit(Function &F, CallGraph &CG,
   assert(DevirtFn && "coro.devirt.trigger function not found");
 #endif
 
-  F.addFnAttr(CORO_PRESPLIT_ATTR, MarkForAsyncRestart
-                                      ? ASYNC_RESTART_AFTER_SPLIT
-                                      : PREPARED_FOR_SPLIT);
+  F.addFnAttr(CoroutinePresplitAttr, MarkForAsyncRestart
+                                         ? ASYNC_RESTART_AFTER_SPLIT
+                                         : PREPARED_FOR_SPLIT);
 
   // Insert an indirect call sequence that will be devirtualized by CoroElide
   // pass:
@@ -2118,7 +2118,7 @@ PreservedAnalyses CoroSplitPass::run(LazyCallGraph::SCC &C,
   // Find coroutines for processing.
   SmallVector<LazyCallGraph::Node *, 4> Coroutines;
   for (LazyCallGraph::Node &N : C)
-    if (N.getFunction().hasFnAttribute(CORO_PRESPLIT_ATTR))
+    if (N.getFunction().hasFnAttribute(CoroutinePresplitAttr))
       Coroutines.push_back(&N);
 
   if (Coroutines.empty() && PrepareFns.empty())
@@ -2133,11 +2133,12 @@ PreservedAnalyses CoroSplitPass::run(LazyCallGraph::SCC &C,
   // Split all the coroutines.
   for (LazyCallGraph::Node *N : Coroutines) {
     Function &F = N->getFunction();
-    LLVM_DEBUG(dbgs() << "CoroSplit: Processing coroutine '" << F.getName()
-                      << "' state: "
-                      << F.getFnAttribute(CORO_PRESPLIT_ATTR).getValueAsString()
-                      << "\n");
-    F.removeFnAttr(CORO_PRESPLIT_ATTR);
+    LLVM_DEBUG(
+        dbgs() << "CoroSplit: Processing coroutine '" << F.getName()
+               << "' state: "
+               << F.getFnAttribute(CoroutinePresplitAttr).getValueAsString()
+               << "\n");
+    F.removeFnAttr(CoroutinePresplitAttr);
 
     SmallVector<Function *, 4> Clones;
     const coro::Shape Shape = splitCoroutine(F, Clones, ReuseFrameSlot);
@@ -2202,7 +2203,7 @@ struct CoroSplitLegacy : public CallGraphSCCPass {
     SmallVector<Function *, 4> Coroutines;
     for (CallGraphNode *CGN : SCC)
       if (auto *F = CGN->getFunction())
-        if (F->hasFnAttribute(CORO_PRESPLIT_ATTR))
+        if (F->hasFnAttribute(CoroutinePresplitAttr))
           Coroutines.push_back(F);
 
     if (Coroutines.empty() && PrepareFns.empty())
@@ -2221,21 +2222,21 @@ struct CoroSplitLegacy : public CallGraphSCCPass {
 
     // Split all the coroutines.
     for (Function *F : Coroutines) {
-      Attribute Attr = F->getFnAttribute(CORO_PRESPLIT_ATTR);
+      Attribute Attr = F->getFnAttribute(CoroutinePresplitAttr);
       StringRef Value = Attr.getValueAsString();
       LLVM_DEBUG(dbgs() << "CoroSplit: Processing coroutine '" << F->getName()
                         << "' state: " << Value << "\n");
       // Async lowering marks coroutines to trigger a restart of the pipeline
       // after it has split them.
       if (Value == ASYNC_RESTART_AFTER_SPLIT) {
-        F->removeFnAttr(CORO_PRESPLIT_ATTR);
+        F->removeFnAttr(CoroutinePresplitAttr);
         continue;
       }
       if (Value == UNPREPARED_FOR_SPLIT) {
         prepareForSplit(*F, CG);
         continue;
       }
-      F->removeFnAttr(CORO_PRESPLIT_ATTR);
+      F->removeFnAttr(CoroutinePresplitAttr);
 
       SmallVector<Function *, 4> Clones;
       const coro::Shape Shape = splitCoroutine(*F, Clones, ReuseFrameSlot);
