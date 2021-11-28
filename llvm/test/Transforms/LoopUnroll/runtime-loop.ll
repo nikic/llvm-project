@@ -239,39 +239,6 @@ latch:                                            ; preds = %header
   br i1 %cmp, label %header, label %LoopExit
 }
 
-; multiple exit blocks. don't unroll
-define void @multi_exit(i64 %trip, i1 %cond) {
-; COMMON-LABEL: @multi_exit(
-; COMMON-NOT: .unr
-
-entry:
-  br label %loop_header
-
-loop_header:
-  %iv = phi i64 [ 0, %entry ], [ %iv_next, %loop_latch ]
-  br i1 %cond, label %loop_latch, label %loop_exiting_bb1
-
-loop_exiting_bb1:
-  br i1 false, label %loop_exiting_bb2, label %exit1
-
-loop_exiting_bb2:
-  br i1 false, label %loop_latch, label %exit3
-
-exit3:
-  ret void
-
-loop_latch:
-  %iv_next = add i64 %iv, 1
-  %cmp = icmp ne i64 %iv_next, %trip
-  br i1 %cmp, label %loop_header, label %exit2.loopexit
-
-exit1:
- ret void
-
-exit2.loopexit:
-  ret void
-}
-
 !0 = distinct !{!0, !1}
 !1 = !{!"llvm.loop.unroll.runtime.disable"}
 

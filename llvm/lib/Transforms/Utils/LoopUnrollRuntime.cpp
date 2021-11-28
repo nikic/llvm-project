@@ -52,9 +52,6 @@ static cl::opt<bool> UnrollRuntimeMultiExit(
     "unroll-runtime-multi-exit", cl::init(false), cl::Hidden,
     cl::desc("Allow runtime unrolling for loops with multiple exits, when "
              "epilog is generated"));
-static cl::opt<bool> UnrollRuntimeOtherExitPredictable(
-    "unroll-runtime-other-exit-predictable", cl::init(false), cl::Hidden,
-    cl::desc("Assume the non latch exit block to be predictable"));
 
 /// Connect the unrolling prolog code to the original loop.
 /// The unrolling prolog code contains code to execute the
@@ -411,8 +408,7 @@ CloneLoopBlocks(Loop *L, Value *NewIter, const bool UseEpilogRemainder,
   return NewLoop;
 }
 
-/// Returns true if we can profitably unroll the multi-exit loop L. Currently,
-/// we return true only if UnrollRuntimeMultiExit is set to true.
+/// Returns true if we can profitably unroll the multi-exit loop L.
 static bool canProfitablyUnrollMultiExitLoop(
     Loop *L, SmallVectorImpl<BasicBlock *> &OtherExits, BasicBlock *LatchExit,
     bool UseEpilogRemainder) {
@@ -421,43 +417,16 @@ static bool canProfitablyUnrollMultiExitLoop(
   if (UnrollRuntimeMultiExit.getNumOccurrences())
     return UnrollRuntimeMultiExit;
 
-  // The main pain point with multi-exit loop unrolling is that once unrolled,
-  // we will not be able to merge all blocks into a straight line code.
-  // There are branches within the unrolled loop that go to the OtherExits.
-  // The second point is the increase in code size, but this is true
-  // irrespective of multiple exits.
-
-  // Note: Both the heuristics below are coarse grained. We are essentially
-  // enabling unrolling of loops that have a single side exit other than the
-  // normal LatchExit (i.e. exiting into a deoptimize block).
-  // The heuristics considered are:
-  // 1. low number of branches in the unrolled version.
-  // 2. high predictability of these extra branches.
-  // We avoid unrolling loops that have more than two exiting blocks. This
-  // limits the total number of branches in the unrolled loop to be atmost
-  // the unroll factor (since one of the exiting blocks is the latch block).
-  SmallVector<BasicBlock*, 4> ExitingBlocks;
-  L->getExitingBlocks(ExitingBlocks);
-  if (ExitingBlocks.size() > 2)
-    return false;
-
-  // Allow unrolling of loops with no non latch exit blocks.
-  if (OtherExits.size() == 0)
-    return true;
-
-  // The second heuristic is that L has one exit other than the latchexit and
-  // that exit is a deoptimize block. We know that deoptimize blocks are rarely
-  // taken, which also implies the branch leading to the deoptimize block is
-  // highly predictable. When UnrollRuntimeOtherExitPredictable is specified, we
-  // assume the other exit branch is predictable even if it has no deoptimize
-  // call.
-  return (OtherExits.size() == 1 &&
-          (UnrollRuntimeOtherExitPredictable ||
-           OtherExits[0]->getTerminatingDeoptimizeCall()));
-  // TODO: These can be fine-tuned further to consider code size or deopt states
-  // that are captured by the deoptimize exit block.
-  // Also, we can extend this to support more cases, if we actually
-  // know of kinds of multiexit loops that would benefit from unrolling.
+  // There are two costs to unrolling: static and dynamic.
+  // * In static cost, a multiple exit loop is analogous to a single exit
+  //   loop with the same instruction count.  If we'd unroll the single
+  //   exit form, we should also unroll the multiple exit one.
+  // * In dynamic cost, a multiple exit loop is analogous to a single
+  //   exit loop with internal control flow.  (e.g. imagine a C loop where
+  //   every break is replaced with a continue.)  If we'd unroll the internal
+  //   control flow form, we should also unroll the multiple exit form for
+  //   consistency sake.
+  return true;
 }
 
 // Assign the maximum possible trip count as the back edge weight for the
