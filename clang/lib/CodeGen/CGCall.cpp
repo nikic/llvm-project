@@ -1893,7 +1893,8 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
   for (StringRef Attr : CodeGenOpts.DefaultFunctionAttrs) {
     StringRef Var, Value;
     std::tie(Var, Value) = Attr.split('=');
-    FuncAttrs.addAttribute(Var, Value);
+    FuncAttrs.addAttribute(llvm::AttributeKey::get(getLLVMContext(), Var),
+                           Value);
   }
 }
 
@@ -1912,14 +1913,15 @@ void CodeGenModule::addDefaultFunctionDefinitionAttributes(
   GetCPUAndFeaturesAttributes(GlobalDecl(), attrs);
 }
 
-static void addNoBuiltinAttributes(llvm::AttrBuilder &FuncAttrs,
+static void addNoBuiltinAttributes(llvm::LLVMContext &LLVMCtxt,
+                                   llvm::AttrBuilder &FuncAttrs,
                                    const LangOptions &LangOpts,
                                    const NoBuiltinAttr *NBA = nullptr) {
-  auto AddNoBuiltinAttr = [&FuncAttrs](StringRef BuiltinName) {
+  auto AddNoBuiltinAttr = [&FuncAttrs, &LLVMCtxt](StringRef BuiltinName) {
     SmallString<32> AttributeName;
     AttributeName += "no-builtin-";
     AttributeName += BuiltinName;
-    FuncAttrs.addAttribute(AttributeName);
+    FuncAttrs.addAttribute(llvm::AttributeKey::get(LLVMCtxt, AttributeName));
   };
 
   // First, handle the language options passed through -fno-builtin.
@@ -2148,7 +2150,7 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
   // The attributes can come from:
   // * LangOpts: -ffreestanding, -fno-builtin, -fno-builtin-<name>
   // * FunctionDecl attributes: __attribute__((no_builtin(...)))
-  addNoBuiltinAttributes(FuncAttrs, getLangOpts(), NBA);
+  addNoBuiltinAttributes(getLLVMContext(), FuncAttrs, getLangOpts(), NBA);
 
   // Collect function IR attributes based on global settiings.
   getDefaultFunctionAttributes(Name, HasOptnone, AttrOnCallSite, FuncAttrs);

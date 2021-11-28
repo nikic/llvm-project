@@ -1488,7 +1488,7 @@ public:
   /// Determine whether this call has the given attribute. If it does not
   /// then determine if the called function has the attribute, but only if
   /// the attribute is allowed for the call.
-  bool hasFnAttr(StringRef Kind) const { return hasFnAttrImpl(Kind); }
+  bool hasFnAttr(AttributeKey Kind) const { return hasFnAttrImpl(Kind); }
 
   // TODO: remove non-AtIndex versions of these methods.
   /// adds the attribute to the list of attributes.
@@ -1539,7 +1539,7 @@ public:
   }
 
   /// removes the attribute from the list of attributes.
-  void removeAttributeAtIndex(unsigned i, StringRef Kind) {
+  void removeAttributeAtIndex(unsigned i, AttributeKey Kind) {
     Attrs = Attrs.removeAttributeAtIndex(getContext(), i, Kind);
   }
 
@@ -1570,7 +1570,7 @@ public:
   }
 
   /// Removes the attribute from the given argument
-  void removeParamAttr(unsigned ArgNo, StringRef Kind) {
+  void removeParamAttr(unsigned ArgNo, AttributeKey Kind) {
     assert(ArgNo < arg_size() && "Out of bounds");
     Attrs = Attrs.removeParamAttribute(getContext(), ArgNo, Kind);
   }
@@ -1595,7 +1595,7 @@ public:
     return hasRetAttrImpl(Kind);
   }
   /// Determine whether the return value has the given attribute.
-  bool hasRetAttr(StringRef Kind) const { return hasRetAttrImpl(Kind); }
+  bool hasRetAttr(AttributeKey Kind) const { return hasRetAttrImpl(Kind); }
 
   /// Determine whether the argument or parameter has the given attribute.
   bool paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const;
@@ -1606,12 +1606,12 @@ public:
   }
 
   /// Get the attribute of a given kind at a position.
-  Attribute getAttributeAtIndex(unsigned i, StringRef Kind) const {
+  Attribute getAttributeAtIndex(unsigned i, AttributeKey Kind) const {
     return getAttributes().getAttributeAtIndex(i, Kind);
   }
 
   /// Get the attribute of a given kind for the function.
-  Attribute getFnAttr(StringRef Kind) const {
+  Attribute getFnAttr(AttributeKey Kind) const {
     return getAttributes().getFnAttr(Kind);
   }
 
@@ -1627,7 +1627,7 @@ public:
   }
 
   /// Get the attribute of a given kind from a given arg
-  Attribute getParamAttr(unsigned ArgNo, StringRef Kind) const {
+  Attribute getParamAttr(unsigned ArgNo, AttributeKey Kind) const {
     assert(ArgNo < arg_size() && "Out of bounds");
     return getAttributes().getParamAttr(ArgNo, Kind);
   }
@@ -2086,7 +2086,7 @@ public:
 
   /// Is the function attribute S disallowed by some operand bundle on
   /// this operand bundle user?
-  bool isFnAttrDisallowedByOpBundle(StringRef S) const {
+  bool isFnAttrDisallowedByOpBundle(AttributeKey S) const {
     // Operand bundles only possibly disallow readnone, readonly and argmemonly
     // attributes.  All String attributes are fine.
     return false;
@@ -2271,7 +2271,7 @@ protected:
 
 private:
   bool hasFnAttrOnCalledFunction(Attribute::AttrKind Kind) const;
-  bool hasFnAttrOnCalledFunction(StringRef Kind) const;
+  bool hasFnAttrOnCalledFunction(AttributeKey Kind) const;
 
   template <typename AttrKind> bool hasFnAttrImpl(AttrKind Kind) const {
     if (Attrs.hasFnAttr(Kind))
@@ -2286,7 +2286,7 @@ private:
   }
 
   /// Determine whether the return value has the given attribute. Supports
-  /// Attribute::AttrKind and StringRef as \p AttrKind types.
+  /// Attribute::AttrKind and AttributeKey as \p AttrKind types.
   template <typename AttrKind> bool hasRetAttrImpl(AttrKind Kind) const {
     if (Attrs.hasRetAttr(Kind))
       return true;

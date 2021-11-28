@@ -17,6 +17,8 @@
 
 #include "llvm-c/Types.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/CachedHashString.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
@@ -30,6 +32,65 @@
 #include <map>
 #include <string>
 #include <utility>
+
+namespace llvm {
+
+class LLVMContext;
+
+//===----------------------------------------------------------------------===//
+/// \class
+/// Lightweight representation of a free-form attribute key. Its hash value is
+/// precomputed to speed-up lookups, and they are either pool-allocated or just
+/// reference a global string literal.
+
+class AttributeKey {
+  const char *value_;
+  uint32_t hash_;
+  uint32_t size_;
+
+  AttributeKey(CachedHashStringRef HashedS)
+      : value_(strndup(HashedS.data(), HashedS.size())), hash_(HashedS.hash()),
+        size_(HashedS.size()) {
+    assert(hash_ == hasher(value_, size_) && "consistent hashing");
+  }
+
+public:
+  static AttributeKey get(LLVMContext &Ctxt, StringRef s);
+
+  template <std::size_t N>
+  constexpr AttributeKey(const char (&s)[N])
+      : value_(s), hash_(hasher(s, N - 1)), size_(N - 1) {
+    static_assert(N - 1 < std::numeric_limits<decltype(size_)>::max(),
+                  "large enough size storage");
+  }
+  constexpr AttributeKey() : AttributeKey("") {}
+  StringRef value() const { return StringRef(value_, size_); }
+  uint32_t hash() const { return hash_; }
+  uint32_t size() const { return size_; }
+  bool operator==(AttributeKey const &other) const {
+    return size_ == other.size_ && strncmp(value_, other.value_, size_) == 0;
+  }
+  bool operator!=(AttributeKey const &other) const {
+    return !((*this) == other);
+  }
+  bool operator<(AttributeKey const &other) const {
+    return strcmp(value_, other.value_) < 0;
+  }
+
+  static constexpr uint32_t hasher(const char *str, size_t n) {
+    uint32_t hash = 5381;
+    for (size_t i = 0; i < n; ++i)
+      hash = hash * 33 + str[i];
+    return hash;
+  }
+};
+} // namespace llvm
+
+template <> struct std::hash<llvm::AttributeKey> {
+  std::size_t operator()(llvm::AttributeKey const &s) const noexcept {
+    return s.hash();
+  }
+};
 
 namespace llvm {
 
@@ -108,7 +169,7 @@ public:
 
   /// Return a uniquified Attribute object.
   static Attribute get(LLVMContext &Context, AttrKind Kind, uint64_t Val = 0);
-  static Attribute get(LLVMContext &Context, StringRef Kind,
+  static Attribute get(LLVMContext &Context, AttributeKey Kind,
                        StringRef Val = StringRef());
   static Attribute get(LLVMContext &Context, AttrKind Kind, Type *Ty);
 
@@ -170,7 +231,7 @@ public:
   bool hasAttribute(AttrKind Val) const;
 
   /// Return true if the target-dependent attribute is present.
-  bool hasAttribute(StringRef Val) const;
+  bool hasAttribute(AttributeKey Val) const;
 
   /// Return the attribute's kind as an enum (Attribute::AttrKind). This
   /// requires the attribute to be an enum, integer, or type attribute.
@@ -186,7 +247,7 @@ public:
 
   /// Return the attribute's kind as a string. This requires the
   /// attribute to be a string attribute.
-  StringRef getKindAsString() const;
+  AttributeKey getKindAsKey() const;
 
   /// Return the attribute's value as a string. This requires the
   /// attribute to be a string attribute.
@@ -296,7 +357,7 @@ public:
 
   /// Add a target-dependent attribute. Returns a new set because attribute sets
   /// are immutable.
-  LLVM_NODISCARD AttributeSet addAttribute(LLVMContext &C, StringRef Kind,
+  LLVM_NODISCARD AttributeSet addAttribute(LLVMContext &C, AttributeKey Kind,
                                            StringRef Value = StringRef()) const;
 
   /// Add attributes to the attribute set. Returns a new set because attribute
@@ -312,7 +373,7 @@ public:
   /// Remove the specified attribute from this set. Returns a new set because
   /// attribute sets are immutable.
   LLVM_NODISCARD AttributeSet removeAttribute(LLVMContext &C,
-                                              StringRef Kind) const;
+                                              AttributeKey Kind) const;
 
   /// Remove the specified attributes from this set. Returns a new set because
   /// attribute sets are immutable.
@@ -329,13 +390,13 @@ public:
   bool hasAttribute(Attribute::AttrKind Kind) const;
 
   /// Return true if the attribute exists in this set.
-  bool hasAttribute(StringRef Kind) const;
+  bool hasAttribute(AttributeKey Kind) const;
 
   /// Return the attribute object.
   Attribute getAttribute(Attribute::AttrKind Kind) const;
 
   /// Return the target-dependent attribute object.
-  Attribute getAttribute(StringRef Kind) const;
+  Attribute getAttribute(AttributeKey Kind) const;
 
   MaybeAlign getAlignment() const;
   MaybeAlign getStackAlignment() const;
@@ -450,7 +511,7 @@ public:
                            ArrayRef<Attribute::AttrKind> Kinds,
                            ArrayRef<uint64_t> Values);
   static AttributeList get(LLVMContext &C, unsigned Index,
-                           ArrayRef<StringRef> Kind);
+                           ArrayRef<AttributeKey> Kind);
   static AttributeList get(LLVMContext &C, unsigned Index,
                            const AttrBuilder &B);
 
@@ -463,7 +524,7 @@ public:
   /// Add an attribute to the attribute set at the given index.
   /// Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList
-  addAttributeAtIndex(LLVMContext &C, unsigned Index, StringRef Kind,
+  addAttributeAtIndex(LLVMContext &C, unsigned Index, AttributeKey Kind,
                       StringRef Value = StringRef()) const;
 
   /// Add an attribute to the attribute set at the given index.
@@ -495,7 +556,7 @@ public:
   /// Add a function attribute to the list. Returns a new list because
   /// attribute lists are immutable.
   LLVM_NODISCARD AttributeList addFnAttribute(
-      LLVMContext &C, StringRef Kind, StringRef Value = StringRef()) const {
+      LLVMContext &C, AttributeKey Kind, StringRef Value = StringRef()) const {
     return addAttributeAtIndex(C, FunctionIndex, Kind, Value);
   }
 
@@ -537,7 +598,7 @@ public:
   /// Add an argument attribute to the list. Returns a new list because
   /// attribute lists are immutable.
   LLVM_NODISCARD AttributeList
-  addParamAttribute(LLVMContext &C, unsigned ArgNo, StringRef Kind,
+  addParamAttribute(LLVMContext &C, unsigned ArgNo, AttributeKey Kind,
                     StringRef Value = StringRef()) const {
     return addAttributeAtIndex(C, ArgNo + FirstArgIndex, Kind, Value);
   }
@@ -565,9 +626,9 @@ public:
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList removeAttributeAtIndex(LLVMContext &C,
                                                       unsigned Index,
-                                                      StringRef Kind) const;
+                                                      AttributeKey Kind) const;
   LLVM_NODISCARD AttributeList removeAttribute(LLVMContext &C, unsigned Index,
-                                               StringRef Kind) const {
+                                               AttributeKey Kind) const {
     return removeAttributeAtIndex(C, Index, Kind);
   }
 
@@ -591,7 +652,7 @@ public:
   /// Remove the specified attribute at the function index from this
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList removeFnAttribute(LLVMContext &C,
-                                                 StringRef Kind) const {
+                                                 AttributeKey Kind) const {
     return removeAttributeAtIndex(C, FunctionIndex, Kind);
   }
 
@@ -618,7 +679,7 @@ public:
   /// Remove the specified attribute at the return value index from this
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList removeRetAttribute(LLVMContext &C,
-                                                  StringRef Kind) const {
+                                                  AttributeKey Kind) const {
     return removeAttributeAtIndex(C, ReturnIndex, Kind);
   }
 
@@ -640,7 +701,7 @@ public:
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList removeParamAttribute(LLVMContext &C,
                                                     unsigned ArgNo,
-                                                    StringRef Kind) const {
+                                                    AttributeKey Kind) const {
     return removeAttributeAtIndex(C, ArgNo + FirstArgIndex, Kind);
   }
 
@@ -712,7 +773,7 @@ public:
   bool hasAttributeAtIndex(unsigned Index, Attribute::AttrKind Kind) const;
 
   /// Return true if the attribute exists at the given index.
-  bool hasAttributeAtIndex(unsigned Index, StringRef Kind) const;
+  bool hasAttributeAtIndex(unsigned Index, AttributeKey Kind) const;
 
   /// Return true if attribute exists at the given index.
   bool hasAttributesAtIndex(unsigned Index) const;
@@ -723,7 +784,7 @@ public:
   }
 
   /// Return true if the attribute exists for the given argument
-  bool hasParamAttr(unsigned ArgNo, StringRef Kind) const {
+  bool hasParamAttr(unsigned ArgNo, AttributeKey Kind) const {
     return hasAttributeAtIndex(ArgNo + FirstArgIndex, Kind);
   }
 
@@ -738,7 +799,7 @@ public:
   }
 
   /// Return true if the attribute exists for the return value.
-  bool hasRetAttr(StringRef Kind) const {
+  bool hasRetAttr(AttributeKey Kind) const {
     return hasAttributeAtIndex(ReturnIndex, Kind);
   }
 
@@ -749,7 +810,7 @@ public:
   bool hasFnAttr(Attribute::AttrKind Kind) const;
 
   /// Return true if the attribute exists for the function.
-  bool hasFnAttr(StringRef Kind) const;
+  bool hasFnAttr(AttributeKey Kind) const;
 
   /// Return true the attributes exist for the function.
   bool hasFnAttrs() const { return hasAttributesAtIndex(FunctionIndex); }
@@ -764,7 +825,7 @@ public:
   Attribute getAttributeAtIndex(unsigned Index, Attribute::AttrKind Kind) const;
 
   /// Return the attribute object that exists at the given index.
-  Attribute getAttributeAtIndex(unsigned Index, StringRef Kind) const;
+  Attribute getAttributeAtIndex(unsigned Index, AttributeKey Kind) const;
 
   /// Return the attribute object that exists at the arg index.
   Attribute getParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
@@ -772,7 +833,7 @@ public:
   }
 
   /// Return the attribute object that exists at the given index.
-  Attribute getParamAttr(unsigned ArgNo, StringRef Kind) const {
+  Attribute getParamAttr(unsigned ArgNo, AttributeKey Kind) const {
     return getAttributeAtIndex(ArgNo + FirstArgIndex, Kind);
   }
 
@@ -782,7 +843,7 @@ public:
   }
 
   /// Return the attribute object that exists for the function.
-  Attribute getFnAttr(StringRef Kind) const {
+  Attribute getFnAttr(AttributeKey Kind) const {
     return getAttributeAtIndex(FunctionIndex, Kind);
   }
 
@@ -929,7 +990,7 @@ template <> struct DenseMapInfo<AttributeList, void> {
 /// equality, presence of attributes, etc.
 class AttrBuilder {
   std::bitset<Attribute::EndAttrKinds> Attrs;
-  std::map<SmallString<32>, SmallString<32>, std::less<>> TargetDepAttrs;
+  std::map<AttributeKey, SmallString<32>> TargetDepAttrs;
   std::array<uint64_t, Attribute::NumIntAttrKinds> IntAttrs = {};
   std::array<Type *, Attribute::NumTypeAttrKinds> TypeAttrs = {};
 
@@ -962,7 +1023,7 @@ public:
   AttrBuilder &addAttribute(Attribute A);
 
   /// Add the target-dependent attribute to the builder.
-  AttrBuilder &addAttribute(StringRef A, StringRef V = StringRef());
+  AttrBuilder &addAttribute(AttributeKey A, StringRef V = StringRef());
 
   /// Remove an attribute from the builder.
   AttrBuilder &removeAttribute(Attribute::AttrKind Val);
@@ -971,7 +1032,7 @@ public:
   AttrBuilder &removeAttributes(AttributeList A, uint64_t WithoutIndex);
 
   /// Remove the target-dependent attribute to the builder.
-  AttrBuilder &removeAttribute(StringRef A);
+  AttrBuilder &removeAttribute(AttributeKey A);
 
   /// Add the attributes from the builder.
   AttrBuilder &merge(const AttrBuilder &B);
@@ -991,7 +1052,7 @@ public:
 
   /// Return true if the builder has the specified target-dependent
   /// attribute.
-  bool contains(StringRef A) const;
+  bool contains(AttributeKey A) const;
 
   /// Return true if the builder has IR-level attributes.
   bool hasAttributes() const;

@@ -888,7 +888,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   //           attribute can not be inherited.
   for (const auto &Attr : oldFunction->getAttributes().getFnAttrs()) {
     if (Attr.isStringAttribute()) {
-      if (Attr.getKindAsString() == "thunk")
+      if (Attr.getKindAsKey() == "thunk")
         continue;
     } else
       switch (Attr.getKindAsEnum()) {

@@ -942,7 +942,7 @@ public:
   /// Return the canonical name for a function, taking into account
   /// suffix elision policy attributes.
   static StringRef getCanonicalFnName(const Function &F) {
-    auto AttrName = "sample-profile-suffix-elision-policy";
+    AttributeKey AttrName = "sample-profile-suffix-elision-policy";
     auto Attr = F.getFnAttribute(AttrName).getValueAsString();
     return getCanonicalFnName(F.getName(), Attr);
   }

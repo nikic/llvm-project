@@ -244,7 +244,7 @@ public:
       for (const Attribute &Attr : FnAttrs) {
         if (!Attr.isStringAttribute())
           continue;
-        auto AttrStr = Attr.getKindAsString();
+        auto AttrStr = Attr.getKindAsKey().value();
         if (!AttrStr.consume_front("no-builtin-"))
           continue;
         if (getLibFunc(AttrStr, LF))

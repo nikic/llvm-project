@@ -162,7 +162,7 @@ void CodeGenFunction::CGFPOptionsRAII::ConstructorHelper(FPOptions FPFeatures) {
            NewRoundingBehavior == llvm::RoundingMode::NearestTiesToEven)) &&
          "FPConstrained should be enabled on entire function");
 
-  auto mergeFnAttrValue = [&](StringRef Name, bool Value) {
+  auto mergeFnAttrValue = [&](llvm::AttributeKey Name, bool Value) {
     auto OldValue =
         CGF.CurFn->getFnAttribute(Name).getValueAsBool();
     auto NewValue = OldValue & Value;

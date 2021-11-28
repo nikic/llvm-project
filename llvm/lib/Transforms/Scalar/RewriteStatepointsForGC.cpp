@@ -1528,7 +1528,7 @@ public:
 } // end anonymous namespace
 
 static StringRef getDeoptLowering(CallBase *Call) {
-  const char *DeoptLowering = "deopt-lowering";
+  const char DeoptLowering[] = "deopt-lowering";
   if (Call->hasFnAttr(DeoptLowering)) {
     // FIXME: Calls have a *really* confusing interface around attributes
     // with values.

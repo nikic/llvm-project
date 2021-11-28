@@ -537,7 +537,7 @@ void Function::addFnAttr(Attribute::AttrKind Kind) {
   AttributeSets = AttributeSets.addFnAttribute(getContext(), Kind);
 }
 
-void Function::addFnAttr(StringRef Kind, StringRef Val) {
+void Function::addFnAttr(AttributeKey Kind, StringRef Val) {
   AttributeSets = AttributeSets.addFnAttribute(getContext(), Kind, Val);
 }
 
@@ -577,7 +577,7 @@ void Function::removeAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) {
   AttributeSets = AttributeSets.removeAttributeAtIndex(getContext(), i, Kind);
 }
 
-void Function::removeAttributeAtIndex(unsigned i, StringRef Kind) {
+void Function::removeAttributeAtIndex(unsigned i, AttributeKey Kind) {
   AttributeSets = AttributeSets.removeAttributeAtIndex(getContext(), i, Kind);
 }
 
@@ -585,7 +585,7 @@ void Function::removeFnAttr(Attribute::AttrKind Kind) {
   AttributeSets = AttributeSets.removeFnAttribute(getContext(), Kind);
 }
 
-void Function::removeFnAttr(StringRef Kind) {
+void Function::removeFnAttr(AttributeKey Kind) {
   AttributeSets = AttributeSets.removeFnAttribute(getContext(), Kind);
 }
 
@@ -597,7 +597,7 @@ void Function::removeRetAttr(Attribute::AttrKind Kind) {
   AttributeSets = AttributeSets.removeRetAttribute(getContext(), Kind);
 }
 
-void Function::removeRetAttr(StringRef Kind) {
+void Function::removeRetAttr(AttributeKey Kind) {
   AttributeSets = AttributeSets.removeRetAttribute(getContext(), Kind);
 }
 
@@ -609,7 +609,7 @@ void Function::removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
   AttributeSets = AttributeSets.removeParamAttribute(getContext(), ArgNo, Kind);
 }
 
-void Function::removeParamAttr(unsigned ArgNo, StringRef Kind) {
+void Function::removeParamAttr(unsigned ArgNo, AttributeKey Kind) {
   AttributeSets = AttributeSets.removeParamAttribute(getContext(), ArgNo, Kind);
 }
 
@@ -627,7 +627,7 @@ bool Function::hasFnAttribute(Attribute::AttrKind Kind) const {
   return AttributeSets.hasFnAttr(Kind);
 }
 
-bool Function::hasFnAttribute(StringRef Kind) const {
+bool Function::hasFnAttribute(AttributeKey Kind) const {
   return AttributeSets.hasFnAttr(Kind);
 }
 
@@ -645,7 +645,7 @@ Attribute Function::getAttributeAtIndex(unsigned i,
   return AttributeSets.getAttributeAtIndex(i, Kind);
 }
 
-Attribute Function::getAttributeAtIndex(unsigned i, StringRef Kind) const {
+Attribute Function::getAttributeAtIndex(unsigned i, AttributeKey Kind) const {
   return AttributeSets.getAttributeAtIndex(i, Kind);
 }
 
@@ -653,7 +653,7 @@ Attribute Function::getFnAttribute(Attribute::AttrKind Kind) const {
   return AttributeSets.getFnAttr(Kind);
 }
 
-Attribute Function::getFnAttribute(StringRef Kind) const {
+Attribute Function::getFnAttribute(AttributeKey Kind) const {
   return AttributeSets.getFnAttr(Kind);
 }
 

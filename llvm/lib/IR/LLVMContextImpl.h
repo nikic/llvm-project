@@ -19,6 +19,7 @@
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/DenseSet.h"
@@ -1368,6 +1369,9 @@ public:
 
   LLVMContext::YieldCallbackTy YieldCallback = nullptr;
   void *YieldOpaqueHandle = nullptr;
+
+  using AttributeKeyMapTy = DenseMap<CachedHashStringRef, AttributeKey>;
+  AttributeKeyMapTy AttributeKeys;
 
   using IntMapTy =
       DenseMap<APInt, std::unique_ptr<ConstantInt>, DenseMapAPIntKeyInfo>;
