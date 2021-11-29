@@ -7603,6 +7603,7 @@ void ScalarEvolution::forgetAllLoops() {
   // result.
   BackedgeTakenCounts.clear();
   PredicatedBackedgeTakenCounts.clear();
+  BECountUsers.clear();
   LoopPropertiesCache.clear();
   ConstantEvolutionLoopExitValue.clear();
   ValueExprMap.clear();
@@ -7628,8 +7629,8 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     auto *CurrL = LoopWorklist.pop_back_val();
 
     // Drop any stored trip count value.
-    BackedgeTakenCounts.erase(CurrL);
-    PredicatedBackedgeTakenCounts.erase(CurrL);
+    forgetBackedgeTakenCounts(CurrL, /* Predicated */ false);
+    forgetBackedgeTakenCounts(CurrL, /* Predicated */ true);
 
     // Drop information about predicated SCEV rewrites for this loop.
     for (auto I = PredicatedSCEVRewrites.begin();
@@ -7803,10 +7804,6 @@ bool ScalarEvolution::BackedgeTakenInfo::isConstantMaxOrZero(
   return MaxOrZero && !any_of(ExitNotTaken, PredicateNotAlwaysTrue);
 }
 
-bool ScalarEvolution::BackedgeTakenInfo::hasOperand(const SCEV *S) const {
-  return Operands.contains(S);
-}
-
 ScalarEvolution::ExitLimit::ExitLimit(const SCEV *E)
     : ExitLimit(E, E, false, None) {
 }
@@ -7847,19 +7844,6 @@ ScalarEvolution::ExitLimit::ExitLimit(const SCEV *E, const SCEV *M,
     : ExitLimit(E, M, MaxOrZero, None) {
 }
 
-class SCEVRecordOperands {
-  SmallPtrSetImpl<const SCEV *> &Operands;
-
-public:
-  SCEVRecordOperands(SmallPtrSetImpl<const SCEV *> &Operands)
-    : Operands(Operands) {}
-  bool follow(const SCEV *S) {
-    Operands.insert(S);
-    return true;
-  }
-  bool isDone() { return false; }
-};
-
 /// Allocate memory for BackedgeTakenInfo and copy the not-taken count of each
 /// computable exit into a persistent ExitNotTakenInfo array.
 ScalarEvolution::BackedgeTakenInfo::BackedgeTakenInfo(
@@ -7888,14 +7872,6 @@ ScalarEvolution::BackedgeTakenInfo::BackedgeTakenInfo(
   assert((isa<SCEVCouldNotCompute>(ConstantMax) ||
           isa<SCEVConstant>(ConstantMax)) &&
          "No point in having a non-constant max backedge taken count!");
-
-  SCEVRecordOperands RecordOperands(Operands);
-  SCEVTraversal<SCEVRecordOperands> ST(RecordOperands);
-  if (!isa<SCEVCouldNotCompute>(ConstantMax))
-    ST.visitAll(ConstantMax);
-  for (auto &ENT : ExitNotTaken)
-    if (!isa<SCEVCouldNotCompute>(ENT.ExactNotTaken))
-      ST.visitAll(ENT.ExactNotTaken);
 }
 
 /// Compute the number of times the backedge of the specified loop will execute.
@@ -7941,8 +7917,11 @@ ScalarEvolution::computeBackedgeTakenCount(const Loop *L,
       // We couldn't compute an exact value for this exit, so
       // we won't be able to compute an exact value for the loop.
       CouldComputeBECount = false;
-    else
+    else {
       ExitCounts.emplace_back(ExitBB, EL);
+      if (!isa<SCEVConstant>(EL.ExactNotTaken))
+        BECountUsers[EL.ExactNotTaken].insert({L, AllowPredicates});
+    }
 
     // 2. Derive the loop's MaxBECount from each exit's max number of
     // non-exiting iterations. Partition the loop exits into two kinds:
@@ -12877,6 +12856,23 @@ bool ScalarEvolution::hasOperand(const SCEV *S, const SCEV *Op) const {
   return SCEVExprContains(S, [&](const SCEV *Expr) { return Expr == Op; });
 }
 
+void ScalarEvolution::forgetBackedgeTakenCounts(const Loop *L,
+                                                bool Predicated) {
+  auto &BECounts =
+      Predicated ? PredicatedBackedgeTakenCounts : BackedgeTakenCounts;
+  auto It = BECounts.find(L);
+  if (It != BECounts.end()) {
+    for (const ExitNotTakenInfo &ENT : It->second.ExitNotTaken) {
+      if (!isa<SCEVConstant>(ENT.ExactNotTaken)) {
+        auto UserIt = BECountUsers.find(ENT.ExactNotTaken);
+        assert(UserIt != BECountUsers.end());
+        UserIt->second.erase({L, Predicated});
+      }
+    }
+    BECounts.erase(It);
+  }
+}
+
 void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs) {
   SmallPtrSet<const SCEV *, 8> ToForget(SCEVs.begin(), SCEVs.end());
   SmallVector<const SCEV *, 8> Worklist(ToForget.begin(), ToForget.end());
@@ -12901,21 +12897,6 @@ void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs) {
     else
       ++I;
   }
-
-  auto RemoveSCEVFromBackedgeMap = [&ToForget](
-      DenseMap<const Loop *, BackedgeTakenInfo> &Map) {
-        for (auto I = Map.begin(), E = Map.end(); I != E;) {
-          BackedgeTakenInfo &BEInfo = I->second;
-          if (any_of(ToForget,
-                     [&BEInfo](const SCEV *S) { return BEInfo.hasOperand(S); }))
-            Map.erase(I++);
-          else
-            ++I;
-        }
-  };
-
-  RemoveSCEVFromBackedgeMap(BackedgeTakenCounts);
-  RemoveSCEVFromBackedgeMap(PredicatedBackedgeTakenCounts);
 }
 
 void ScalarEvolution::forgetMemoizedResultsImpl(const SCEV *S) {
@@ -12937,6 +12918,15 @@ void ScalarEvolution::forgetMemoizedResultsImpl(const SCEV *S) {
       }
     }
     ExprValueMap.erase(ExprIt);
+  }
+
+  auto BEUsersIt = BECountUsers.find(S);
+  if (BEUsersIt != BECountUsers.end()) {
+    // Work on a copy, as forgetBackedgeTakenCounts() will modify the original.
+    auto Copy = BEUsersIt->second;
+    for (const auto &Pair : Copy)
+      forgetBackedgeTakenCounts(Pair.getPointer(), Pair.getInt());
+    BECountUsers.erase(BEUsersIt);
   }
 }
 
