@@ -12893,6 +12893,15 @@ void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs) {
   for (auto *S : ToForget)
     forgetMemoizedResultsImpl(S);
 
+  for (auto &KV : ValuesAtScopes) {
+    // We could delete only the entry in the inner array.
+    typedef std::pair<const Loop *, const SCEV *> EntryTy;
+    if (llvm::any_of(KV.second,
+                     [&](const EntryTy &E) {
+                       return ToForget.count(E.second); }))
+      KV.second.clear();
+  }
+
   for (auto I = PredicatedSCEVRewrites.begin();
        I != PredicatedSCEVRewrites.end();) {
     std::pair<const SCEV *, const Loop *> Entry = I->first;
