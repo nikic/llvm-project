@@ -233,7 +233,7 @@ static bool
 shouldBeDeferred(Function *Caller, InlineCost IC, int &TotalSecondaryCost,
                  function_ref<InlineCost(CallBase &CB)> GetInlineCost) {
   // For now we only handle local or inline functions.
-  if (!Caller->hasLocalLinkage() && !Caller->hasLinkOnceODRLinkage())
+  if (!Caller->hasLocalLinkage())
     return false;
   // If the cost of inlining CB is non-positive, it is not going to prevent the
   // caller from being inlined into its callers and hence we don't need to
