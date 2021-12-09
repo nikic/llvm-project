@@ -138,7 +138,7 @@ class InlineCostCallAnalyzer;
 /// This function behaves more like CallBase::hasFnAttr: when it looks for the
 /// requested attribute, it check both the call instruction and the called
 /// function (if it's available and operand bundles don't prohibit that).
-Attribute getFnAttr(CallBase &CB, StringRef AttrKind) {
+Attribute getFnAttr(CallBase &CB, AttributeKey AttrKind) {
   Attribute CallAttr = CB.getFnAttr(AttrKind);
   if (CallAttr.isValid())
     return CallAttr;
@@ -152,7 +152,7 @@ Attribute getFnAttr(CallBase &CB, StringRef AttrKind) {
   return {};
 }
 
-Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind) {
+Optional<int> getStringFnAttrAsInt(CallBase &CB, AttributeKey AttrKind) {
   Attribute Attr = getFnAttr(CB, AttrKind);
   int AttrValue;
   if (Attr.getValueAsString().getAsInteger(10, AttrValue))

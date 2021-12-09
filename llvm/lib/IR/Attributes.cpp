@@ -121,10 +121,11 @@ Attribute Attribute::get(LLVMContext &Context, Attribute::AttrKind Kind,
   return Attribute(PA);
 }
 
-Attribute Attribute::get(LLVMContext &Context, StringRef Kind, StringRef Val) {
+Attribute Attribute::get(LLVMContext &Context, AttributeKey Kind,
+                         StringRef Val) {
   LLVMContextImpl *pImpl = Context.pImpl;
   FoldingSetNodeID ID;
-  ID.AddString(Kind);
+  ID.AddString(Kind.value());
   if (!Val.empty()) ID.AddString(Val);
 
   void *InsertPoint;
@@ -134,7 +135,7 @@ Attribute Attribute::get(LLVMContext &Context, StringRef Kind, StringRef Val) {
     // If we didn't find any existing attributes of the same shape then create a
     // new one and insert it.
     void *Mem =
-        pImpl->Alloc.Allocate(StringAttributeImpl::totalSizeToAlloc(Kind, Val),
+        pImpl->Alloc.Allocate(StringAttributeImpl::totalSizeToAlloc(Val),
                               alignof(StringAttributeImpl));
     PA = new (Mem) StringAttributeImpl(Kind, Val);
     pImpl->AttrsSet.InsertNode(PA, InsertPoint);
@@ -294,11 +295,11 @@ bool Attribute::getValueAsBool() const {
   return pImpl->getValueAsBool();
 }
 
-StringRef Attribute::getKindAsString() const {
+AttributeKey Attribute::getKindAsKey() const {
   if (!pImpl) return {};
   assert(isStringAttribute() &&
          "Invalid attribute type to get the kind as a string!");
-  return pImpl->getKindAsString();
+  return pImpl->getKindAsKey();
 }
 
 StringRef Attribute::getValueAsString() const {
@@ -320,7 +321,7 @@ bool Attribute::hasAttribute(AttrKind Kind) const {
   return (pImpl && pImpl->hasAttribute(Kind)) || (!pImpl && Kind == None);
 }
 
-bool Attribute::hasAttribute(StringRef Kind) const {
+bool Attribute::hasAttribute(AttributeKey Kind) const {
   if (!isStringAttribute()) return false;
   return pImpl && pImpl->hasAttribute(Kind);
 }
@@ -457,7 +458,7 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
     std::string Result;
     {
       raw_string_ostream OS(Result);
-      OS << '"' << getKindAsString() << '"';
+      OS << '"' << getKindAsKey().value() << '"';
 
       // Since some attribute strings contain special characters that cannot be
       // printable, those have to be escaped to make the attribute value
@@ -532,9 +533,9 @@ bool AttributeImpl::hasAttribute(Attribute::AttrKind A) const {
   return getKindAsEnum() == A;
 }
 
-bool AttributeImpl::hasAttribute(StringRef Kind) const {
+bool AttributeImpl::hasAttribute(AttributeKey Kind) const {
   if (!isStringAttribute()) return false;
-  return getKindAsString() == Kind;
+  return getKindAsKey() == Kind;
 }
 
 Attribute::AttrKind AttributeImpl::getKindAsEnum() const {
@@ -552,7 +553,7 @@ bool AttributeImpl::getValueAsBool() const {
   return getValueAsString() == "true";
 }
 
-StringRef AttributeImpl::getKindAsString() const {
+AttributeKey AttributeImpl::getKindAsKey() const {
   assert(isStringAttribute());
   return static_cast<const StringAttributeImpl *>(this)->getStringKind();
 }
@@ -587,9 +588,9 @@ bool AttributeImpl::operator<(const AttributeImpl &AI) const {
 
   if (!AI.isStringAttribute())
     return false;
-  if (getKindAsString() == AI.getKindAsString())
+  if (getKindAsKey() == AI.getKindAsKey())
     return getValueAsString() < AI.getValueAsString();
-  return getKindAsString() < AI.getKindAsString();
+  return getKindAsKey() < AI.getKindAsKey();
 }
 
 //===----------------------------------------------------------------------===//
@@ -612,7 +613,7 @@ AttributeSet AttributeSet::addAttribute(LLVMContext &C,
   return addAttributes(C, AttributeSet::get(C, B));
 }
 
-AttributeSet AttributeSet::addAttribute(LLVMContext &C, StringRef Kind,
+AttributeSet AttributeSet::addAttribute(LLVMContext &C, AttributeKey Kind,
                                         StringRef Value) const {
   AttrBuilder B;
   B.addAttribute(Kind, Value);
@@ -643,7 +644,7 @@ AttributeSet AttributeSet::removeAttribute(LLVMContext &C,
 }
 
 AttributeSet AttributeSet::removeAttribute(LLVMContext &C,
-                                             StringRef Kind) const {
+                                           AttributeKey Kind) const {
   if (!hasAttribute(Kind)) return *this;
   AttrBuilder B(*this);
   B.removeAttribute(Kind);
@@ -669,7 +670,7 @@ bool AttributeSet::hasAttribute(Attribute::AttrKind Kind) const {
   return SetNode ? SetNode->hasAttribute(Kind) : false;
 }
 
-bool AttributeSet::hasAttribute(StringRef Kind) const {
+bool AttributeSet::hasAttribute(AttributeKey Kind) const {
   return SetNode ? SetNode->hasAttribute(Kind) : false;
 }
 
@@ -677,7 +678,7 @@ Attribute AttributeSet::getAttribute(Attribute::AttrKind Kind) const {
   return SetNode ? SetNode->getAttribute(Kind) : Attribute();
 }
 
-Attribute AttributeSet::getAttribute(StringRef Kind) const {
+Attribute AttributeSet::getAttribute(AttributeKey Kind) const {
   return SetNode ? SetNode->getAttribute(Kind) : Attribute();
 }
 
@@ -773,7 +774,7 @@ AttributeSetNode::AttributeSetNode(ArrayRef<Attribute> Attrs)
 
   for (const auto &I : *this) {
     if (I.isStringAttribute())
-      StringAttrs.insert({ I.getKindAsString(), I });
+      StringAttrs.insert({I.getKindAsKey(), I});
     else
       AvailableAttrs.addAttribute(I.getKindAsEnum());
   }
@@ -841,7 +842,7 @@ AttributeSetNode *AttributeSetNode::get(LLVMContext &C, const AttrBuilder &B) {
   return getSorted(C, Attrs);
 }
 
-bool AttributeSetNode::hasAttribute(StringRef Kind) const {
+bool AttributeSetNode::hasAttribute(AttributeKey Kind) const {
   return StringAttrs.count(Kind);
 }
 
@@ -868,8 +869,9 @@ Attribute AttributeSetNode::getAttribute(Attribute::AttrKind Kind) const {
   return {};
 }
 
-Attribute AttributeSetNode::getAttribute(StringRef Kind) const {
-  return StringAttrs.lookup(Kind);
+Attribute AttributeSetNode::getAttribute(AttributeKey Kind) const {
+  auto Where = StringAttrs.find(Kind);
+  return Where != StringAttrs.end() ? Where->second : Attribute();
 }
 
 MaybeAlign AttributeSetNode::getAlignment() const {
@@ -1165,7 +1167,7 @@ AttributeList AttributeList::get(LLVMContext &C, unsigned Index,
 }
 
 AttributeList AttributeList::get(LLVMContext &C, unsigned Index,
-                                 ArrayRef<StringRef> Kinds) {
+                                 ArrayRef<AttributeKey> Kinds) {
   SmallVector<std::pair<unsigned, Attribute>, 8> Attrs;
   for (const auto &K : Kinds)
     Attrs.emplace_back(Index, Attribute::get(C, K));
@@ -1211,7 +1213,7 @@ AttributeList::addAttributeAtIndex(LLVMContext &C, unsigned Index,
 }
 
 AttributeList AttributeList::addAttributeAtIndex(LLVMContext &C, unsigned Index,
-                                                 StringRef Kind,
+                                                 AttributeKey Kind,
                                                  StringRef Value) const {
   AttrBuilder B;
   B.addAttribute(Kind, Value);
@@ -1296,7 +1298,7 @@ AttributeList::removeAttributeAtIndex(LLVMContext &C, unsigned Index,
 
 AttributeList AttributeList::removeAttributeAtIndex(LLVMContext &C,
                                                     unsigned Index,
-                                                    StringRef Kind) const {
+                                                    AttributeKey Kind) const {
   if (!hasAttributeAtIndex(Index, Kind))
     return *this;
 
@@ -1386,7 +1388,8 @@ bool AttributeList::hasAttributeAtIndex(unsigned Index,
   return getAttributes(Index).hasAttribute(Kind);
 }
 
-bool AttributeList::hasAttributeAtIndex(unsigned Index, StringRef Kind) const {
+bool AttributeList::hasAttributeAtIndex(unsigned Index,
+                                        AttributeKey Kind) const {
   return getAttributes(Index).hasAttribute(Kind);
 }
 
@@ -1398,7 +1401,7 @@ bool AttributeList::hasFnAttr(Attribute::AttrKind Kind) const {
   return pImpl && pImpl->hasFnAttribute(Kind);
 }
 
-bool AttributeList::hasFnAttr(StringRef Kind) const {
+bool AttributeList::hasFnAttr(AttributeKey Kind) const {
   return hasAttributeAtIndex(AttributeList::FunctionIndex, Kind);
 }
 
@@ -1413,7 +1416,7 @@ Attribute AttributeList::getAttributeAtIndex(unsigned Index,
 }
 
 Attribute AttributeList::getAttributeAtIndex(unsigned Index,
-                                             StringRef Kind) const {
+                                             AttributeKey Kind) const {
   return getAttributes(Index).getAttribute(Kind);
 }
 
@@ -1579,7 +1582,7 @@ AttrBuilder::kindToTypeIndex(Attribute::AttrKind Kind) const {
 
 AttrBuilder &AttrBuilder::addAttribute(Attribute Attr) {
   if (Attr.isStringAttribute()) {
-    addAttribute(Attr.getKindAsString(), Attr.getValueAsString());
+    addAttribute(Attr.getKindAsKey(), Attr.getValueAsString());
     return *this;
   }
 
@@ -1594,7 +1597,7 @@ AttrBuilder &AttrBuilder::addAttribute(Attribute Attr) {
   return *this;
 }
 
-AttrBuilder &AttrBuilder::addAttribute(StringRef A, StringRef V) {
+AttrBuilder &AttrBuilder::addAttribute(AttributeKey A, StringRef V) {
   TargetDepAttrs[A] = V;
   return *this;
 }
@@ -1616,7 +1619,7 @@ AttrBuilder &AttrBuilder::removeAttributes(AttributeList A, uint64_t Index) {
   return *this;
 }
 
-AttrBuilder &AttrBuilder::removeAttribute(StringRef A) {
+AttrBuilder &AttrBuilder::removeAttribute(AttributeKey A) {
   TargetDepAttrs.erase(A);
   return *this;
 }
@@ -1786,7 +1789,7 @@ bool AttrBuilder::overlaps(const AttrBuilder &B) const {
   return false;
 }
 
-bool AttrBuilder::contains(StringRef A) const {
+bool AttrBuilder::contains(AttributeKey A) const {
   return TargetDepAttrs.find(A) != TargetDepAttrs.end();
 }
 
@@ -1803,7 +1806,7 @@ bool AttrBuilder::hasAttributes(AttributeList AL, uint64_t Index) const {
         return true;
     } else {
       assert(Attr.isStringAttribute() && "Invalid attribute kind!");
-      return contains(Attr.getKindAsString());
+      return contains(Attr.getKindAsKey());
     }
   }
 
@@ -2010,14 +2013,12 @@ struct EnumAttr {
 };
 
 struct StrBoolAttr {
-  static bool isSet(const Function &Fn,
-                    StringRef Kind) {
+  static bool isSet(const Function &Fn, AttributeKey Kind) {
     auto A = Fn.getFnAttribute(Kind);
     return A.getValueAsString().equals("true");
   }
 
-  static void set(Function &Fn,
-                  StringRef Kind, bool Val) {
+  static void set(Function &Fn, AttributeKey Kind, bool Val) {
     Fn.addFnAttr(Kind, Val ? "true" : "false");
   }
 };
@@ -2031,7 +2032,7 @@ struct StrBoolAttr {
   };
 #define ATTRIBUTE_STRBOOL(ENUM_NAME, DISPLAY_NAME)                             \
   struct ENUM_NAME##Attr : StrBoolAttr {                                       \
-    static StringRef getKind() { return #DISPLAY_NAME; }                       \
+    static AttributeKey getKind() { return #DISPLAY_NAME; }                    \
   };
 #include "llvm/IR/Attributes.inc"
 
@@ -2064,4 +2065,20 @@ void AttributeFuncs::mergeAttributesForOutlining(Function &Base,
   // function, but not the other, we make sure that the function retains
   // that aspect in the merged function.
   mergeFnAttrs(Base, ToMerge);
+}
+
+AttributeKey AttributeKey::get(LLVMContext &Context, StringRef S) {
+  assert(S.size() < std::numeric_limits<decltype(size_)>::max() &&
+         "large enough size storage");
+
+  LLVMContextImpl *pImpl = Context.pImpl;
+  auto &AttributeKeys = pImpl->AttributeKeys;
+
+  CachedHashStringRef HashedS(S, AttributeKey::hasher(S.data(), S.size()));
+  auto Where = AttributeKeys.find_as(HashedS);
+  if (Where == AttributeKeys.end()) {
+    return *AttributeKeys.insert_as({HashedS}, HashedS).first;
+  } else {
+    return *Where;
+  }
 }

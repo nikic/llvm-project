@@ -11647,7 +11647,7 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
           Out << 'a' << ParamAttr.Alignment;
       }
       Out << '_' << Fn->getName();
-      Fn->addFnAttr(Out.str());
+      Fn->addFnAttr(llvm::AttributeKey::get(Fn->getContext(), Out.str()));
     }
   }
 }
@@ -11805,7 +11805,7 @@ static void addAArch64VectorName(T VLEN, StringRef LMask, StringRef Prefix,
   if (OutputBecomesInput)
     Out << "v";
   Out << ParSeq << "_" << MangledName;
-  Fn->addFnAttr(Out.str());
+  Fn->addFnAttr(llvm::AttributeKey::get(Fn->getContext(), Out.str()));
 }
 
 // Helper function to generate the Advanced SIMD names depending on

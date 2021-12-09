@@ -406,7 +406,8 @@ void llvm::diagnoseDontCall(const CallInst &CI) {
     return;
 
   for (int i = 0; i != 2; ++i) {
-    auto AttrName = i == 0 ? "dontcall-error" : "dontcall-warn";
+    auto AttrName =
+        i == 0 ? AttributeKey("dontcall-error") : AttributeKey("dontcall-warn");
     auto Sev = i == 0 ? DS_Error : DS_Warning;
 
     if (F->hasFnAttribute(AttrName)) {

@@ -162,7 +162,7 @@ std::string getFeaturesStr();
 
 std::vector<std::string> getFeatureList();
 
-void renderBoolStringAttr(AttrBuilder &B, StringRef Name, bool Val);
+void renderBoolStringAttr(AttrBuilder &B, AttributeKey Name, bool Val);
 
 /// Set function attributes of function \p F based on CPU, Features, and command
 /// line flags.

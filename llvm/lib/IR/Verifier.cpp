@@ -548,7 +548,7 @@ private:
   bool verifyAttributeCount(AttributeList Attrs, unsigned Params);
   void verifyAttributeTypes(AttributeSet Attrs, const Value *V);
   void verifyParameterAttrs(AttributeSet Attrs, Type *Ty, const Value *V);
-  void checkUnsignedBaseTenFuncAttr(AttributeList Attrs, StringRef Attr,
+  void checkUnsignedBaseTenFuncAttr(AttributeList Attrs, AttributeKey Attr,
                                     const Value *V);
   void verifyFunctionAttrs(FunctionType *FT, AttributeList Attrs,
                            const Value *V, bool IsIntrinsic);
@@ -1706,7 +1706,7 @@ void Verifier::verifyAttributeTypes(AttributeSet Attrs, const Value *V) {
 #define GET_ATTR_NAMES
 #define ATTRIBUTE_ENUM(ENUM_NAME, DISPLAY_NAME)
 #define ATTRIBUTE_STRBOOL(ENUM_NAME, DISPLAY_NAME)                             \
-  if (A.getKindAsString() == #DISPLAY_NAME) {                                  \
+  if (A.getKindAsKey().value() == #DISPLAY_NAME) {                             \
     auto V = A.getValueAsString();                                             \
     if (!(V.empty() || V == "true" || V == "false"))                           \
       CheckFailed("invalid value for '" #DISPLAY_NAME "' attribute: " + V +    \
@@ -1868,13 +1868,14 @@ void Verifier::verifyParameterAttrs(AttributeSet Attrs, Type *Ty,
   }
 }
 
-void Verifier::checkUnsignedBaseTenFuncAttr(AttributeList Attrs, StringRef Attr,
-                                            const Value *V) {
+void Verifier::checkUnsignedBaseTenFuncAttr(AttributeList Attrs,
+                                            AttributeKey Attr, const Value *V) {
   if (Attrs.hasFnAttr(Attr)) {
     StringRef S = Attrs.getFnAttr(Attr).getValueAsString();
     unsigned N;
     if (S.getAsInteger(10, N))
-      CheckFailed("\"" + Attr + "\" takes an unsigned integer: " + S, V);
+      CheckFailed("\"" + Attr.value() + "\" takes an unsigned integer: " + S,
+                  V);
   }
 }
 

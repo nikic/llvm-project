@@ -190,7 +190,7 @@ public:
   }
 
   /// Add attribute to this global.
-  void addAttribute(StringRef Kind, StringRef Val = StringRef()) {
+  void addAttribute(AttributeKey Kind, StringRef Val = StringRef()) {
     Attrs = Attrs.addAttribute(getContext(), Kind, Val);
   }
 
@@ -200,7 +200,7 @@ public:
   }
 
   /// Return true if the attribute exists.
-  bool hasAttribute(StringRef Kind) const {
+  bool hasAttribute(AttributeKey Kind) const {
     return Attrs.hasAttribute(Kind);
   }
 
@@ -215,7 +215,7 @@ public:
   }
 
   /// Return the attribute object.
-  Attribute getAttribute(StringRef Kind) const {
+  Attribute getAttribute(AttributeKey Kind) const {
     return Attrs.getAttribute(Kind);
   }
 

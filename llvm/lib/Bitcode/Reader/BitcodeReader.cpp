@@ -1644,7 +1644,7 @@ Error BitcodeReader::parseAttributeGroupBlock() {
             assert(Record[i] == 0 && "Value string not null terminated");
           }
 
-          B.addAttribute(KindStr.str(), ValStr.str());
+          B.addAttribute(AttributeKey::get(Context, KindStr), ValStr.str());
         } else {
           assert((Record[i] == 5 || Record[i] == 6) &&
                  "Invalid attribute group entry");

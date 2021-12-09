@@ -799,7 +799,7 @@ void ModuleBitcodeWriter::writeAttributeGroupTable() {
         Record.push_back(getAttrKindEncoding(Attr.getKindAsEnum()));
         Record.push_back(Attr.getValueAsInt());
       } else if (Attr.isStringAttribute()) {
-        StringRef Kind = Attr.getKindAsString();
+        StringRef Kind = Attr.getKindAsKey().value();
         StringRef Val = Attr.getValueAsString();
 
         Record.push_back(Val.empty() ? 3 : 4);

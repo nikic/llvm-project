@@ -4381,7 +4381,7 @@ private:
                                                     : ChangeStatus::CHANGED;
   }
 
-  ChangeStatus foldKernelFnAttribute(Attributor &A, llvm::StringRef Attr) {
+  ChangeStatus foldKernelFnAttribute(Attributor &A, AttributeKey Attr) {
     // Specialize only if all the calls agree with the attribute constant value
     int32_t CurrentAttrValue = -1;
     Optional<Value *> SimplifiedValueBefore = SimplifiedValue;

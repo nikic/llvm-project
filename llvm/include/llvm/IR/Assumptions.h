@@ -25,7 +25,7 @@ class Function;
 class CallBase;
 
 /// The key we use for assumption attributes.
-constexpr StringRef AssumptionAttrKey = "llvm.assume";
+constexpr char AssumptionAttrKey[] = "llvm.assume";
 
 /// A set of known assumption strings that are accepted without warning and
 /// which can be recommended as typo correction.

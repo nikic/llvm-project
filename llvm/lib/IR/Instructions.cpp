@@ -360,7 +360,7 @@ bool CallBase::hasFnAttrOnCalledFunction(Attribute::AttrKind Kind) const {
   return false;
 }
 
-bool CallBase::hasFnAttrOnCalledFunction(StringRef Kind) const {
+bool CallBase::hasFnAttrOnCalledFunction(AttributeKey Kind) const {
   Value *V = getCalledOperand();
   if (auto *CE = dyn_cast<ConstantExpr>(V))
     if (CE->getOpcode() == BitCast)

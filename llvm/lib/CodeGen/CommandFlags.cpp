@@ -604,7 +604,8 @@ std::vector<std::string> codegen::getFeatureList() {
   return Features.getFeatures();
 }
 
-void codegen::renderBoolStringAttr(AttrBuilder &B, StringRef Name, bool Val) {
+void codegen::renderBoolStringAttr(AttrBuilder &B, AttributeKey Name,
+                                   bool Val) {
   B.addAttribute(Name, Val ? "true" : "false");
 }
 

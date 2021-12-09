@@ -1613,7 +1613,7 @@ bool LLParser::parseStringAttribute(AttrBuilder &B) {
   std::string Val;
   if (EatIfPresent(lltok::equal) && parseStringConstant(Val))
     return true;
-  B.addAttribute(Attr, Val);
+  B.addAttribute(AttributeKey::get(getContext(), Attr), Val);
   return false;
 }
 

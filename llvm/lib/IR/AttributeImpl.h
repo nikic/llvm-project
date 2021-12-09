@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 namespace llvm {
@@ -60,13 +61,13 @@ public:
   bool isTypeAttribute() const { return KindID == TypeAttrEntry; }
 
   bool hasAttribute(Attribute::AttrKind A) const;
-  bool hasAttribute(StringRef Kind) const;
+  bool hasAttribute(AttributeKey Kind) const;
 
   Attribute::AttrKind getKindAsEnum() const;
   uint64_t getValueAsInt() const;
   bool getValueAsBool() const;
 
-  StringRef getKindAsString() const;
+  AttributeKey getKindAsKey() const;
   StringRef getValueAsString() const;
 
   Type *getValueAsType() const;
@@ -80,7 +81,7 @@ public:
     else if (isIntAttribute())
       Profile(ID, getKindAsEnum(), getValueAsInt());
     else if (isStringAttribute())
-      Profile(ID, getKindAsString(), getValueAsString());
+      Profile(ID, getKindAsKey(), getValueAsString());
     else
       Profile(ID, getKindAsEnum(), getValueAsType());
   }
@@ -91,8 +92,9 @@ public:
     if (Val) ID.AddInteger(Val);
   }
 
-  static void Profile(FoldingSetNodeID &ID, StringRef Kind, StringRef Values) {
-    ID.AddString(Kind);
+  static void Profile(FoldingSetNodeID &ID, AttributeKey Kind,
+                      StringRef Values) {
+    ID.AddString(Kind.value());
     if (!Values.empty()) ID.AddString(Values);
   }
 
@@ -148,34 +150,26 @@ class StringAttributeImpl final
       private TrailingObjects<StringAttributeImpl, char> {
   friend TrailingObjects;
 
-  unsigned KindSize;
+  AttributeKey Kind;
   unsigned ValSize;
-  size_t numTrailingObjects(OverloadToken<char>) const {
-    return KindSize + 1 + ValSize + 1;
-  }
+  size_t numTrailingObjects(OverloadToken<char>) const { return ValSize + 1; }
 
 public:
-  StringAttributeImpl(StringRef Kind, StringRef Val = StringRef())
-      : AttributeImpl(StringAttrEntry), KindSize(Kind.size()),
-        ValSize(Val.size()) {
+  StringAttributeImpl(AttributeKey Kind, StringRef Val = StringRef())
+      : AttributeImpl(StringAttrEntry), Kind(Kind), ValSize(Val.size()) {
     char *TrailingString = getTrailingObjects<char>();
     // Some users rely on zero-termination.
-    llvm::copy(Kind, TrailingString);
-    TrailingString[KindSize] = '\0';
-    llvm::copy(Val, &TrailingString[KindSize + 1]);
-    TrailingString[KindSize + 1 + ValSize] = '\0';
+    llvm::copy(Val, TrailingString);
+    TrailingString[ValSize] = '\0';
   }
 
-  StringRef getStringKind() const {
-    return StringRef(getTrailingObjects<char>(), KindSize);
-  }
+  AttributeKey getStringKind() const { return Kind; }
   StringRef getStringValue() const {
-    return StringRef(getTrailingObjects<char>() + KindSize + 1, ValSize);
+    return StringRef(getTrailingObjects<char>(), ValSize);
   }
 
-  static size_t totalSizeToAlloc(StringRef Kind, StringRef Val) {
-    return TrailingObjects::totalSizeToAlloc<char>(Kind.size() + 1 +
-                                                   Val.size() + 1);
+  static size_t totalSizeToAlloc(StringRef Val) {
+    return TrailingObjects::totalSizeToAlloc<char>(Val.size() + 1);
   }
 };
 
@@ -217,7 +211,7 @@ class AttributeSetNode final
   unsigned NumAttrs; ///< Number of attributes in this node.
   AttributeBitSet AvailableAttrs; ///< Available enum attributes.
 
-  DenseMap<StringRef, Attribute> StringAttrs;
+  DenseMap<AttributeKey, Attribute> StringAttrs;
 
   AttributeSetNode(ArrayRef<Attribute> Attrs);
 
@@ -242,11 +236,11 @@ public:
   bool hasAttribute(Attribute::AttrKind Kind) const {
     return AvailableAttrs.hasAttribute(Kind);
   }
-  bool hasAttribute(StringRef Kind) const;
+  bool hasAttribute(AttributeKey Kind) const;
   bool hasAttributes() const { return NumAttrs != 0; }
 
   Attribute getAttribute(Attribute::AttrKind Kind) const;
-  Attribute getAttribute(StringRef Kind) const;
+  Attribute getAttribute(AttributeKey Kind) const;
 
   MaybeAlign getAlignment() const;
   MaybeAlign getStackAlignment() const;

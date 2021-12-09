@@ -326,7 +326,7 @@ public:
   void addFnAttr(Attribute::AttrKind Kind);
 
   /// Add function attributes to this function.
-  void addFnAttr(StringRef Kind, StringRef Val = StringRef());
+  void addFnAttr(AttributeKey Kind, StringRef Val = StringRef());
 
   /// Add function attributes to this function.
   void addFnAttr(Attribute Attr);
@@ -356,13 +356,13 @@ public:
   void removeAttributeAtIndex(unsigned i, Attribute::AttrKind Kind);
 
   /// removes the attribute from the list of attributes.
-  void removeAttributeAtIndex(unsigned i, StringRef Kind);
+  void removeAttributeAtIndex(unsigned i, AttributeKey Kind);
 
   /// Remove function attributes from this function.
   void removeFnAttr(Attribute::AttrKind Kind);
 
   /// Remove function attribute from this function.
-  void removeFnAttr(StringRef Kind);
+  void removeFnAttr(AttributeKey Kind);
 
   void removeFnAttrs(const AttrBuilder &Attrs);
 
@@ -370,7 +370,7 @@ public:
   void removeRetAttr(Attribute::AttrKind Kind);
 
   /// removes the attribute from the return value list of attributes.
-  void removeRetAttr(StringRef Kind);
+  void removeRetAttr(AttributeKey Kind);
 
   /// removes the attributes from the return value list of attributes.
   void removeRetAttrs(const AttrBuilder &Attrs);
@@ -379,7 +379,7 @@ public:
   void removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind);
 
   /// removes the attribute from the list of attributes.
-  void removeParamAttr(unsigned ArgNo, StringRef Kind);
+  void removeParamAttr(unsigned ArgNo, AttributeKey Kind);
 
   /// removes the attribute from the list of attributes.
   void removeParamAttrs(unsigned ArgNo, const AttrBuilder &Attrs);
@@ -388,7 +388,7 @@ public:
   bool hasFnAttribute(Attribute::AttrKind Kind) const;
 
   /// Return true if the function has the attribute.
-  bool hasFnAttribute(StringRef Kind) const;
+  bool hasFnAttribute(AttributeKey Kind) const;
 
   /// check if an attribute is in the list of attributes for the return value.
   bool hasRetAttribute(Attribute::AttrKind Kind) const;
@@ -400,13 +400,13 @@ public:
   Attribute getAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) const;
 
   /// gets the attribute from the list of attributes.
-  Attribute getAttributeAtIndex(unsigned i, StringRef Kind) const;
+  Attribute getAttributeAtIndex(unsigned i, AttributeKey Kind) const;
 
   /// Return the attribute for the given attribute kind.
   Attribute getFnAttribute(Attribute::AttrKind Kind) const;
 
   /// Return the attribute for the given attribute kind.
-  Attribute getFnAttribute(StringRef Kind) const;
+  Attribute getFnAttribute(AttributeKey Kind) const;
 
   /// gets the specified attribute from the list of attributes.
   Attribute getParamAttribute(unsigned ArgNo, Attribute::AttrKind Kind) const;

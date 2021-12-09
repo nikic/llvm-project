@@ -179,13 +179,14 @@ LLVMTypeRef LLVMGetTypeAttributeValue(LLVMAttributeRef A) {
 LLVMAttributeRef LLVMCreateStringAttribute(LLVMContextRef C,
                                            const char *K, unsigned KLength,
                                            const char *V, unsigned VLength) {
-  return wrap(Attribute::get(*unwrap(C), StringRef(K, KLength),
+  auto &Ctx = *unwrap(C);
+  return wrap(Attribute::get(Ctx, AttributeKey::get(Ctx, StringRef(K, KLength)),
                              StringRef(V, VLength)));
 }
 
 const char *LLVMGetStringAttributeKind(LLVMAttributeRef A,
                                        unsigned *Length) {
-  auto S = unwrap(A).getKindAsString();
+  StringRef S = unwrap(A).getKindAsKey().value();
   *Length = S.size();
   return S.data();
 }
@@ -2493,8 +2494,9 @@ LLVMAttributeRef LLVMGetEnumAttributeAtIndex(LLVMValueRef F,
 LLVMAttributeRef LLVMGetStringAttributeAtIndex(LLVMValueRef F,
                                                LLVMAttributeIndex Idx,
                                                const char *K, unsigned KLen) {
-  return wrap(
-      unwrap<Function>(F)->getAttributeAtIndex(Idx, StringRef(K, KLen)));
+  Function *Func = unwrap<Function>(F);
+  return wrap(Func->getAttributeAtIndex(
+      Idx, AttributeKey::get(Func->getContext(), StringRef(K, KLen))));
 }
 
 void LLVMRemoveEnumAttributeAtIndex(LLVMValueRef F, LLVMAttributeIndex Idx,
@@ -2504,13 +2506,16 @@ void LLVMRemoveEnumAttributeAtIndex(LLVMValueRef F, LLVMAttributeIndex Idx,
 
 void LLVMRemoveStringAttributeAtIndex(LLVMValueRef F, LLVMAttributeIndex Idx,
                                       const char *K, unsigned KLen) {
-  unwrap<Function>(F)->removeAttributeAtIndex(Idx, StringRef(K, KLen));
+  Function *Func = unwrap<Function>(F);
+  Func->removeAttributeAtIndex(
+      Idx, AttributeKey::get(Func->getContext(), StringRef(K, KLen)));
 }
 
 void LLVMAddTargetDependentFunctionAttr(LLVMValueRef Fn, const char *A,
                                         const char *V) {
   Function *Func = unwrap<Function>(Fn);
-  Attribute Attr = Attribute::get(Func->getContext(), A, V);
+  Attribute Attr = Attribute::get(Func->getContext(),
+                                  AttributeKey::get(Func->getContext(), A), V);
   Func->addFnAttr(Attr);
 }
 
@@ -2904,8 +2909,9 @@ LLVMAttributeRef LLVMGetCallSiteEnumAttribute(LLVMValueRef C,
 LLVMAttributeRef LLVMGetCallSiteStringAttribute(LLVMValueRef C,
                                                 LLVMAttributeIndex Idx,
                                                 const char *K, unsigned KLen) {
-  return wrap(
-      unwrap<CallBase>(C)->getAttributeAtIndex(Idx, StringRef(K, KLen)));
+  CallBase *CB = unwrap<CallBase>(C);
+  return wrap(CB->getAttributeAtIndex(
+      Idx, AttributeKey::get(CB->getContext(), StringRef(K, KLen))));
 }
 
 void LLVMRemoveCallSiteEnumAttribute(LLVMValueRef C, LLVMAttributeIndex Idx,
@@ -2915,7 +2921,9 @@ void LLVMRemoveCallSiteEnumAttribute(LLVMValueRef C, LLVMAttributeIndex Idx,
 
 void LLVMRemoveCallSiteStringAttribute(LLVMValueRef C, LLVMAttributeIndex Idx,
                                        const char *K, unsigned KLen) {
-  unwrap<CallBase>(C)->removeAttributeAtIndex(Idx, StringRef(K, KLen));
+  CallBase *CB = unwrap<CallBase>(C);
+  CB->removeAttributeAtIndex(
+      Idx, AttributeKey::get(CB->getContext(), StringRef(K, KLen)));
 }
 
 LLVMValueRef LLVMGetCalledValue(LLVMValueRef Instr) {
