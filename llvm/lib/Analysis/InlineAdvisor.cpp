@@ -45,7 +45,7 @@ static cl::opt<bool>
 static cl::opt<int>
     InlineDeferralScale("inline-deferral-scale",
                         cl::desc("Scale to limit the cost of inline deferral"),
-                        cl::init(2), cl::Hidden);
+                        cl::init(1), cl::Hidden);
 
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 
