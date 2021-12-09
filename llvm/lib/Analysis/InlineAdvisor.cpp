@@ -396,7 +396,7 @@ llvm::shouldInline(CallBase &CB,
   }
 
   int TotalSecondaryCost = 0;
-  if (EnableDeferral &&
+  if (false && EnableDeferral &&
       shouldBeDeferred(Caller, IC, TotalSecondaryCost, GetInlineCost)) {
     LLVM_DEBUG(dbgs() << "    NOT Inlining: " << CB
                       << " Cost = " << IC.getCost()
