@@ -945,11 +945,44 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpyLoad,
       return false;
   }
 
-  // Check that src isn't captured by the called function since the
-  // transformation can cause aliasing issues in that case.
+  // Check whether src is captured by the called function, in which case there
+  // may be further indirect uses of src.
+  bool SrcIsCaptured = false;
   for (unsigned ArgI = 0, E = C->arg_size(); ArgI != E; ++ArgI)
     if (C->getArgOperand(ArgI) == cpySrc && !C->doesNotCapture(ArgI))
-      return false;
+      SrcIsCaptured = true;
+
+  // If src is captured, then check whether there are any potential uses of
+  // src through the captured pointer before the lifetime of src ends, either
+  // due to a lifetime.end or a return from the function.
+  if (SrcIsCaptured) {
+    MemoryLocation SrcLoc =
+        MemoryLocation(srcAlloca, LocationSize::precise(srcSize));
+    for (Instruction &I : make_range(++C->getIterator(),
+                                     C->getParent()->end())) {
+      // Lifetime of srcAlloca ends at lifetime.end.
+      if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
+        if (II->getIntrinsicID() == Intrinsic::lifetime_end &&
+            II->getArgOperand(1)->stripPointerCasts() == srcAlloca)
+          break;
+      }
+
+      // Lifetime of srcAlloca ends at return.
+      if (isa<ReturnInst>(&I))
+        break;
+
+      // Ignore the direct read of src in the load.
+      if (&I == cpyLoad)
+        continue;
+
+      // Check whether this instruction may mod/ref src through the captured
+      // pointer (we have already any direct mod/refs in the loop above).
+      // Also bail if we hit a terminator, as we don't want to scan into other
+      // blocks.
+      if (isModOrRefSet(AA->getModRefInfo(&I, SrcLoc)) || I.isTerminator())
+        return false;
+    }
+  }
 
   // Since we're changing the parameter to the callsite, we need to make sure
   // that what would be the new parameter dominates the callsite.
