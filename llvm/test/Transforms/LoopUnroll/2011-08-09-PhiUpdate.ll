@@ -107,17 +107,6 @@ return:                                           ; preds = %do.cond, %land.lhs.
 
 define linkonce_odr i32 @bar() nounwind uwtable ssp align 2 {
 ;
-; CHECK-LABEL: @bar(
-; CHECK-NEXT:  land.lhs.true:
-; CHECK-NEXT:    [[CMP4:%.*]] = call zeroext i1 @check()
-; CHECK-NEXT:    br i1 [[CMP4]], label [[COND_TRUE:%.*]], label [[COND_END:%.*]]
-; CHECK:       cond.true:
-; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @getval()
-; CHECK-NEXT:    br label [[COND_END]]
-; CHECK:       cond.end:
-; CHECK-NEXT:    [[COND:%.*]] = phi i32 [ [[TMP7]], [[COND_TRUE]] ], [ 0, [[LAND_LHS_TRUE:%.*]] ]
-; CHECK-NEXT:    ret i32 [[COND]]
-;
 entry:
   br i1 undef, label %land.lhs.true, label %cond.end
 
