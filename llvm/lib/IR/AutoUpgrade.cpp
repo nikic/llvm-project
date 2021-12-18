@@ -4589,7 +4589,7 @@ void llvm::UpgradeAttributes(AttrBuilder &B) {
     // The value can be "true" or "false".
     for (const auto &I : B.td_attrs())
       if (I.first == "no-frame-pointer-elim")
-        FramePointer = I.second == "true" ? "all" : "none";
+        FramePointer = I.second.getValueAsString() == "true" ? "all" : "none";
     B.removeAttribute("no-frame-pointer-elim");
   }
   if (B.contains("no-frame-pointer-elim-non-leaf")) {
@@ -4606,7 +4606,7 @@ void llvm::UpgradeAttributes(AttrBuilder &B) {
     bool NullPointerIsValid = false;
     for (const auto &I : B.td_attrs())
       if (I.first == "null-pointer-is-valid")
-        NullPointerIsValid = I.second == "true";
+        NullPointerIsValid = I.second.getValueAsString() == "true";
     B.removeAttribute("null-pointer-is-valid");
     if (NullPointerIsValid)
       B.addAttribute(Attribute::NullPointerIsValid);

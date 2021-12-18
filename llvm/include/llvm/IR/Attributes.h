@@ -936,7 +936,7 @@ template <> struct DenseMapInfo<AttributeList, void> {
 class AttrBuilder {
   LLVMContext &Context;
   std::bitset<Attribute::EndAttrKinds> Attrs;
-  std::map<SmallString<32>, SmallString<32>, std::less<>> TargetDepAttrs;
+  std::map<StringRef, Attribute, std::less<>> TargetDepAttrs;
   std::array<uint64_t, Attribute::NumIntAttrKinds> IntAttrs = {};
   std::array<Type *, Attribute::NumTypeAttrKinds> TypeAttrs = {};
 

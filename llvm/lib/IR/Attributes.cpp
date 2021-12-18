@@ -836,7 +836,7 @@ AttributeSetNode *AttributeSetNode::get(LLVMContext &C, const AttrBuilder &B) {
 
   // Add target-dependent (string) attributes.
   for (const auto &TDA : B.td_attrs())
-    Attrs.emplace_back(Attribute::get(C, TDA.first, TDA.second));
+    Attrs.emplace_back(TDA.second);
 
   return getSorted(C, Attrs);
 }
@@ -1587,7 +1587,7 @@ AttrBuilder::kindToTypeIndex(Attribute::AttrKind Kind) const {
 
 AttrBuilder &AttrBuilder::addAttribute(Attribute Attr) {
   if (Attr.isStringAttribute()) {
-    addAttribute(Attr.getKindAsString(), Attr.getValueAsString());
+    TargetDepAttrs[Attr.getKindAsString()] = Attr;
     return *this;
   }
 
@@ -1603,7 +1603,8 @@ AttrBuilder &AttrBuilder::addAttribute(Attribute Attr) {
 }
 
 AttrBuilder &AttrBuilder::addAttribute(StringRef A, StringRef V) {
-  TargetDepAttrs[A] = V;
+  Attribute Attr = Attribute::get(Context, A, V);
+  TargetDepAttrs[Attr.getKindAsString()] = Attr;
   return *this;
 }
 
