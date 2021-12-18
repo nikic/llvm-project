@@ -934,6 +934,7 @@ template <> struct DenseMapInfo<AttributeList, void> {
 /// value, however, is not. So this can be used as a quick way to test for
 /// equality, presence of attributes, etc.
 class AttrBuilder {
+  LLVMContext &Context;
   std::bitset<Attribute::EndAttrKinds> Attrs;
   std::map<SmallString<32>, SmallString<32>, std::less<>> TargetDepAttrs;
   std::array<uint64_t, Attribute::NumIntAttrKinds> IntAttrs = {};
@@ -943,14 +944,14 @@ class AttrBuilder {
   Optional<unsigned> kindToTypeIndex(Attribute::AttrKind Kind) const;
 
 public:
-  AttrBuilder() = default;
+  AttrBuilder(LLVMContext &Context) : Context(Context) {}
 
-  AttrBuilder(const Attribute &A) {
+  AttrBuilder(LLVMContext &Context, const Attribute &A) : Context(Context) {
     addAttribute(A);
   }
 
-  AttrBuilder(AttributeList AS, unsigned Idx);
-  AttrBuilder(AttributeSet AS);
+  AttrBuilder(LLVMContext &Context, AttributeList AS, unsigned Idx);
+  AttrBuilder(LLVMContext &Context, AttributeSet AS);
 
   void clear();
 
@@ -1173,7 +1174,7 @@ AttrBuilder typeIncompatible(Type *Ty);
 /// implies UB), but not nonnull (where null implies poison). It also does not
 /// include attributes like nocapture, which constrain the function
 /// implementation rather than the passed value.
-AttrBuilder getUBImplyingAttributes();
+AttrBuilder getUBImplyingAttributes(LLVMContext &Context);
 
 /// \returns Return true if the two functions have compatible target-independent
 /// attributes for inlining purposes.

@@ -517,7 +517,8 @@ class DataFlowSanitizer {
   const uint64_t NumOfElementsInArgOrgTLS = ArgTLSSize / OriginWidthBytes;
 
 public:
-  DataFlowSanitizer(const std::vector<std::string> &ABIListFiles);
+  DataFlowSanitizer(
+      LLVMContext &Context, const std::vector<std::string> &ABIListFiles);
 
   bool runImpl(Module &M);
 };
@@ -768,7 +769,8 @@ private:
 } // end anonymous namespace
 
 DataFlowSanitizer::DataFlowSanitizer(
-    const std::vector<std::string> &ABIListFiles) {
+    LLVMContext &Context, const std::vector<std::string> &ABIListFiles)
+    : Ctx(&Context), ReadOnlyNoneAttrs(Context) {
   std::vector<std::string> AllABIListFiles(std::move(ABIListFiles));
   llvm::append_range(AllABIListFiles, ClABIListFiles);
   // FIXME: should we propagate vfs::FileSystem to this constructor?
@@ -1005,7 +1007,6 @@ bool DataFlowSanitizer::initializeModule(Module &M) {
   MapParams = &Linux_X86_64_MemoryMapParams;
 
   Mod = &M;
-  Ctx = &M.getContext();
   Int8Ptr = Type::getInt8PtrTy(*Ctx);
   OriginTy = IntegerType::get(*Ctx, OriginWidthBits);
   OriginPtrTy = PointerType::getUnqual(OriginTy);
@@ -1121,7 +1122,7 @@ DataFlowSanitizer::buildWrapperFunction(Function *F, StringRef NewFName,
 
   BasicBlock *BB = BasicBlock::Create(*Ctx, "entry", NewF);
   if (F->isVarArg()) {
-    NewF->removeFnAttrs(AttrBuilder().addAttribute("split-stack"));
+    NewF->removeFnAttrs(AttrBuilder(*Ctx).addAttribute("split-stack"));
     CallInst::Create(DFSanVarargWrapperFn,
                      IRBuilder<>(BB).CreateGlobalStringPtr(F->getName()), "",
                      BB);
@@ -3041,7 +3042,7 @@ public:
       : ModulePass(ID), ABIListFiles(ABIListFiles) {}
 
   bool runOnModule(Module &M) override {
-    return DataFlowSanitizer(ABIListFiles).runImpl(M);
+    return DataFlowSanitizer(M.getContext(), ABIListFiles).runImpl(M);
   }
 };
 } // namespace
@@ -3058,7 +3059,7 @@ ModulePass *llvm::createDataFlowSanitizerLegacyPassPass(
 
 PreservedAnalyses DataFlowSanitizerPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {
-  if (DataFlowSanitizer(ABIListFiles).runImpl(M)) {
+  if (DataFlowSanitizer(M.getContext(), ABIListFiles).runImpl(M)) {
     return PreservedAnalyses::none();
   }
   return PreservedAnalyses::all();

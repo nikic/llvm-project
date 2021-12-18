@@ -479,7 +479,7 @@ static void createFPFnStub(Function *F, Module *M, FPParamVariant PV,
 
 // remove the use-soft-float attribute
 static void removeUseSoftFloat(Function &F) {
-  AttrBuilder B;
+  AttrBuilder B(F.getContext());
   LLVM_DEBUG(errs() << "removing -use-soft-float\n");
   B.addAttribute("use-soft-float", "false");
   F.removeFnAttrs(B);

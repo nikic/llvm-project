@@ -607,14 +607,14 @@ AttributeSet AttributeSet::get(LLVMContext &C, ArrayRef<Attribute> Attrs) {
 AttributeSet AttributeSet::addAttribute(LLVMContext &C,
                                         Attribute::AttrKind Kind) const {
   if (hasAttribute(Kind)) return *this;
-  AttrBuilder B;
+  AttrBuilder B(C);
   B.addAttribute(Kind);
   return addAttributes(C, AttributeSet::get(C, B));
 }
 
 AttributeSet AttributeSet::addAttribute(LLVMContext &C, StringRef Kind,
                                         StringRef Value) const {
-  AttrBuilder B;
+  AttrBuilder B(C);
   B.addAttribute(Kind, Value);
   return addAttributes(C, AttributeSet::get(C, B));
 }
@@ -627,7 +627,7 @@ AttributeSet AttributeSet::addAttributes(LLVMContext &C,
   if (!AS.hasAttributes())
     return *this;
 
-  AttrBuilder B(AS);
+  AttrBuilder B(C, AS);
   for (const auto &I : *this)
     B.addAttribute(I);
 
@@ -637,7 +637,7 @@ AttributeSet AttributeSet::addAttributes(LLVMContext &C,
 AttributeSet AttributeSet::removeAttribute(LLVMContext &C,
                                              Attribute::AttrKind Kind) const {
   if (!hasAttribute(Kind)) return *this;
-  AttrBuilder B(*this);
+  AttrBuilder B(C, *this);
   B.removeAttribute(Kind);
   return get(C, B);
 }
@@ -645,14 +645,14 @@ AttributeSet AttributeSet::removeAttribute(LLVMContext &C,
 AttributeSet AttributeSet::removeAttribute(LLVMContext &C,
                                              StringRef Kind) const {
   if (!hasAttribute(Kind)) return *this;
-  AttrBuilder B(*this);
+  AttrBuilder B(C, *this);
   B.removeAttribute(Kind);
   return get(C, B);
 }
 
 AttributeSet AttributeSet::removeAttributes(LLVMContext &C,
                                             const AttrBuilder &Attrs) const {
-  AttrBuilder B(*this);
+  AttrBuilder B(C, *this);
   // If there is nothing to remove, directly return the original set.
   if (!B.overlaps(Attrs))
     return *this;
@@ -1194,9 +1194,9 @@ AttributeList AttributeList::get(LLVMContext &C,
 
   SmallVector<AttributeSet, 8> NewAttrSets(MaxSize);
   for (unsigned I = 0; I < MaxSize; ++I) {
-    AttrBuilder CurBuilder;
+    AttrBuilder CurBuilder(C);
     for (const auto &List : Attrs)
-      CurBuilder.merge(List.getAttributes(I - 1));
+      CurBuilder.merge(AttrBuilder(C, List.getAttributes(I - 1)));
     NewAttrSets[I] = AttributeSet::get(C, CurBuilder);
   }
 
@@ -1218,14 +1218,14 @@ AttributeList::addAttributeAtIndex(LLVMContext &C, unsigned Index,
 AttributeList AttributeList::addAttributeAtIndex(LLVMContext &C, unsigned Index,
                                                  StringRef Kind,
                                                  StringRef Value) const {
-  AttrBuilder B;
+  AttrBuilder B(C);
   B.addAttribute(Kind, Value);
   return addAttributesAtIndex(C, Index, B);
 }
 
 AttributeList AttributeList::addAttributeAtIndex(LLVMContext &C, unsigned Index,
                                                  Attribute A) const {
-  AttrBuilder B;
+  AttrBuilder B(C);
   B.addAttribute(A);
   return addAttributesAtIndex(C, Index, B);
 }
@@ -1259,7 +1259,7 @@ AttributeList AttributeList::addAttributesAtIndex(LLVMContext &C,
          "Attempt to change alignment!");
 #endif
 
-  AttrBuilder Merged(getAttributes(Index));
+  AttrBuilder Merged(C, getAttributes(Index));
   Merged.merge(B);
   return setAttributesAtIndex(C, Index, AttributeSet::get(C, Merged));
 }
@@ -1276,7 +1276,7 @@ AttributeList AttributeList::addParamAttribute(LLVMContext &C,
 
   for (unsigned ArgNo : ArgNos) {
     unsigned Index = attrIdxToArrayIdx(ArgNo + FirstArgIndex);
-    AttrBuilder B(AttrSets[Index]);
+    AttrBuilder B(C, AttrSets[Index]);
     B.addAttribute(A);
     AttrSets[Index] = AttributeSet::get(C, B);
   }
@@ -1340,7 +1340,7 @@ AttributeList::removeAttributesAtIndex(LLVMContext &C,
 
 AttributeList AttributeList::addDereferenceableRetAttr(LLVMContext &C,
                                                        uint64_t Bytes) const {
-  AttrBuilder B;
+  AttrBuilder B(C);
   B.addDereferenceableAttr(Bytes);
   return addRetAttributes(C, B);
 }
@@ -1348,7 +1348,7 @@ AttributeList AttributeList::addDereferenceableRetAttr(LLVMContext &C,
 AttributeList AttributeList::addDereferenceableParamAttr(LLVMContext &C,
                                                          unsigned Index,
                                                          uint64_t Bytes) const {
-  AttrBuilder B;
+  AttrBuilder B(C);
   B.addDereferenceableAttr(Bytes);
   return addParamAttributes(C, Index, B);
 }
@@ -1356,7 +1356,7 @@ AttributeList AttributeList::addDereferenceableParamAttr(LLVMContext &C,
 AttributeList
 AttributeList::addDereferenceableOrNullParamAttr(LLVMContext &C, unsigned Index,
                                                  uint64_t Bytes) const {
-  AttrBuilder B;
+  AttrBuilder B(C);
   B.addDereferenceableOrNullAttr(Bytes);
   return addParamAttributes(C, Index, B);
 }
@@ -1365,7 +1365,7 @@ AttributeList
 AttributeList::addAllocSizeParamAttr(LLVMContext &C, unsigned Index,
                                      unsigned ElemSizeArg,
                                      const Optional<unsigned> &NumElemsArg) {
-  AttrBuilder B;
+  AttrBuilder B(C);
   B.addAllocSizeAttr(ElemSizeArg, NumElemsArg);
   return addParamAttributes(C, Index, B);
 }
@@ -1550,13 +1550,16 @@ LLVM_DUMP_METHOD void AttributeList::dump() const { print(dbgs()); }
 //===----------------------------------------------------------------------===//
 
 // FIXME: Remove this ctor, use AttributeSet.
-AttrBuilder::AttrBuilder(AttributeList AL, unsigned Index) {
+AttrBuilder::AttrBuilder(LLVMContext &Context, AttributeList AL,
+                         unsigned Index)
+    : Context(Context) {
   AttributeSet AS = AL.getAttributes(Index);
   for (const auto &A : AS)
     addAttribute(A);
 }
 
-AttrBuilder::AttrBuilder(AttributeSet AS) {
+AttrBuilder::AttrBuilder(LLVMContext &Context, AttributeSet AS)
+    : Context(Context) {
   for (const auto &A : AS)
     addAttribute(A);
 }
@@ -1617,7 +1620,7 @@ AttrBuilder &AttrBuilder::removeAttribute(Attribute::AttrKind Val) {
 }
 
 AttrBuilder &AttrBuilder::removeAttributes(AttributeList A, uint64_t Index) {
-  remove(A.getAttributes(Index));
+  remove(AttrBuilder(Context, A.getAttributes(Index)));
   return *this;
 }
 
@@ -1836,7 +1839,7 @@ bool AttrBuilder::operator==(const AttrBuilder &B) const {
 
 /// Which attributes cannot be applied to a type.
 AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
-  AttrBuilder Incompatible;
+  AttrBuilder Incompatible(Ty->getContext());
 
   if (!Ty->isIntegerTy())
     // Attribute that only apply to integers.
@@ -1869,8 +1872,8 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
   return Incompatible;
 }
 
-AttrBuilder AttributeFuncs::getUBImplyingAttributes() {
-  AttrBuilder B;
+AttrBuilder AttributeFuncs::getUBImplyingAttributes(LLVMContext &Context) {
+  AttrBuilder B(Context);
   B.addAttribute(Attribute::NoUndef);
   B.addDereferenceableAttr(1);
   B.addDereferenceableOrNullAttr(1);
@@ -1913,7 +1916,7 @@ static void adjustCallerSSPLevel(Function &Caller, const Function &Callee) {
   // If upgrading the SSP attribute, clear out the old SSP Attributes first.
   // Having multiple SSP attributes doesn't actually hurt, but it adds useless
   // clutter to the IR.
-  AttrBuilder OldSSPAttr;
+  AttrBuilder OldSSPAttr(Caller.getContext());
   OldSSPAttr.addAttribute(Attribute::StackProtect)
       .addAttribute(Attribute::StackProtectStrong)
       .addAttribute(Attribute::StackProtectReq);

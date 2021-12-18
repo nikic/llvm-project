@@ -133,14 +133,17 @@ bool LLParser::validateEndOfModule(bool UpgradeDebugInfo) {
   for (const auto &RAG : ForwardRefAttrGroups) {
     Value *V = RAG.first;
     const std::vector<unsigned> &Attrs = RAG.second;
-    AttrBuilder B;
+    AttrBuilder B(Context);
 
-    for (const auto &Attr : Attrs)
-      B.merge(NumberedAttrBuilders[Attr]);
+    for (const auto &Attr : Attrs) {
+      auto It = NumberedAttrBuilders.find(Attr);
+      if (It != NumberedAttrBuilders.end())
+        B.merge(It->second);
+    }
 
     if (Function *Fn = dyn_cast<Function>(V)) {
       AttributeList AS = Fn->getAttributes();
-      AttrBuilder FnAttrs(AS.getFnAttrs());
+      AttrBuilder FnAttrs(Context, AS.getFnAttrs());
       AS = AS.removeFnAttributes(Context);
 
       FnAttrs.merge(B);
@@ -156,27 +159,27 @@ bool LLParser::validateEndOfModule(bool UpgradeDebugInfo) {
       Fn->setAttributes(AS);
     } else if (CallInst *CI = dyn_cast<CallInst>(V)) {
       AttributeList AS = CI->getAttributes();
-      AttrBuilder FnAttrs(AS.getFnAttrs());
+      AttrBuilder FnAttrs(Context, AS.getFnAttrs());
       AS = AS.removeFnAttributes(Context);
       FnAttrs.merge(B);
       AS = AS.addFnAttributes(Context, FnAttrs);
       CI->setAttributes(AS);
     } else if (InvokeInst *II = dyn_cast<InvokeInst>(V)) {
       AttributeList AS = II->getAttributes();
-      AttrBuilder FnAttrs(AS.getFnAttrs());
+      AttrBuilder FnAttrs(Context, AS.getFnAttrs());
       AS = AS.removeFnAttributes(Context);
       FnAttrs.merge(B);
       AS = AS.addFnAttributes(Context, FnAttrs);
       II->setAttributes(AS);
     } else if (CallBrInst *CBI = dyn_cast<CallBrInst>(V)) {
       AttributeList AS = CBI->getAttributes();
-      AttrBuilder FnAttrs(AS.getFnAttrs());
+      AttrBuilder FnAttrs(Context, AS.getFnAttrs());
       AS = AS.removeFnAttributes(Context);
       FnAttrs.merge(B);
       AS = AS.addFnAttributes(Context, FnAttrs);
       CBI->setAttributes(AS);
     } else if (auto *GV = dyn_cast<GlobalVariable>(V)) {
-      AttrBuilder Attrs(GV->getAttributes());
+      AttrBuilder Attrs(Context, GV->getAttributes());
       Attrs.merge(B);
       GV->setAttributes(AttributeSet::get(Context,Attrs));
     } else {
@@ -1206,7 +1209,7 @@ bool LLParser::parseGlobal(const std::string &Name, LocTy NameLoc,
     }
   }
 
-  AttrBuilder Attrs;
+  AttrBuilder Attrs(Context);
   LocTy BuiltinLoc;
   std::vector<unsigned> FwdRefAttrGrps;
   if (parseFnAttributeValuePairs(Attrs, FwdRefAttrGrps, false, BuiltinLoc))
@@ -1235,13 +1238,16 @@ bool LLParser::parseUnnamedAttrGrp() {
   Lex.Lex();
 
   if (parseToken(lltok::equal, "expected '=' here") ||
-      parseToken(lltok::lbrace, "expected '{' here") ||
-      parseFnAttributeValuePairs(NumberedAttrBuilders[VarID], unused, true,
-                                 BuiltinLoc) ||
+      parseToken(lltok::lbrace, "expected '{' here"))
+    return true;
+
+  AttrBuilder &B = NumberedAttrBuilders
+    .emplace(VarID, AttrBuilder(Context)).first->second;
+  if (parseFnAttributeValuePairs(B, unused, true, BuiltinLoc) ||
       parseToken(lltok::rbrace, "expected end of attribute group"))
     return true;
 
-  if (!NumberedAttrBuilders[VarID].hasAttributes())
+  if (!B.hasAttributes())
     return error(AttrGrpLoc, "attribute group has no attributes");
 
   return false;
@@ -2372,7 +2378,7 @@ bool LLParser::parseParameterList(SmallVectorImpl<ParamInfo> &ArgList,
     // parse the argument.
     LocTy ArgLoc;
     Type *ArgTy = nullptr;
-    AttrBuilder ArgAttrs;
+    AttrBuilder ArgAttrs(Context);
     Value *V;
     if (parseType(ArgTy, ArgLoc))
       return true;
@@ -2493,7 +2499,7 @@ bool LLParser::parseArgumentList(SmallVectorImpl<ArgInfo> &ArgList,
   } else {
     LocTy TypeLoc = Lex.getLoc();
     Type *ArgTy = nullptr;
-    AttrBuilder Attrs;
+    AttrBuilder Attrs(Context);
     std::string Name;
 
     if (parseType(ArgTy) || parseOptionalParamAttrs(Attrs))
@@ -5444,7 +5450,7 @@ bool LLParser::parseFunctionHeader(Function *&Fn, bool IsDefine) {
   unsigned Visibility;
   unsigned DLLStorageClass;
   bool DSOLocal;
-  AttrBuilder RetAttrs;
+  AttrBuilder RetAttrs(Context);
   unsigned CC;
   bool HasLinkage;
   Type *RetType = nullptr;
@@ -5507,7 +5513,7 @@ bool LLParser::parseFunctionHeader(Function *&Fn, bool IsDefine) {
 
   SmallVector<ArgInfo, 8> ArgList;
   bool IsVarArg;
-  AttrBuilder FuncAttrs;
+  AttrBuilder FuncAttrs(Context);
   std::vector<unsigned> FwdRefAttrGrps;
   LocTy BuiltinLoc;
   std::string Section;
@@ -6230,7 +6236,7 @@ bool LLParser::parseIndirectBr(Instruction *&Inst, PerFunctionState &PFS) {
 ///       OptionalAttrs 'to' TypeAndValue 'unwind' TypeAndValue
 bool LLParser::parseInvoke(Instruction *&Inst, PerFunctionState &PFS) {
   LocTy CallLoc = Lex.getLoc();
-  AttrBuilder RetAttrs, FnAttrs;
+  AttrBuilder RetAttrs(Context), FnAttrs(Context);
   std::vector<unsigned> FwdRefAttrGrps;
   LocTy NoBuiltinLoc;
   unsigned CC;
@@ -6540,7 +6546,7 @@ bool LLParser::parseUnaryOp(Instruction *&Inst, PerFunctionState &PFS,
 ///       '[' LabelList ']'
 bool LLParser::parseCallBr(Instruction *&Inst, PerFunctionState &PFS) {
   LocTy CallLoc = Lex.getLoc();
-  AttrBuilder RetAttrs, FnAttrs;
+  AttrBuilder RetAttrs(Context), FnAttrs(Context);
   std::vector<unsigned> FwdRefAttrGrps;
   LocTy NoBuiltinLoc;
   unsigned CC;
@@ -6957,7 +6963,7 @@ bool LLParser::parseFreeze(Instruction *&Inst, PerFunctionState &PFS) {
 ///           OptionalAttrs Type Value ParameterList OptionalAttrs
 bool LLParser::parseCall(Instruction *&Inst, PerFunctionState &PFS,
                          CallInst::TailCallKind TCK) {
-  AttrBuilder RetAttrs, FnAttrs;
+  AttrBuilder RetAttrs(Context), FnAttrs(Context);
   std::vector<unsigned> FwdRefAttrGrps;
   LocTy BuiltinLoc;
   unsigned CallAddrSpace;

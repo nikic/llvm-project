@@ -55,16 +55,16 @@ TEST(Attributes, Ordering) {
 
   AttributeList SetA = AttributeList::get(C, ASs);
   AttributeList SetB =
-      SetA.removeParamAttributes(C, 0, ASs[1].getParamAttrs(0));
+      SetA.removeParamAttributes(C, 0, AttrBuilder(C, ASs[1].getParamAttrs(0)));
   EXPECT_NE(SetA, SetB);
 }
 
 TEST(Attributes, AddAttributes) {
   LLVMContext C;
   AttributeList AL;
-  AttrBuilder B;
+  AttrBuilder B(C);
   B.addAttribute(Attribute::NoReturn);
-  AL = AL.addFnAttributes(C, AttributeSet::get(C, B));
+  AL = AL.addFnAttributes(C, B);
   EXPECT_TRUE(AL.hasFnAttr(Attribute::NoReturn));
   B.clear();
   B.addAttribute(Attribute::SExt);
@@ -78,15 +78,15 @@ TEST(Attributes, RemoveAlign) {
 
   Attribute AlignAttr = Attribute::getWithAlignment(C, Align(8));
   Attribute StackAlignAttr = Attribute::getWithStackAlignment(C, Align(32));
-  AttrBuilder B_align_readonly;
+  AttrBuilder B_align_readonly(C);
   B_align_readonly.addAttribute(AlignAttr);
   B_align_readonly.addAttribute(Attribute::ReadOnly);
-  AttrBuilder B_align;
+  AttrBuilder B_align(C);
   B_align.addAttribute(AlignAttr);
-  AttrBuilder B_stackalign_optnone;
+  AttrBuilder B_stackalign_optnone(C);
   B_stackalign_optnone.addAttribute(StackAlignAttr);
   B_stackalign_optnone.addAttribute(Attribute::OptimizeNone);
-  AttrBuilder B_stackalign;
+  AttrBuilder B_stackalign(C);
   B_stackalign.addAttribute(StackAlignAttr);
 
   AttributeSet AS = AttributeSet::get(C, B_align_readonly);
@@ -151,7 +151,7 @@ TEST(Attributes, AddMatchingAlignAttr) {
   EXPECT_EQ(Align(8), AL.getParamAlignment(0));
   EXPECT_EQ(Align(32), AL.getParamAlignment(1));
 
-  AttrBuilder B;
+  AttrBuilder B(C);
   B.addAttribute(Attribute::NonNull);
   B.addAlignmentAttr(8);
   AL = AL.addParamAttributes(C, 0, B);

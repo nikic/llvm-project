@@ -1377,13 +1377,13 @@ static AttributeList legalizeCallAttributes(LLVMContext &Ctx,
     return AL;
 
   // Remove the readonly, readnone, and statepoint function attributes.
-  AttrBuilder FnAttrs = AL.getFnAttrs();
+  AttrBuilder FnAttrs(Ctx, AL.getFnAttrs());
   for (auto Attr : FnAttrsToStrip)
     FnAttrs.removeAttribute(Attr);
 
   for (Attribute A : AL.getFnAttrs()) {
     if (isStatepointDirectiveAttr(A))
-      FnAttrs.remove(A);
+      FnAttrs.remove(AttrBuilder(Ctx, A));
   }
 
   // Just skip parameter and return attributes for now
@@ -2654,7 +2654,7 @@ static bool insertParsePoints(Function &F, DominatorTree &DT,
 template <typename AttrHolder>
 static void RemoveNonValidAttrAtIndex(LLVMContext &Ctx, AttrHolder &AH,
                                       unsigned Index) {
-  AttrBuilder R;
+  AttrBuilder R(Ctx);
   AttributeSet AS = AH.getAttributes().getAttributes(Index);
   if (AS.getDereferenceableBytes())
     R.addAttribute(Attribute::get(Ctx, Attribute::Dereferenceable,
