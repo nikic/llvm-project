@@ -17,6 +17,7 @@
 
 #include "llvm-c/Types.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
@@ -934,7 +935,7 @@ template <> struct DenseMapInfo<AttributeList, void> {
 class AttributeKeySet {
   friend class AttrBuilder;
   std::bitset<Attribute::EndAttrKinds> Attrs;
-  std::set<SmallString<32>, std::less<>> StringAttrs;
+  SmallDenseSet<StringRef, 8> StringAttrs;
 
 public:
   AttributeKeySet() = default;
