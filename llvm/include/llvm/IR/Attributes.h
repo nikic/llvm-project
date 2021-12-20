@@ -28,6 +28,7 @@
 #include <cassert>
 #include <cstdint>
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 
@@ -35,6 +36,7 @@ namespace llvm {
 
 class AttrBuilder;
 class AttributeImpl;
+class AttributeKeySet;
 class AttributeListImpl;
 class AttributeSetNode;
 class FoldingSetNodeID;
@@ -320,7 +322,7 @@ public:
   /// Remove the specified attributes from this set. Returns a new set because
   /// attribute sets are immutable.
   LLVM_NODISCARD AttributeSet
-  removeAttributes(LLVMContext &C, const AttrBuilder &AttrsToRemove) const;
+  removeAttributes(LLVMContext &C, const AttributeKeySet &KS) const;
 
   /// Return the number of attributes in this set.
   unsigned getNumAttributes() const;
@@ -580,7 +582,7 @@ public:
   /// Remove the specified attributes at the specified index from this
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList removeAttributesAtIndex(
-      LLVMContext &C, unsigned Index, const AttrBuilder &AttrsToRemove) const;
+      LLVMContext &C, unsigned Index, const AttributeKeySet &KS) const;
 
   /// Remove all attributes at the specified index from this
   /// attribute list. Returns a new list because attribute lists are immutable.
@@ -604,8 +606,8 @@ public:
   /// Remove the specified attribute at the function index from this
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList
-  removeFnAttributes(LLVMContext &C, const AttrBuilder &AttrsToRemove) const {
-    return removeAttributesAtIndex(C, FunctionIndex, AttrsToRemove);
+  removeFnAttributes(LLVMContext &C, const AttributeKeySet &KS) const {
+    return removeAttributesAtIndex(C, FunctionIndex, KS);
   }
 
   /// Remove the attributes at the function index from this
@@ -631,8 +633,8 @@ public:
   /// Remove the specified attribute at the return value index from this
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList
-  removeRetAttributes(LLVMContext &C, const AttrBuilder &AttrsToRemove) const {
-    return removeAttributesAtIndex(C, ReturnIndex, AttrsToRemove);
+  removeRetAttributes(LLVMContext &C, const AttributeKeySet &KS) const {
+    return removeAttributesAtIndex(C, ReturnIndex, KS);
   }
 
   /// Remove the specified attribute at the specified arg index from this
@@ -653,8 +655,8 @@ public:
   /// Remove the specified attribute at the specified arg index from this
   /// attribute list. Returns a new list because attribute lists are immutable.
   LLVM_NODISCARD AttributeList removeParamAttributes(
-      LLVMContext &C, unsigned ArgNo, const AttrBuilder &AttrsToRemove) const {
-    return removeAttributesAtIndex(C, ArgNo + FirstArgIndex, AttrsToRemove);
+      LLVMContext &C, unsigned ArgNo, const AttributeKeySet &KS) const {
+    return removeAttributesAtIndex(C, ArgNo + FirstArgIndex, KS);
   }
 
   /// Remove all attributes at the specified arg index from this
@@ -928,6 +930,43 @@ template <> struct DenseMapInfo<AttributeList, void> {
 };
 
 //===----------------------------------------------------------------------===//
+
+class AttributeKeySet {
+  friend class AttrBuilder;
+  std::bitset<Attribute::EndAttrKinds> Attrs;
+  std::set<SmallString<32>, std::less<>> StringAttrs;
+
+public:
+  AttributeKeySet() = default;
+  AttributeKeySet(AttributeSet AS) {
+    for (Attribute A : AS)
+      addAttribute(A);
+  }
+
+  AttributeKeySet &addAttribute(Attribute::AttrKind Kind) {
+    Attrs[Kind] = true;
+    return *this;
+  }
+  AttributeKeySet &addAttribute(StringRef Kind) {
+    StringAttrs.insert(Kind);
+    return *this;
+  }
+  AttributeKeySet &addAttribute(Attribute A) {
+    if (A.isStringAttribute())
+      return addAttribute(A.getKindAsString());
+    return addAttribute(A.getKindAsEnum());
+  }
+
+  bool contains(Attribute::AttrKind Kind) const { return Attrs[Kind]; }
+  bool contains(StringRef Kind) const { return StringAttrs.count(Kind); }
+  bool contains(Attribute A) const {
+    if (A.isStringAttribute())
+      return contains(A.getKindAsString());
+    return contains(A.getKindAsEnum());
+  }
+};
+
+//===----------------------------------------------------------------------===//
 /// \class
 /// This class is used in conjunction with the Attribute::get method to
 /// create an Attribute object. The object itself is uniquified. The Builder's
@@ -983,11 +1022,11 @@ public:
   AttrBuilder &merge(const AttrBuilder &B);
 
   /// Remove the attributes from the builder.
-  AttrBuilder &remove(const AttrBuilder &B);
+  AttrBuilder &remove(const AttributeKeySet &KS);
 
   /// Return true if the builder has any attribute that's in the
-  /// specified builder.
-  bool overlaps(const AttrBuilder &B) const;
+  /// specified key set.
+  bool overlaps(const AttributeKeySet &KS) const;
 
   /// Return true if the builder has the specified attribute.
   bool contains(Attribute::AttrKind A) const {
@@ -1166,14 +1205,14 @@ public:
 namespace AttributeFuncs {
 
 /// Which attributes cannot be applied to a type.
-AttrBuilder typeIncompatible(Type *Ty);
+AttributeKeySet typeIncompatible(Type *Ty);
 
 /// Get param/return attributes which imply immediate undefined behavior if an
 /// invalid value is passed. For example, this includes noundef (where undef
 /// implies UB), but not nonnull (where null implies poison). It also does not
 /// include attributes like nocapture, which constrain the function
 /// implementation rather than the passed value.
-AttrBuilder getUBImplyingAttributes();
+AttributeKeySet getUBImplyingAttributes();
 
 /// \returns Return true if the two functions have compatible target-independent
 /// attributes for inlining purposes.

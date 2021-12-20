@@ -651,14 +651,18 @@ AttributeSet AttributeSet::removeAttribute(LLVMContext &C,
 }
 
 AttributeSet AttributeSet::removeAttributes(LLVMContext &C,
-                                            const AttrBuilder &Attrs) const {
-  AttrBuilder B(*this);
-  // If there is nothing to remove, directly return the original set.
-  if (!B.overlaps(Attrs))
+                                            const AttributeKeySet &KS) const {
+  SmallVector<Attribute, 32> NewAttrs;
+  for (const auto &A : *this) {
+    if (!KS.contains(A))
+      NewAttrs.push_back(A);
+  }
+
+  // Nothing was removed.
+  if (NewAttrs.size() == getNumAttributes())
     return *this;
 
-  B.remove(Attrs);
-  return get(C, B);
+  return AttributeSet(AttributeSetNode::getSorted(C, NewAttrs));
 }
 
 unsigned AttributeSet::getNumAttributes() const {
@@ -1316,9 +1320,9 @@ AttributeList AttributeList::removeAttributeAtIndex(LLVMContext &C,
 
 AttributeList
 AttributeList::removeAttributesAtIndex(LLVMContext &C, unsigned Index,
-                                       const AttrBuilder &AttrsToRemove) const {
+                                       const AttributeKeySet &KS) const {
   AttributeSet Attrs = getAttributes(Index);
-  AttributeSet NewAttrs = Attrs.removeAttributes(C, AttrsToRemove);
+  AttributeSet NewAttrs = Attrs.removeAttributes(C, KS);
   // If nothing was removed, return the original list.
   if (Attrs == NewAttrs)
     return *this;
@@ -1760,32 +1764,31 @@ AttrBuilder &AttrBuilder::merge(const AttrBuilder &B) {
   return *this;
 }
 
-AttrBuilder &AttrBuilder::remove(const AttrBuilder &B) {
-  // FIXME: What if both have an int/type attribute, but they don't match?!
+AttrBuilder &AttrBuilder::remove(const AttributeKeySet &KS) {
   for (unsigned Index = 0; Index < Attribute::NumIntAttrKinds; ++Index)
-    if (B.IntAttrs[Index])
+    if (KS.contains((Attribute::AttrKind)Index))
       IntAttrs[Index] = 0;
 
   for (unsigned Index = 0; Index < Attribute::NumTypeAttrKinds; ++Index)
-    if (B.TypeAttrs[Index])
+    if (KS.contains((Attribute::AttrKind)Index))
       TypeAttrs[Index] = nullptr;
 
-  Attrs &= ~B.Attrs;
+  Attrs &= ~KS.Attrs;
 
-  for (const auto &I : B.td_attrs())
-    TargetDepAttrs.erase(I.first);
+  for (const auto &I : KS.StringAttrs)
+    TargetDepAttrs.erase(I);
 
   return *this;
 }
 
-bool AttrBuilder::overlaps(const AttrBuilder &B) const {
+bool AttrBuilder::overlaps(const AttributeKeySet &KS) const {
   // First check if any of the target independent attributes overlap.
-  if ((Attrs & B.Attrs).any())
+  if ((Attrs & KS.Attrs).any())
     return true;
 
   // Then check if any target dependent ones do.
   for (const auto &I : td_attrs())
-    if (B.contains(I.first))
+    if (KS.contains(I.first))
       return true;
 
   return false;
@@ -1835,8 +1838,8 @@ bool AttrBuilder::operator==(const AttrBuilder &B) const {
 //===----------------------------------------------------------------------===//
 
 /// Which attributes cannot be applied to a type.
-AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
-  AttrBuilder Incompatible;
+AttributeKeySet AttributeFuncs::typeIncompatible(Type *Ty) {
+  AttributeKeySet Incompatible;
 
   if (!Ty->isIntegerTy())
     // Attribute that only apply to integers.
@@ -1852,15 +1855,14 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
         .addAttribute(Attribute::ReadNone)
         .addAttribute(Attribute::ReadOnly)
         .addAttribute(Attribute::SwiftError)
-        .addAlignmentAttr(1)             // the int here is ignored
-        .addDereferenceableAttr(1)       // the int here is ignored
-        .addDereferenceableOrNullAttr(1) // the int here is ignored
-        .addPreallocatedAttr(Ty)
-        .addInAllocaAttr(Ty)
-        .addByValAttr(Ty)
-        .addStructRetAttr(Ty)
-        .addByRefAttr(Ty)
-        .addTypeAttr(Attribute::ElementType, Ty);
+        .addAttribute(Attribute::Alignment)
+        .addAttribute(Attribute::Dereferenceable)
+        .addAttribute(Attribute::DereferenceableOrNull)
+        .addAttribute(Attribute::Preallocated)
+        .addAttribute(Attribute::ByVal)
+        .addAttribute(Attribute::StructRet)
+        .addAttribute(Attribute::ByRef)
+        .addAttribute(Attribute::ElementType);
 
   // Some attributes can apply to all "values" but there are no `void` values.
   if (Ty->isVoidTy())
@@ -1869,11 +1871,11 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
   return Incompatible;
 }
 
-AttrBuilder AttributeFuncs::getUBImplyingAttributes() {
-  AttrBuilder B;
+AttributeKeySet AttributeFuncs::getUBImplyingAttributes() {
+  AttributeKeySet B;
   B.addAttribute(Attribute::NoUndef);
-  B.addDereferenceableAttr(1);
-  B.addDereferenceableOrNullAttr(1);
+  B.addAttribute(Attribute::Dereferenceable);
+  B.addAttribute(Attribute::DereferenceableOrNull);
   return B;
 }
 
@@ -1913,7 +1915,7 @@ static void adjustCallerSSPLevel(Function &Caller, const Function &Callee) {
   // If upgrading the SSP attribute, clear out the old SSP Attributes first.
   // Having multiple SSP attributes doesn't actually hurt, but it adds useless
   // clutter to the IR.
-  AttrBuilder OldSSPAttr;
+  AttributeKeySet OldSSPAttr;
   OldSSPAttr.addAttribute(Attribute::StackProtect)
       .addAttribute(Attribute::StackProtectStrong)
       .addAttribute(Attribute::StackProtectReq);

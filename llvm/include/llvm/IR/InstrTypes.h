@@ -1544,8 +1544,8 @@ public:
   }
 
   /// Removes the attributes from the function
-  void removeFnAttrs(const AttrBuilder &AttrsToRemove) {
-    Attrs = Attrs.removeFnAttributes(getContext(), AttrsToRemove);
+  void removeFnAttrs(const AttributeKeySet &KS) {
+    Attrs = Attrs.removeFnAttributes(getContext(), KS);
   }
 
   /// Removes the attribute from the function
@@ -1559,8 +1559,8 @@ public:
   }
 
   /// Removes the attributes from the return value
-  void removeRetAttrs(const AttrBuilder &AttrsToRemove) {
-    Attrs = Attrs.removeRetAttributes(getContext(), AttrsToRemove);
+  void removeRetAttrs(const AttributeKeySet &KS) {
+    Attrs = Attrs.removeRetAttributes(getContext(), KS);
   }
 
   /// Removes the attribute from the given argument
@@ -1576,8 +1576,8 @@ public:
   }
 
   /// Removes the attributes from the given argument
-  void removeParamAttrs(unsigned ArgNo, const AttrBuilder &AttrsToRemove) {
-    Attrs = Attrs.removeParamAttributes(getContext(), ArgNo, AttrsToRemove);
+  void removeParamAttrs(unsigned ArgNo, const AttributeKeySet &KS) {
+    Attrs = Attrs.removeParamAttributes(getContext(), ArgNo, KS);
   }
 
   /// adds the dereferenceable attribute to the list of attributes.
