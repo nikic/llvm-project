@@ -301,7 +301,7 @@ static void addReadAttrs(const SCCNodeSet &SCCNodes, AARGetterT &&AARGetter,
     Changed.insert(F);
 
     // Clear out any existing attributes.
-    AttrBuilder AttrsToRemove(F->getContext());
+    AttributeKeySet AttrsToRemove;
     AttrsToRemove.addAttribute(Attribute::ReadOnly);
     AttrsToRemove.addAttribute(Attribute::ReadNone);
     AttrsToRemove.addAttribute(Attribute::WriteOnly);

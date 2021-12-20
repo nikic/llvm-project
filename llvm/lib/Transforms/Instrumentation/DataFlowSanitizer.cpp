@@ -454,7 +454,7 @@ class DataFlowSanitizer {
   MDNode *OriginStoreWeights;
   DFSanABIList ABIList;
   DenseMap<Value *, Function *> UnwrappedFnMap;
-  AttrBuilder ReadOnlyNoneAttrs;
+  AttributeKeySet ReadOnlyNoneAttrs;
 
   /// Memory map parameters used in calculation mapping application addresses
   /// to shadow addresses and origin addresses.
@@ -770,7 +770,7 @@ private:
 
 DataFlowSanitizer::DataFlowSanitizer(
     LLVMContext &Context, const std::vector<std::string> &ABIListFiles)
-    : Ctx(&Context), ReadOnlyNoneAttrs(Context) {
+    : Ctx(&Context) {
   std::vector<std::string> AllABIListFiles(std::move(ABIListFiles));
   llvm::append_range(AllABIListFiles, ClABIListFiles);
   // FIXME: should we propagate vfs::FileSystem to this constructor?
@@ -1122,7 +1122,7 @@ DataFlowSanitizer::buildWrapperFunction(Function *F, StringRef NewFName,
 
   BasicBlock *BB = BasicBlock::Create(*Ctx, "entry", NewF);
   if (F->isVarArg()) {
-    NewF->removeFnAttrs(AttrBuilder(*Ctx).addAttribute("split-stack"));
+    NewF->removeFnAttrs(AttributeKeySet().addAttribute("split-stack"));
     CallInst::Create(DFSanVarargWrapperFn,
                      IRBuilder<>(BB).CreateGlobalStringPtr(F->getName()), "",
                      BB);

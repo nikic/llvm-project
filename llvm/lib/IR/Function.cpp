@@ -300,9 +300,9 @@ void Argument::removeAttr(Attribute::AttrKind Kind) {
   getParent()->removeParamAttr(getArgNo(), Kind);
 }
 
-void Argument::removeAttrs(const AttrBuilder &B) {
+void Argument::removeAttrs(const AttributeKeySet &KS) {
   AttributeList AL = getParent()->getAttributes();
-  AL = AL.removeParamAttributes(Parent->getContext(), getArgNo(), B);
+  AL = AL.removeParamAttributes(Parent->getContext(), getArgNo(), KS);
   getParent()->setAttributes(AL);
 }
 
@@ -589,8 +589,8 @@ void Function::removeFnAttr(StringRef Kind) {
   AttributeSets = AttributeSets.removeFnAttribute(getContext(), Kind);
 }
 
-void Function::removeFnAttrs(const AttrBuilder &Attrs) {
-  AttributeSets = AttributeSets.removeFnAttributes(getContext(), Attrs);
+void Function::removeFnAttrs(const AttributeKeySet &KS) {
+  AttributeSets = AttributeSets.removeFnAttributes(getContext(), KS);
 }
 
 void Function::removeRetAttr(Attribute::AttrKind Kind) {
@@ -601,8 +601,8 @@ void Function::removeRetAttr(StringRef Kind) {
   AttributeSets = AttributeSets.removeRetAttribute(getContext(), Kind);
 }
 
-void Function::removeRetAttrs(const AttrBuilder &Attrs) {
-  AttributeSets = AttributeSets.removeRetAttributes(getContext(), Attrs);
+void Function::removeRetAttrs(const AttributeKeySet &KS) {
+  AttributeSets = AttributeSets.removeRetAttributes(getContext(), KS);
 }
 
 void Function::removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
@@ -613,9 +613,8 @@ void Function::removeParamAttr(unsigned ArgNo, StringRef Kind) {
   AttributeSets = AttributeSets.removeParamAttribute(getContext(), ArgNo, Kind);
 }
 
-void Function::removeParamAttrs(unsigned ArgNo, const AttrBuilder &Attrs) {
-  AttributeSets =
-      AttributeSets.removeParamAttributes(getContext(), ArgNo, Attrs);
+void Function::removeParamAttrs(unsigned ArgNo, const AttributeKeySet &KS) {
+  AttributeSets = AttributeSets.removeParamAttributes(getContext(), ArgNo, KS);
 }
 
 void Function::addDereferenceableParamAttr(unsigned ArgNo, uint64_t Bytes) {

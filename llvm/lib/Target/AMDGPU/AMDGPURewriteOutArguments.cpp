@@ -353,7 +353,7 @@ bool AMDGPURewriteOutArguments::runOnFunction(Function &F) {
   // off any return attributes, e.g. zeroext doesn't make sense with a struct.
   NewFunc->stealArgumentListFrom(F);
 
-  AttrBuilder RetAttrs(Ctx);
+  AttributeKeySet RetAttrs;
   RetAttrs.addAttribute(Attribute::SExt);
   RetAttrs.addAttribute(Attribute::ZExt);
   RetAttrs.addAttribute(Attribute::NoAlias);

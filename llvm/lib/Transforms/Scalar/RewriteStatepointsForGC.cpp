@@ -1383,7 +1383,7 @@ static AttributeList legalizeCallAttributes(LLVMContext &Ctx,
 
   for (Attribute A : AL.getFnAttrs()) {
     if (isStatepointDirectiveAttr(A))
-      FnAttrs.remove(AttrBuilder(Ctx, A));
+      FnAttrs.remove(AttributeKeySet().addAttribute(A));
   }
 
   // Just skip parameter and return attributes for now
@@ -2654,20 +2654,17 @@ static bool insertParsePoints(Function &F, DominatorTree &DT,
 template <typename AttrHolder>
 static void RemoveNonValidAttrAtIndex(LLVMContext &Ctx, AttrHolder &AH,
                                       unsigned Index) {
-  AttrBuilder R(Ctx);
+  AttributeKeySet R;
   AttributeSet AS = AH.getAttributes().getAttributes(Index);
   if (AS.getDereferenceableBytes())
-    R.addAttribute(Attribute::get(Ctx, Attribute::Dereferenceable,
-                                  AS.getDereferenceableBytes()));
+    R.addAttribute(Attribute::Dereferenceable);
   if (AS.getDereferenceableOrNullBytes())
-    R.addAttribute(Attribute::get(Ctx, Attribute::DereferenceableOrNull,
-                                  AS.getDereferenceableOrNullBytes()));
+    R.addAttribute(Attribute::DereferenceableOrNull);
   for (auto Attr : ParamAttrsToStrip)
     if (AS.hasAttribute(Attr))
       R.addAttribute(Attr);
 
-  if (!R.empty())
-    AH.setAttributes(AH.getAttributes().removeAttributesAtIndex(Ctx, Index, R));
+  AH.setAttributes(AH.getAttributes().removeAttributesAtIndex(Ctx, Index, R));
 }
 
 static void stripNonValidAttributesFromPrototype(Function &F) {

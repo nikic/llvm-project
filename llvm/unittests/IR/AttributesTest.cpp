@@ -81,12 +81,12 @@ TEST(Attributes, RemoveAlign) {
   AttrBuilder B_align_readonly(C);
   B_align_readonly.addAttribute(AlignAttr);
   B_align_readonly.addAttribute(Attribute::ReadOnly);
-  AttrBuilder B_align(C);
+  AttributeKeySet B_align;
   B_align.addAttribute(AlignAttr);
   AttrBuilder B_stackalign_optnone(C);
   B_stackalign_optnone.addAttribute(StackAlignAttr);
   B_stackalign_optnone.addAttribute(Attribute::OptimizeNone);
-  AttrBuilder B_stackalign(C);
+  AttributeKeySet B_stackalign;
   B_stackalign.addAttribute(StackAlignAttr);
 
   AttributeSet AS = AttributeSet::get(C, B_align_readonly);
