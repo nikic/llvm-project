@@ -17,8 +17,8 @@
 
 #include "llvm-c/Types.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
@@ -29,7 +29,6 @@
 #include <cassert>
 #include <cstdint>
 #include <map>
-#include <set>
 #include <string>
 #include <utility>
 
@@ -935,7 +934,7 @@ template <> struct DenseMapInfo<AttributeList, void> {
 class AttributeKeySet {
   friend class AttrBuilder;
   std::bitset<Attribute::EndAttrKinds> Attrs;
-  SmallDenseSet<StringRef, 8> StringAttrs;
+  SmallSet<SmallString<32>, 8> StringAttrs;
 
 public:
   AttributeKeySet() = default;
