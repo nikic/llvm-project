@@ -652,13 +652,19 @@ AttributeSet AttributeSet::removeAttribute(LLVMContext &C,
 
 AttributeSet AttributeSet::removeAttributes(LLVMContext &C,
                                             const AttrBuilder &Attrs) const {
-  AttrBuilder B(*this);
-  // If there is nothing to remove, directly return the original set.
-  if (!B.overlaps(Attrs))
+  SmallVector<Attribute, 32> NewAttrs;
+  for (const auto &A : *this) {
+    bool Removed = A.isStringAttribute() ? Attrs.contains(A.getKindAsString())
+                                         : Attrs.contains(A.getKindAsEnum());
+    if (!Removed)
+      NewAttrs.push_back(A);
+  }
+
+  // Nothing was removed.
+  if (NewAttrs.size() == getNumAttributes())
     return *this;
 
-  B.remove(Attrs);
-  return get(C, B);
+  return AttributeSet(AttributeSetNode::getSorted(C, NewAttrs));
 }
 
 unsigned AttributeSet::getNumAttributes() const {
