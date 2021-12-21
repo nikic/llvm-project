@@ -127,18 +127,18 @@ CodeGenModule::getDynamicOffsetAlignment(CharUnits actualBaseAlign,
 
 Address CodeGenFunction::LoadCXXThisAddress() {
   assert(CurFuncDecl && "loading 'this' without a func declaration?");
-  assert(isa<CXXMethodDecl>(CurFuncDecl));
+  auto *MD = cast<CXXMethodDecl>(CurFuncDecl);
 
   // Lazily compute CXXThisAlignment.
   if (CXXThisAlignment.isZero()) {
     // Just use the best known alignment for the parent.
     // TODO: if we're currently emitting a complete-object ctor/dtor,
     // we can always use the complete-object alignment.
-    auto RD = cast<CXXMethodDecl>(CurFuncDecl)->getParent();
-    CXXThisAlignment = CGM.getClassPointerAlignment(RD);
+    CXXThisAlignment = CGM.getClassPointerAlignment(MD->getParent());
   }
 
-  return Address(LoadCXXThis(), CXXThisAlignment);
+  llvm::Type *Ty = ConvertType(MD->getThisType()->getPointeeType());
+  return Address(LoadCXXThis(), Ty, CXXThisAlignment);
 }
 
 /// Emit the address of a field using a member data pointer.
