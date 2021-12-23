@@ -2103,13 +2103,16 @@ llvm::Value *CodeGenFunction::emitArrayLength(const ArrayType *origArrayType,
       arrayType = getContext().getAsArrayType(eltType);
     }
 
-    llvm::Type *baseType = ConvertType(eltType);
+    llvm::Type *baseType = ConvertTypeForMem(eltType);
     addr = Builder.CreateElementBitCast(addr, baseType, "array.begin");
   } else {
     // Create the actual GEP.
-    addr = Address(Builder.CreateInBoundsGEP(
-        addr.getElementType(), addr.getPointer(), gepIndices, "array.begin"),
-        addr.getAlignment());
+    llvm::Value *ptr = Builder.CreateInBoundsGEP(
+        addr.getElementType(), addr.getPointer(), gepIndices, "array.begin");
+    llvm::Type *llvmEltType = ConvertTypeForMem(eltType);
+    ptr = Builder.CreateBitCast(
+        ptr, llvmEltType->getPointerTo(addr.getAddressSpace()));
+    addr = Address(ptr, llvmEltType, addr.getAlignment());
   }
 
   baseType = eltType;
