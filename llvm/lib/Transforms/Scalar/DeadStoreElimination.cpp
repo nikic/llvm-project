@@ -835,19 +835,13 @@ struct DSEState {
     if (!isGuaranteedLoopIndependent(DeadI, KillingI, DeadLoc))
       return OW_Unknown;
 
-    const Value *DeadPtr = DeadLoc.Ptr->stripPointerCasts();
-    const Value *KillingPtr = KillingLoc.Ptr->stripPointerCasts();
-    const Value *DeadUndObj = getUnderlyingObject(DeadPtr);
-    const Value *KillingUndObj = getUnderlyingObject(KillingPtr);
-
-    // Check whether the killing store overwrites the whole object, in which
-    // case the size/offset of the dead store does not matter.
-    if (DeadUndObj == KillingUndObj && KillingLoc.Size.isPrecise()) {
+    auto IsWholeObjectOverwrite = [&](const Value *KillingUndObj) {
+      // Check whether the killing store overwrites the whole object, in which
+      // case the size/offset of the dead store does not matter.
       uint64_t KillingUndObjSize = getPointerSize(KillingUndObj, DL, TLI, &F);
-      if (KillingUndObjSize != MemoryLocation::UnknownSize &&
-          KillingUndObjSize == KillingLoc.Size.getValue())
-        return OW_Complete;
-    }
+      return KillingUndObjSize != MemoryLocation::UnknownSize &&
+             KillingUndObjSize == KillingLoc.Size.getValue();
+    };
 
     // FIXME: Vet that this works for size upper-bounds. Seems unlikely that we'll
     // get imprecise values here, though (except for unknown sizes).
@@ -862,6 +856,10 @@ struct DSEState {
         if (KillingV == DeadV && BatchAA.isMustAlias(DeadLoc, KillingLoc))
           return OW_Complete;
       }
+
+      if (KillingLoc.Size.isPrecise() &&
+          IsWholeObjectOverwrite(getUnderlyingObject(KillingLoc.Ptr)))
+        return OW_Complete;
 
       // Masked stores have imprecise locations, but we can reason about them
       // to some extent.
@@ -889,6 +887,11 @@ struct DSEState {
         return OW_Complete;
     }
 
+    const Value *DeadPtr = DeadLoc.Ptr->stripPointerCasts();
+    const Value *KillingPtr = KillingLoc.Ptr->stripPointerCasts();
+    const Value *DeadUndObj = getUnderlyingObject(DeadPtr);
+    const Value *KillingUndObj = getUnderlyingObject(KillingPtr);
+
     // If we can't resolve the same pointers to the same object, then we can't
     // analyze them at all.
     if (DeadUndObj != KillingUndObj) {
@@ -901,6 +904,9 @@ struct DSEState {
         return OW_None;
       return OW_Unknown;
     }
+
+    if (IsWholeObjectOverwrite(KillingUndObj))
+      return OW_Complete;
 
     // Okay, we have stores to two completely different pointers.  Try to
     // decompose the pointer into a "base + constant_offset" form.  If the base
