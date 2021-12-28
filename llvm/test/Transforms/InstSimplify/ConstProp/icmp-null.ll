@@ -200,7 +200,7 @@ define i1 @global_gep_sgt_global() {
 
 define i1 @global_gep_ugt_global_neg_offset() {
 ; CHECK-LABEL: @global_gep_ugt_global_neg_offset(
-; CHECK-NEXT:    ret i1 true
+; CHECK-NEXT:    ret i1 icmp ugt ([2 x i32]* getelementptr ([2 x i32], [2 x i32]* @g, i64 -1), [2 x i32]* @g)
 ;
   %gep = getelementptr [2 x i32], [2 x i32]* @g, i64 -1
   %cmp = icmp ugt [2 x i32]* %gep, @g
