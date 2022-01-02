@@ -973,9 +973,18 @@ public:
 /// value, however, is not. So this can be used as a quick way to test for
 /// equality, presence of attributes, etc.
 class AttrBuilder {
+  struct StringAttributeComparator {
+    bool operator()(Attribute A0, Attribute A1) const {
+      return A0.getKindAsString() < A1.getKindAsString();
+    }
+    bool operator()(Attribute A0, StringRef Kind) const {
+      return A0.getKindAsString() < Kind;
+    }
+  };
+
   LLVMContext &Context;
   std::bitset<Attribute::EndAttrKinds> Attrs;
-  std::map<StringRef, Attribute, std::less<>> TargetDepAttrs;
+  SmallVector<Attribute, 8> TargetDepAttrs;
   std::array<uint64_t, Attribute::NumIntAttrKinds> IntAttrs = {};
   std::array<Type *, Attribute::NumTypeAttrKinds> TypeAttrs = {};
 

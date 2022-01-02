@@ -840,7 +840,7 @@ AttributeSetNode *AttributeSetNode::get(LLVMContext &C, const AttrBuilder &B) {
 
   // Add target-dependent (string) attributes.
   for (const auto &TDA : B.td_attrs())
-    Attrs.emplace_back(TDA.second);
+    Attrs.push_back(TDA);
 
   return getSorted(C, Attrs);
 }
@@ -1591,7 +1591,11 @@ AttrBuilder::kindToTypeIndex(Attribute::AttrKind Kind) const {
 
 AttrBuilder &AttrBuilder::addAttribute(Attribute Attr) {
   if (Attr.isStringAttribute()) {
-    TargetDepAttrs[Attr.getKindAsString()] = Attr;
+    auto It = lower_bound(TargetDepAttrs, Attr, StringAttributeComparator());
+    if (It != TargetDepAttrs.end() && It->hasAttribute(Attr.getKindAsString()))
+      std::swap(*It, Attr);
+    else
+      TargetDepAttrs.insert(It, Attr);
     return *this;
   }
 
@@ -1607,9 +1611,7 @@ AttrBuilder &AttrBuilder::addAttribute(Attribute Attr) {
 }
 
 AttrBuilder &AttrBuilder::addAttribute(StringRef A, StringRef V) {
-  Attribute Attr = Attribute::get(Context, A, V);
-  TargetDepAttrs[Attr.getKindAsString()] = Attr;
-  return *this;
+  return addAttribute(Attribute::get(Context, A, V));
 }
 
 AttrBuilder &AttrBuilder::removeAttribute(Attribute::AttrKind Val) {
@@ -1630,7 +1632,9 @@ AttrBuilder &AttrBuilder::removeAttributes(AttributeList A, uint64_t Index) {
 }
 
 AttrBuilder &AttrBuilder::removeAttribute(StringRef A) {
-  TargetDepAttrs.erase(A);
+  auto It = lower_bound(TargetDepAttrs, A, StringAttributeComparator());
+  if (It != TargetDepAttrs.end() && It->hasAttribute(A))
+    TargetDepAttrs.erase(It);
   return *this;
 }
 
@@ -1762,8 +1766,9 @@ AttrBuilder &AttrBuilder::merge(const AttrBuilder &B) {
 
   Attrs |= B.Attrs;
 
+  // TODO: Inefficient...
   for (const auto &I : B.td_attrs())
-    TargetDepAttrs[I.first] = I.second;
+    addAttribute(I);
 
   return *this;
 }
@@ -1779,8 +1784,9 @@ AttrBuilder &AttrBuilder::remove(const AttributeKeySet &KS) {
 
   Attrs &= ~KS.Attrs;
 
+  // TODO: Inefficient...
   for (const auto &I : KS.StringAttrs)
-    TargetDepAttrs.erase(I);
+    removeAttribute(I);
 
   return *this;
 }
@@ -1792,14 +1798,15 @@ bool AttrBuilder::overlaps(const AttributeKeySet &KS) const {
 
   // Then check if any target dependent ones do.
   for (const auto &I : td_attrs())
-    if (KS.contains(I.first))
+    if (KS.contains(I.getKindAsString()))
       return true;
 
   return false;
 }
 
 bool AttrBuilder::contains(StringRef A) const {
-  return TargetDepAttrs.find(A) != TargetDepAttrs.end();
+  auto It = lower_bound(TargetDepAttrs, A, StringAttributeComparator());
+  return It != TargetDepAttrs.end() && It->hasAttribute(A);
 }
 
 bool AttrBuilder::hasAttributes() const {
@@ -1830,11 +1837,8 @@ bool AttrBuilder::operator==(const AttrBuilder &B) const {
   if (Attrs != B.Attrs)
     return false;
 
-  for (const auto &TDA : TargetDepAttrs)
-    if (B.TargetDepAttrs.find(TDA.first) == B.TargetDepAttrs.end())
-      return false;
-
-  return IntAttrs == B.IntAttrs && TypeAttrs == B.TypeAttrs;
+  return IntAttrs == B.IntAttrs && TypeAttrs == B.TypeAttrs &&
+         TargetDepAttrs == B.TargetDepAttrs;
 }
 
 //===----------------------------------------------------------------------===//
