@@ -112,15 +112,38 @@ bb14:                                             ; preds = %bb12, %bb
 
 declare i32 @unknown(i32* %dest)
 
-define i32 @sink_to_use(i1 %c) {
-; CHECK-LABEL: @sink_to_use(
+define i32 @sink_write_to_use(i1 %c) {
+; CHECK-LABEL: @sink_write_to_use(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VAR:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[VAR3:%.*]] = call i32 @unknown(i32* nonnull [[VAR]]) #[[ATTR1:[0-9]+]]
 ; CHECK-NEXT:    br i1 [[C:%.*]], label [[EARLY_RETURN:%.*]], label [[USE_BLOCK:%.*]]
 ; CHECK:       early_return:
 ; CHECK-NEXT:    ret i32 0
 ; CHECK:       use_block:
+; CHECK-NEXT:    [[VAR3:%.*]] = call i32 @unknown(i32* nonnull writeonly [[VAR]]) #[[ATTR1:[0-9]+]]
+; CHECK-NEXT:    ret i32 [[VAR3]]
+;
+entry:
+  %var = alloca i32, align 4
+  %var3 = call i32 @unknown(i32* writeonly %var) argmemonly nounwind willreturn
+  br i1 %c, label %early_return, label %use_block
+
+early_return:
+  ret i32 0
+
+use_block:
+  ret i32 %var3
+}
+
+define i32 @sink_readwrite_to_use(i1 %c) {
+; CHECK-LABEL: @sink_readwrite_to_use(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[VAR:%.*]] = alloca i32, align 4
+; CHECK-NEXT:    br i1 [[C:%.*]], label [[EARLY_RETURN:%.*]], label [[USE_BLOCK:%.*]]
+; CHECK:       early_return:
+; CHECK-NEXT:    ret i32 0
+; CHECK:       use_block:
+; CHECK-NEXT:    [[VAR3:%.*]] = call i32 @unknown(i32* nonnull [[VAR]]) #[[ATTR1]]
 ; CHECK-NEXT:    ret i32 [[VAR3]]
 ;
 entry:
