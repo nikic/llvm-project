@@ -1401,14 +1401,14 @@ static ICmpInst::Predicate areGlobalsPotentiallyEqual(const GlobalValue *GV1,
 ///
 static ICmpInst::Predicate evaluateICmpRelation(Constant *V1, Constant *V2,
                                                 bool isSigned) {
-  assert(V1->getType() == V2->getType() &&
-         "Cannot compare different types of values!");
+  V1 = cast<Constant>(V1->stripPointerCastsSameRepresentation());
+  V2 = cast<Constant>(V2->stripPointerCastsSameRepresentation());
   if (V1 == V2) return ICmpInst::ICMP_EQ;
 
   if (!isa<ConstantExpr>(V1) && !isa<GlobalValue>(V1) &&
       !isa<BlockAddress>(V1)) {
     if (!isa<GlobalValue>(V2) && !isa<ConstantExpr>(V2) &&
-        !isa<BlockAddress>(V2)) {
+        !isa<BlockAddress>(V2) && V1->getType() == V2->getType()) {
       // We distilled this down to a simple case, use the standard constant
       // folder.
       ConstantInt *R = nullptr;
@@ -1502,12 +1502,6 @@ static ICmpInst::Predicate evaluateICmpRelation(Constant *V1, Constant *V2,
       break; // We can't evaluate floating point casts or truncations.
 
     case Instruction::BitCast:
-      // If this is a global value cast, check to see if the RHS is also a
-      // GlobalValue.
-      if (const GlobalValue *GV = dyn_cast<GlobalValue>(CE1Op0))
-        if (const GlobalValue *GV2 = dyn_cast<GlobalValue>(V2))
-          return areGlobalsPotentiallyEqual(GV, GV2);
-      LLVM_FALLTHROUGH;
     case Instruction::UIToFP:
     case Instruction::SIToFP:
     case Instruction::ZExt:
@@ -1518,7 +1512,7 @@ static ICmpInst::Predicate evaluateICmpRelation(Constant *V1, Constant *V2,
 
       // If the cast is not actually changing bits, and the second operand is a
       // null pointer, do the comparison with the pre-casted value.
-      if (V2->isNullValue() && CE1->getType()->isIntOrPtrTy()) {
+      if (V2->isNullValue() && CE1->getType()->isIntegerTy()) {
         if (CE1->getOpcode() == Instruction::ZExt) isSigned = false;
         if (CE1->getOpcode() == Instruction::SExt) isSigned = true;
         return evaluateICmpRelation(CE1Op0,
@@ -1528,9 +1522,6 @@ static ICmpInst::Predicate evaluateICmpRelation(Constant *V1, Constant *V2,
       break;
 
     case Instruction::GetElementPtr: {
-      GEPOperator *CE1GEP = cast<GEPOperator>(CE1);
-      // Ok, since this is a getelementptr, we know that the constant has a
-      // pointer type.  Check the various cases.
       if (isa<ConstantPointerNull>(V2)) {
         // If we are comparing a GEP to a null pointer, check to see if the base
         // of the GEP equals the null pointer.
@@ -1539,27 +1530,6 @@ static ICmpInst::Predicate evaluateICmpRelation(Constant *V1, Constant *V2,
           // so the result is greater-than
           if (!GV->hasExternalWeakLinkage())
             return ICmpInst::ICMP_UGT;
-        }
-      } else if (const GlobalValue *GV2 = dyn_cast<GlobalValue>(V2)) {
-        if (const GlobalValue *GV = dyn_cast<GlobalValue>(CE1Op0)) {
-          if (GV != GV2) {
-            if (CE1GEP->hasAllZeroIndices())
-              return areGlobalsPotentiallyEqual(GV, GV2);
-            return ICmpInst::BAD_ICMP_PREDICATE;
-          }
-        }
-      } else if (const auto *CE2GEP = dyn_cast<GEPOperator>(V2)) {
-        // By far the most common case to handle is when the base pointers are
-        // obviously to the same global.
-        const Constant *CE2Op0 = cast<Constant>(CE2GEP->getPointerOperand());
-        if (isa<GlobalValue>(CE1Op0) && isa<GlobalValue>(CE2Op0)) {
-          // Don't know relative ordering, but check for inequality.
-          if (CE1Op0 != CE2Op0) {
-            if (CE1GEP->hasAllZeroIndices() && CE2GEP->hasAllZeroIndices())
-              return areGlobalsPotentiallyEqual(cast<GlobalValue>(CE1Op0),
-                                                cast<GlobalValue>(CE2Op0));
-            return ICmpInst::BAD_ICMP_PREDICATE;
-          }
         }
       }
       break;
