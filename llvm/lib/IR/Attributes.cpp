@@ -1723,10 +1723,48 @@ AttrBuilder &AttrBuilder::addInAllocaAttr(Type *Ty) {
 }
 
 AttrBuilder &AttrBuilder::merge(const AttrBuilder &B) {
-  // TODO: could merge both lists in one loop
-  for (const auto &I : B.attrs())
-    addAttribute(I);
+  // Comparator that only compares key and treats Attribute with the same key
+  // but different value as equivalent.
+  auto Cmp = [](Attribute A0, Attribute A1) {
+    if (A0.isStringAttribute()) {
+      if (A1.isStringAttribute())
+        return strcmp(A0.getKindAsString().data(), A1.getKindAsString().data());
+      else
+        return +1;
+    } else {
+      if (A1.isStringAttribute())
+        return -1;
+      else
+        return (int)A0.getKindAsEnum() - (int)A1.getKindAsEnum();
+    }
+  };
 
+  // This is close to std::set_union + std::unique in a row.
+  SmallVector<Attribute, 8> NewAttrs;
+  auto SelfIter = Attrs.begin(), SelfEnd = Attrs.end();
+  auto OtherIter = B.Attrs.begin(), OtherEnd = B.Attrs.end();
+  while (OtherIter < OtherEnd && SelfIter < SelfEnd) {
+    int C = Cmp(*OtherIter, *SelfIter);
+    if (C < 0) {
+      NewAttrs.push_back(*OtherIter);
+      ++OtherIter;
+    } else if (C == 0) {
+      // In case of equality, the new version is honored.
+      NewAttrs.push_back(*OtherIter);
+      ++OtherIter;
+      ++SelfIter;
+    } else {
+      NewAttrs.push_back(*SelfIter);
+      ++SelfIter;
+    }
+  }
+
+  if (OtherIter < OtherEnd)
+    NewAttrs.append(OtherIter, OtherEnd);
+  else
+    NewAttrs.append(SelfIter, SelfEnd);
+
+  Attrs = std::move(NewAttrs);
   return *this;
 }
 
