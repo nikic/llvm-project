@@ -508,6 +508,9 @@ private:
   /// Objective-C's for..in loop.
   QualType ObjCFastEnumerationStateType;
 
+  /// Cached NoUndef attribute, which is used particularly often.
+  llvm::Attribute NoUndefAttr;
+
   /// @}
 
   /// Lazily create the Objective-C runtime
