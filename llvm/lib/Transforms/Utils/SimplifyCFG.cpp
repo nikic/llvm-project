@@ -1965,6 +1965,21 @@ namespace {
 
 } // end anonymous namespace
 
+
+static bool IsBlockFollowedByDeoptOrUnreachable(const BasicBlock *BB) {
+  // Remember visited blocks to avoid infinite loop
+  SmallPtrSet<const BasicBlock *, 8> VisitedBlocks;
+  unsigned Depth = 0;
+  while (BB && Depth++ < 8 &&
+         VisitedBlocks.insert(BB).second) {
+    if (BB->getTerminatingDeoptimizeCall() ||
+        isa<UnreachableInst>(BB->getTerminator()))
+      return true;
+    BB = BB->getUniqueSuccessor();
+  }
+  return false;
+}
+
 /// Check whether BB's predecessors end with unconditional branches. If it is
 /// true, sink any common code from the predecessors to BB.
 bool llvm::SinkCommonCodeFromPredecessors(BasicBlock *BB, DomTreeUpdater *DTU) {
