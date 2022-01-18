@@ -2804,25 +2804,10 @@ void InstrRefBasedLDV::emitLocations(
     }
   }
 
-  // We have to insert DBG_VALUEs in a consistent order, otherwise they appeaer
-  // in DWARF in different orders. Use the order that they appear when walking
-  // through each block / each instruction, stored in AllVarsNumbering.
-  auto OrderDbgValues = [&](const MachineInstr *A,
-                            const MachineInstr *B) -> bool {
-    DebugVariable VarA(A->getDebugVariable(), A->getDebugExpression(),
-                       A->getDebugLoc()->getInlinedAt());
-    DebugVariable VarB(B->getDebugVariable(), B->getDebugExpression(),
-                       B->getDebugLoc()->getInlinedAt());
-    return AllVarsNumbering.find(VarA)->second <
-           AllVarsNumbering.find(VarB)->second;
-  };
-
   // Go through all the transfers recorded in the TransferTracker -- this is
   // both the live-ins to a block, and any movements of values that happen
   // in the middle.
   for (auto &P : TTracker->Transfers) {
-    // Sort them according to appearance order.
-    llvm::sort(P.Insts, OrderDbgValues);
     // Insert either before or after the designated point...
     if (P.MBB) {
       MachineBasicBlock &MBB = *P.MBB;
