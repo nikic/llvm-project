@@ -160,6 +160,12 @@ void MergeBasicBlockIntoOnlyPred(BasicBlock *BB, DomTreeUpdater *DTU = nullptr);
 bool TryToSimplifyUncondBranchFromEmptyBlock(BasicBlock *BB,
                                              DomTreeUpdater *DTU = nullptr);
 
+/// Check whether BB's predecessors end with unconditional branches. If it is
+/// true, sink any common code from the predecessors to BB.
+/// Returns true if any changes were made.
+bool SinkCommonCodeFromPredecessors(BasicBlock *BB,
+                                    DomTreeUpdater *DTU = nullptr);
+
 /// Check for and eliminate duplicate PHI nodes in this block. This doesn't try
 /// to be clever about PHI nodes which differ only in the order of the incoming
 /// values, but instcombine orders them so it usually won't matter.

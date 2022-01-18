@@ -25,18 +25,18 @@ define void @double_foobar() {
 ; CHECK-NEXT:    b LSJLJEH0
 ; CHECK-NEXT:    movs r0, #1 @ eh_setjmp end
 ; CHECK-NEXT:  LSJLJEH0:
-; CHECK-NEXT:    cbz r0, LBB0_3
-; CHECK-NEXT:  @ %bb.1: @ %if.then
-; CHECK-NEXT:    movw r0, :lower16:(L_g$non_lazy_ptr-(LPC0_0+4))
-; CHECK-NEXT:    movt r0, :upper16:(L_g$non_lazy_ptr-(LPC0_0+4))
+; CHECK-NEXT:    movw r1, :lower16:(L_g$non_lazy_ptr-(LPC0_0+4))
+; CHECK-NEXT:    movt r1, :upper16:(L_g$non_lazy_ptr-(LPC0_0+4))
 ; CHECK-NEXT:  LPC0_0:
-; CHECK-NEXT:    add r0, pc
-; CHECK-NEXT:    ldr r1, [r0]
+; CHECK-NEXT:    add r1, pc
+; CHECK-NEXT:    cbz r0, LBB0_4
+; CHECK-NEXT:  @ %bb.1: @ %if.then
+; CHECK-NEXT:    ldr r2, [r1]
 ; CHECK-NEXT:    movs r0, #1
-; CHECK-NEXT:    str r1, [sp] @ 4-byte Spill
-; CHECK-NEXT:    str r0, [r1]
-; CHECK-NEXT:    add r0, sp, #4
+; CHECK-NEXT:    str r2, [sp] @ 4-byte Spill
 ; CHECK-NEXT:    movs r1, #0
+; CHECK-NEXT:    str r0, [r2]
+; CHECK-NEXT:    add r0, sp, #4
 ; CHECK-NEXT:    str r7, [sp, #4]
 ; CHECK-NEXT:    str.w sp, [sp, #12]
 ; CHECK-NEXT:    mov r1, pc @ eh_setjmp begin
@@ -54,31 +54,26 @@ define void @double_foobar() {
 ; CHECK-NEXT:    addne sp, #24
 ; CHECK-NEXT:    it ne
 ; CHECK-NEXT:    popne.w {r4, r5, r6, r7, r8, r10, r11, pc}
-; CHECK-NEXT:  LBB0_2: @ %if2.else
-; CHECK-NEXT:    ldr r1, [sp] @ 4-byte Reload
+; CHECK-NEXT:  LBB0_2:
+; CHECK-NEXT:    movw r1, :lower16:(L_g$non_lazy_ptr-(LPC0_1+4))
+; CHECK-NEXT:    add r2, sp, #4
+; CHECK-NEXT:    movt r1, :upper16:(L_g$non_lazy_ptr-(LPC0_1+4))
 ; CHECK-NEXT:    movs r0, #2
-; CHECK-NEXT:    str r0, [r1]
-; CHECK-NEXT:    add r1, sp, #4
-; CHECK-NEXT:    movs r0, #0
-; CHECK-NEXT:    ldr r0, [r1, #8]
-; CHECK-NEXT:    mov sp, r0
-; CHECK-NEXT:    ldr r0, [r1, #4]
-; CHECK-NEXT:    ldr r7, [r1]
-; CHECK-NEXT:    bx r0
-; CHECK-NEXT:  LBB0_3: @ %if.else
-; CHECK-NEXT:    movw r0, :lower16:(L_g$non_lazy_ptr-(LPC0_1+4))
-; CHECK-NEXT:    movs r1, #0
-; CHECK-NEXT:    movt r0, :upper16:(L_g$non_lazy_ptr-(LPC0_1+4))
 ; CHECK-NEXT:  LPC0_1:
-; CHECK-NEXT:    add r0, pc
-; CHECK-NEXT:    ldr r0, [r0]
-; CHECK-NEXT:    str r1, [r0]
-; CHECK-NEXT:    add r0, sp, #4
-; CHECK-NEXT:    ldr r1, [r0, #8]
-; CHECK-NEXT:    mov sp, r1
-; CHECK-NEXT:    ldr r1, [r0, #4]
-; CHECK-NEXT:    ldr r7, [r0]
-; CHECK-NEXT:    bx r1
+; CHECK-NEXT:    add r1, pc
+; CHECK-NEXT:  LBB0_3: @ %common.unreachable
+; CHECK-NEXT:    ldr r1, [r1]
+; CHECK-NEXT:    str r0, [r1]
+; CHECK-NEXT:    movs r0, #0
+; CHECK-NEXT:    ldr r0, [r2, #8]
+; CHECK-NEXT:    mov sp, r0
+; CHECK-NEXT:    ldr r0, [r2, #4]
+; CHECK-NEXT:    ldr r7, [r2]
+; CHECK-NEXT:    bx r0
+; CHECK-NEXT:  LBB0_4:
+; CHECK-NEXT:    add r2, sp, #4
+; CHECK-NEXT:    movs r0, #0
+; CHECK-NEXT:    b LBB0_3
 entry:
   %buf = alloca [5 x i8*], align 4
   %bufptr = bitcast [5 x i8*]* %buf to i8*

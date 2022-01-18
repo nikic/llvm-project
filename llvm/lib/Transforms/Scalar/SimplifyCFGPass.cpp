@@ -21,6 +21,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -78,15 +79,16 @@ static cl::opt<bool> UserSinkCommonInsts(
 
 STATISTIC(NumSimpl, "Number of blocks simplified");
 
-static bool
-performBlockTailMerging(Function &F, ArrayRef<BasicBlock *> BBs,
-                        std::vector<DominatorTree::UpdateType> *Updates) {
+static BasicBlock * /*CanonicalBB*/
+performBlockTailMergingImpl(Function &F, ArrayRef<BasicBlock *> BBs,
+                            SmallVectorImpl<Instruction *> &OrigTerminators,
+                            std::vector<DominatorTree::UpdateType> *Updates) {
   SmallVector<PHINode *, 1> NewOps;
 
   // We don't want to change IR just because we can.
   // Only do that if there are at least two blocks we'll tail-merge.
   if (BBs.size() < 2)
-    return false;
+    return nullptr;
 
   if (Updates)
     Updates->reserve(Updates->size() + BBs.size());
@@ -140,7 +142,8 @@ performBlockTailMerging(Function &F, ArrayRef<BasicBlock *> BBs,
 
     // And turn BB into a block that just unconditionally branches
     // to the canonical block.
-    Term->eraseFromParent();
+    OrigTerminators.emplace_back(Term);
+    Term->removeFromParent();
     BranchInst::Create(CanonicalBB, BB);
     if (Updates)
       Updates->push_back({DominatorTree::Insert, BB, CanonicalBB});
@@ -148,11 +151,77 @@ performBlockTailMerging(Function &F, ArrayRef<BasicBlock *> BBs,
 
   CanonicalTerm->setDebugLoc(CommonDebugLoc);
 
-  return true;
+  return CanonicalBB;
 }
 
-static bool tailMergeBlocksWithSimilarFunctionTerminators(Function &F,
-                                                          DomTreeUpdater *DTU) {
+static bool /*Changed*/
+performBlockTailMerging(Function &F, ArrayRef<BasicBlock *> BBs,
+                        std::vector<DominatorTree::UpdateType> *Updates) {
+  unsigned TermOpc = BBs[0]->getTerminator()->getOpcode();
+  const size_t OrigUpdatesSize = Updates ? Updates->size() : -1;
+
+  SmallVector<Instruction *> OrigTerminators;
+  auto _ = make_scope_exit([&OrigTerminators]() {
+    for (Instruction *Term : OrigTerminators)
+      Term->deleteValue();
+  });
+  OrigTerminators.reserve(BBs.size());
+
+  BasicBlock *CanonicalBB =
+      performBlockTailMergingImpl(F, BBs, OrigTerminators, Updates);
+  if (!CanonicalBB) // Did we fail to tail-merge?
+    return CanonicalBB;
+
+  assert(CanonicalBB->getTerminator()->getOpcode() == TermOpc &&
+         "Tail-folding does not change the terminator type.");
+
+  // If we aren't dealing with the `unreachable` terminator, then that's it!
+  if (TermOpc != Instruction::Unreachable)
+    return CanonicalBB;
+
+  // For `unreachable`, however, we have more to do. We don't want to just merge
+  // all `unreachable` terminators, we want to do so if that allows us to sink
+  // some common code from them. So now we need to manually run
+  // common code sinking, and if that fails, undo tail merging.
+
+  // We intentionally do not pass DomTreeUpdater here, because it is only needed
+  // there to split conditional edges to CanonicalBB, but we know there are none
+  // and we haven't applied Updates yet so DomTreeUpdater is not up to date.
+  if (SinkCommonCodeFromPredecessors(CanonicalBB, /*DTU=*/nullptr))
+    return CanonicalBB; // Awesome, sinking succeeded, we are all good!
+
+  // Nope, nothing sunk. Need to backtrack.
+
+  assert(&*CanonicalBB->begin() == CanonicalBB->getTerminator() &&
+         "CanonicalBB only contains the terminator.");
+
+  // First, drop all the DomTree updates related to this tail-folding.
+  if (Updates) {
+    assert(Updates->size() >= OrigUpdatesSize);
+    Updates->resize(OrigUpdatesSize, {DominatorTree::Insert, nullptr, nullptr});
+  }
+
+  for (auto I : zip(BBs, OrigTerminators)) {
+    BasicBlock *PredBB = std::get<0>(I);
+    Instruction *OrigTerm = std::get<1>(I);
+    auto *CurrBr = dyn_cast<BranchInst>(PredBB->getTerminator());
+    assert(CurrBr && CurrBr->isUnconditional() &&
+           CurrBr->getSuccessor(0) == CanonicalBB &&
+           "All of BBs now unconditionally branch to CanonicalBB.");
+    OrigTerm->insertBefore(CurrBr);
+    CurrBr->eraseFromParent();
+  }
+  OrigTerminators.clear(); // Defuse scope-exit.
+  assert(pred_empty(CanonicalBB) && "CanonicalBB is now unreachable.");
+  CanonicalBB->eraseFromParent();
+
+  return false; // Did not tail-merge after all.
+  // Note that we indeed are allowed to return false here,
+  // because we've made sure that all IR and CFG changes were undone.
+}
+
+static bool tailMergeBlocksWithSimilarFunctionTerminators(
+    Function &F, DomTreeUpdater *DTU, const SimplifyCFGOptions &Options) {
   SmallMapVector<unsigned /*TerminatorOpcode*/, SmallVector<BasicBlock *, 2>, 4>
       Structure;
 
@@ -167,12 +236,16 @@ static bool tailMergeBlocksWithSimilarFunctionTerminators(Function &F,
 
     auto *Term = BB.getTerminator();
 
-    // Fow now only support `ret`/`resume` function terminators.
-    // FIXME: lift this restriction.
+    // We currently only support `ret`/`resume` function terminators,
+    // and seldomly handle `unreachable` iff that allows sinking instructions.
     switch (Term->getOpcode()) {
     case Instruction::Ret:
     case Instruction::Resume:
       break;
+    case Instruction::Unreachable:
+      if (Options.SinkCommonInsts)
+        break;
+      continue;
     default:
       continue;
     }
@@ -263,8 +336,8 @@ static bool simplifyFunctionCFGImpl(Function &F, const TargetTransformInfo &TTI,
   DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
 
   bool EverChanged = removeUnreachableBlocks(F, DT ? &DTU : nullptr);
-  EverChanged |=
-      tailMergeBlocksWithSimilarFunctionTerminators(F, DT ? &DTU : nullptr);
+  EverChanged |= tailMergeBlocksWithSimilarFunctionTerminators(
+      F, DT ? &DTU : nullptr, Options);
   EverChanged |= iterativelySimplifyCFG(F, TTI, DT ? &DTU : nullptr, Options);
 
   // If neither pass changed anything, we're done.
