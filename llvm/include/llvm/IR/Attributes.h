@@ -308,6 +308,11 @@ public:
   LLVM_NODISCARD AttributeSet addAttributes(LLVMContext &C,
                                             AttributeSet AS) const;
 
+  /// Add attributes to the attribute set. Returns a new set because attribute
+  /// sets are immutable.
+  LLVM_NODISCARD AttributeSet addAttributes(LLVMContext &C,
+                                            const AttrBuilder &B) const;
+
   /// Remove the specified attribute from this set. Returns a new set because
   /// attribute sets are immutable.
   LLVM_NODISCARD AttributeSet removeAttribute(LLVMContext &C,

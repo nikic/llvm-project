@@ -609,14 +609,14 @@ AttributeSet AttributeSet::addAttribute(LLVMContext &C,
   if (hasAttribute(Kind)) return *this;
   AttrBuilder B(C);
   B.addAttribute(Kind);
-  return addAttributes(C, AttributeSet::get(C, B));
+  return addAttributes(C, B);
 }
 
 AttributeSet AttributeSet::addAttribute(LLVMContext &C, StringRef Kind,
                                         StringRef Value) const {
   AttrBuilder B(C);
   B.addAttribute(Kind, Value);
-  return addAttributes(C, AttributeSet::get(C, B));
+  return addAttributes(C, B);
 }
 
 AttributeSet AttributeSet::addAttributes(LLVMContext &C,
@@ -624,12 +624,17 @@ AttributeSet AttributeSet::addAttributes(LLVMContext &C,
   if (!hasAttributes())
     return AS;
 
-  if (!AS.hasAttributes())
+  return addAttributes(C, AttrBuilder(C, AS));
+}
+
+AttributeSet AttributeSet::addAttributes(LLVMContext &C,
+                                         const AttrBuilder &B) const {
+  if (!B.hasAttributes())
     return *this;
 
-  AttrBuilder B(C, *this);
-  B.merge(AttrBuilder(C, AS));
-  return get(C, B);
+  AttrBuilder Merged(C, *this);
+  Merged.merge(B);
+  return get(C, Merged);
 }
 
 AttributeSet AttributeSet::removeAttribute(LLVMContext &C,
