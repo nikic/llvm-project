@@ -132,6 +132,10 @@ bool MCAssembler::registerSection(MCSection &Section) {
 }
 
 bool MCAssembler::isThumbFunc(const MCSymbol *Symbol) const {
+  // Definitely not a thumb function if there are none.
+  if (ThumbFuncs.empty())
+    return false;
+
   if (ThumbFuncs.count(Symbol))
     return true;
 
