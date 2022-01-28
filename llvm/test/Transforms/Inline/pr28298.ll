@@ -15,5 +15,5 @@ entry:
 }
 
 ; CHECK-LABEL: define void @test1(
-; CHECK: call void undef(
-; CHECK: ret void
+; CHECK-NEXT: entry:
+; CHECK-NEXT: unreachable

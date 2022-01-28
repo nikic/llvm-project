@@ -377,6 +377,13 @@ void removeUnwindEdge(BasicBlock *BB, DomTreeUpdater *DTU = nullptr);
 bool removeUnreachableBlocks(Function &F, DomTreeUpdater *DTU = nullptr,
                              MemorySSAUpdater *MSSAU = nullptr);
 
+/// Same as previous function, but removes blocks in CandidateBBs that are not
+/// reachable from StartBB.
+bool removeUnreachableBlocks(BasicBlock *StartBB,
+                             ArrayRef<BasicBlock *> CandidateBBs,
+                             DomTreeUpdater *DTU = nullptr,
+                             MemorySSAUpdater *MSSAU = nullptr);
+
 /// Combine the metadata of two instructions so that K can replace J. Some
 /// metadata kinds can only be kept if K does not move, meaning it dominated
 /// J in the original IR.

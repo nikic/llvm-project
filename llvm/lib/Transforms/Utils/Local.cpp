@@ -2252,16 +2252,15 @@ BasicBlock *llvm::changeToInvokeAndSplitBasicBlock(CallInst *CI,
   return Split;
 }
 
-static bool markAliveBlocks(Function &F,
+static bool markAliveBlocks(BasicBlock *StartBB,
                             SmallPtrSetImpl<BasicBlock *> &Reachable,
                             DomTreeUpdater *DTU = nullptr) {
   SmallVector<BasicBlock*, 128> Worklist;
-  BasicBlock *BB = &F.front();
-  Worklist.push_back(BB);
-  Reachable.insert(BB);
+  Worklist.push_back(StartBB);
+  Reachable.insert(StartBB);
   bool Changed = false;
   do {
-    BB = Worklist.pop_back_val();
+    BasicBlock *BB = Worklist.pop_back_val();
 
     // Do a quick scan of the basic block, turning any obviously unreachable
     // instructions into LLVM unreachable insts.  The instruction combining pass
@@ -2348,7 +2347,8 @@ static bool markAliveBlocks(Function &F,
           isa<UndefValue>(Callee)) {
         changeToUnreachable(II, false, DTU);
         Changed = true;
-      } else if (II->doesNotThrow() && canSimplifyInvokeNoUnwind(&F)) {
+      } else if (II->doesNotThrow() &&
+                 canSimplifyInvokeNoUnwind(BB->getParent())) {
         if (II->use_empty() && II->onlyReadsMemory()) {
           // jump to the normal destination branch.
           BasicBlock *NormalDestBB = II->getNormalDest();
@@ -2461,30 +2461,37 @@ void llvm::removeUnwindEdge(BasicBlock *BB, DomTreeUpdater *DTU) {
     DTU->applyUpdates({{DominatorTree::Delete, BB, UnwindDest}});
 }
 
-/// removeUnreachableBlocks - Remove blocks that are not reachable, even
-/// if they are in a dead cycle.  Return true if a change was made, false
-/// otherwise.
 bool llvm::removeUnreachableBlocks(Function &F, DomTreeUpdater *DTU,
                                    MemorySSAUpdater *MSSAU) {
+  SmallVector<BasicBlock *, 16> BBs;
+  for (BasicBlock &BB : F)
+    BBs.push_back(&BB);
+  return removeUnreachableBlocks(&F.getEntryBlock(), BBs, DTU, MSSAU);
+}
+
+bool llvm::removeUnreachableBlocks(BasicBlock *StartBB,
+                                   ArrayRef<BasicBlock *> CandidateBBs,
+                                   DomTreeUpdater *DTU,
+                                   MemorySSAUpdater *MSSAU) {
   SmallPtrSet<BasicBlock *, 16> Reachable;
-  bool Changed = markAliveBlocks(F, Reachable, DTU);
+  bool Changed = markAliveBlocks(StartBB, Reachable, DTU);
 
   // If there are unreachable blocks in the CFG...
-  if (Reachable.size() == F.size())
+  if (Reachable.size() == CandidateBBs.size())
     return Changed;
 
-  assert(Reachable.size() < F.size());
+  assert(Reachable.size() < CandidateBBs.size());
 
   // Are there any blocks left to actually delete?
   SmallSetVector<BasicBlock *, 8> BlocksToRemove;
-  for (BasicBlock &BB : F) {
+  for (BasicBlock *BB : CandidateBBs) {
     // Skip reachable basic blocks
-    if (Reachable.count(&BB))
+    if (Reachable.count(BB))
       continue;
     // Skip already-deleted blocks
-    if (DTU && DTU->isBBPendingDeletion(&BB))
+    if (DTU && DTU->isBBPendingDeletion(BB))
       continue;
-    BlocksToRemove.insert(&BB);
+    BlocksToRemove.insert(BB);
   }
 
   if (BlocksToRemove.empty())

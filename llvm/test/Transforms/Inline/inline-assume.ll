@@ -10,8 +10,8 @@ define void @foo(%struct.Foo* align 4 %a) {
 entry:
   call fastcc void @bar(%struct.Foo* nonnull align 4 undef)
 
-; CHECK: call void @llvm.assume(i1 undef)
-; CHECK: unreachable
+; CHECK: if.then.i.i.i:
+; CHECK-NEXT: unreachable
 
   ret void
 }
