@@ -8467,7 +8467,7 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
   }
 
   bool ControllingFiniteLoop =
-      ControlsExit && loopHasNoAbnormalExits(L) && loopIsFiniteByAssumption(L);
+      ControlsExit && loopIsFiniteByAssumption(L) && loopHasNoAbnormalExits(L);
   // Simplify the operands before analyzing them.
   (void)SimplifyICmpOperands(Pred, LHS, RHS, /*Depth=*/0,
                              ControllingFiniteLoop);
