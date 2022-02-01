@@ -17,7 +17,6 @@
 #define LLVM_ADT_FOLDINGSET_H
 
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/Support/Allocator.h"
 #include <cassert>
@@ -294,9 +293,7 @@ public:
 
   /// ComputeHash - Compute a strong hash value for this FoldingSetNodeIDRef,
   /// used to lookup the node in the FoldingSetBase.
-  unsigned ComputeHash() const {
-    return static_cast<unsigned>(hash_combine_range(Data, Data + Size));
-  }
+  unsigned ComputeHash() const;
 
   bool operator==(FoldingSetNodeIDRef) const;
 
