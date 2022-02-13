@@ -2192,7 +2192,7 @@ void CheckASLR() {
            GetArgv()[0]);
     Die();
   }
-#elif SANITIZER_FREEBSD
+#elif SANITIZER_FREEBSD && defined(PROC_ASLR_STATUS)
   int aslr_status;
   if (UNLIKELY(procctl(P_PID, 0, PROC_ASLR_STATUS, &aslr_status) == -1)) {
     // We're making things less 'dramatic' here since
