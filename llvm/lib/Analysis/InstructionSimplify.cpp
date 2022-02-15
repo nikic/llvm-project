@@ -2592,15 +2592,21 @@ computePointerICmp(CmpInst::Predicate Pred, Value *LHS, Value *RHS,
   // Even if an non-inbounds GEP occurs along the path we can still optimize
   // equality comparisons concerning the result.
   bool AllowNonInbounds = ICmpInst::isEquality(Pred);
-  Constant *LHSOffset =
-      stripAndComputeConstantOffsets(DL, LHS, AllowNonInbounds);
-  Constant *RHSOffset =
-      stripAndComputeConstantOffsets(DL, RHS, AllowNonInbounds);
+  APInt LHSOffset(DL.getIndexTypeSizeInBits(LHS->getType()), 0);
+  APInt RHSOffset(DL.getIndexTypeSizeInBits(RHS->getType()), 0);
+  LHS = LHS->stripAndAccumulateConstantOffsets(DL, LHSOffset, AllowNonInbounds);
+  RHS = RHS->stripAndAccumulateConstantOffsets(DL, RHSOffset, AllowNonInbounds);
+  // Extend to common size if we looked through addrspacecasts.
+  if (LHSOffset.getBitWidth() > RHSOffset.getBitWidth())
+    RHSOffset = RHSOffset.sext(LHSOffset.getBitWidth());
+  if (RHSOffset.getBitWidth() > LHSOffset.getBitWidth())
+    LHSOffset = LHSOffset.sext(RHSOffset.getBitWidth());
 
   // If LHS and RHS are related via constant offsets to the same base
   // value, we can replace it with an icmp which just compares the offsets.
   if (LHS == RHS)
-    return ConstantExpr::getICmp(Pred, LHSOffset, RHSOffset);
+    return ConstantInt::get(GetCompareTy(LHS),
+                            ICmpInst::compare(LHSOffset, RHSOffset, Pred));
 
   // Various optimizations for (in)equality comparisons.
   if (Pred == CmpInst::ICMP_EQ || Pred == CmpInst::ICMP_NE) {
@@ -2635,21 +2641,14 @@ computePointerICmp(CmpInst::Predicate Pred, Value *LHS, Value *RHS,
     // address, due to canonicalization and constant folding.
     if (isa<AllocaInst>(LHS) &&
         (isa<AllocaInst>(RHS) || isa<GlobalVariable>(RHS))) {
-      ConstantInt *LHSOffsetCI = dyn_cast<ConstantInt>(LHSOffset);
-      ConstantInt *RHSOffsetCI = dyn_cast<ConstantInt>(RHSOffset);
       uint64_t LHSSize, RHSSize;
       ObjectSizeOpts Opts;
       Opts.NullIsUnknownSize =
           NullPointerIsDefined(cast<AllocaInst>(LHS)->getFunction());
-      if (LHSOffsetCI && RHSOffsetCI &&
-          getObjectSize(LHS, LHSSize, DL, TLI, Opts) &&
+      if (getObjectSize(LHS, LHSSize, DL, TLI, Opts) &&
           getObjectSize(RHS, RHSSize, DL, TLI, Opts)) {
-        const APInt &LHSOffsetValue = LHSOffsetCI->getValue();
-        const APInt &RHSOffsetValue = RHSOffsetCI->getValue();
-        if (!LHSOffsetValue.isNegative() &&
-            !RHSOffsetValue.isNegative() &&
-            LHSOffsetValue.ult(LHSSize) &&
-            RHSOffsetValue.ult(RHSSize)) {
+        if (!LHSOffset.isNegative() && !RHSOffset.isNegative() &&
+            LHSOffset.ult(LHSSize) && RHSOffset.ult(RHSSize)) {
           return ConstantInt::get(GetCompareTy(LHS),
                                   !CmpInst::isTrueWhenEqual(Pred));
         }
@@ -2659,8 +2658,7 @@ computePointerICmp(CmpInst::Predicate Pred, Value *LHS, Value *RHS,
       // or being able to compute a precise size.
       if (!cast<PointerType>(LHS->getType())->isEmptyTy() &&
           !cast<PointerType>(RHS->getType())->isEmptyTy() &&
-          LHSOffset->isNullValue() &&
-          RHSOffset->isNullValue())
+          LHSOffset.isNullValue() && RHSOffset.isNullValue())
         return ConstantInt::get(GetCompareTy(LHS),
                                 !CmpInst::isTrueWhenEqual(Pred));
     }
