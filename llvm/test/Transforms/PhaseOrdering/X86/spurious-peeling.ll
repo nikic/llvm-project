@@ -21,10 +21,10 @@ define dso_local void @_Z13vecIncFromPtrP12FloatVecPair(%class.FloatVecPair* %FV
 ; OLDPM-NEXT:    [[CMP510_NOT_I:%.*]] = icmp eq i32 [[TMP1]], 0
 ; OLDPM-NEXT:    br i1 [[CMP510_NOT_I]], label [[_ZN12FLOATVECPAIR6VECINCEV_EXIT:%.*]], label [[FOR_BODY7_LR_PH_I:%.*]]
 ; OLDPM:       for.body7.lr.ph.i:
-; OLDPM-NEXT:    [[BASE_I4_I:%.*]] = getelementptr inbounds [[CLASS_FLOATVECPAIR]], %class.FloatVecPair* [[FVP]], i64 0, i32 0, i32 0
 ; OLDPM-NEXT:    [[BASE_I6_I:%.*]] = getelementptr inbounds [[CLASS_HOMEMADEVECTOR_0]], %class.HomemadeVector.0* [[TMP0]], i64 undef, i32 0
 ; OLDPM-NEXT:    [[TMP2:%.*]] = load float*, float** [[BASE_I6_I]], align 8, !tbaa [[TBAA8:![0-9]+]]
 ; OLDPM-NEXT:    [[ARRAYIDX_I7_I:%.*]] = getelementptr inbounds float, float* [[TMP2]], i64 undef
+; OLDPM-NEXT:    [[BASE_I4_I:%.*]] = getelementptr inbounds [[CLASS_FLOATVECPAIR]], %class.FloatVecPair* [[FVP]], i64 0, i32 0, i32 0
 ; OLDPM-NEXT:    [[TMP3:%.*]] = load %class.HomemadeVector.0*, %class.HomemadeVector.0** [[BASE_I4_I]], align 8, !tbaa [[TBAA0]]
 ; OLDPM-NEXT:    [[BASE_I2_I:%.*]] = getelementptr inbounds [[CLASS_HOMEMADEVECTOR_0]], %class.HomemadeVector.0* [[TMP3]], i64 undef, i32 0
 ; OLDPM-NEXT:    [[TMP4:%.*]] = load float*, float** [[BASE_I2_I]], align 8, !tbaa [[TBAA8]]
@@ -52,10 +52,10 @@ define dso_local void @_Z13vecIncFromPtrP12FloatVecPair(%class.FloatVecPair* %FV
 ; NEWPM-NEXT:    [[CMP510_NOT_I:%.*]] = icmp eq i32 [[TMP1]], 0
 ; NEWPM-NEXT:    br i1 [[CMP510_NOT_I]], label [[_ZN12FLOATVECPAIR6VECINCEV_EXIT:%.*]], label [[FOR_BODY7_LR_PH_I:%.*]]
 ; NEWPM:       for.body7.lr.ph.i:
-; NEWPM-NEXT:    [[BASE_I6_I:%.*]] = getelementptr inbounds [[CLASS_FLOATVECPAIR]], %class.FloatVecPair* [[FVP]], i64 0, i32 0, i32 0
 ; NEWPM-NEXT:    [[BASE_I4_I:%.*]] = getelementptr inbounds [[CLASS_HOMEMADEVECTOR_0]], %class.HomemadeVector.0* [[TMP0]], i64 undef, i32 0
 ; NEWPM-NEXT:    [[TMP2:%.*]] = load float*, float** [[BASE_I4_I]], align 8, !tbaa [[TBAA8:![0-9]+]]
 ; NEWPM-NEXT:    [[ARRAYIDX_I5_I:%.*]] = getelementptr inbounds float, float* [[TMP2]], i64 undef
+; NEWPM-NEXT:    [[BASE_I6_I:%.*]] = getelementptr inbounds [[CLASS_FLOATVECPAIR]], %class.FloatVecPair* [[FVP]], i64 0, i32 0, i32 0
 ; NEWPM-NEXT:    [[TMP3:%.*]] = load %class.HomemadeVector.0*, %class.HomemadeVector.0** [[BASE_I6_I]], align 8, !tbaa [[TBAA0]]
 ; NEWPM-NEXT:    [[BASE_I8_I:%.*]] = getelementptr inbounds [[CLASS_HOMEMADEVECTOR_0]], %class.HomemadeVector.0* [[TMP3]], i64 undef, i32 0
 ; NEWPM-NEXT:    [[TMP4:%.*]] = load float*, float** [[BASE_I8_I]], align 8, !tbaa [[TBAA8]]

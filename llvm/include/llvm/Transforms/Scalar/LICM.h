@@ -46,14 +46,17 @@ extern cl::opt<unsigned> SetLicmMssaNoAccForPromotionCap;
 class LICMPass : public PassInfoMixin<LICMPass> {
   unsigned LicmMssaOptCap;
   unsigned LicmMssaNoAccForPromotionCap;
+  unsigned LicmSpeculate;
 
 public:
   LICMPass()
       : LicmMssaOptCap(SetLicmMssaOptCap),
         LicmMssaNoAccForPromotionCap(SetLicmMssaNoAccForPromotionCap) {}
-  LICMPass(unsigned LicmMssaOptCap, unsigned LicmMssaNoAccForPromotionCap)
+  LICMPass(unsigned LicmMssaOptCap, unsigned LicmMssaNoAccForPromotionCap,
+           bool LicmSpeculate)
       : LicmMssaOptCap(LicmMssaOptCap),
-        LicmMssaNoAccForPromotionCap(LicmMssaNoAccForPromotionCap) {}
+        LicmMssaNoAccForPromotionCap(LicmMssaNoAccForPromotionCap),
+        LicmSpeculate(LicmSpeculate) {}
   PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM,
                         LoopStandardAnalysisResults &AR, LPMUpdater &U);
 };
@@ -62,14 +65,17 @@ public:
 class LNICMPass : public PassInfoMixin<LNICMPass> {
   unsigned LicmMssaOptCap;
   unsigned LicmMssaNoAccForPromotionCap;
+  unsigned LicmSpeculate;
 
 public:
   LNICMPass()
       : LicmMssaOptCap(SetLicmMssaOptCap),
         LicmMssaNoAccForPromotionCap(SetLicmMssaNoAccForPromotionCap) {}
-  LNICMPass(unsigned LicmMssaOptCap, unsigned LicmMssaNoAccForPromotionCap)
+  LNICMPass(unsigned LicmMssaOptCap, unsigned LicmMssaNoAccForPromotionCap,
+            bool LicmSpeculate)
       : LicmMssaOptCap(LicmMssaOptCap),
-        LicmMssaNoAccForPromotionCap(LicmMssaNoAccForPromotionCap) {}
+        LicmMssaNoAccForPromotionCap(LicmMssaNoAccForPromotionCap),
+        LicmSpeculate(LicmSpeculate) {}
   PreservedAnalyses run(LoopNest &L, LoopAnalysisManager &AM,
                         LoopStandardAnalysisResults &AR, LPMUpdater &U);
 };
