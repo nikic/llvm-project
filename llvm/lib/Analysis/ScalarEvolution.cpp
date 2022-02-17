@@ -519,13 +519,9 @@ void SCEVUnknown::deleted() {
 }
 
 void SCEVUnknown::allUsesReplacedWith(Value *New) {
-  // Remove this SCEVUnknown from the uniquing map.
-  SE->UniqueSCEVs.RemoveNode(this);
-
-  // Update this SCEVUnknown to point to the new value. This is needed
-  // because there may still be outstanding SCEVs which still point to
-  // this SCEVUnknown.
-  setValPtr(New);
+  // Treat this the same way as the value being deleted, to force
+  // recomputation of dependent expressions.
+  deleted();
 }
 
 bool SCEVUnknown::isSizeOf(Type *&AllocTy) const {
