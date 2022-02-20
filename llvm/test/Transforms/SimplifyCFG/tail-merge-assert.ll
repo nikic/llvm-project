@@ -27,21 +27,17 @@ define void @merge_glibc_asserts(i32 %x, i32 %y) {
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ugt i32 [[Y:%.*]], [[X:%.*]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[COND_END:%.*]], label [[COND_FALSE:%.*]]
 ; CHECK:       cond.false:
-; CHECK-NEXT:    tail call void @glibc_assert_fail(i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i64 0, i64 0), i32 3, i8* getelementptr inbounds ([35 x i8], [35 x i8]* @__PRETTY_FUNCTION__._Z1fjj, i64 0, i64 0))
+; CHECK-NEXT:    [[TMP0:%.*]] = phi i8* [ getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), [[ENTRY:%.*]] ], [ getelementptr inbounds ([10 x i8], [10 x i8]* @.str.2, i64 0, i64 0), [[COND_END]] ], [ getelementptr inbounds ([11 x i8], [11 x i8]* @.str.3, i64 0, i64 0), [[COND_END4:%.*]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = phi i32 [ 3, [[ENTRY]] ], [ 4, [[COND_END]] ], [ 5, [[COND_END4]] ]
+; CHECK-NEXT:    tail call void @glibc_assert_fail(i8* [[TMP0]], i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i64 0, i64 0), i32 [[TMP1]], i8* getelementptr inbounds ([35 x i8], [35 x i8]* @__PRETTY_FUNCTION__._Z1fjj, i64 0, i64 0))
 ; CHECK-NEXT:    unreachable
 ; CHECK:       cond.end:
 ; CHECK-NEXT:    [[SUB:%.*]] = sub i32 [[Y]], [[X]]
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp ugt i32 [[SUB]], 7
-; CHECK-NEXT:    br i1 [[CMP1]], label [[COND_END4:%.*]], label [[COND_FALSE3:%.*]]
-; CHECK:       cond.false3:
-; CHECK-NEXT:    tail call void @glibc_assert_fail(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.2, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i64 0, i64 0), i32 4, i8* getelementptr inbounds ([35 x i8], [35 x i8]* @__PRETTY_FUNCTION__._Z1fjj, i64 0, i64 0))
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    br i1 [[CMP1]], label [[COND_END4]], label [[COND_FALSE]]
 ; CHECK:       cond.end4:
 ; CHECK-NEXT:    [[CMP6:%.*]] = icmp ult i32 [[SUB]], 40
-; CHECK-NEXT:    br i1 [[CMP6]], label [[COND_END9:%.*]], label [[COND_FALSE8:%.*]]
-; CHECK:       cond.false8:
-; CHECK-NEXT:    tail call void @glibc_assert_fail(i8* getelementptr inbounds ([11 x i8], [11 x i8]* @.str.3, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i64 0, i64 0), i32 5, i8* getelementptr inbounds ([35 x i8], [35 x i8]* @__PRETTY_FUNCTION__._Z1fjj, i64 0, i64 0))
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    br i1 [[CMP6]], label [[COND_END9:%.*]], label [[COND_FALSE]]
 ; CHECK:       cond.end9:
 ; CHECK-NEXT:    ret void
 ;

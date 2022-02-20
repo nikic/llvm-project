@@ -16,16 +16,10 @@ define void @merge_simple() {
 ; CHECK-NEXT:    unreachable
 ; CHECK:       cont1:
 ; CHECK-NEXT:    [[C2:%.*]] = call i1 @foo()
-; CHECK-NEXT:    br i1 [[C2]], label [[CONT2:%.*]], label [[A2:%.*]]
-; CHECK:       a2:
-; CHECK-NEXT:    call void @assert_fail_1(i32 0)
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    br i1 [[C2]], label [[CONT2:%.*]], label [[A1]]
 ; CHECK:       cont2:
 ; CHECK-NEXT:    [[C3:%.*]] = call i1 @foo()
-; CHECK-NEXT:    br i1 [[C3]], label [[CONT3:%.*]], label [[A3:%.*]]
-; CHECK:       a3:
-; CHECK-NEXT:    call void @assert_fail_1(i32 0)
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    br i1 [[C3]], label [[CONT3:%.*]], label [[A1]]
 ; CHECK:       cont3:
 ; CHECK-NEXT:    ret void
 ;
@@ -56,20 +50,15 @@ define void @phi_three_constants() {
 ; CHECK-NEXT:    [[C1:%.*]] = call i1 @foo()
 ; CHECK-NEXT:    br i1 [[C1]], label [[CONT1:%.*]], label [[A1:%.*]]
 ; CHECK:       a1:
-; CHECK-NEXT:    call void @assert_fail_1(i32 0)
+; CHECK-NEXT:    [[TMP0:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ 1, [[CONT1]] ], [ 2, [[CONT2:%.*]] ]
+; CHECK-NEXT:    call void @assert_fail_1(i32 [[TMP0]])
 ; CHECK-NEXT:    unreachable
 ; CHECK:       cont1:
 ; CHECK-NEXT:    [[C2:%.*]] = call i1 @foo()
-; CHECK-NEXT:    br i1 [[C2]], label [[CONT2:%.*]], label [[A2:%.*]]
-; CHECK:       a2:
-; CHECK-NEXT:    call void @assert_fail_1(i32 1)
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    br i1 [[C2]], label [[CONT2]], label [[A1]]
 ; CHECK:       cont2:
 ; CHECK-NEXT:    [[C3:%.*]] = call i1 @foo()
-; CHECK-NEXT:    br i1 [[C3]], label [[CONT3:%.*]], label [[A3:%.*]]
-; CHECK:       a3:
-; CHECK-NEXT:    call void @assert_fail_1(i32 2)
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    br i1 [[C3]], label [[CONT3:%.*]], label [[A1]]
 ; CHECK:       cont3:
 ; CHECK-NEXT:    ret void
 ;
@@ -100,14 +89,12 @@ define void @dont_phi_values(i32 %x, i32 %y) {
 ; CHECK-NEXT:    [[C1:%.*]] = call i1 @foo()
 ; CHECK-NEXT:    br i1 [[C1]], label [[CONT1:%.*]], label [[A1:%.*]]
 ; CHECK:       a1:
-; CHECK-NEXT:    call void @assert_fail_1(i32 [[X:%.*]])
+; CHECK-NEXT:    [[TMP1:%.*]] = phi i32 [ [[X:%.*]], [[TMP0:%.*]] ], [ [[Y:%.*]], [[CONT1]] ]
+; CHECK-NEXT:    call void @assert_fail_1(i32 [[TMP1]])
 ; CHECK-NEXT:    unreachable
 ; CHECK:       cont1:
 ; CHECK-NEXT:    [[C2:%.*]] = call i1 @foo()
-; CHECK-NEXT:    br i1 [[C2]], label [[CONT2:%.*]], label [[A2:%.*]]
-; CHECK:       a2:
-; CHECK-NEXT:    call void @assert_fail_1(i32 [[Y:%.*]])
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    br i1 [[C2]], label [[CONT2:%.*]], label [[A1]]
 ; CHECK:       cont2:
 ; CHECK-NEXT:    ret void
 ;
@@ -171,13 +158,12 @@ define void @unmergeable_phis(i32 %v, i1 %c) {
 ; CHECK-NEXT:    [[C2:%.*]] = call i1 @bar()
 ; CHECK-NEXT:    br i1 [[C2]], label [[A1]], label [[A2]]
 ; CHECK:       a1:
-; CHECK-NEXT:    [[L1:%.*]] = phi i32 [ 0, [[S1]] ], [ 1, [[S2]] ]
-; CHECK-NEXT:    call void @assert_fail_1(i32 [[L1]])
+; CHECK-NEXT:    [[TMP0:%.*]] = phi i32 [ [[L2:%.*]], [[A2]] ], [ 0, [[S1]] ], [ 1, [[S2]] ]
+; CHECK-NEXT:    call void @assert_fail_1(i32 [[TMP0]])
 ; CHECK-NEXT:    unreachable
 ; CHECK:       a2:
-; CHECK-NEXT:    [[L2:%.*]] = phi i32 [ 2, [[S1]] ], [ 3, [[S2]] ]
-; CHECK-NEXT:    call void @assert_fail_1(i32 [[L2]])
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    [[L2]] = phi i32 [ 2, [[S1]] ], [ 3, [[S2]] ]
+; CHECK-NEXT:    br label [[A1]]
 ;
 entry:
   br i1 %c, label %s1, label %s2
@@ -206,14 +192,13 @@ define void @tail_merge_switch(i32 %v) {
 ; CHECK-NEXT:    i32 42, label [[A3:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       a1:
-; CHECK-NEXT:    call void @assert_fail_1(i32 0)
+; CHECK-NEXT:    [[TMP0:%.*]] = phi i32 [ 1, [[A2]] ], [ 2, [[A3]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    call void @assert_fail_1(i32 [[TMP0]])
 ; CHECK-NEXT:    unreachable
 ; CHECK:       a2:
-; CHECK-NEXT:    call void @assert_fail_1(i32 1)
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    br label [[A1]]
 ; CHECK:       a3:
-; CHECK-NEXT:    call void @assert_fail_1(i32 2)
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    br label [[A1]]
 ; CHECK:       ret:
 ; CHECK-NEXT:    ret void
 ;
@@ -242,15 +227,11 @@ define void @need_to_add_bb2_preds(i1 %c1) {
 ; CHECK-NEXT:    br i1 [[C1:%.*]], label [[BB2:%.*]], label [[A1:%.*]]
 ; CHECK:       bb2:
 ; CHECK-NEXT:    [[C2:%.*]] = call i1 @bar()
-; CHECK-NEXT:    br i1 [[C2]], label [[A2:%.*]], label [[A3:%.*]]
+; CHECK-NEXT:    [[DOT:%.*]] = select i1 [[C2]], i32 1, i32 2
+; CHECK-NEXT:    br label [[A1]]
 ; CHECK:       a1:
-; CHECK-NEXT:    call void @assert_fail_1(i32 0)
-; CHECK-NEXT:    unreachable
-; CHECK:       a2:
-; CHECK-NEXT:    call void @assert_fail_1(i32 1)
-; CHECK-NEXT:    unreachable
-; CHECK:       a3:
-; CHECK-NEXT:    call void @assert_fail_1(i32 2)
+; CHECK-NEXT:    [[TMP0:%.*]] = phi i32 [ [[DOT]], [[BB2]] ], [ 0, [[BB1:%.*]] ]
+; CHECK-NEXT:    call void @assert_fail_1(i32 [[TMP0]])
 ; CHECK-NEXT:    unreachable
 ;
 bb1:
@@ -276,18 +257,15 @@ define void @phi_in_bb2() {
 ; CHECK-NEXT:    [[C1:%.*]] = call i1 @foo()
 ; CHECK-NEXT:    br i1 [[C1]], label [[CONT1:%.*]], label [[A1:%.*]]
 ; CHECK:       a1:
-; CHECK-NEXT:    call void @assert_fail_1(i32 0)
+; CHECK-NEXT:    [[TMP0:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ 1, [[CONT1]] ], [ 2, [[CONT2:%.*]] ]
+; CHECK-NEXT:    call void @assert_fail_1(i32 [[TMP0]])
 ; CHECK-NEXT:    unreachable
 ; CHECK:       cont1:
 ; CHECK-NEXT:    [[C2:%.*]] = call i1 @foo()
-; CHECK-NEXT:    br i1 [[C2]], label [[CONT2:%.*]], label [[A2:%.*]]
-; CHECK:       a2:
-; CHECK-NEXT:    [[P2:%.*]] = phi i32 [ 1, [[CONT1]] ], [ 2, [[CONT2]] ]
-; CHECK-NEXT:    call void @assert_fail_1(i32 [[P2]])
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    br i1 [[C2]], label [[CONT2]], label [[A1]]
 ; CHECK:       cont2:
 ; CHECK-NEXT:    [[C3:%.*]] = call i1 @foo()
-; CHECK-NEXT:    br i1 [[C3]], label [[CONT3:%.*]], label [[A2]]
+; CHECK-NEXT:    br i1 [[C3]], label [[CONT3:%.*]], label [[A1]]
 ; CHECK:       cont3:
 ; CHECK-NEXT:    ret void
 ;
@@ -338,11 +316,13 @@ define void @dont_merge_lifetimes(i32 %c1, i32 %c2) {
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull [[TMP0]])
+; CHECK-NEXT:    br label [[TMP1:%.*]]
+; CHECK:       1:
 ; CHECK-NEXT:    call void @abort()
 ; CHECK-NEXT:    unreachable
 ; CHECK:       if.then3:
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[Y]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP1]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[Y]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP2]])
 ; CHECK-NEXT:    store i32 0, i32* [[Y]], align 4
 ; CHECK-NEXT:    [[TOBOOL5:%.*]] = icmp eq i32 [[C2]], 0
 ; CHECK-NEXT:    br i1 [[TOBOOL5]], label [[IF_END7:%.*]], label [[IF_THEN6:%.*]]
@@ -350,9 +330,8 @@ define void @dont_merge_lifetimes(i32 %c1, i32 %c2) {
 ; CHECK-NEXT:    call void @escape_i32_ptr(i32* nonnull [[Y]])
 ; CHECK-NEXT:    br label [[IF_END7]]
 ; CHECK:       if.end7:
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull [[TMP1]])
-; CHECK-NEXT:    call void @abort()
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull [[TMP2]])
+; CHECK-NEXT:    br label [[TMP1]]
 ; CHECK:       if.end9:
 ; CHECK-NEXT:    ret void
 ;
@@ -410,7 +389,6 @@ define void @dead_phi() {
 ; CHECK-NEXT:    [[C1:%.*]] = call i1 @foo()
 ; CHECK-NEXT:    br i1 [[C1]], label [[CONT1:%.*]], label [[A1:%.*]]
 ; CHECK:       a1:
-; CHECK-NEXT:    [[DEAD:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ 1, [[CONT1]] ]
 ; CHECK-NEXT:    call void @assert_fail_1(i32 0)
 ; CHECK-NEXT:    unreachable
 ; CHECK:       cont1:
@@ -418,10 +396,7 @@ define void @dead_phi() {
 ; CHECK-NEXT:    br i1 [[C2]], label [[CONT2:%.*]], label [[A1]]
 ; CHECK:       cont2:
 ; CHECK-NEXT:    [[C3:%.*]] = call i1 @foo()
-; CHECK-NEXT:    br i1 [[C3]], label [[CONT3:%.*]], label [[A3:%.*]]
-; CHECK:       a3:
-; CHECK-NEXT:    call void @assert_fail_1(i32 0)
-; CHECK-NEXT:    unreachable
+; CHECK-NEXT:    br i1 [[C3]], label [[CONT3:%.*]], label [[A1]]
 ; CHECK:       cont3:
 ; CHECK-NEXT:    ret void
 ;
@@ -451,14 +426,9 @@ define void @strip_dbg_value(i32 %c) {
 ; CHECK-NEXT:    call void @llvm.dbg.value(metadata i32 [[C:%.*]], metadata [[META5:![0-9]+]], metadata !DIExpression()), !dbg [[DBG7:![0-9]+]]
 ; CHECK-NEXT:    switch i32 [[C]], label [[SW_EPILOG:%.*]] [
 ; CHECK-NEXT:    i32 13, label [[SW_BB:%.*]]
-; CHECK-NEXT:    i32 42, label [[SW_BB1:%.*]]
+; CHECK-NEXT:    i32 42, label [[SW_BB]]
 ; CHECK-NEXT:    ]
 ; CHECK:       sw.bb:
-; CHECK-NEXT:    call void @llvm.dbg.value(metadata i32 55, metadata [[META5]], metadata !DIExpression()), !dbg [[DBG7]]
-; CHECK-NEXT:    tail call void @abort()
-; CHECK-NEXT:    unreachable
-; CHECK:       sw.bb1:
-; CHECK-NEXT:    call void @llvm.dbg.value(metadata i32 67, metadata [[META5]], metadata !DIExpression()), !dbg [[DBG7]]
 ; CHECK-NEXT:    tail call void @abort()
 ; CHECK-NEXT:    unreachable
 ; CHECK:       sw.epilog:
@@ -491,18 +461,10 @@ define void @dead_phi_and_dbg(i32 %c) {
 ; CHECK-NEXT:    call void @llvm.dbg.value(metadata i32 [[C:%.*]], metadata [[META5]], metadata !DIExpression()), !dbg [[DBG7]]
 ; CHECK-NEXT:    switch i32 [[C]], label [[SW_EPILOG:%.*]] [
 ; CHECK-NEXT:    i32 13, label [[SW_BB:%.*]]
-; CHECK-NEXT:    i32 42, label [[SW_BB1:%.*]]
-; CHECK-NEXT:    i32 53, label [[SW_BB2:%.*]]
+; CHECK-NEXT:    i32 42, label [[SW_BB]]
+; CHECK-NEXT:    i32 53, label [[SW_BB]]
 ; CHECK-NEXT:    ]
 ; CHECK:       sw.bb:
-; CHECK-NEXT:    [[C_1:%.*]] = phi i32 [ 55, [[ENTRY:%.*]] ], [ 67, [[SW_BB1]] ]
-; CHECK-NEXT:    call void @llvm.dbg.value(metadata i32 [[C_1]], metadata [[META5]], metadata !DIExpression()), !dbg [[DBG7]]
-; CHECK-NEXT:    tail call void @abort()
-; CHECK-NEXT:    unreachable
-; CHECK:       sw.bb1:
-; CHECK-NEXT:    br label [[SW_BB]]
-; CHECK:       sw.bb2:
-; CHECK-NEXT:    call void @llvm.dbg.value(metadata i32 84, metadata [[META5]], metadata !DIExpression()), !dbg [[DBG7]]
 ; CHECK-NEXT:    tail call void @abort()
 ; CHECK-NEXT:    unreachable
 ; CHECK:       sw.epilog:

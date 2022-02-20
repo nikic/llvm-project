@@ -12,7 +12,7 @@ define i32 @main() {
 ; CHECK-NEXT:    %"alloca point" = bitcast i32 0 to i32
 ; CHECK-NEXT:    store i32 0, i32* [[I]], align 4
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp ne i8 1, 0
-; CHECK-NEXT:    br i1 [[TOBOOL]], label [[COND_TRUE:%.*]], label [[COND_FALSE33:%.*]]
+; CHECK-NEXT:    br i1 [[TOBOOL]], label [[COND_TRUE:%.*]], label [[BB13:%.*]]
 ; CHECK:       cond_true:
 ; CHECK-NEXT:    store i32 0, i32* [[Z]], align 4
 ; CHECK-NEXT:    br label [[BB:%.*]]
@@ -36,11 +36,8 @@ define i32 @main() {
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp ne i32 [[TMP9]], 0
 ; CHECK-NEXT:    [[TMP1011:%.*]] = zext i1 [[TMP10]] to i8
 ; CHECK-NEXT:    [[TOBOOL12:%.*]] = icmp ne i8 [[TMP1011]], 0
-; CHECK-NEXT:    br i1 [[TOBOOL12]], label [[BB]], label [[BB13:%.*]]
+; CHECK-NEXT:    br i1 [[TOBOOL12]], label [[BB]], label [[BB13]]
 ; CHECK:       bb13:
-; CHECK-NEXT:    call void @exit(i32 0)
-; CHECK-NEXT:    unreachable
-; CHECK:       cond_false33:
 ; CHECK-NEXT:    call void @exit(i32 0)
 ; CHECK-NEXT:    unreachable
 ;

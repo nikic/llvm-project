@@ -43,14 +43,12 @@ define void @test_neg(i32 %length.i, i32 %i) {
 ; CHECK-NEXT:    br i1 [[VAR29]], label [[NEXT:%.*]], label [[OUT_OF_BOUNDS:%.*]]
 ; CHECK:       next:
 ; CHECK-NEXT:    [[VAR30:%.*]] = icmp slt i32 [[I]], [[LENGTH_I]]
-; CHECK-NEXT:    br i1 [[VAR30]], label [[IN_BOUNDS:%.*]], label [[OUT_OF_BOUNDS2:%.*]]
+; CHECK-NEXT:    br i1 [[VAR30]], label [[IN_BOUNDS:%.*]], label [[OUT_OF_BOUNDS]]
 ; CHECK:       in_bounds:
 ; CHECK-NEXT:    ret void
 ; CHECK:       out_of_bounds:
-; CHECK-NEXT:    call void @foo(i64 0)
-; CHECK-NEXT:    unreachable
-; CHECK:       out_of_bounds2:
-; CHECK-NEXT:    call void @foo(i64 1)
+; CHECK-NEXT:    [[TMP1:%.*]] = phi i64 [ 0, [[TMP0:%.*]] ], [ 1, [[NEXT]] ]
+; CHECK-NEXT:    call void @foo(i64 [[TMP1]])
 ; CHECK-NEXT:    unreachable
 ;
   %iplus1 = add i32 %i, 1

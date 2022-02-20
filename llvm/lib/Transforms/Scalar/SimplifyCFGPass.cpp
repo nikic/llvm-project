@@ -78,6 +78,205 @@ static cl::opt<bool> UserSinkCommonInsts(
 
 STATISTIC(NumSimpl, "Number of blocks simplified");
 
+namespace {
+
+struct CompatibleSets {
+  using SetTy = SmallVector<CallInst *, 2>;
+
+  SmallVector<SetTy, 1> Sets;
+
+  static bool shouldBelongToSameSet(ArrayRef<CallInst *> Calls);
+
+  SetTy &getCompatibleSet(CallInst *II);
+
+  void insert(CallInst *II);
+};
+
+CompatibleSets::SetTy &CompatibleSets::getCompatibleSet(CallInst *II) {
+  // Perform a linear scan over all the existing sets, see if the new `call`
+  // is compatible with any particular set. Since we know that all the `calls`
+  // within a set are compatible, only check the first `call` in each set.
+  // WARNING: at worst, this has quadratic complexity.
+  for (CompatibleSets::SetTy &Set : Sets) {
+    if (CompatibleSets::shouldBelongToSameSet({Set.front(), II}))
+      return Set;
+  }
+
+  // Otherwise, we either had no sets yet, or this call forms a new set.
+  return Sets.emplace_back();
+}
+
+void CompatibleSets::insert(CallInst *II) {
+  getCompatibleSet(II).emplace_back(II);
+}
+
+bool CompatibleSets::shouldBelongToSameSet(ArrayRef<CallInst *> Calls) {
+  assert(Calls.size() == 2 && "Always called with exactly two candidates.");
+
+  // Can we theoretically merge these `call`s?
+  auto IsIllegalToMerge = [](CallInst *II) {
+    return II->cannotMerge() || II->isInlineAsm();
+  };
+  if (any_of(Calls, IsIllegalToMerge))
+    return false;
+
+  // Either both `call`s must be   direct,
+  // or     both `call`s must be indirect.
+  auto IsIndirectCall = [](CallInst *II) { return II->isIndirectCall(); };
+  bool HaveIndirectCalls = any_of(Calls, IsIndirectCall);
+  bool AllCallsAreIndirect = all_of(Calls, IsIndirectCall);
+  if (HaveIndirectCalls) {
+    if (!AllCallsAreIndirect)
+      return false;
+  } else {
+    // All callees must be identical.
+    Value *Callee = nullptr;
+    for (CallInst *II : Calls) {
+      Value *CurrCallee = II->getCalledOperand();
+      assert(CurrCallee && "There is always a called operand.");
+      if (!Callee)
+        Callee = CurrCallee;
+      else if (Callee != CurrCallee)
+        return false;
+    }
+  }
+
+  // Ignoring arguments, these `call`s must be identical,
+  // including operand bundles.
+  const CallInst *II0 = Calls.front();
+  for (auto *II : Calls.drop_front())
+    if (!II->isSameOperationAs(II0))
+      return false;
+
+  // Can we theoretically form the data operands for the merged `call`?
+  auto IsIllegalToMergeArguments = [](auto Ops) {
+    Type *Ty = std::get<0>(Ops)->getType();
+    assert(Ty == std::get<1>(Ops)->getType() && "Incompatible types?");
+    return Ty->isTokenTy() && std::get<0>(Ops) != std::get<1>(Ops);
+  };
+  assert(Calls.size() == 2 && "Always called with exactly two candidates.");
+  if (any_of(zip(Calls[0]->data_ops(), Calls[1]->data_ops()),
+             IsIllegalToMergeArguments))
+    return false;
+
+  return true;
+}
+
+} // namespace
+
+// Merge all calls in the provided set, all of which are compatible
+// as per the `CompatibleSets::shouldBelongToSameSet()`.
+static void MergeCompatibleUnreachableTerminatedCallsImpl(
+    ArrayRef<CallInst *> Calls,
+    std::vector<DominatorTree::UpdateType> *Updates) {
+  assert(Calls.size() >= 2 && "Must have at least two calls to merge.");
+
+  if (Updates)
+    Updates->reserve(Updates->size() + Calls.size());
+
+  // Clone one of the calls into a new basic block.
+  // Since they are all compatible, it doesn't matter which call is cloned.
+  CallInst *MergedCall = [&Calls]() {
+    CallInst *II0 = Calls.front();
+    BasicBlock *II0BB = II0->getParent();
+    BasicBlock *InsertBeforeBlock =
+        II0->getParent()->getIterator()->getNextNode();
+    Function *Func = II0BB->getParent();
+    LLVMContext &Ctx = II0->getContext();
+
+    BasicBlock *MergedCallBB =
+        BasicBlock::Create(Ctx, "", Func, InsertBeforeBlock);
+
+    auto *MergedCall = cast<CallInst>(II0->clone());
+    // NOTE: all calls have the same attributes, so no handling needed.
+    MergedCallBB->getInstList().push_back(MergedCall);
+    new UnreachableInst(Ctx, MergedCallBB);
+
+    return MergedCall;
+  }();
+
+  if (Updates) {
+    // Blocks that contained these calls will now branch to
+    // the new block that contains the merged call.
+    for (CallInst *CI : Calls)
+      Updates->push_back(
+          {DominatorTree::Insert, CI->getParent(), MergedCall->getParent()});
+  }
+
+  bool IsIndirectCall = Calls[0]->isIndirectCall();
+
+  // Form the merged operands for the merged call.
+  for (Use &U : MergedCall->operands()) {
+    // Only PHI together the indirect callees and data operands.
+    if (MergedCall->isCallee(&U)) {
+      if (!IsIndirectCall)
+        continue;
+    } else if (!MergedCall->isDataOperand(&U))
+      continue;
+
+    // Don't create trivial PHI's with all-identical incoming values.
+    bool NeedPHI = any_of(Calls, [&U](CallInst *CI) {
+      return CI->getOperand(U.getOperandNo()) != U.get();
+    });
+    if (!NeedPHI)
+      continue;
+
+    // Form a PHI out of all the data ops under this index.
+    PHINode *PN = PHINode::Create(
+        U->getType(), /*NumReservedValues=*/Calls.size(), "", MergedCall);
+    for (CallInst *CI : Calls)
+      PN->addIncoming(CI->getOperand(U.getOperandNo()), CI->getParent());
+
+    U.set(PN);
+  }
+
+  // And finally, replace the original `call`s with an unconditional branch
+  // to the block with the merged `call`. Also, give that merged `call`
+  // the merged debugloc of all the original `call`s.
+  const DILocation *MergedDebugLoc = nullptr;
+  for (CallInst *CI : Calls) {
+    // Compute the debug location common to all the original `call`s.
+    if (!MergedDebugLoc)
+      MergedDebugLoc = CI->getDebugLoc();
+    else
+      MergedDebugLoc =
+          DILocation::getMergedLocation(MergedDebugLoc, CI->getDebugLoc());
+
+    // And replace the old `call`+`unreachable` with an unconditional branch
+    // to the block with the merged `call`.
+    BranchInst::Create(MergedCall->getParent(), CI->getParent());
+    cast<UnreachableInst>(CI->getNextNode())->eraseFromParent();
+    CI->eraseFromParent();
+  }
+  MergedCall->setDebugLoc(MergedDebugLoc);
+}
+
+static bool MergeCompatibleUnreachableTerminatedCalls(
+    ArrayRef<BasicBlock *> BBs,
+    std::vector<DominatorTree::UpdateType> *Updates) {
+  bool Changed = false;
+
+  CompatibleSets Grouper;
+
+  for (BasicBlock *BB : BBs) {
+    auto *Term = BB->getTerminator();
+    assert(isa<UnreachableInst>(Term) &&
+           "Only for blocks with `unreachable` terminator.");
+    // Only deal with blocks where `unreachable` is preceeded by a `call`.
+    if (auto *CI = dyn_cast_or_null<CallInst>(Term->getPrevNode()))
+      Grouper.insert(CI);
+  }
+
+  for (ArrayRef<CallInst *> Calls : Grouper.Sets) {
+    if (Calls.size() < 2)
+      continue;
+    Changed = true;
+    MergeCompatibleUnreachableTerminatedCallsImpl(Calls, Updates);
+  }
+
+  return Changed;
+}
+
 static bool
 performBlockTailMerging(Function &F, ArrayRef<BasicBlock *> BBs,
                         std::vector<DominatorTree::UpdateType> *Updates) {
@@ -87,6 +286,10 @@ performBlockTailMerging(Function &F, ArrayRef<BasicBlock *> BBs,
   // Only do that if there are at least two blocks we'll tail-merge.
   if (BBs.size() < 2)
     return false;
+
+  // Defer handling of `unreachable` blocks to the specialized utility.
+  if (isa<UnreachableInst>(BBs[0]->getTerminator()))
+    return MergeCompatibleUnreachableTerminatedCalls(BBs, Updates);
 
   if (Updates)
     Updates->reserve(Updates->size() + BBs.size());
@@ -172,6 +375,7 @@ static bool tailMergeBlocksWithSimilarFunctionTerminators(Function &F,
     switch (Term->getOpcode()) {
     case Instruction::Ret:
     case Instruction::Resume:
+    case Instruction::Unreachable:
       break;
     default:
       continue;
