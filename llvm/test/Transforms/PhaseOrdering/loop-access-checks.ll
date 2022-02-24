@@ -41,7 +41,7 @@ define void @test_fill_with_foreach([2 x i64] %elems.coerce) {
 ; CHECK-NEXT:    br i1 [[CMP2_I_I]], label [[FOR_LATCH]], label [[ERROR]]
 ; CHECK:       for.latch:
 ; CHECK-NEXT:    tail call void @use(ptr noundef nonnull align 4 dereferenceable(4) [[__BEGIN1_SROA_0_03]])
-; CHECK-NEXT:    [[INCDEC_PTR_I]] = getelementptr inbounds i32, ptr [[__BEGIN1_SROA_0_03]], i64 1
+; CHECK-NEXT:    [[INCDEC_PTR_I]] = getelementptr inbounds i8, ptr [[__BEGIN1_SROA_0_03]], i64 4
 ; CHECK-NEXT:    [[CMP_I_NOT:%.*]] = icmp eq ptr [[INCDEC_PTR_I]], [[ADD_PTR_I]]
 ; CHECK-NEXT:    br i1 [[CMP_I_NOT]], label [[COMMON_RET]], label [[FOR_BODY]]
 ;
@@ -136,7 +136,7 @@ define void @foo(ptr noundef nonnull align 8 dereferenceable(24) noalias %vec) #
 ; CHECK-LABEL: define void @foo
 ; CHECK-SAME: (ptr noalias nocapture noundef nonnull readonly align 8 dereferenceable(24) [[VEC:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[_M_FINISH_I_I:%.*]] = getelementptr inbounds [[VECTOR_IMPL_DATA:%.*]], ptr [[VEC]], i64 0, i32 1
+; CHECK-NEXT:    [[_M_FINISH_I_I:%.*]] = getelementptr inbounds i8, ptr [[VEC]], i64 8
 ; CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[_M_FINISH_I_I]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[VEC]], align 8
 ; CHECK-NEXT:    [[SUB_PTR_LHS_CAST_I_I:%.*]] = ptrtoint ptr [[TMP0]] to i64

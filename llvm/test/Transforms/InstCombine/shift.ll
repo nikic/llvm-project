@@ -1785,7 +1785,7 @@ define void @ashr_out_of_range_1(ptr %A) {
 define void @ossfuzz_38078(i32 %arg, i32 %arg1, ptr %ptr, ptr %ptr2, ptr %ptr3, ptr %ptr4, ptr %ptr5, ptr %ptr6, ptr %ptr7) {
 ; CHECK-LABEL: @ossfuzz_38078(
 ; CHECK-NEXT:  bb:
-; CHECK-NEXT:    [[G1:%.*]] = getelementptr i32, ptr [[PTR:%.*]], i64 -1
+; CHECK-NEXT:    [[G1:%.*]] = getelementptr i8, ptr [[PTR:%.*]], i64 -4
 ; CHECK-NEXT:    [[I2:%.*]] = sub i32 0, [[ARG1:%.*]]
 ; CHECK-NEXT:    [[I5:%.*]] = icmp eq i32 [[I2]], [[ARG:%.*]]
 ; CHECK-NEXT:    call void @llvm.assume(i1 [[I5]])

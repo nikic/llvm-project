@@ -11,12 +11,12 @@ define i64 @sum_2_at_with_int_conversion(ptr %A, ptr %B, i64 %N) {
 ; CHECK-LABEL: @sum_2_at_with_int_conversion(
 ; CHECK-NEXT:  at_with_int_conversion.exit11.peel:
 ; CHECK-NEXT:    [[START_I:%.*]] = load ptr, ptr [[A:%.*]], align 8
-; CHECK-NEXT:    [[GEP_END_I:%.*]] = getelementptr [[VEC:%.*]], ptr [[A]], i64 0, i32 1
+; CHECK-NEXT:    [[GEP_END_I:%.*]] = getelementptr i8, ptr [[A]], i64 8
 ; CHECK-NEXT:    [[END_I:%.*]] = load ptr, ptr [[GEP_END_I]], align 8
 ; CHECK-NEXT:    [[START_INT_I:%.*]] = ptrtoint ptr [[START_I]] to i64
 ; CHECK-NEXT:    [[END_INT_I:%.*]] = ptrtoint ptr [[END_I]] to i64
 ; CHECK-NEXT:    [[SUB_I:%.*]] = sub i64 [[END_INT_I]], [[START_INT_I]]
-; CHECK-NEXT:    [[GEP_END_I2:%.*]] = getelementptr [[VEC]], ptr [[B:%.*]], i64 0, i32 1
+; CHECK-NEXT:    [[GEP_END_I2:%.*]] = getelementptr i8, ptr [[B:%.*]], i64 8
 ; CHECK-NEXT:    [[START_I1_PEEL:%.*]] = load ptr, ptr [[B]], align 8
 ; CHECK-NEXT:    [[END_I3_PEEL:%.*]] = load ptr, ptr [[GEP_END_I2]], align 8
 ; CHECK-NEXT:    [[START_INT_I4_PEEL:%.*]] = ptrtoint ptr [[START_I1_PEEL]] to i64
@@ -50,11 +50,11 @@ define i64 @sum_2_at_with_int_conversion(ptr %A, ptr %B, i64 %N) {
 ; CHECK-NEXT:    [[OFFSET_IDX:%.*]] = or i64 [[INDEX]], 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i64, ptr [[START_I]], i64 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i64>, ptr [[TMP6]], align 4
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i64, ptr [[TMP6]], i64 2
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i8, ptr [[TMP6]], i64 16
 ; CHECK-NEXT:    [[WIDE_LOAD17:%.*]] = load <2 x i64>, ptr [[TMP7]], align 4
 ; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr i64, ptr [[START_I1_PEEL]], i64 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[WIDE_LOAD18:%.*]] = load <2 x i64>, ptr [[TMP8]], align 4
-; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr i64, ptr [[TMP8]], i64 2
+; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr i8, ptr [[TMP8]], i64 16
 ; CHECK-NEXT:    [[WIDE_LOAD19:%.*]] = load <2 x i64>, ptr [[TMP9]], align 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = add <2 x i64> [[WIDE_LOAD]], [[VEC_PHI]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = add <2 x i64> [[WIDE_LOAD17]], [[VEC_PHI16]]
@@ -94,7 +94,7 @@ define i64 @sum_2_at_with_int_conversion(ptr %A, ptr %B, i64 %N) {
 ; CHECK-NEXT:    [[SUM_NEXT]] = add i64 [[ADD]], [[LV_I9]]
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 1
 ; CHECK-NEXT:    [[C:%.*]] = icmp slt i64 [[IV]], [[N]]
-; CHECK-NEXT:    br i1 [[C]], label [[LOOP]], label [[EXIT]], !llvm.loop [[LOOP3:![0-9]+]]
+; CHECK-NEXT:    br i1 [[C]], label [[LOOP]], label [[EXIT]], !llvm.loop [[LOOP4:![0-9]+]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    [[SUM_NEXT_LCSSA:%.*]] = phi i64 [ [[SUM_NEXT_PEEL]], [[AT_WITH_INT_CONVERSION_EXIT11_PEEL:%.*]] ], [ [[SUM_NEXT]], [[AT_WITH_INT_CONVERSION_EXIT11]] ]
 ; CHECK-NEXT:    ret i64 [[SUM_NEXT_LCSSA]]
@@ -121,13 +121,13 @@ define i64 @sum_3_at_with_int_conversion(ptr %A, ptr %B, ptr %C, i64 %N) {
 ; CHECK-LABEL: @sum_3_at_with_int_conversion(
 ; CHECK-NEXT:  at_with_int_conversion.exit22.peel:
 ; CHECK-NEXT:    [[START_I:%.*]] = load ptr, ptr [[A:%.*]], align 8
-; CHECK-NEXT:    [[GEP_END_I:%.*]] = getelementptr [[VEC:%.*]], ptr [[A]], i64 0, i32 1
+; CHECK-NEXT:    [[GEP_END_I:%.*]] = getelementptr i8, ptr [[A]], i64 8
 ; CHECK-NEXT:    [[END_I:%.*]] = load ptr, ptr [[GEP_END_I]], align 8
 ; CHECK-NEXT:    [[START_INT_I:%.*]] = ptrtoint ptr [[START_I]] to i64
 ; CHECK-NEXT:    [[END_INT_I:%.*]] = ptrtoint ptr [[END_I]] to i64
 ; CHECK-NEXT:    [[SUB_I:%.*]] = sub i64 [[END_INT_I]], [[START_INT_I]]
-; CHECK-NEXT:    [[GEP_END_I13:%.*]] = getelementptr [[VEC]], ptr [[C:%.*]], i64 0, i32 1
-; CHECK-NEXT:    [[GEP_END_I2:%.*]] = getelementptr [[VEC]], ptr [[B:%.*]], i64 0, i32 1
+; CHECK-NEXT:    [[GEP_END_I13:%.*]] = getelementptr i8, ptr [[C:%.*]], i64 8
+; CHECK-NEXT:    [[GEP_END_I2:%.*]] = getelementptr i8, ptr [[B:%.*]], i64 8
 ; CHECK-NEXT:    [[LV_I_PEEL:%.*]] = load i64, ptr [[START_I]], align 4
 ; CHECK-NEXT:    [[START_I1_PEEL:%.*]] = load ptr, ptr [[B]], align 8
 ; CHECK-NEXT:    [[END_I3_PEEL:%.*]] = load ptr, ptr [[GEP_END_I2]], align 8
@@ -170,15 +170,15 @@ define i64 @sum_3_at_with_int_conversion(ptr %A, ptr %B, ptr %C, i64 %N) {
 ; CHECK-NEXT:    [[OFFSET_IDX:%.*]] = or i64 [[INDEX]], 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i64, ptr [[START_I]], i64 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i64>, ptr [[TMP6]], align 4
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i64, ptr [[TMP6]], i64 2
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i8, ptr [[TMP6]], i64 16
 ; CHECK-NEXT:    [[WIDE_LOAD29:%.*]] = load <2 x i64>, ptr [[TMP7]], align 4
 ; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr i64, ptr [[START_I1_PEEL]], i64 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[WIDE_LOAD30:%.*]] = load <2 x i64>, ptr [[TMP8]], align 4
-; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr i64, ptr [[TMP8]], i64 2
+; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr i8, ptr [[TMP8]], i64 16
 ; CHECK-NEXT:    [[WIDE_LOAD31:%.*]] = load <2 x i64>, ptr [[TMP9]], align 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = getelementptr i64, ptr [[START_I12_PEEL]], i64 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[WIDE_LOAD32:%.*]] = load <2 x i64>, ptr [[TMP10]], align 4
-; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr i64, ptr [[TMP10]], i64 2
+; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr i8, ptr [[TMP10]], i64 16
 ; CHECK-NEXT:    [[WIDE_LOAD33:%.*]] = load <2 x i64>, ptr [[TMP11]], align 4
 ; CHECK-NEXT:    [[TMP12:%.*]] = add <2 x i64> [[WIDE_LOAD]], [[VEC_PHI]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = add <2 x i64> [[WIDE_LOAD29]], [[VEC_PHI28]]
@@ -258,7 +258,7 @@ exit:
 define i64 @at_with_int_conversion(ptr %ptr, i64 %idx) {
 ; CHECK-LABEL: @at_with_int_conversion(
 ; CHECK-NEXT:    [[START:%.*]] = load ptr, ptr [[PTR:%.*]], align 8
-; CHECK-NEXT:    [[GEP_END:%.*]] = getelementptr [[VEC:%.*]], ptr [[PTR]], i64 0, i32 1
+; CHECK-NEXT:    [[GEP_END:%.*]] = getelementptr i8, ptr [[PTR]], i64 8
 ; CHECK-NEXT:    [[END:%.*]] = load ptr, ptr [[GEP_END]], align 8
 ; CHECK-NEXT:    [[START_INT:%.*]] = ptrtoint ptr [[START]] to i64
 ; CHECK-NEXT:    [[END_INT:%.*]] = ptrtoint ptr [[END]] to i64
