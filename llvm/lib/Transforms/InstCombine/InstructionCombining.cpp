@@ -2263,6 +2263,20 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   if (MadeChange)
     return &GEP;
 
+  // Canonicalize constant GEPs to i8 type.
+  if (GEPType->isOpaquePointerTy() && !GEPEltType->isIntegerTy(8) &&
+      GEP.hasAllConstantIndices()) {
+    APInt Offset(DL.getIndexTypeSizeInBits(GEPType), 0);
+    if (GEP.accumulateConstantOffset(DL, Offset)) {
+      Type *I8Ty = Builder.getInt8Ty();
+      Value *Idx = Builder.getInt(Offset);
+      Value *NewGEP = GEP.isInBounds()
+                          ? Builder.CreateInBoundsGEP(I8Ty, PtrOp, Idx)
+                          : Builder.CreateGEP(I8Ty, PtrOp, Idx);
+      return replaceInstUsesWith(GEP, NewGEP);
+    }
+  }
+
   // Check to see if the inputs to the PHI node are getelementptr instructions.
   if (auto *PN = dyn_cast<PHINode>(PtrOp)) {
     auto *Op1 = dyn_cast<GetElementPtrInst>(PN->getOperand(0));
