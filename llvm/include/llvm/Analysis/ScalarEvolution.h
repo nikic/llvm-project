@@ -1246,8 +1246,7 @@ private:
   HasRecMapType HasRecMap;
 
   /// The type for ExprValueMap.
-  using ValueSetVector = SmallSetVector<Value *, 4>;
-  using ExprValueMapType = DenseMap<const SCEV *, ValueSetVector>;
+  using ExprValueMapType = DenseMap<const SCEV *, SmallVector<Value *, 4>>;
 
   /// ExprValueMap -- This map records the original values from which
   /// the SCEV expr is generated from.

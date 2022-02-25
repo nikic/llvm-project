@@ -4291,7 +4291,7 @@ ArrayRef<Value *> ScalarEvolution::getSCEVValues(const SCEV *S) {
       assert(ValueExprMap.count(V));
   }
 #endif
-  return SI->second.getArrayRef();
+  return SI->second;
 }
 
 /// Erase Value from ValueExprMap and ExprValueMap. ValueExprMap.erase(V)
@@ -4301,9 +4301,9 @@ void ScalarEvolution::eraseValueFromMap(Value *V) {
   ValueExprMapType::iterator I = ValueExprMap.find_as(V);
   if (I != ValueExprMap.end()) {
     auto EVIt = ExprValueMap.find(I->second);
-    bool Removed = EVIt->second.remove(V);
-    (void) Removed;
-    assert(Removed && "Value not in ExprValueMap?");
+    auto EntryIt = find(EVIt->second, V);
+    assert(EntryIt != EVIt->second.end() && "Value not in ExprValueMap");
+    EVIt->second.erase(EntryIt);
     ValueExprMap.erase(I);
   }
 }
@@ -4315,7 +4315,7 @@ void ScalarEvolution::insertValueToMap(Value *V, const SCEV *S) {
   auto It = ValueExprMap.find_as(V);
   if (It == ValueExprMap.end()) {
     ValueExprMap.insert({SCEVCallbackVH(V, this), S});
-    ExprValueMap[S].insert(V);
+    ExprValueMap[S].push_back(V);
   }
 }
 
@@ -4333,7 +4333,7 @@ const SCEV *ScalarEvolution::getSCEV(Value *V) {
     std::pair<ValueExprMapType::iterator, bool> Pair =
         ValueExprMap.insert({SCEVCallbackVH(V, this), S});
     if (Pair.second)
-      ExprValueMap[S].insert(V);
+      ExprValueMap[S].push_back(V);
   }
   return S;
 }
@@ -13501,7 +13501,7 @@ void ScalarEvolution::verify() const {
 
     // Check that the value is also part of the reverse map.
     auto It = ExprValueMap.find(KV.second);
-    if (It == ExprValueMap.end() || !It->second.contains(KV.first)) {
+    if (It == ExprValueMap.end() || !is_contained(It->second, KV.first)) {
       dbgs() << "Value " << *KV.first
              << " is in ValueExprMap but not in ExprValueMap\n";
       std::abort();
