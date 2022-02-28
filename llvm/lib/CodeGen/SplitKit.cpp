@@ -970,24 +970,35 @@ void SplitEditor::computeRedundantBackCopies(
     const VNInfo *ParentVNI = Parent->getValNumInfo(i);
     if (!NotToHoistSet.count(ParentVNI->id))
       continue;
-    SmallPtrSetIterator<VNInfo *> It1 = EqualVNs[ParentVNI->id].begin();
-    SmallPtrSetIterator<VNInfo *> It2 = It1;
-    for (; It1 != EqualVNs[ParentVNI->id].end(); ++It1) {
-      It2 = It1;
-      for (++It2; It2 != EqualVNs[ParentVNI->id].end(); ++It2) {
-        if (DominatedVNIs.count(*It1) || DominatedVNIs.count(*It2))
-          continue;
 
-        MachineBasicBlock *MBB1 = LIS.getMBBFromIndex((*It1)->def);
-        MachineBasicBlock *MBB2 = LIS.getMBBFromIndex((*It2)->def);
-        if (MBB1 == MBB2) {
-          DominatedVNIs.insert((*It1)->def < (*It2)->def ? (*It2) : (*It1));
-        } else if (MDT.dominates(MBB1, MBB2)) {
-          DominatedVNIs.insert(*It2);
-        } else if (MDT.dominates(MBB2, MBB1)) {
-          DominatedVNIs.insert(*It1);
+    SmallVector<VNInfo *, 8> DominatingVNIs;
+    for (VNInfo *VNI : EqualVNs[ParentVNI->id]) {
+      bool IsDominated = false;
+      for (unsigned I = 0; I < DominatingVNIs.size(); I++) {
+        VNInfo *DomVNI = DominatingVNIs[I];
+        MachineBasicBlock *DomMBB = LIS.getMBBFromIndex(DomVNI->def);
+        MachineBasicBlock *MBB = LIS.getMBBFromIndex(VNI->def);
+        if (DomMBB == MBB) {
+          if (VNI->def < DomVNI->def) {
+            DominatedVNIs.insert(DomVNI);
+            DominatingVNIs.erase(DominatingVNIs.begin() + I--);
+          } else {
+            IsDominated = true;
+            DominatedVNIs.insert(VNI);
+            break;
+          }
+        } else if (MDT.dominates(MBB, DomMBB)) {
+          DominatedVNIs.insert(DomVNI);
+          DominatingVNIs.erase(DominatingVNIs.begin() + I--);
+        } else if (MDT.dominates(DomMBB, MBB)) {
+          IsDominated = true;
+          DominatedVNIs.insert(VNI);
+          break;
         }
       }
+
+      if (!IsDominated)
+        DominatingVNIs.push_back(VNI);
     }
     if (!DominatedVNIs.empty()) {
       forceRecompute(0, *ParentVNI);
