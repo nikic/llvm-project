@@ -971,34 +971,28 @@ void SplitEditor::computeRedundantBackCopies(
     if (!NotToHoistSet.count(ParentVNI->id))
       continue;
 
-    SmallVector<VNInfo *, 8> DominatingVNIs;
-    for (VNInfo *VNI : EqualVNs[ParentVNI->id]) {
-      bool IsDominated = false;
-      for (unsigned I = 0; I < DominatingVNIs.size(); I++) {
-        VNInfo *DomVNI = DominatingVNIs[I];
-        MachineBasicBlock *DomMBB = LIS.getMBBFromIndex(DomVNI->def);
-        MachineBasicBlock *MBB = LIS.getMBBFromIndex(VNI->def);
-        if (DomMBB == MBB) {
-          if (VNI->def < DomVNI->def) {
-            DominatedVNIs.insert(DomVNI);
-            DominatingVNIs.erase(DominatingVNIs.begin() + I--);
-          } else {
-            IsDominated = true;
-            DominatedVNIs.insert(VNI);
-            break;
-          }
-        } else if (MDT.dominates(MBB, DomMBB)) {
-          DominatedVNIs.insert(DomVNI);
-          DominatingVNIs.erase(DominatingVNIs.begin() + I--);
-        } else if (MDT.dominates(DomMBB, MBB)) {
-          IsDominated = true;
-          DominatedVNIs.insert(VNI);
-          break;
-        }
-      }
+    SmallVector<VNInfo *> SortedVNIs;
+    append_range(SortedVNIs, EqualVNs[ParentVNI->id]);
+    assert(SortedVNIs.size() != 1);
 
-      if (!IsDominated)
-        DominatingVNIs.push_back(VNI);
+    auto ProperlyDominates = [&](const VNInfo *VN1, const VNInfo *VN2) {
+      MachineBasicBlock *MBB1 = LIS.getMBBFromIndex(VN1->def);
+      MachineBasicBlock *MBB2 = LIS.getMBBFromIndex(VN2->def);
+      if (MBB1 == MBB2)
+        return VN1->def < VN2->def;
+      return MDT.properlyDominates(MBB1, MBB2);
+    };
+    sort(SortedVNIs, ProperlyDominates);
+
+    auto It1 = SortedVNIs.begin();
+    auto It2 = std::next(SortedVNIs.begin());
+    for (; It2 != SortedVNIs.end(); ++It2) {
+      VNInfo *VN1 = *It1;
+      VNInfo *VN2 = *It2;
+      if (ProperlyDominates(VN1, VN2))
+        DominatedVNIs.insert(VN2);
+      else
+        It1 = It2;
     }
     if (!DominatedVNIs.empty()) {
       forceRecompute(0, *ParentVNI);
