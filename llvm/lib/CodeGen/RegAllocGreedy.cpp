@@ -137,7 +137,7 @@ static cl::opt<long> GrowRegionComplexityBudget(
     "grow-region-complexity-budget",
     cl::desc("growRegion() does not scale, so limit its budget. "
              "Bail out if we explore this many edges."),
-    cl::init(10000), cl::Hidden);
+    cl::init(1000), cl::Hidden);
 
 static RegisterRegAlloc greedyRegAlloc("greedy", "greedy register allocator",
                                        createGreedyRegisterAllocator);
