@@ -898,6 +898,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         continue;
       }
 
+      int CBCostMult = getStringFnAttrAsInt(*CB, "function-inline-cost-multiplier").getValueOr(1);
+
       // Setup the data structure used to plumb customization into the
       // `InlineFunction` routine.
       InlineFunctionInfo IFI(
@@ -950,9 +952,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
               // within an SCC is necessary for performance.
               if (CalleeSCC != C &&
                   CalleeSCC == CG.lookupSCC(CG.get(*NewCallee))) {
-                int CBCostMult =
-                    getStringFnAttrAsInt(*CB, "function-inline-cost-multiplier")
-                        .getValueOr(1);
                 Attribute NewCBCostMult = Attribute::get(
                     M.getContext(), "function-inline-cost-multiplier",
                     itostr(CBCostMult * 2));
