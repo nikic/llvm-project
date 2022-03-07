@@ -22,6 +22,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -876,8 +877,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       // trigger infinite inlining, much like is prevented within the inliner
       // itself by the InlineHistory above, but spread across CGSCC iterations
       // and thus hidden from the full inline history.
-      if (CG.lookupSCC(*CG.lookup(Callee)) == C &&
-          UR.InlinedInternalEdges.count({&N, C})) {
+      LazyCallGraph::SCC *CalleeSCC = CG.lookupSCC(*CG.lookup(Callee));
+      if (CalleeSCC == C && UR.InlinedInternalEdges.count({&N, C})) {
         LLVM_DEBUG(dbgs() << "Skipping inlining internal SCC edge from a node "
                              "previously split out of this SCC by inlining: "
                           << F.getName() << " -> " << Callee.getName() << "\n");
@@ -935,9 +936,30 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
             if (tryPromoteCall(*ICB))
               NewCallee = ICB->getCalledFunction();
           }
-          if (NewCallee)
-            if (!NewCallee->isDeclaration())
+          if (NewCallee) {
+            if (!NewCallee->isDeclaration()) {
               Calls->push({ICB, NewHistoryID});
+              // Continually inlining through an SCC can result in huge compile
+              // times and bloated code since we arbitrarily stop at some point
+              // when the inliner decides it's not profitable to inline anymore.
+              // We attempt to mitigate this by making these calls exponentially
+              // more expensive.
+              // This doesn't apply to calls in the same SCC since if we do
+              // inline through the SCC the function will end up being
+              // self-recursive which the inliner bails out on, and inlining
+              // within an SCC is necessary for performance.
+              if (CalleeSCC != C &&
+                  CalleeSCC == CG.lookupSCC(CG.get(*NewCallee))) {
+                int CBCostMult =
+                    getStringFnAttrAsInt(*CB, "function-inline-cost-multiplier")
+                        .getValueOr(1);
+                Attribute NewCBCostMult = Attribute::get(
+                    M.getContext(), "function-inline-cost-multiplier",
+                    itostr(CBCostMult * 2));
+                ICB->addFnAttr(NewCBCostMult);
+              }
+            }
+          }
         }
       }
 

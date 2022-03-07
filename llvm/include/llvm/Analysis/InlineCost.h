@@ -217,6 +217,8 @@ struct InlineParams {
   Optional<bool> AllowRecursiveCall = false;
 };
 
+Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind);
+
 /// Generate the parameters to tune the inline cost analysis based only on the
 /// commandline options.
 InlineParams getInlineParams();
