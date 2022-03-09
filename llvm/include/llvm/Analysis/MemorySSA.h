@@ -801,6 +801,9 @@ public:
   /// about the beginning or end of a block.
   enum InsertionPlace { Beginning, End, BeforeTerminator };
 
+  /// Make sure MemorySSA uses have been optimized.
+  void ensureOptimized();
+
 protected:
   // Used by Memory SSA dumpers and wrapper pass
   friend class MemorySSAPrinterLegacyPass;
@@ -903,6 +906,7 @@ private:
   std::unique_ptr<CachingWalker<AliasAnalysis>> Walker;
   std::unique_ptr<SkipSelfWalker<AliasAnalysis>> SkipWalker;
   unsigned NextID = 0;
+  bool IsOptimized = false;
 };
 
 /// Enables verification of MemorySSA.
