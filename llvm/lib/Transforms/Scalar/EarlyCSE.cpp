@@ -73,7 +73,7 @@ DEBUG_COUNTER(CSECounter, "early-cse",
               "Controls which instructions are removed");
 
 static cl::opt<unsigned> EarlyCSEMssaOptCap(
-    "earlycse-mssa-optimization-cap", cl::init(500), cl::Hidden,
+    "earlycse-mssa-optimization-cap", cl::init(1000), cl::Hidden,
     cl::desc("Enable imprecision in EarlyCSE in pathological cases, in exchange "
              "for faster compile. Caps the MemorySSA clobbering calls."));
 
