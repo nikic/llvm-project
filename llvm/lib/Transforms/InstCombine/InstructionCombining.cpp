@@ -3859,7 +3859,6 @@ static bool SoleWriteToDeadLocal(Instruction *I, TargetLibraryInfo &TLI) {
 /// block.
 static bool TryToSinkInstruction(Instruction *I, BasicBlock *DestBlock,
                                  TargetLibraryInfo &TLI) {
-  assert(I->getUniqueUndroppableUser() && "Invariants didn't hold!");
   BasicBlock *SrcBlock = I->getParent();
 
   // Cannot move control-flow-involving, volatile loads, vaarg, etc.
@@ -4026,28 +4025,37 @@ bool InstCombinerImpl::run() {
         [this](Instruction *I) -> Optional<BasicBlock *> {
       if (!EnableCodeSinking)
         return None;
-      auto *UserInst = cast_or_null<Instruction>(I->getUniqueUndroppableUser());
-      if (!UserInst)
+      if (!I->hasNUndroppableUsesOrMore(1))
         return None;
 
       BasicBlock *BB = I->getParent();
       BasicBlock *UserParent = nullptr;
+      BasicBlock *UniqueParent = nullptr;
 
-      // Special handling for Phi nodes - get the block the use occurs in.
-      if (PHINode *PN = dyn_cast<PHINode>(UserInst)) {
-        for (unsigned i = 0; i < PN->getNumIncomingValues(); i++) {
-          if (PN->getIncomingValue(i) == I) {
-            // Bail out if we have uses in different blocks. We don't do any
-            // sophisticated analysis (i.e finding NearestCommonDominator of these
-            // use blocks).
-            if (UserParent && UserParent != PN->getIncomingBlock(i))
-              return None;
-            UserParent = PN->getIncomingBlock(i);
+      for (auto *U : I->users()) {
+        if (U->isDroppable())
+          continue;
+        Instruction *UserInst = cast<Instruction>(U);
+        // Special handling for Phi nodes - get the block the use occurs in.
+        if (PHINode *PN = dyn_cast<PHINode>(UserInst)) {
+          for (unsigned i = 0; i < PN->getNumIncomingValues(); i++) {
+            if (PN->getIncomingValue(i) == I) {
+              // Bail out if we have uses in different blocks. We don't do any
+              // sophisticated analysis (i.e finding NearestCommonDominator of these
+              // use blocks).
+              if (UserParent && UserParent != PN->getIncomingBlock(i))
+                return None;
+              UserParent = PN->getIncomingBlock(i);
+            }
           }
-        }
-        assert(UserParent && "expected to find user block!");
-      } else
-        UserParent = UserInst->getParent();
+          assert(UserParent && "expected to find user block!");
+        } else
+          UserParent = UserInst->getParent();
+
+        if (UniqueParent && UniqueParent != UserParent)
+          return None;
+        UniqueParent = UserParent;
+      }
 
       // Try sinking to another block. If that block is unreachable, then do
       // not bother. SimplifyCFG should handle it.

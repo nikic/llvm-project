@@ -41,7 +41,7 @@ define i32 @test2(i32 %x) nounwind ssp {
 ; CHECK:       bb1:
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw i32 [[X_ADDR_17]], 1
 ; CHECK-NEXT:    [[TMP2:%.*]] = sdiv i32 [[TMP1]], [[X_ADDR_17]]
-; CHECK-NEXT:    [[TMP3:%.*]] = tail call i32 @bar() #[[ATTR1:[0-9]+]]
+; CHECK-NEXT:    [[TMP3:%.*]] = tail call i32 @bar() #[[ATTR3:[0-9]+]]
 ; CHECK-NEXT:    br label [[BB2]]
 ; CHECK:       bb2:
 ; CHECK-NEXT:    [[X_ADDR_0]] = phi i32 [ [[TMP2]], [[BB1]] ], [ [[X_ADDR_17]], [[BB]] ]
@@ -179,10 +179,10 @@ sw.epilog:                                        ; preds = %entry, %sw.bb
 define i32 @test6(i32* nocapture readonly %P, i32 %i, i1 %cond) {
 ; CHECK-LABEL: @test6(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[ADD:%.*]] = shl nsw i32 [[I]], 1
+; CHECK-NEXT:    [[ADD:%.*]] = shl nsw i32 [[I:%.*]], 1
 ; CHECK-NEXT:    br label [[DISPATCHBB:%.*]]
 ; CHECK:       dispatchBB:
-; CHECK-NEXT:    [[IDXPROM:%.*]] = sext i32 [[I:%.*]] to i64
+; CHECK-NEXT:    [[IDXPROM:%.*]] = sext i32 [[I]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[P:%.*]], i64 [[IDXPROM]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32, i32* [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    switch i32 [[I]], label [[SW_BB:%.*]] [
@@ -236,4 +236,35 @@ if:
   ret void
 else:
   ret void
+}
+
+declare void @abort()
+declare { i64, i1 } @llvm.umul.with.overflow.i64(i64, i64)
+declare void @dummy(i64)
+; Two uses in two different users of a single successor block. We can sink.
+define i64 @test8(i64 %c) {
+; CHECK-LABEL: @test8(
+; CHECK-NEXT:  bb1:
+; CHECK-NEXT:    [[OVERFLOW:%.*]] = icmp ugt i64 [[C:%.*]], 2305843009213693951
+; CHECK-NEXT:    br i1 [[OVERFLOW]], label [[ABORT:%.*]], label [[BB2:%.*]]
+; CHECK:       bb2:
+; CHECK-NEXT:    call void @dummy(i64 8)
+; CHECK-NEXT:    ret i64 8
+; CHECK:       abort:
+; CHECK-NEXT:    call void @abort()
+; CHECK-NEXT:    unreachable
+;
+bb1:
+  %mul = tail call { i64, i1 } @llvm.umul.with.overflow.i64(i64 %c, i64 8)
+  %overflow = extractvalue { i64, i1 } %mul, 1
+  %select = select i1 %overflow, i64 0, i64 8
+  br i1 %overflow, label %abort, label %bb2
+
+bb2:
+  call void @dummy(i64 %select)
+  ret i64 %select
+
+abort:
+  call void @abort()
+  unreachable
 }
