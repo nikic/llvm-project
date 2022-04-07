@@ -164,7 +164,7 @@ cl::opt<bool> EnableConstraintElimination(
         "Enable pass to eliminate conditions based on linear constraints."));
 
 cl::opt<bool> EnableFunctionSpecialization(
-    "enable-function-specialization", cl::init(false), cl::Hidden,
+    "enable-function-specialization", cl::init(true), cl::Hidden,
     cl::desc("Enable Function Specialization pass"));
 
 cl::opt<AttributorRunOption> AttributorRun(
