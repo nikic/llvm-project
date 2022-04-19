@@ -47,6 +47,7 @@ template <typename ContextT> class GenericCycleInfoCompute;
 /// A possibly irreducible generalization of a \ref Loop.
 template <typename ContextT> class GenericCycle {
 public:
+  using InstructionT = typename ContextT::InstructionT;
   using BlockT = typename ContextT::BlockT;
   using FunctionT = typename ContextT::FunctionT;
   template <typename> friend class GenericCycleInfo;
@@ -100,6 +101,10 @@ public:
 
   BlockT *getHeader() const { return Entries[0]; }
 
+  auto getHeaders() const -> const SmallVector<BlockT *, 1> & {
+    return Entries;
+  }
+
   /// \brief Return whether \p Block is an entry block of the cycle.
   bool isEntry(BlockT *Block) const { return is_contained(Entries, Block); }
 
@@ -123,6 +128,17 @@ public:
   /// These are the blocks _outside of the current cycle_ which are
   /// branched to.
   void getExitBlocks(SmallVectorImpl<BlockT *> &TmpStorage) const;
+
+  /// Return the preheader block for this cycle. This only works for reducible
+  /// cycles for now.
+  BlockT *getCyclePreheader() const;
+
+  /// If the cycle has exactly one unique predecessor outside of the loop,
+  /// return it, otherwise return null. This only works for reducible cycles for
+  /// now.
+  BlockT *getCyclePredecessor() const;
+
+  bool isCycleInvariant(InstructionT &I) const;
 
   /// Iteration over child cycles.
   //@{
@@ -203,6 +219,7 @@ public:
       }
     });
   }
+  //@}
 };
 
 /// \brief Cycle information for a function.
@@ -238,6 +255,7 @@ public:
   const ContextT &getSSAContext() const { return Context; }
 
   CycleT *getCycle(const BlockT *Block) const;
+  unsigned getCycleDepth(const BlockT *Block) const;
   CycleT *getTopLevelParentCycle(const BlockT *Block) const;
 
   /// Move \p Child to \p NewParent by manipulating Children vectors.

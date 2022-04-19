@@ -29,6 +29,7 @@
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
+#include "llvm/CodeGen/MachineCycleAnalysis.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -119,7 +120,7 @@ namespace {
     MachineRegisterInfo  *MRI;     // Machine register information
     MachineDominatorTree *DT;      // Machine dominator tree
     MachinePostDominatorTree *PDT; // Machine post dominator tree
-    MachineLoopInfo *LI;
+    MachineCycleInfo *CI;
     MachineBlockFrequencyInfo *MBFI;
     const MachineBranchProbabilityInfo *MBPI;
     AliasAnalysis *AA;
@@ -180,8 +181,9 @@ namespace {
       AU.addRequired<AAResultsWrapperPass>();
       AU.addRequired<MachineDominatorTree>();
       AU.addRequired<MachinePostDominatorTree>();
-      AU.addRequired<MachineLoopInfo>();
+      AU.addRequired<MachineCycleInfoWrapperPass>();
       AU.addRequired<MachineBranchProbabilityInfo>();
+      AU.addPreserved<MachineCycleInfoWrapperPass>();
       AU.addPreserved<MachineLoopInfo>();
       if (UseBlockFreqInfo)
         AU.addRequired<MachineBlockFrequencyInfo>();
@@ -232,9 +234,9 @@ namespace {
     MachineBasicBlock *FindSuccToSinkTo(MachineInstr &MI, MachineBasicBlock *MBB,
                bool &BreakPHIEdge, AllSuccsCache &AllSuccessors);
 
-    void FindLoopSinkCandidates(MachineLoop *L, MachineBasicBlock *BB,
+    void FindLoopSinkCandidates(MachineCycle *L, MachineBasicBlock *BB,
                                 SmallVectorImpl<MachineInstr *> &Candidates);
-    bool SinkIntoLoop(MachineLoop *L, MachineInstr &I);
+    bool SinkIntoLoop(MachineCycle *L, MachineInstr &I);
 
     bool isProfitableToSinkTo(Register Reg, MachineInstr &MI,
                               MachineBasicBlock *MBB,
@@ -261,7 +263,7 @@ INITIALIZE_PASS_BEGIN(MachineSinking, DEBUG_TYPE,
                       "Machine code sinking", false, false)
 INITIALIZE_PASS_DEPENDENCY(MachineBranchProbabilityInfo)
 INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
-INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
+INITIALIZE_PASS_DEPENDENCY(MachineCycleInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(MachineSinking, DEBUG_TYPE,
                     "Machine code sinking", false, false)
@@ -378,7 +380,8 @@ static bool mayLoadFromGOTOrConstantPool(MachineInstr &MI) {
   return false;
 }
 
-void MachineSinking::FindLoopSinkCandidates(MachineLoop *L, MachineBasicBlock *BB,
+void MachineSinking::FindLoopSinkCandidates(
+    MachineCycle *L, MachineBasicBlock *BB,
     SmallVectorImpl<MachineInstr *> &Candidates) {
   for (auto &MI : *BB) {
     LLVM_DEBUG(dbgs() << "LoopSink: Analysing candidate: " << MI);
@@ -387,7 +390,7 @@ void MachineSinking::FindLoopSinkCandidates(MachineLoop *L, MachineBasicBlock *B
                            "target\n");
       continue;
     }
-    if (!L->isLoopInvariant(MI)) {
+    if (!L->isCycleInvariant(MI)) {
       LLVM_DEBUG(dbgs() << "LoopSink: Instruction is not loop invariant\n");
       continue;
     }
@@ -425,21 +428,11 @@ bool MachineSinking::runOnMachineFunction(MachineFunction &MF) {
   MRI = &MF.getRegInfo();
   DT = &getAnalysis<MachineDominatorTree>();
   PDT = &getAnalysis<MachinePostDominatorTree>();
-  LI = &getAnalysis<MachineLoopInfo>();
+  CI = &getAnalysis<MachineCycleInfoWrapperPass>().getCycleInfo();
   MBFI = UseBlockFreqInfo ? &getAnalysis<MachineBlockFrequencyInfo>() : nullptr;
   MBPI = &getAnalysis<MachineBranchProbabilityInfo>();
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   RegClassInfo.runOnMachineFunction(MF);
-
-  // MachineSink currently uses MachineLoopInfo, which only recognizes natural
-  // loops. As such, we could sink instructions into irreducible cycles, which
-  // would be non-profitable.
-  // WARNING: The current implementation of hasStoreBetween() is incorrect for
-  // sinking into irreducible cycles (PR53990), this bailout is currently
-  // necessary for correctness, not just profitability.
-  ReversePostOrderTraversal<MachineBasicBlock *> RPOT(&*MF.begin());
-  if (containsIrreducibleCFG<MachineBasicBlock *>(RPOT, *LI))
-    return false;
 
   bool EverMadeChange = false;
 
@@ -474,9 +467,10 @@ bool MachineSinking::runOnMachineFunction(MachineFunction &MF) {
   }
 
   if (SinkInstsIntoLoop) {
-    SmallVector<MachineLoop *, 8> Loops(LI->begin(), LI->end());
+    SmallVector<MachineCycle *, 8> Loops(CI->toplevel_begin(),
+                                         CI->toplevel_end());
     for (auto *L : Loops) {
-      MachineBasicBlock *Preheader = LI->findLoopPreheader(L);
+      MachineBasicBlock *Preheader = L->getCyclePreheader();
       if (!Preheader) {
         LLVM_DEBUG(dbgs() << "LoopSink: Can't find preheader\n");
         continue;
@@ -649,8 +643,9 @@ bool MachineSinking::PostponeSplitCriticalEdge(MachineInstr &MI,
     return false;
 
   // Check for backedges of more "complex" loops.
-  if (LI->getLoopFor(FromBB) == LI->getLoopFor(ToBB) &&
-      LI->isLoopHeader(ToBB))
+  if (CI->getCycle(FromBB) == CI->getCycle(ToBB) && CI->getCycle(FromBB) &&
+      (!CI->getCycle(FromBB)->isReducible() ||
+       CI->getCycle(ToBB)->getHeader() == ToBB))
     return false;
 
   // It's not always legal to break critical edges and sink the computation
@@ -755,7 +750,7 @@ bool MachineSinking::isProfitableToSinkTo(Register Reg, MachineInstr &MI,
 
   // It is profitable to sink an instruction from a deeper loop to a shallower
   // loop, even if the latter post-dominates the former (PR21115).
-  if (LI->getLoopDepth(MBB) > LI->getLoopDepth(SuccToSinkTo))
+  if (CI->getCycleDepth(MBB) > CI->getCycleDepth(SuccToSinkTo))
     return true;
 
   // Check if only use in post dominated block is PHI instruction.
@@ -776,7 +771,7 @@ bool MachineSinking::isProfitableToSinkTo(Register Reg, MachineInstr &MI,
           FindSuccToSinkTo(MI, SuccToSinkTo, BreakPHIEdge, AllSuccessors))
     return isProfitableToSinkTo(Reg, MI, SuccToSinkTo, MBB2, AllSuccessors);
 
-  MachineLoop *ML = LI->getLoopFor(MBB);
+  MachineCycle *ML = CI->getCycle(MBB);
 
   // If the instruction is not inside a loop, it is not profitable to sink MI to
   // a post dominate block SuccToSinkTo.
@@ -826,12 +821,13 @@ bool MachineSinking::isProfitableToSinkTo(Register Reg, MachineInstr &MI,
         return false;
     } else {
       MachineInstr *DefMI = MRI->getVRegDef(Reg);
+      MachineCycle *Cycle = CI->getCycle(DefMI->getParent());
       // DefMI is defined outside of loop. There should be no live range
       // impact for this operand. Defination outside of loop means:
       // 1: defination is outside of loop.
       // 2: defination is in this loop, but it is a PHI in the loop header.
-      if (LI->getLoopFor(DefMI->getParent()) != ML ||
-          (DefMI->isPHI() && LI->isLoopHeader(DefMI->getParent())))
+      if (Cycle != ML || (DefMI->isPHI() && Cycle && Cycle->isReducible() &&
+                          Cycle->getHeader() == DefMI->getParent()))
         continue;
       // The DefMI is defined inside the loop.
       // If sinking this operand makes some register pressure set exceed limit,
@@ -883,7 +879,7 @@ MachineSinking::GetAllSortedSuccessors(MachineInstr &MI, MachineBasicBlock *MBB,
         uint64_t RHSFreq = MBFI ? MBFI->getBlockFreq(R).getFrequency() : 0;
         bool HasBlockFreq = LHSFreq != 0 && RHSFreq != 0;
         return HasBlockFreq ? LHSFreq < RHSFreq
-                            : LI->getLoopDepth(L) < LI->getLoopDepth(R);
+                            : CI->getCycleDepth(L) < CI->getCycleDepth(R);
       });
 
   auto it = AllSuccessors.insert(std::make_pair(MBB, AllSuccs));
@@ -1225,9 +1221,9 @@ bool MachineSinking::hasStoreBetween(MachineBasicBlock *From,
 /// Sink instructions into loops if profitable. This especially tries to prevent
 /// register spills caused by register pressure if there is little to no
 /// overhead moving instructions into loops.
-bool MachineSinking::SinkIntoLoop(MachineLoop *L, MachineInstr &I) {
+bool MachineSinking::SinkIntoLoop(MachineCycle *L, MachineInstr &I) {
   LLVM_DEBUG(dbgs() << "LoopSink: Finding sink block for: " << I);
-  MachineBasicBlock *Preheader = L->getLoopPreheader();
+  MachineBasicBlock *Preheader = L->getCyclePreheader();
   assert(Preheader && "Loop sink needs a preheader block");
   MachineBasicBlock *SinkBlock = nullptr;
   bool CanSink = true;
@@ -1235,7 +1231,7 @@ bool MachineSinking::SinkIntoLoop(MachineLoop *L, MachineInstr &I) {
 
   for (MachineInstr &MI : MRI->use_instructions(MO.getReg())) {
     LLVM_DEBUG(dbgs() << "LoopSink:   Analysing use: " << MI);
-    if (!L->contains(&MI)) {
+    if (!L->contains(MI.getParent())) {
       LLVM_DEBUG(dbgs() << "LoopSink:   Use not in loop, can't sink.\n");
       CanSink = false;
       break;
@@ -1408,7 +1404,9 @@ bool MachineSinking::SinkInstruction(MachineInstr &MI, bool &SawStore,
     }
 
     // Don't sink instructions into a loop.
-    if (!TryBreak && LI->isLoopHeader(SuccToSinkTo)) {
+    if (!TryBreak && CI->getCycle(SuccToSinkTo) &&
+        (!CI->getCycle(SuccToSinkTo)->isReducible() ||
+         CI->getCycle(SuccToSinkTo)->getHeader() == SuccToSinkTo)) {
       LLVM_DEBUG(dbgs() << " *** NOTE: Loop header found\n");
       TryBreak = true;
     }
