@@ -2993,7 +2993,7 @@ getKnownValueOnEdge(Value *V, BasicBlock *From, BasicBlock *To,
                                      : ConstantInt::getFalse(BI->getContext());
 
   // Limit the amount of blocks we inspect.
-  if (Visited.size() >= 16)
+  if (Visited.size() >= 8)
     return nullptr;
 
   auto Pair = Visited.try_emplace({From, To}, nullptr);
