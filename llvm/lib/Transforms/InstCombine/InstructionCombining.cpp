@@ -1955,13 +1955,11 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   // Combine Indices - If the source pointer to this getelementptr instruction
   // is a getelementptr instruction with matching element type, combine the
   // indices of the two getelementptr instructions into a single instruction.
-  if (Src->getResultElementType() != GEP.getSourceElementType())
-    return nullptr;
-
   if (!shouldMergeGEPs(*cast<GEPOperator>(&GEP), *Src))
     return nullptr;
 
-  if (Src->getNumOperands() == 2 && GEP.getNumOperands() == 2 &&
+  if (Src->getResultElementType() == GEP.getSourceElementType() &&
+      Src->getNumOperands() == 2 && GEP.getNumOperands() == 2 &&
       Src->hasOneUse()) {
     Value *GO1 = GEP.getOperand(1);
     Value *SO1 = Src->getOperand(1);
@@ -2024,7 +2022,26 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
     if (SrcGEP->getNumOperands() == 2 && shouldMergeGEPs(*Src, *SrcGEP))
       return nullptr;   // Wait until our source is folded to completion.
 
-  SmallVector<Value*, 8> Indices;
+  SmallVector<Value *, 8> Indices;
+  SmallVector<Value *, 8> GEPIndices;
+  if (Src->getResultElementType() == GEP.getSourceElementType()) {
+    append_range(GEPIndices, GEP.indices());
+  } else {
+    // Try to rewrite constant offsets to make element types match.
+    Type *PtrTy = Src->getType()->getScalarType();
+    APInt Offset(DL.getIndexTypeSizeInBits(PtrTy), 0);
+    if (!GEP.accumulateConstantOffset(DL, Offset))
+      return nullptr;
+
+    Type *ElemTy = Src->getResultElementType();
+    SmallVector<APInt> GEPIndicesAPInt =
+        DL.getGEPIndicesForOffset(ElemTy, Offset);
+    if (!Offset.isZero())
+      return nullptr;
+
+    for (const APInt &Idx : GEPIndicesAPInt)
+      GEPIndices.push_back(ConstantInt::get(GEP.getContext(), Idx));
+  }
 
   // Find out whether the last index in the source GEP is a sequential idx.
   bool EndsWithSequential = false;
@@ -2037,7 +2054,7 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
     // Replace: gep (gep %P, long B), long A, ...
     // With:    T = long A+B; gep %P, T, ...
     Value *SO1 = Src->getOperand(Src->getNumOperands()-1);
-    Value *GO1 = GEP.getOperand(1);
+    Value *GO1 = GEPIndices[0];
 
     // If they aren't the same type, then the input hasn't been processed
     // by the loop above yet (which canonicalizes sequential index types to
@@ -2053,22 +2070,15 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
     if (Sum == nullptr)
       return nullptr;
 
-    // Update the GEP in place if possible.
-    if (Src->getNumOperands() == 2) {
-      GEP.setIsInBounds(isMergedGEPInBounds(*Src, *cast<GEPOperator>(&GEP)));
-      replaceOperand(GEP, 0, Src->getOperand(0));
-      replaceOperand(GEP, 1, Sum);
-      return &GEP;
-    }
     Indices.append(Src->op_begin()+1, Src->op_end()-1);
     Indices.push_back(Sum);
-    Indices.append(GEP.op_begin()+2, GEP.op_end());
-  } else if (isa<Constant>(*GEP.idx_begin()) &&
-             cast<Constant>(*GEP.idx_begin())->isNullValue() &&
+    append_range(Indices, drop_begin(GEPIndices));
+  } else if (isa<Constant>(GEPIndices[0]) &&
+             cast<Constant>(GEPIndices[0])->isNullValue() &&
              Src->getNumOperands() != 1) {
     // Otherwise we can do the fold if the first index of the GEP is a zero
     Indices.append(Src->op_begin()+1, Src->op_end());
-    Indices.append(GEP.idx_begin()+1, GEP.idx_end());
+    append_range(Indices, drop_begin(GEPIndices));
   }
 
   if (!Indices.empty())
