@@ -8126,7 +8126,7 @@ ScalarEvolution::BackedgeTakenInfo::getExact(const Loop *L, ScalarEvolution *SE,
            "Predicate should be always true!");
   }
 
-  return SE->getUMinFromMismatchedTypes(Ops);
+  return SE->getUMinFromMismatchedTypes(Ops, /* Sequential */ true);
 }
 
 /// Get the exact not taken count for this loop exit.
