@@ -1910,14 +1910,6 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
               foldAndOrOfSelectUsingImpliedCond(Op0, *SI1, /* IsAnd */ true))
         return I;
     }
-
-    // A&B -> A where A implies B
-    if (Optional<bool> Res = isImpliedCondition(Op0, Op1, DL))
-      if (*Res)
-        return replaceInstUsesWith(I, Op1);
-    if (Optional<bool> Res = isImpliedCondition(Op1, Op0, DL))
-      if (*Res)
-        return replaceInstUsesWith(I, Op0);
   }
 
   if (Instruction *FoldedLogic = foldBinOpIntoSelectOrPhi(I))
@@ -2579,14 +2571,6 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
               foldAndOrOfSelectUsingImpliedCond(Op0, *SI1, /* IsAnd */ false))
         return I;
     }
-
-    // A|B -> B where A implies B
-    if (Optional<bool> Res = isImpliedCondition(Op0, Op1, DL))
-      if (*Res)
-        return replaceInstUsesWith(I, Op1);
-    if (Optional<bool> Res = isImpliedCondition(Op1, Op0, DL))
-      if (*Res)
-        return replaceInstUsesWith(I, Op0);
   }
 
   if (Instruction *FoldedLogic = foldBinOpIntoSelectOrPhi(I))
