@@ -375,6 +375,14 @@ Instruction *InstCombinerImpl::visitMul(BinaryOperator &I) {
   if (match(Op1, m_LShr(m_Value(X), m_APInt(C))) && *C == C->getBitWidth() - 1)
     return BinaryOperator::CreateAnd(Builder.CreateAShr(X, *C), Op0);
 
+  // X * Y --> X & Y, iff X, Y can be only 0 or 1
+  {
+    KnownBits XKnown = computeKnownBits(Op0, 0, &I);
+    KnownBits YKnown = computeKnownBits(Op1, 0, &I);
+    if (XKnown.getMaxValue().ule(1) && YKnown.getMaxValue().ule(1))
+      return BinaryOperator::CreateAnd(Op0, Op1);
+  }
+
   // ((ashr X, 31) | 1) * X --> abs(X)
   // X * ((ashr X, 31) | 1) --> abs(X)
   if (match(&I, m_c_BinOp(m_Or(m_AShr(m_Value(X),
