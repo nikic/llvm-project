@@ -4192,7 +4192,8 @@ bool InstCombinerImpl::run() {
     // Now that we have an instruction, try combining it to simplify it.
     Builder.SetInsertPoint(I);
     Builder.CollectMetadataToCopy(
-        I, {LLVMContext::MD_dbg, LLVMContext::MD_annotation});
+        I, {LLVMContext::MD_dbg, LLVMContext::MD_annotation,
+            I->getModule()->getMDKindID("nosanitize")});
 
 #ifndef NDEBUG
     std::string OrigI;
@@ -4208,7 +4209,8 @@ bool InstCombinerImpl::run() {
                           << "    New = " << *Result << '\n');
 
         Result->copyMetadata(*I,
-                             {LLVMContext::MD_dbg, LLVMContext::MD_annotation});
+                             {LLVMContext::MD_dbg, LLVMContext::MD_annotation,
+                              I->getModule()->getMDKindID("nosanitize")});
         // Everything uses the new instruction now.
         I->replaceAllUsesWith(Result);
 
