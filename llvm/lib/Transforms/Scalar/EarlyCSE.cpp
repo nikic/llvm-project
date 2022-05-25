@@ -278,6 +278,21 @@ static unsigned getHashValueImpl(SimpleValue Val) {
                         IVI->getOperand(1),
                         hash_combine_range(IVI->idx_begin(), IVI->idx_end()));
 
+  // Opaque pointer GEPs are equal if they compute the same offset.
+  if (const auto *GEP = dyn_cast<GetElementPtrInst>(Inst)) {
+    Type *PtrTy = GEP->getType()->getScalarType();
+    const DataLayout &DL = GEP->getModule()->getDataLayout();
+    unsigned BitWidth = DL.getIndexTypeSizeInBits(PtrTy);
+    MapVector<Value *, APInt> VariableOffsets;
+    APInt ConstantOffset(BitWidth, 0);
+    if (PtrTy->isOpaquePointerTy() &&
+        GEP->collectOffset(DL, BitWidth, VariableOffsets, ConstantOffset)) {
+      return hash_combine(
+          GEP->getOpcode(), GEP->getPointerOperand(), ConstantOffset,
+          hash_combine_range(VariableOffsets.begin(), VariableOffsets.end()));
+    }
+  }
+
   assert((isa<CallInst>(Inst) || isa<GetElementPtrInst>(Inst) ||
           isa<ExtractElementInst>(Inst) || isa<InsertElementInst>(Inst) ||
           isa<ShuffleVectorInst>(Inst) || isa<UnaryOperator>(Inst) ||
@@ -352,6 +367,22 @@ static bool isEqualImpl(SimpleValue LHS, SimpleValue RHS) {
     return LHSCmp->getOperand(0) == RHSCmp->getOperand(1) &&
            LHSCmp->getOperand(1) == RHSCmp->getOperand(0) &&
            LHSCmp->getSwappedPredicate() == RHSCmp->getPredicate();
+  }
+
+  // Opaque pointer GEPs are equal if they compute the same offset.
+  if (auto *GEP1 = dyn_cast<GetElementPtrInst>(LHSI)) {
+    auto *GEP2 = cast<GetElementPtrInst>(RHSI);
+    Type *PtrTy = GEP1->getType()->getScalarType();
+    const DataLayout &DL = GEP1->getModule()->getDataLayout();
+    unsigned BitWidth = DL.getIndexTypeSizeInBits(PtrTy);
+    MapVector<Value *, APInt> VariableOffsets1, VariableOffsets2;
+    APInt ConstantOffset1(BitWidth, 0), ConstantOffset2(BitWidth, 0);
+    if (PtrTy->isOpaquePointerTy() &&
+        GEP1->collectOffset(DL, BitWidth, VariableOffsets1, ConstantOffset1) &&
+        GEP2->collectOffset(DL, BitWidth, VariableOffsets2, ConstantOffset2))
+      return GEP1->getPointerOperand() == GEP2->getPointerOperand() &&
+             ConstantOffset1 == ConstantOffset2 &&
+             equal(VariableOffsets1, VariableOffsets2);
   }
 
   // TODO: Extend this for >2 args by matching the trailing N-2 args.
