@@ -281,13 +281,15 @@ static unsigned getHashValueImpl(SimpleValue Val) {
   // Opaque pointer GEPs are equal if they compute the same offset.
   if (const auto *GEP = dyn_cast<GetElementPtrInst>(Inst)) {
     Type *PtrTy = GEP->getType()->getScalarType();
-    const DataLayout &DL = GEP->getModule()->getDataLayout();
-    unsigned BitWidth = DL.getIndexTypeSizeInBits(PtrTy);
-    APInt Offset(BitWidth, 0);
-    if (PtrTy->isOpaquePointerTy() &&
-        GEP->accumulateConstantOffset(DL, Offset)) {
-      return hash_combine(GEP->getOpcode(), GEP->getPointerOperand(),
-                          Offset);
+    if (PtrTy->isOpaquePointerTy() && GEP->hasAllConstantIndices()) {
+      const DataLayout &DL = GEP->getModule()->getDataLayout();
+      unsigned BitWidth = DL.getIndexTypeSizeInBits(PtrTy);
+      APInt Offset(BitWidth, 0);
+      if (PtrTy->isOpaquePointerTy() &&
+          GEP->accumulateConstantOffset(DL, Offset)) {
+        return hash_combine(GEP->getOpcode(), GEP->getPointerOperand(),
+                            Offset);
+      }
     }
   }
 
@@ -371,14 +373,16 @@ static bool isEqualImpl(SimpleValue LHS, SimpleValue RHS) {
   if (auto *GEP1 = dyn_cast<GetElementPtrInst>(LHSI)) {
     auto *GEP2 = cast<GetElementPtrInst>(RHSI);
     Type *PtrTy = GEP1->getType()->getScalarType();
-    const DataLayout &DL = GEP1->getModule()->getDataLayout();
-    unsigned BitWidth = DL.getIndexTypeSizeInBits(PtrTy);
-    APInt Offset1(BitWidth, 0), Offset2(BitWidth, 0);
     if (PtrTy->isOpaquePointerTy() &&
-        GEP1->accumulateConstantOffset(DL, Offset1) &&
-        GEP2->accumulateConstantOffset(DL, Offset2))
-      return GEP1->getPointerOperand() == GEP2->getPointerOperand() &&
-             Offset1 == Offset2;
+        GEP1->getPointerOperand() == GEP2->getPointerOperand() &&
+        GEP1->hasAllConstantIndices() && GEP2->hasAllConstantIndices()) {
+      const DataLayout &DL = GEP1->getModule()->getDataLayout();
+      unsigned BitWidth = DL.getIndexTypeSizeInBits(PtrTy);
+      APInt Offset1(BitWidth, 0), Offset2(BitWidth, 0);
+      if (GEP1->accumulateConstantOffset(DL, Offset1) &&
+          GEP2->accumulateConstantOffset(DL, Offset2))
+        return Offset1 == Offset2;
+    }
   }
 
   // TODO: Extend this for >2 args by matching the trailing N-2 args.
