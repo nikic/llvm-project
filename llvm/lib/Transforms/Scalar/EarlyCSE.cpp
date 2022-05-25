@@ -283,13 +283,11 @@ static unsigned getHashValueImpl(SimpleValue Val) {
     Type *PtrTy = GEP->getType()->getScalarType();
     const DataLayout &DL = GEP->getModule()->getDataLayout();
     unsigned BitWidth = DL.getIndexTypeSizeInBits(PtrTy);
-    MapVector<Value *, APInt> VariableOffsets;
-    APInt ConstantOffset(BitWidth, 0);
+    APInt Offset(BitWidth, 0);
     if (PtrTy->isOpaquePointerTy() &&
-        GEP->collectOffset(DL, BitWidth, VariableOffsets, ConstantOffset)) {
-      return hash_combine(
-          GEP->getOpcode(), GEP->getPointerOperand(), ConstantOffset,
-          hash_combine_range(VariableOffsets.begin(), VariableOffsets.end()));
+        GEP->accumulateConstantOffset(DL, Offset)) {
+      return hash_combine(GEP->getOpcode(), GEP->getPointerOperand(),
+                          Offset);
     }
   }
 
@@ -375,14 +373,12 @@ static bool isEqualImpl(SimpleValue LHS, SimpleValue RHS) {
     Type *PtrTy = GEP1->getType()->getScalarType();
     const DataLayout &DL = GEP1->getModule()->getDataLayout();
     unsigned BitWidth = DL.getIndexTypeSizeInBits(PtrTy);
-    MapVector<Value *, APInt> VariableOffsets1, VariableOffsets2;
-    APInt ConstantOffset1(BitWidth, 0), ConstantOffset2(BitWidth, 0);
+    APInt Offset1(BitWidth, 0), Offset2(BitWidth, 0);
     if (PtrTy->isOpaquePointerTy() &&
-        GEP1->collectOffset(DL, BitWidth, VariableOffsets1, ConstantOffset1) &&
-        GEP2->collectOffset(DL, BitWidth, VariableOffsets2, ConstantOffset2))
+        GEP1->accumulateConstantOffset(DL, Offset1) &&
+        GEP2->accumulateConstantOffset(DL, Offset2))
       return GEP1->getPointerOperand() == GEP2->getPointerOperand() &&
-             ConstantOffset1 == ConstantOffset2 &&
-             equal(VariableOffsets1, VariableOffsets2);
+             Offset1 == Offset2;
   }
 
   // TODO: Extend this for >2 args by matching the trailing N-2 args.
