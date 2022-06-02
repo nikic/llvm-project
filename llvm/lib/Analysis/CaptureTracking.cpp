@@ -163,7 +163,7 @@ namespace {
   struct EarliestCaptures : public CaptureTracker {
 
     EarliestCaptures(bool ReturnCaptures, Function &F, const DominatorTree &DT,
-                     const SmallPtrSetImpl<const Value *> &EphValues)
+                     const SmallPtrSetImpl<const Value *> *EphValues)
         : EphValues(EphValues), DT(DT), ReturnCaptures(ReturnCaptures), F(F) {}
 
     void tooManyUses() override {
@@ -176,7 +176,7 @@ namespace {
       if (isa<ReturnInst>(I) && !ReturnCaptures)
         return false;
 
-      if (EphValues.contains(I))
+      if (EphValues && EphValues->contains(I))
         return false;
 
       if (!EarliestCapture) {
@@ -205,7 +205,7 @@ namespace {
       return false;
     }
 
-    const SmallPtrSetImpl<const Value *> &EphValues;
+    const SmallPtrSetImpl<const Value *> *EphValues;
 
     Instruction *EarliestCapture = nullptr;
 
@@ -294,7 +294,7 @@ Instruction *
 llvm::FindEarliestCapture(const Value *V, Function &F, bool ReturnCaptures,
                           bool StoreCaptures, const DominatorTree &DT,
 
-                          const SmallPtrSetImpl<const Value *> &EphValues,
+                          const SmallPtrSetImpl<const Value *> *EphValues,
                           unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");

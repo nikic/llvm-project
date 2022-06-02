@@ -267,7 +267,8 @@ MemDepResult MemoryDependenceResults::getPointerDependencyFrom(
 MemDepResult MemoryDependenceResults::getPointerDependencyFrom(
     const MemoryLocation &MemLoc, bool isLoad, BasicBlock::iterator ScanIt,
     BasicBlock *BB, Instruction *QueryInst, unsigned *Limit) {
-  BatchAAResults BatchAA(AA);
+  EarliestEscapeInfo EI(DT);
+  BatchAAResults BatchAA(AA, &EI);
   return getPointerDependencyFrom(MemLoc, isLoad, ScanIt, BB, QueryInst, Limit,
                                   BatchAA);
 }
@@ -605,9 +606,6 @@ MemDepResult MemoryDependenceResults::getSimplePointerDependencyFrom(
 
     // See if this instruction (e.g. a call or vaarg) mod/ref's the pointer.
     ModRefInfo MR = BatchAA.getModRefInfo(Inst, MemLoc);
-    // If necessary, perform additional analysis.
-    if (isModAndRefSet(MR))
-      MR = BatchAA.callCapturesBefore(Inst, MemLoc, &DT);
     switch (clearMust(MR)) {
     case ModRefInfo::NoModRef:
       // If the call has no effect on the queried pointer, just ignore it.
@@ -880,7 +878,8 @@ void MemoryDependenceResults::getNonLocalPointerDependency(
   // a block with multiple different pointers.  This can happen during PHI
   // translation.
   DenseMap<BasicBlock *, Value *> Visited;
-  BatchAAResults BatchAA(AA);
+  EarliestEscapeInfo EI(DT);
+  BatchAAResults BatchAA(AA, &EI);
   if (getNonLocalPointerDepFromBB(QueryInst, Address, Loc, isLoad, FromBB,
                                    Result, Visited, BatchAA, true))
     return;
