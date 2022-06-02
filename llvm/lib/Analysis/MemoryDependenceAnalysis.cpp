@@ -880,8 +880,9 @@ void MemoryDependenceResults::getNonLocalPointerDependency(
   // a block with multiple different pointers.  This can happen during PHI
   // translation.
   DenseMap<BasicBlock *, Value *> Visited;
+  BatchAAResults BatchAA(AA);
   if (getNonLocalPointerDepFromBB(QueryInst, Address, Loc, isLoad, FromBB,
-                                   Result, Visited, true))
+                                   Result, Visited, BatchAA, true))
     return;
   Result.clear();
   Result.push_back(NonLocalDepResult(FromBB, MemDepResult::getUnknown(),
@@ -1029,8 +1030,8 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
     Instruction *QueryInst, const PHITransAddr &Pointer,
     const MemoryLocation &Loc, bool isLoad, BasicBlock *StartBB,
     SmallVectorImpl<NonLocalDepResult> &Result,
-    DenseMap<BasicBlock *, Value *> &Visited, bool SkipFirstBlock,
-    bool IsIncomplete) {
+    DenseMap<BasicBlock *, Value *> &Visited, BatchAAResults &BatchAA,
+    bool SkipFirstBlock, bool IsIncomplete) {
   // Look up the cached info for Pointer.
   ValueIsLoadPair CacheKey(Pointer.getAddr(), isLoad);
 
@@ -1088,7 +1089,7 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
         // the query using the greater size.
         return getNonLocalPointerDepFromBB(
             QueryInst, Pointer, Loc.getWithNewSize(CacheInfo->Size), isLoad,
-            StartBB, Result, Visited, SkipFirstBlock, IsIncomplete);
+            StartBB, Result, Visited, BatchAA, SkipFirstBlock, IsIncomplete);
       }
     }
 
@@ -1111,7 +1112,7 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
       if (Loc.AATags)
         return getNonLocalPointerDepFromBB(
             QueryInst, Pointer, Loc.getWithoutAATags(), isLoad, StartBB, Result,
-            Visited, SkipFirstBlock, IsIncomplete);
+            Visited, BatchAA, SkipFirstBlock, IsIncomplete);
     }
   }
 
@@ -1188,7 +1189,6 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
   bool GotWorklistLimit = false;
   LLVM_DEBUG(AssertSorted(*Cache));
 
-  BatchAAResults BatchAA(AA);
   while (!Worklist.empty()) {
     BasicBlock *BB = Worklist.pop_back_val();
 
@@ -1357,7 +1357,7 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
       if (!CanTranslate ||
           !getNonLocalPointerDepFromBB(QueryInst, PredPointer,
                                       Loc.getWithNewPtr(PredPtrVal), isLoad,
-                                      Pred, Result, Visited)) {
+                                      Pred, Result, Visited, BatchAA)) {
         // Add the entry to the Result list.
         NonLocalDepResult Entry(Pred, MemDepResult::getUnknown(), PredPtrVal);
         Result.push_back(Entry);
