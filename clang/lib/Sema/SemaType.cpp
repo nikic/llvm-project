@@ -3430,7 +3430,8 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
   // Note: We don't need to distribute declaration attributes (i.e.
   // D.getDeclarationAttributes()) because those are always C++11 attributes,
   // and those don't get distributed.
-  distributeTypeAttrsFromDeclarator(state, T);
+  if (!D.getAttributes().empty())
+    distributeTypeAttrsFromDeclarator(state, T);
 
   // Find the deduced type in this type. Look in the trailing return type if we
   // have one, otherwise in the DeclSpec type.
