@@ -348,6 +348,8 @@ private:
 //===----------------------------------------------------------------------===//
 
 LiveRange::iterator LiveRange::find(SlotIndex Pos) {
+  if (empty() || Pos >= endIndex())
+    return end();
   return llvm::partition(*this, [&](const Segment &X) { return X.end <= Pos; });
 }
 
