@@ -21,3 +21,20 @@ tablegen(LLVM IntrinsicsX86.h -gen-intrinsic-enums -intrinsic-prefix=x86)
 tablegen(LLVM IntrinsicsXCore.h -gen-intrinsic-enums -intrinsic-prefix=xcore)
 tablegen(LLVM IntrinsicsVE.h -gen-intrinsic-enums -intrinsic-prefix=ve)
 add_public_tablegen_target(intrinsics_gen)
+
+
+# TODO: Sanitize Trait list
+set(ENABLED_TRAITS_FILE ${CMAKE_CURRENT_BINARY_DIR}/Traits/EnabledTraits.def)
+add_custom_target(enabled_traits DEPENDS ${ENABLED_TRAITS_FILE})
+
+set(ENABLED_TRAITS_CONTENT "#undef ENABLE_TRAIT")
+foreach(t ${LLVM_OPTIMIZER_TRAITS_TO_INSTANTIATE})
+  set(ENABLED_TRAITS_CONTENT "ENABLE_TRAIT(${t})\n${ENABLED_TRAITS_CONTENT}")
+endforeach(t)
+file(GENERATE OUTPUT ${ENABLED_TRAITS_FILE} CONTENT ${ENABLED_TRAITS_CONTENT})
+
+set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES ${ENABLED_TRAITS_FILE})
+if(LLVM_COMMON_DEPENDS)
+  add_dependencies(enabled_traits ${LLVM_COMMON_DEPENDS})
+endif()
+set(LLVM_COMMON_DEPENDS ${LLVM_COMMON_DEPENDS} enabled_traits PARENT_SCOPE)

@@ -399,9 +399,7 @@ define float @fadd_fsub_common_op_wrong_commute_commute(float %x, float %y) #0 {
 
 define <2 x float> @fsub_fadd_common_op_vec(<2 x float> %x, <2 x float> %y) #0 {
 ; CHECK-LABEL: @fsub_fadd_common_op_vec(
-; CHECK-NEXT:    [[S:%.*]] = call <2 x float> @llvm.experimental.constrained.fsub.v2f32(<2 x float> [[X:%.*]], <2 x float> [[Y:%.*]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    [[R:%.*]] = call reassoc nsz <2 x float> @llvm.experimental.constrained.fadd.v2f32(<2 x float> [[Y]], <2 x float> [[S]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    ret <2 x float> [[R]]
+; CHECK-NEXT:    ret <2 x float> %x
 ;
   %s = call <2 x float> @llvm.experimental.constrained.fsub.v2f32(<2 x float> %x, <2 x float> %y, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
   %r = call reassoc nsz <2 x float> @llvm.experimental.constrained.fadd.v2f32(<2 x float> %y, <2 x float> %s, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
@@ -412,9 +410,7 @@ define <2 x float> @fsub_fadd_common_op_vec(<2 x float> %x, <2 x float> %y) #0 {
 
 define float @fsub_fadd_common_op_commute(float %x, float %y) #0 {
 ; CHECK-LABEL: @fsub_fadd_common_op_commute(
-; CHECK-NEXT:    [[S:%.*]] = call float @llvm.experimental.constrained.fsub.f32(float [[X:%.*]], float [[Y:%.*]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    [[R:%.*]] = call reassoc nsz float @llvm.experimental.constrained.fadd.f32(float [[S]], float [[Y]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    ret float [[R]]
+; CHECK-NEXT:    ret float %x
 ;
   %s = call float @llvm.experimental.constrained.fsub.f32(float %x, float %y, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
   %r = call reassoc nsz float @llvm.experimental.constrained.fadd.f32(float %s, float %y, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0

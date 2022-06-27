@@ -39,6 +39,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/IR/Traits/Traits.h"
+#include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/KnownBits.h"
 #include <algorithm>
 using namespace llvm;
@@ -58,8 +60,13 @@ static Value *simplifyFPUnOp(unsigned, Value *, const FastMathFlags &,
                              const SimplifyQuery &, unsigned);
 static Value *simplifyBinOp(unsigned, Value *, Value *, const SimplifyQuery &,
                             unsigned);
+template <typename Trait>
+static Value *simplifyBinOp(unsigned, Value *, Value *, const SimplifyQuery &,
+                            MatcherContext<Trait> &, unsigned);
+template <typename Trait>
 static Value *simplifyBinOp(unsigned, Value *, Value *, const FastMathFlags &,
-                            const SimplifyQuery &, unsigned);
+                            const SimplifyQuery &, MatcherContext<Trait> &,
+                            unsigned);
 static Value *simplifyCmpInst(unsigned, Value *, Value *, const SimplifyQuery &,
                               unsigned);
 static Value *simplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
@@ -287,33 +294,47 @@ static Value *expandCommutativeBinOp(Instruction::BinaryOps Opcode, Value *L,
 
 /// Generic simplifications for associative binary operations.
 /// Returns the simpler value, or null if none was found.
-static Value *simplifyAssociativeBinOp(Instruction::BinaryOps Opcode,
-                                       Value *LHS, Value *RHS,
-                                       const SimplifyQuery &Q,
-                                       unsigned MaxRecurse) {
+template <typename Trait>
+static Value *
+simplifyAssociativeBinOp(Instruction::BinaryOps Opcode, Value *LHS, Value *RHS,
+                         const SimplifyQuery &Q, MatcherContext<Trait> &Matcher,
+                         unsigned MaxRecurse) {
+  // This trait blocks re-association.
+  // Eg. any trait that adds side-effects may clash with free reassociation
+  // (FIXME are 'fpexcept.strict', 'fast' fp ops a thing?)
+  // FIXME associativity may depend on a trait parameter of this specific
+  // instance.
+  if (!Trait::AllowReassociation)
+    return nullptr;
+
   assert(Instruction::isAssociative(Opcode) && "Not an associative operation!");
 
   // Recursion is always used, so bail out at once if we already hit the limit.
   if (!MaxRecurse--)
     return nullptr;
 
-  BinaryOperator *Op0 = dyn_cast<BinaryOperator>(LHS);
-  BinaryOperator *Op1 = dyn_cast<BinaryOperator>(RHS);
+  auto *Op0 = trait_dyn_cast<Trait, BinaryOperator>(LHS);
+  auto *Op1 = trait_dyn_cast<Trait, BinaryOperator>(RHS);
 
   // Transform: "(A op B) op C" ==> "A op (B op C)" if it simplifies completely.
-  if (Op0 && Op0->getOpcode() == Opcode) {
+  MatcherContext<Trait> Op0Matcher(Matcher);
+  if (Op0Matcher.accept(Op0) && Op0->getOpcode() == Opcode) {
     Value *A = Op0->getOperand(0);
     Value *B = Op0->getOperand(1);
     Value *C = RHS;
 
     // Does "B op C" simplify?
-    if (Value *V = simplifyBinOp(Opcode, B, C, Q, MaxRecurse)) {
+    if (Value *V =
+            simplifyBinOp<Trait>(Opcode, B, C, Q, Op0Matcher, MaxRecurse)) {
       // It does!  Return "A op V" if it simplifies or is already available.
       // If V equals B then "A op V" is just the LHS.
-      if (V == B)
+      if (V == B) {
+        Matcher = Op0Matcher;
         return LHS;
+      }
       // Otherwise return "A op V" if it simplifies.
-      if (Value *W = simplifyBinOp(Opcode, A, V, Q, MaxRecurse)) {
+      if (Value *W = simplifyBinOp(Opcode, A, V, Q, Op0Matcher, MaxRecurse)) {
+        Matcher = Op0Matcher;
         ++NumReassoc;
         return W;
       }
@@ -321,19 +342,23 @@ static Value *simplifyAssociativeBinOp(Instruction::BinaryOps Opcode,
   }
 
   // Transform: "A op (B op C)" ==> "(A op B) op C" if it simplifies completely.
-  if (Op1 && Op1->getOpcode() == Opcode) {
+  MatcherContext<Trait> Op1Matcher(Matcher);
+  if (Op1Matcher.accept(Op1) && Op1->getOpcode() == Opcode) {
     Value *A = LHS;
     Value *B = Op1->getOperand(0);
     Value *C = Op1->getOperand(1);
 
     // Does "A op B" simplify?
-    if (Value *V = simplifyBinOp(Opcode, A, B, Q, MaxRecurse)) {
+    if (Value *V = simplifyBinOp(Opcode, A, B, Q, Op1Matcher, MaxRecurse)) {
       // It does!  Return "V op C" if it simplifies or is already available.
       // If V equals B then "V op C" is just the RHS.
-      if (V == B)
+      if (V == B) {
+        Matcher = Op1Matcher;
         return RHS;
+      }
       // Otherwise return "V op C" if it simplifies.
-      if (Value *W = simplifyBinOp(Opcode, V, C, Q, MaxRecurse)) {
+      if (Value *W = simplifyBinOp(Opcode, V, C, Q, Op1Matcher, MaxRecurse)) {
+        Matcher = Op1Matcher;
         ++NumReassoc;
         return W;
       }
@@ -341,23 +366,30 @@ static Value *simplifyAssociativeBinOp(Instruction::BinaryOps Opcode,
   }
 
   // The remaining transforms require commutativity as well as associativity.
+  // FIXME commutativity may depend on a trait parameter of this specific
+  // instance. Eg, matrix multiplication is associative but not commutative.
   if (!Instruction::isCommutative(Opcode))
     return nullptr;
 
   // Transform: "(A op B) op C" ==> "(C op A) op B" if it simplifies completely.
+  MatcherContext<Trait> CommOp0Matcher(Matcher);
   if (Op0 && Op0->getOpcode() == Opcode) {
     Value *A = Op0->getOperand(0);
     Value *B = Op0->getOperand(1);
     Value *C = RHS;
 
     // Does "C op A" simplify?
-    if (Value *V = simplifyBinOp(Opcode, C, A, Q, MaxRecurse)) {
+    if (Value *V = simplifyBinOp(Opcode, C, A, Q, CommOp0Matcher, MaxRecurse)) {
       // It does!  Return "V op B" if it simplifies or is already available.
       // If V equals A then "V op B" is just the LHS.
-      if (V == A)
+      if (V == A) {
+        Matcher = CommOp0Matcher;
         return LHS;
+      }
       // Otherwise return "V op B" if it simplifies.
-      if (Value *W = simplifyBinOp(Opcode, V, B, Q, MaxRecurse)) {
+      MatcherContext<Trait> VContext(Matcher);
+      if (Value *W = simplifyBinOp(Opcode, V, B, Q, VContext, MaxRecurse)) {
+        Matcher = VContext;
         ++NumReassoc;
         return W;
       }
@@ -385,6 +417,14 @@ static Value *simplifyAssociativeBinOp(Instruction::BinaryOps Opcode,
   }
 
   return nullptr;
+}
+
+static Value *simplifyAssociativeBinOp(Instruction::BinaryOps Opcode,
+                                       Value *LHS, Value *RHS,
+                                       const SimplifyQuery &Q,
+                                       unsigned MaxRecurse) {
+  MatcherContext<DefaultTrait> Matcher;
+  return simplifyAssociativeBinOp(Opcode, LHS, RHS, Q, Matcher, MaxRecurse);
 }
 
 /// In the case of a binary operation with a select instruction as an operand,
@@ -627,8 +667,11 @@ static Constant *foldOrCommuteConstant(Instruction::BinaryOps Opcode,
 
 /// Given operands for an Add, see if we can fold the result.
 /// If not, this returns null.
+template <typename Trait>
 static Value *simplifyAddInst(Value *Op0, Value *Op1, bool IsNSW, bool IsNUW,
-                              const SimplifyQuery &Q, unsigned MaxRecurse) {
+                              const SimplifyQuery &Q,
+                              MatcherContext<Trait> &Matcher,
+                              unsigned MaxRecurse) {
   if (Constant *C = foldOrCommuteConstant(Instruction::Add, Op0, Op1, Q))
     return C;
 
@@ -641,7 +684,7 @@ static Value *simplifyAddInst(Value *Op0, Value *Op1, bool IsNSW, bool IsNUW,
     return Op1;
 
   // X + 0 -> X
-  if (match(Op1, m_Zero()))
+  if (try_match(Op1, m_Zero(), Matcher))
     return Op0;
 
   // If two operands are negative, return 0.
@@ -652,24 +695,28 @@ static Value *simplifyAddInst(Value *Op0, Value *Op1, bool IsNSW, bool IsNUW,
   // (Y - X) + X -> Y
   // Eg: X + -X -> 0
   Value *Y = nullptr;
-  if (match(Op1, m_Sub(m_Value(Y), m_Specific(Op0))) ||
-      match(Op0, m_Sub(m_Value(Y), m_Specific(Op1))))
+  if (try_match(Op1, m_Sub(m_Value(Y), m_Specific(Op0)), Matcher) ||
+      try_match(Op0, m_Sub(m_Value(Y), m_Specific(Op1)), Matcher))
     return Y;
 
   // X + ~X -> -1   since   ~X = -X-1
   Type *Ty = Op0->getType();
-  if (match(Op0, m_Not(m_Specific(Op1))) || match(Op1, m_Not(m_Specific(Op0))))
+  if (try_match(Op0, m_Not(m_Specific(Op1)), Matcher) ||
+      try_match(Op1, m_Not(m_Specific(Op0)), Matcher))
     return Constant::getAllOnesValue(Ty);
 
   // add nsw/nuw (xor Y, signmask), signmask --> Y
   // The no-wrapping add guarantees that the top bit will be set by the add.
   // Therefore, the xor must be clearing the already set sign bit of Y.
-  if ((IsNSW || IsNUW) && match(Op1, m_SignMask()) &&
-      match(Op0, m_Xor(m_Value(Y), m_SignMask())))
+  MatcherContext<Trait> CopyMatch(Matcher);
+  if ((IsNSW || IsNUW) && match(Op1, m_SignMask(), CopyMatch) &&
+      match(Op0, m_Xor(m_Value(Y), m_SignMask()), CopyMatch)) {
+    Matcher = CopyMatch;
     return Y;
+  }
 
   // add nuw %x, -1  ->  -1, because %x can only be 0.
-  if (IsNUW && match(Op1, m_AllOnes()))
+  if (IsNUW && try_match(Op1, m_AllOnes(), Matcher))
     return Op1; // Which is -1.
 
   /// i1 add -> xor.
@@ -694,9 +741,12 @@ static Value *simplifyAddInst(Value *Op0, Value *Op1, bool IsNSW, bool IsNUW,
   return nullptr;
 }
 
+template <typename Trait>
 Value *llvm::simplifyAddInst(Value *Op0, Value *Op1, bool IsNSW, bool IsNUW,
-                             const SimplifyQuery &Query) {
-  return ::simplifyAddInst(Op0, Op1, IsNSW, IsNUW, Query, RecursionLimit);
+                             const SimplifyQuery &Query,
+                             MatcherContext<Trait> &Matcher) {
+  return ::simplifyAddInst<Trait>(Op0, Op1, IsNSW, IsNUW, Query, Matcher,
+                                  RecursionLimit);
 }
 
 /// Compute the base pointer and cumulative constant offsets for V.
@@ -5158,9 +5208,11 @@ static Constant *simplifyFPOp(ArrayRef<Value *> Ops, FastMathFlags FMF,
 
 /// Given operands for an FAdd, see if we can fold the result.  If not, this
 /// returns null.
+template <typename Trait>
 static Value *
 simplifyFAddInst(Value *Op0, Value *Op1, FastMathFlags FMF,
-                 const SimplifyQuery &Q, unsigned MaxRecurse,
+                 const SimplifyQuery &Q, MatcherContext<Trait> &Matcher,
+                 unsigned MaxRecurse,
                  fp::ExceptionBehavior ExBehavior = fp::ebIgnore,
                  RoundingMode Rounding = RoundingMode::NearestTiesToEven) {
   if (isDefaultFPEnvironment(ExBehavior, Rounding))
@@ -5178,12 +5230,12 @@ simplifyFAddInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   if (canIgnoreSNaN(ExBehavior, FMF) &&
       (!canRoundingModeBe(Rounding, RoundingMode::TowardNegative) ||
        FMF.noSignedZeros()))
-    if (match(Op1, m_NegZeroFP()))
+    if (try_match(Op1, m_NegZeroFP(), Matcher))
       return Op0;
 
   // fadd X, 0 ==> X, when we know X is not -0
   if (canIgnoreSNaN(ExBehavior, FMF))
-    if (match(Op1, m_PosZeroFP()) &&
+    if (try_match(Op1, m_PosZeroFP(), Matcher) &&
         (FMF.noSignedZeros() || CannotBeNegativeZero(Op0, Q.TLI)))
       return Op0;
 
@@ -5198,12 +5250,12 @@ simplifyFAddInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   // X =  0.0: (-0.0 - ( 0.0)) + ( 0.0) == (-0.0) + ( 0.0) == 0.0
   // X =  0.0: ( 0.0 - ( 0.0)) + ( 0.0) == ( 0.0) + ( 0.0) == 0.0
   if (FMF.noNaNs()) {
-    if (match(Op0, m_FSub(m_AnyZeroFP(), m_Specific(Op1))) ||
-        match(Op1, m_FSub(m_AnyZeroFP(), m_Specific(Op0))))
+    if (try_match(Op0, m_FSub(m_AnyZeroFP(), m_Specific(Op1)), Matcher) ||
+        try_match(Op1, m_FSub(m_AnyZeroFP(), m_Specific(Op0)), Matcher))
       return ConstantFP::getNullValue(Op0->getType());
 
-    if (match(Op0, m_FNeg(m_Specific(Op1))) ||
-        match(Op1, m_FNeg(m_Specific(Op0))))
+    if (try_match(Op0, m_FNeg(m_Specific(Op1)), Matcher) ||
+        try_match(Op1, m_FNeg(m_Specific(Op0)), Matcher))
       return ConstantFP::getNullValue(Op0->getType());
   }
 
@@ -5211,8 +5263,8 @@ simplifyFAddInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   // Y + (X - Y) --> X
   Value *X;
   if (FMF.noSignedZeros() && FMF.allowReassoc() &&
-      (match(Op0, m_FSub(m_Value(X), m_Specific(Op1))) ||
-       match(Op1, m_FSub(m_Value(X), m_Specific(Op0)))))
+      (try_match(Op0, m_FSub(m_Value(X), m_Specific(Op1)), Matcher) ||
+       try_match(Op1, m_FSub(m_Value(X), m_Specific(Op0)), Matcher)))
     return X;
 
   return nullptr;
@@ -5328,12 +5380,14 @@ simplifyFMulInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   return simplifyFMAFMul(Op0, Op1, FMF, Q, MaxRecurse, ExBehavior, Rounding);
 }
 
+template <typename Trait>
 Value *llvm::simplifyFAddInst(Value *Op0, Value *Op1, FastMathFlags FMF,
                               const SimplifyQuery &Q,
+                              MatcherContext<Trait> &Matcher,
                               fp::ExceptionBehavior ExBehavior,
                               RoundingMode Rounding) {
-  return ::simplifyFAddInst(Op0, Op1, FMF, Q, RecursionLimit, ExBehavior,
-                            Rounding);
+  return ::simplifyFAddInst<Trait>(Op0, Op1, FMF, Q, Matcher, RecursionLimit,
+                                   ExBehavior, Rounding);
 }
 
 Value *llvm::simplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
@@ -5492,11 +5546,14 @@ Value *llvm::simplifyUnOp(unsigned Opcode, Value *Op, FastMathFlags FMF,
 
 /// Given operands for a BinaryOperator, see if we can fold the result.
 /// If not, this returns null.
-static Value *simplifyBinOp(unsigned Opcode, Value *LHS, Value *RHS,
-                            const SimplifyQuery &Q, unsigned MaxRecurse) {
+template <typename Trait>
+static Value *
+simplifyBinOp(unsigned Opcode, Value *LHS, Value *RHS, const SimplifyQuery &Q,
+              MatcherContext<Trait> &Matcher, unsigned MaxRecurse) {
   switch (Opcode) {
   case Instruction::Add:
-    return simplifyAddInst(LHS, RHS, false, false, Q, MaxRecurse);
+    return simplifyAddInst<Trait>(LHS, RHS, false, false, Q, Matcher,
+                                  MaxRecurse);
   case Instruction::Sub:
     return simplifySubInst(LHS, RHS, false, false, Q, MaxRecurse);
   case Instruction::Mul:
@@ -5522,7 +5579,8 @@ static Value *simplifyBinOp(unsigned Opcode, Value *LHS, Value *RHS,
   case Instruction::Xor:
     return simplifyXorInst(LHS, RHS, Q, MaxRecurse);
   case Instruction::FAdd:
-    return simplifyFAddInst(LHS, RHS, FastMathFlags(), Q, MaxRecurse);
+    return simplifyFAddInst<Trait>(LHS, RHS, FastMathFlags(), Q, Matcher,
+                                   MaxRecurse);
   case Instruction::FSub:
     return simplifyFSubInst(LHS, RHS, FastMathFlags(), Q, MaxRecurse);
   case Instruction::FMul:
@@ -5536,15 +5594,23 @@ static Value *simplifyBinOp(unsigned Opcode, Value *LHS, Value *RHS,
   }
 }
 
+static Value *simplifyBinOp(unsigned Opcode, Value *LHS, Value *RHS,
+                            const SimplifyQuery &Q, unsigned MaxRecurse) {
+  MatcherContext<DefaultTrait> Matcher;
+  return simplifyBinOp<>(Opcode, LHS, RHS, Q, Matcher, MaxRecurse);
+}
+
 /// Given operands for a BinaryOperator, see if we can fold the result.
 /// If not, this returns null.
 /// Try to use FastMathFlags when folding the result.
+template <typename Trait>
 static Value *simplifyBinOp(unsigned Opcode, Value *LHS, Value *RHS,
                             const FastMathFlags &FMF, const SimplifyQuery &Q,
+                            MatcherContext<Trait> &Matcher,
                             unsigned MaxRecurse) {
   switch (Opcode) {
   case Instruction::FAdd:
-    return simplifyFAddInst(LHS, RHS, FMF, Q, MaxRecurse);
+    return simplifyFAddInst<Trait>(LHS, RHS, FMF, Q, Matcher, MaxRecurse);
   case Instruction::FSub:
     return simplifyFSubInst(LHS, RHS, FMF, Q, MaxRecurse);
   case Instruction::FMul:
@@ -5552,18 +5618,22 @@ static Value *simplifyBinOp(unsigned Opcode, Value *LHS, Value *RHS,
   case Instruction::FDiv:
     return simplifyFDivInst(LHS, RHS, FMF, Q, MaxRecurse);
   default:
-    return simplifyBinOp(Opcode, LHS, RHS, Q, MaxRecurse);
+    return simplifyBinOp<>(Opcode, LHS, RHS, Q, Matcher, MaxRecurse);
   }
 }
 
+template <typename Trait>
 Value *llvm::simplifyBinOp(unsigned Opcode, Value *LHS, Value *RHS,
-                           const SimplifyQuery &Q) {
-  return ::simplifyBinOp(Opcode, LHS, RHS, Q, RecursionLimit);
+                           const SimplifyQuery &Q,
+                           MatcherContext<Trait> &Matcher) {
+  return ::simplifyBinOp<>(Opcode, LHS, RHS, Q, Matcher, RecursionLimit);
 }
 
+template <typename Trait>
 Value *llvm::simplifyBinOp(unsigned Opcode, Value *LHS, Value *RHS,
-                           FastMathFlags FMF, const SimplifyQuery &Q) {
-  return ::simplifyBinOp(Opcode, LHS, RHS, FMF, Q, RecursionLimit);
+                           FastMathFlags FMF, const SimplifyQuery &Q,
+                           MatcherContext<Trait> &Matcher) {
+  return ::simplifyBinOp<>(Opcode, LHS, RHS, FMF, Q, Matcher, RecursionLimit);
 }
 
 /// Given operands for a CmpInst, see if we can fold the result.
@@ -6320,14 +6390,28 @@ static Value *simplifyLoadInst(LoadInst *LI, Value *PtrOp,
 /// See if we can compute a simplified version of this instruction.
 /// If not, this returns null.
 
-static Value *simplifyInstructionWithOperands(Instruction *I,
-                                              ArrayRef<Value *> NewOps,
-                                              const SimplifyQuery &SQ,
-                                              OptimizationRemarkEmitter *ORE) {
+// FIXME: this will break if masquerading intrinsics do not pass muster.
+template <typename Trait>
+Value *llvm::simplifyInstructionWithOperandsAndTrait(
+    Instruction *I, ArrayRef<Value *> NewOps, const SimplifyQuery &SQ,
+    OptimizationRemarkEmitter *ORE) {
   const SimplifyQuery Q = SQ.CxtI ? SQ : SQ.getWithInstruction(I);
   Value *Result = nullptr;
 
-  switch (I->getOpcode()) {
+  // Allow Traits to bail for cases we do not want to implement.
+  if (!Trait::consider(I))
+    return nullptr;
+
+  // Create an initial context rooted at I.
+  MatcherContext<Trait> Matcher;
+  if (!Matcher.accept(I))
+    return nullptr;
+
+  // Cast into the Trait type hierarchy since I may have a different opcode
+  // there.
+  // Eg llvm.*.constrained.fadd(%x, %y, %fpround, %fpexcept) is an 'fadd'.
+  const auto *TraitInst = trait_cast<Trait, Instruction>(I);
+  switch (TraitInst->getOpcode()) {
   default:
     if (llvm::all_of(NewOps, [](Value *V) { return isa<Constant>(V); })) {
       SmallVector<Constant *, 8> NewConstOps(NewOps.size());
@@ -6340,20 +6424,25 @@ static Value *simplifyInstructionWithOperands(Instruction *I,
     Result = simplifyFNegInst(NewOps[0], I->getFastMathFlags(), Q);
     break;
   case Instruction::FAdd:
-    Result = simplifyFAddInst(NewOps[0], NewOps[1], I->getFastMathFlags(), Q);
+    Result = simplifyFAddInst<Trait>(NewOps[0], NewOps[1],
+                                     I->getFastMathFlags(), Q, Matcher);
     break;
   case Instruction::Add:
-    Result = simplifyAddInst(
-        NewOps[0], NewOps[1], Q.IIQ.hasNoSignedWrap(cast<BinaryOperator>(I)),
-        Q.IIQ.hasNoUnsignedWrap(cast<BinaryOperator>(I)), Q);
+    Result = simplifyAddInst<Trait>(
+        NewOps[0], NewOps[1],
+        Q.IIQ.hasNoSignedWrap(trait_cast<Trait, BinaryOperator>(I)),
+        Q.IIQ.hasNoUnsignedWrap(trait_cast<Trait, BinaryOperator>(I)), Q,
+        Matcher);
     break;
   case Instruction::FSub:
     Result = simplifyFSubInst(NewOps[0], NewOps[1], I->getFastMathFlags(), Q);
     break;
   case Instruction::Sub:
+    // TODO: Add Trait abstraction
     Result = simplifySubInst(
-        NewOps[0], NewOps[1], Q.IIQ.hasNoSignedWrap(cast<BinaryOperator>(I)),
-        Q.IIQ.hasNoUnsignedWrap(cast<BinaryOperator>(I)), Q);
+        NewOps[0], NewOps[1],
+        Q.IIQ.hasNoSignedWrap(trait_cast<Trait, BinaryOperator>(I)),
+        Q.IIQ.hasNoUnsignedWrap(trait_cast<Trait, BinaryOperator>(I)), Q);
     break;
   case Instruction::FMul:
     Result = simplifyFMulInst(NewOps[0], NewOps[1], I->getFastMathFlags(), Q);
@@ -6381,8 +6470,9 @@ static Value *simplifyInstructionWithOperands(Instruction *I,
     break;
   case Instruction::Shl:
     Result = simplifyShlInst(
-        NewOps[0], NewOps[1], Q.IIQ.hasNoSignedWrap(cast<BinaryOperator>(I)),
-        Q.IIQ.hasNoUnsignedWrap(cast<BinaryOperator>(I)), Q);
+        NewOps[0], NewOps[1],
+        Q.IIQ.hasNoSignedWrap(trait_cast<Trait, BinaryOperator>(I)),
+        Q.IIQ.hasNoUnsignedWrap(trait_cast<Trait, BinaryOperator>(I)), Q);
     break;
   case Instruction::LShr:
     Result = simplifyLShrInst(NewOps[0], NewOps[1],
@@ -6402,12 +6492,13 @@ static Value *simplifyInstructionWithOperands(Instruction *I,
     Result = simplifyXorInst(NewOps[0], NewOps[1], Q);
     break;
   case Instruction::ICmp:
-    Result = simplifyICmpInst(cast<ICmpInst>(I)->getPredicate(), NewOps[0],
-                              NewOps[1], Q);
+    Result = simplifyICmpInst(trait_cast<Trait, ICmpInst>(I)->getPredicate(),
+                              NewOps[0], NewOps[1], Q);
     break;
   case Instruction::FCmp:
-    Result = simplifyFCmpInst(cast<FCmpInst>(I)->getPredicate(), NewOps[0],
-                              NewOps[1], I->getFastMathFlags(), Q);
+    Result = simplifyFCmpInst(trait_cast<Trait, FCmpInst>(I)->getPredicate(),
+                              NewOps[0], NewOps[1],
+                              TraitInst->getFastMathFlags(), Q);
     break;
   case Instruction::Select:
     Result = simplifySelectInst(NewOps[0], NewOps[1], NewOps[2], Q);
@@ -6457,7 +6548,8 @@ static Value *simplifyInstructionWithOperands(Instruction *I,
 #define HANDLE_CAST_INST(num, opc, clas) case Instruction::opc:
 #include "llvm/IR/Instruction.def"
 #undef HANDLE_CAST_INST
-    Result = simplifyCastInst(I->getOpcode(), NewOps[0], I->getType(), Q);
+    Result =
+        simplifyCastInst(TraitInst->getOpcode(), NewOps[0], I->getType(), Q);
     break;
   case Instruction::Alloca:
     // No simplifications for Alloca and it can't be constant folded.
@@ -6474,19 +6566,66 @@ static Value *simplifyInstructionWithOperands(Instruction *I,
   return Result == I ? UndefValue::get(I->getType()) : Result;
 }
 
+// Instantiate for all enabled traits.
+#define ENABLE_TRAIT(TRAIT)                                                    \
+  template Value *llvm::simplifyInstructionWithOperandsAndTrait<TRAIT>(        \
+      Instruction *, ArrayRef<Value *> NewOps, const SimplifyQuery &,          \
+      OptimizationRemarkEmitter *);                                            \
+  template Value *llvm::simplifyBinOp(unsigned, Value *, Value *,              \
+                                      const SimplifyQuery &,                   \
+                                      MatcherContext<TRAIT> &);                \
+  template Value *llvm::simplifyBinOp(unsigned, Value *, Value *,              \
+                                      FastMathFlags, const SimplifyQuery &,    \
+                                      MatcherContext<TRAIT> &);                \
+  template Value *llvm::simplifyFAddInst(                                      \
+      Value *, Value *, FastMathFlags, const SimplifyQuery &,                  \
+      MatcherContext<TRAIT> &, fp::ExceptionBehavior, RoundingMode);           \
+  template Value *llvm::simplifyAddInst(Value *, Value *, bool, bool,          \
+                                        const SimplifyQuery &,                 \
+                                        MatcherContext<TRAIT> &);
+#include "llvm/IR/Traits/EnabledTraits.def"
+
+Value *llvm::simplifyInstruction(Instruction *I, const SimplifyQuery &SQ,
+                                 OptimizationRemarkEmitter *ORE) {
+  SmallVector<Value *, 8> Ops(I->operands());
+
+  // Either all or no fp operations in a function are constrained.
+#define IF_HAS_TRAIT_CFPTrait                                                  \
+  if (CFPTrait::consider(I)) {                                                 \
+    if (auto *Result = simplifyInstructionWithOperandsAndTrait<CFPTrait>(      \
+            I, Ops, SQ, ORE))                                                  \
+      return Result;                                                           \
+  }
+  IF_HAS_TRAIT_CFPTrait
+
+  /// Vector-predicated code.
+  /// FIXME: We use a quick heuristics (is this a vector type?) for now.
+#define IF_HAS_TRAIT_VPTrait                                                   \
+  if (VPTrait::consider(I)) {                                                  \
+    if (auto *Result =                                                         \
+            simplifyInstructionWithOperandsAndTrait<VPTrait>(I, Ops, SQ, ORE)) \
+      return Result;                                                           \
+  }
+
+#define IF_HAS_TRAIT_EmptyTrait
+
+#define ENABLE_TRAIT(V) IF_HAS_TRAIT_##V
+#include "llvm/IR/Traits/EnabledTraits.def"
+
+      // Regardless of the EnabledTraits.def file - always instantiate for the
+      // empty trait.
+      return simplifyInstructionWithOperandsAndTrait<EmptyTrait>(I, Ops, SQ,
+                                                                 ORE);
+}
+
 Value *llvm::simplifyInstructionWithOperands(Instruction *I,
                                              ArrayRef<Value *> NewOps,
                                              const SimplifyQuery &SQ,
                                              OptimizationRemarkEmitter *ORE) {
   assert(NewOps.size() == I->getNumOperands() &&
          "Number of operands should match the instruction!");
-  return ::simplifyInstructionWithOperands(I, NewOps, SQ, ORE);
-}
-
-Value *llvm::simplifyInstruction(Instruction *I, const SimplifyQuery &SQ,
-                                 OptimizationRemarkEmitter *ORE) {
-  SmallVector<Value *, 8> Ops(I->operands());
-  return ::simplifyInstructionWithOperands(I, Ops, SQ, ORE);
+  return ::simplifyInstructionWithOperandsAndTrait<DefaultTrait>(I, NewOps, SQ,
+                                                                 ORE);
 }
 
 /// Implementation of recursive simplification through an instruction's

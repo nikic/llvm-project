@@ -72,6 +72,7 @@ add_llvm_component_library(LLVMCore
 
   DEPENDS
   intrinsics_gen
+  enabled_traits
 
   LINK_COMPONENTS
   BinaryFormat

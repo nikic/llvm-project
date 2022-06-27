@@ -150,6 +150,7 @@ add_llvm_component_library(LLVMAnalysis
 
   DEPENDS
   intrinsics_gen
+  enabled_traits
   ${MLDeps}
 
   LINK_LIBS

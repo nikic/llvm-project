@@ -197,7 +197,20 @@ Value *InstrProfIncrementInst::getStep() const {
   return ConstantInt::get(Type::getInt64Ty(Context), 1);
 }
 
+bool ConstrainedFPIntrinsic::hasRoundingMode() const {
+  switch (getIntrinsicID()) {
+  default:
+    return false;
+#define INSTRUCTION(N, A, R, I)                                                \
+  case Intrinsic::I:                                                           \
+    return R;
+#include "llvm/IR/ConstrainedOps.def"
+  }
+}
+
 Optional<RoundingMode> ConstrainedFPIntrinsic::getRoundingMode() const {
+  if (!hasRoundingMode())
+    return None;
   unsigned NumOperands = arg_size();
   Metadata *MD = nullptr;
   auto *MAV = dyn_cast<MetadataAsValue>(getArgOperand(NumOperands - 2));
@@ -260,6 +273,21 @@ static FCmpInst::Predicate getFPPredicateFromMD(const Value *Op) {
 
 FCmpInst::Predicate ConstrainedFPCmpIntrinsic::getPredicate() const {
   return getFPPredicateFromMD(getArgOperand(2));
+}
+
+Optional<unsigned> ConstrainedFPIntrinsic::getFunctionalOpcode() const {
+  switch (getIntrinsicID()) {
+  default:
+    // Just some intrinsic call
+    return None;
+
+#define DAG_FUNCTION(OPC, FPEXCEPT, FPROUND, INTRIN, SD)
+
+#define DAG_INSTRUCTION(OPC, FPEXCEPT, FPROUND, INTRIN, SD)                    \
+  case Intrinsic::INTRIN:                                                      \
+    return OPC;
+#include "llvm/IR/ConstrainedOps.def"
+  }
 }
 
 bool ConstrainedFPIntrinsic::isUnaryOp() const {

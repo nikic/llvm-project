@@ -58,9 +58,7 @@ define float @no_mul_zero_3(float %a) #0 {
 
 define float @fadd_binary_fnegx(float %x) #0 {
 ; CHECK-LABEL: @fadd_binary_fnegx(
-; CHECK-NEXT:    [[NEGX:%.*]] = call float @llvm.experimental.constrained.fsub.f32(float -0.000000e+00, float [[X:%.*]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    [[R:%.*]] = call nnan float @llvm.experimental.constrained.fadd.f32(float [[NEGX]], float [[X]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    ret float [[R]]
+; CHECK-NEXT:    ret float 0.000000e+00
 ;
   %negx = call float @llvm.experimental.constrained.fsub.f32(float -0.0, float %x, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
   %r = call nnan float @llvm.experimental.constrained.fadd.f32(float %negx, float %x, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
@@ -80,9 +78,7 @@ define float @fadd_unary_fnegx(float %x) #0 {
 
 define <2 x float> @fadd_binary_fnegx_commute_vec(<2 x float> %x) #0 {
 ; CHECK-LABEL: @fadd_binary_fnegx_commute_vec(
-; CHECK-NEXT:    [[NEGX:%.*]] = call <2 x float> @llvm.experimental.constrained.fsub.v2f32(<2 x float> <float -0.000000e+00, float -0.000000e+00>, <2 x float> [[X:%.*]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    [[R:%.*]] = call nnan <2 x float> @llvm.experimental.constrained.fadd.v2f32(<2 x float> [[X]], <2 x float> [[NEGX]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    ret <2 x float> [[R]]
+; CHECK-NEXT:    ret <2 x float> zeroinitializer
 ;
   %negx = call <2 x float> @llvm.experimental.constrained.fsub.v2f32(<2 x float> <float -0.0, float -0.0>, <2 x float> %x, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
   %r = call nnan <2 x float> @llvm.experimental.constrained.fadd.v2f32(<2 x float> %x, <2 x float> %negx, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
@@ -100,9 +96,7 @@ define <2 x float> @fadd_unary_fnegx_commute_vec(<2 x float> %x) #0 {
 
 define <2 x float> @fadd_fnegx_commute_vec_undef(<2 x float> %x) #0 {
 ; CHECK-LABEL: @fadd_fnegx_commute_vec_undef(
-; CHECK-NEXT:    [[NEGX:%.*]] = call <2 x float> @llvm.experimental.constrained.fsub.v2f32(<2 x float> <float undef, float -0.000000e+00>, <2 x float> [[X:%.*]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    [[R:%.*]] = call nnan <2 x float> @llvm.experimental.constrained.fadd.v2f32(<2 x float> [[X]], <2 x float> [[NEGX]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    ret <2 x float> [[R]]
+; CHECK-NEXT:    ret <2 x float> zeroinitializer
 ;
   %negx = call <2 x float> @llvm.experimental.constrained.fsub.v2f32(<2 x float> <float undef, float -0.0>, <2 x float> %x, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
   %r = call nnan <2 x float> @llvm.experimental.constrained.fadd.v2f32(<2 x float> %x, <2 x float> %negx, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
@@ -160,9 +154,7 @@ define float @fadd_unary_fneg_nan_commute(float %x) #0 {
 
 define float @fadd_fsub_nnan_ninf(float %x) #0 {
 ; CHECK-LABEL: @fadd_fsub_nnan_ninf(
-; CHECK-NEXT:    [[SUB:%.*]] = call nnan ninf float @llvm.experimental.constrained.fsub.f32(float 0.000000e+00, float [[X:%.*]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    [[ZERO:%.*]] = call nnan ninf float @llvm.experimental.constrained.fadd.f32(float [[X]], float [[SUB]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    ret float [[ZERO]]
+; CHECK-NEXT:    ret float 0.0
 ;
   %sub = call nnan ninf float @llvm.experimental.constrained.fsub.f32(float 0.0, float %x, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
   %zero = call nnan ninf float @llvm.experimental.constrained.fadd.f32(float %x, float %sub, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
@@ -173,9 +165,7 @@ define float @fadd_fsub_nnan_ninf(float %x) #0 {
 
 define <2 x float> @fadd_fsub_nnan_ninf_commute_vec(<2 x float> %x) #0 {
 ; CHECK-LABEL: @fadd_fsub_nnan_ninf_commute_vec(
-; CHECK-NEXT:    [[SUB:%.*]] = call <2 x float> @llvm.experimental.constrained.fsub.v2f32(<2 x float> zeroinitializer, <2 x float> [[X:%.*]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    [[ZERO:%.*]] = call nnan ninf <2 x float> @llvm.experimental.constrained.fadd.v2f32(<2 x float> [[SUB]], <2 x float> [[X]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    ret <2 x float> [[ZERO]]
+; CHECK-NEXT:    ret <2 x float> zeroinitializer
 ;
   %sub = call <2 x float> @llvm.experimental.constrained.fsub.v2f32(<2 x float> zeroinitializer, <2 x float> %x, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
   %zero = call nnan ninf <2 x float> @llvm.experimental.constrained.fadd.v2f32(<2 x float> %sub, <2 x float> %x, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
@@ -187,9 +177,7 @@ define <2 x float> @fadd_fsub_nnan_ninf_commute_vec(<2 x float> %x) #0 {
 
 define float @fadd_fsub_nnan(float %x) #0 {
 ; CHECK-LABEL: @fadd_fsub_nnan(
-; CHECK-NEXT:    [[SUB:%.*]] = call float @llvm.experimental.constrained.fsub.f32(float 0.000000e+00, float [[X:%.*]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    [[ZERO:%.*]] = call nnan float @llvm.experimental.constrained.fadd.f32(float [[SUB]], float [[X]], metadata !"round.tonearest", metadata !"fpexcept.ignore") #[[ATTR0]]
-; CHECK-NEXT:    ret float [[ZERO]]
+; CHECK-NEXT:    ret float 0.0
 ;
   %sub = call float @llvm.experimental.constrained.fsub.f32(float 0.0, float %x, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0
   %zero = call nnan float @llvm.experimental.constrained.fadd.f32(float %sub, float %x, metadata !"round.tonearest", metadata !"fpexcept.ignore") #0

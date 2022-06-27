@@ -511,6 +511,9 @@ option(LLVM_ENABLE_EXPENSIVE_CHECKS "Enable expensive checks" OFF)
 # SVE/SVE2 or other scalable vector architectures.
 option(LLVM_ENABLE_STRICT_FIXED_SIZE_VECTORS
        "Enable assertions that type is not scalable in implicit conversion from TypeSize to uint64_t and calls to getNumElements" OFF)
+set(LLVM_OPTIMIZER_TRAITS_TO_INSTANTIATE "all"
+       CACHE STRING "Semicolon-separated list of traits to instantiate in instruction simplification passes, or \"all\".")
+set(LLVM_ALL_OPTIMIZER_TRAITS "EmptyTrait;VPTrait;CFPTrait")
 
 set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING
   "Enable abi-breaking checks.  Can be WITH_ASSERTS, FORCE_ON or FORCE_OFF.")

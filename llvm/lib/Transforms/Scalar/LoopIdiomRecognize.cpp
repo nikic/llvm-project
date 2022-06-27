@@ -2248,6 +2248,11 @@ template <typename SubPattern_t> struct match_LoopInvariant {
   match_LoopInvariant(const SubPattern_t &SP, const Loop *L)
       : SubPattern(SP), L(L) {}
 
+  // FIXME: Existing trait-unaware patterns should keep working without code changes.
+  template <typename ITy, typename Trait=DefaultTrait> bool match(ITy *V, MatcherContext<Trait> &MContext) {
+    return L->isLoopInvariant(V) && SubPattern.match(V, MContext);
+  }
+
   template <typename ITy> bool match(ITy *V) {
     return L->isLoopInvariant(V) && SubPattern.match(V);
   }
