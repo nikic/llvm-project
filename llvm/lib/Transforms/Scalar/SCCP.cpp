@@ -197,7 +197,8 @@ static bool removeNonFeasibleEdges(const SCCPSolver &Solver, BasicBlock *BB,
 // runSCCP() - Run the Sparse Conditional Constant Propagation algorithm,
 // and return true if the function was modified.
 static bool runSCCP(Function &F, const DataLayout &DL,
-                    const TargetLibraryInfo *TLI, DomTreeUpdater &DTU) {
+                    const TargetLibraryInfo *TLI, DomTreeUpdater &DTU,
+                    bool &ChangedCFG) {
   LLVM_DEBUG(dbgs() << "SCCP on function '" << F.getName() << "'\n");
   SCCPSolver Solver(
       DL, [TLI](Function &F) -> const TargetLibraryInfo & { return *TLI; },
@@ -231,7 +232,7 @@ static bool runSCCP(Function &F, const DataLayout &DL,
       LLVM_DEBUG(dbgs() << "  BasicBlock Dead:" << BB);
       ++NumDeadBlocks;
       BlocksToErase.push_back(&BB);
-      MadeChanges = true;
+      ChangedCFG = true;
       continue;
     }
 
@@ -246,13 +247,13 @@ static bool runSCCP(Function &F, const DataLayout &DL,
 
   BasicBlock *NewUnreachableBB = nullptr;
   for (BasicBlock &BB : F)
-    MadeChanges |= removeNonFeasibleEdges(Solver, &BB, DTU, NewUnreachableBB);
+    ChangedCFG |= removeNonFeasibleEdges(Solver, &BB, DTU, NewUnreachableBB);
 
   for (BasicBlock *DeadBB : BlocksToErase)
     if (!DeadBB->hasAddressTaken())
       DTU.deleteBB(DeadBB);
 
-  return MadeChanges;
+  return MadeChanges || ChangedCFG;
 }
 
 PreservedAnalyses SCCPPass::run(Function &F, FunctionAnalysisManager &AM) {
@@ -260,11 +261,15 @@ PreservedAnalyses SCCPPass::run(Function &F, FunctionAnalysisManager &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto *DT = AM.getCachedResult<DominatorTreeAnalysis>(F);
   DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
-  if (!runSCCP(F, DL, &TLI, DTU))
+  bool ChangedCFG = false;
+  if (!runSCCP(F, DL, &TLI, DTU, ChangedCFG))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();
-  PA.preserve<DominatorTreeAnalysis>();
+  if (ChangedCFG)
+    PA.preserve<DominatorTreeAnalysis>();
+  else
+    PA.preserveSet<CFGAnalyses>();
   return PA;
 }
 
@@ -301,7 +306,8 @@ public:
     auto *DTWP = getAnalysisIfAvailable<DominatorTreeWrapperPass>();
     DomTreeUpdater DTU(DTWP ? &DTWP->getDomTree() : nullptr,
                        DomTreeUpdater::UpdateStrategy::Lazy);
-    return runSCCP(F, DL, TLI, DTU);
+    bool ChangedCFG = false;
+    return runSCCP(F, DL, TLI, DTU, ChangedCFG);
   }
 };
 
