@@ -748,6 +748,14 @@ FunctionModRefBehavior BasicAAResult::getModRefBehavior(const CallBase *Call) {
     // Can't do better than this.
     return FMRB_DoesNotAccessMemory;
 
+  // readnone meant to not access memory. However, it was used accidently for
+  // thread identification. It was fine before we introduced coroutines. Since
+  // coroutine may resume in different threads. So we decide to treat readnone
+  // attribute in presplit coroutine as readonly.
+  if (Call->hasFnAttr(Attribute::ReadNone) &&
+      Call->getFunction()->isPresplitCoroutine())
+    return FMRB_OnlyReadsMemory;
+
   FunctionModRefBehavior Min = FMRB_UnknownModRefBehavior;
 
   // If the callsite knows it only reads memory, don't return worse

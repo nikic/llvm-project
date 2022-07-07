@@ -1848,7 +1848,14 @@ public:
   bool isNoInline() const { return hasFnAttr(Attribute::NoInline); }
   void setIsNoInline() { addFnAttr(Attribute::NoInline); }
   /// Determine if the call does not access memory.
-  bool doesNotAccessMemory() const { return hasFnAttr(Attribute::ReadNone); }
+  bool doesNotAccessMemory() const {
+    return hasFnAttr(Attribute::ReadNone) &&
+           // If the call lives in presplit coroutine, we couldn't assume the
+           // call wouldn't access memory even if it has readnone attribute.
+           // Since readnone could be used for thread identification and
+           // coroutines might resume in different threads.
+           (!getFunction() || !getFunction()->isPresplitCoroutine());
+  }
   void setDoesNotAccessMemory() { addFnAttr(Attribute::ReadNone); }
 
   /// Determine if the call does not access or only reads memory.
@@ -1860,7 +1867,10 @@ public:
 
   /// Determine if the call does not access or only writes memory.
   bool onlyWritesMemory() const {
-    return hasImpliedFnAttr(Attribute::WriteOnly);
+    return hasImpliedFnAttr(Attribute::WriteOnly) &&
+           // See the comments in doesNotAccessMemory. Due to readnone implies
+           // writeonly.
+           (!getFunction() || !getFunction()->isPresplitCoroutine());
   }
   void setOnlyWritesMemory() { addFnAttr(Attribute::WriteOnly); }
 

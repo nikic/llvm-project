@@ -1939,6 +1939,8 @@ example:
     or has other side-effects, the behavior is undefined. If a
     function reads from or writes to a readnone pointer argument, the behavior
     is undefined.
+
+    Note that the readnone calls may access ``thread-id`` in a presplit coroutine.
 ``readonly``
     On a function, this attribute indicates that the function does not write
     through any pointer arguments (including ``byval`` arguments) or otherwise

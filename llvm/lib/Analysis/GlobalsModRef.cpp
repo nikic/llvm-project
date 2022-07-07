@@ -263,7 +263,11 @@ GlobalsAAResult::getModRefBehavior(const CallBase *Call) {
   if (!Call->hasOperandBundles())
     if (const Function *F = Call->getCalledFunction())
       if (FunctionInfo *FI = getFunctionInfo(F)) {
-        if (!isModOrRefSet(FI->getModRefInfo()))
+        if (!isModOrRefSet(FI->getModRefInfo()) &&
+            // When the call lives in presplit coroutine, we couldn't assume it
+            // to not access memory even if the callee is marked as readnone.
+            // Since a coroutine might resume in different threads.
+            !Call->getFunction()->isPresplitCoroutine())
           Min = FMRB_DoesNotAccessMemory;
         else if (!isModSet(FI->getModRefInfo()))
           Min = FMRB_OnlyReadsMemory;

@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Instructions.h"
+#include "llvm-c/Core.h"
 #include "llvm/ADT/CombinationGenerator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -20,13 +21,13 @@
 #include "llvm/IR/FPEnv.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/NoFolder.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm-c/Core.h"
 #include "gmock/gmock-matchers.h"
 #include "gtest/gtest.h"
 #include <memory>
@@ -1693,6 +1694,41 @@ TEST(InstructionsTest, AllocaInst) {
   EXPECT_EQ(F.getAllocationSizeInBits(DL), TypeSize::getFixed(32));
   EXPECT_EQ(G.getAllocationSizeInBits(DL), TypeSize::getFixed(768));
   EXPECT_EQ(H.getAllocationSizeInBits(DL), TypeSize::getFixed(160));
+}
+
+static Instruction *getInstructionByName(Function &F, StringRef Name) {
+  for (auto &I : instructions(F))
+    if (I.getName() == Name)
+      return &I;
+  llvm_unreachable("Expected to find instruction!");
+}
+
+TEST(InstructionsTest, CallInstInPresplitCoroutine) {
+  LLVMContext Ctx;
+  std::unique_ptr<Module> M = parseIR(Ctx, R"(
+      define void @f() "coroutine.presplit"  {
+      entry:
+        %ReadNoneCall = call i32 @readnone_func() readnone
+        %WriteOnlyCall = call i32 @writeonly_func() writeonly
+        ret void
+      }
+
+      declare i32 @readnone_func() readnone
+      declare i32 @writeonly_func() writeonly
+    )");
+
+  ASSERT_TRUE(M);
+  Function *F = M->getFunction("f");
+  CallInst *ReadNoneCall =
+      cast<CallInst>(getInstructionByName(*F, "ReadNoneCall"));
+  CallInst *WriteOnlyCall =
+      cast<CallInst>(getInstructionByName(*F, "WriteOnlyCall"));
+
+  EXPECT_FALSE(ReadNoneCall->doesNotAccessMemory());
+  EXPECT_FALSE(ReadNoneCall->onlyWritesMemory());
+  EXPECT_TRUE(ReadNoneCall->onlyReadsMemory());
+
+  EXPECT_FALSE(WriteOnlyCall->onlyWritesMemory());
 }
 
 } // end anonymous namespace

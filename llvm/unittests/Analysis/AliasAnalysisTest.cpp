@@ -366,6 +366,33 @@ TEST_F(AliasAnalysisTest, PartialAliasOffsetSign) {
   EXPECT_EQ(AR, AliasResult::PartialAlias);
   EXPECT_EQ(-1, AR.getOffset());
 }
+
+TEST_F(AliasAnalysisTest, AAInCoroutines) {
+  LLVMContext C;
+  SMDiagnostic Err;
+  std::unique_ptr<Module> M = parseAssemblyString(R"(
+      define void @f() "coroutine.presplit"  {
+      entry:
+        %ReadNoneCall = call i32 @readnone_func() readnone
+        ret void
+      }
+
+      declare i32 @readnone_func() readnone
+    )",
+                                                  Err, C);
+
+  ASSERT_TRUE(M);
+  Function *F = M->getFunction("f");
+  CallInst *ReadNoneCall =
+      cast<CallInst>(getInstructionByName(*F, "ReadNoneCall"));
+
+  auto &AA = getAAResults(*F);
+  EXPECT_FALSE(AA.doesNotAccessMemory(ReadNoneCall));
+  EXPECT_TRUE(AA.onlyReadsMemory(ReadNoneCall));
+
+  EXPECT_EQ(FMRB_OnlyReadsMemory, AA.getModRefBehavior(ReadNoneCall));
+}
+
 class AAPassInfraTest : public testing::Test {
 protected:
   LLVMContext C;

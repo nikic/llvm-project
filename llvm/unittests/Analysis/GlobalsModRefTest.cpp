@@ -11,6 +11,8 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/AsmParser/Parser.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/SourceMgr.h"
 #include "gtest/gtest.h"
 
@@ -55,4 +57,41 @@ TEST(GlobalsModRef, OptNone) {
   EXPECT_EQ(FMRB_UnknownModRefBehavior, AAR.getModRefBehavior(&F1));
   EXPECT_EQ(FMRB_DoesNotAccessMemory, AAR.getModRefBehavior(&F2));
   EXPECT_EQ(FMRB_OnlyReadsMemory, AAR.getModRefBehavior(&F3));
+}
+
+static Instruction *getInstructionByName(Function &F, StringRef Name) {
+  for (auto &I : instructions(F))
+    if (I.getName() == Name)
+      return &I;
+  llvm_unreachable("Expected to find instruction!");
+}
+
+TEST(GlobalsModRef, ReadNoneInCoroutines) {
+  LLVMContext C;
+  SMDiagnostic Err;
+  std::unique_ptr<Module> M = parseAssemblyString(R"(
+      define void @f() "coroutine.presplit"  {
+      entry:
+        %ReadNoneCall = call i32 @readnone_func() readnone
+        ret void
+      }
+
+      declare i32 @readnone_func() readnone
+    )",
+                                                  Err, C);
+
+  ASSERT_TRUE(M);
+  Function *F = M->getFunction("f");
+
+  Triple Trip(M->getTargetTriple());
+  TargetLibraryInfoImpl TLII(Trip);
+  TargetLibraryInfo TLI(TLII);
+  auto GetTLI = [&TLI](Function &F) -> TargetLibraryInfo & { return TLI; };
+  llvm::CallGraph CG(*M);
+
+  auto AAR = GlobalsAAResult::analyzeModule(*M, GetTLI, CG);
+  CallInst *ReadNoneCall =
+      cast<CallInst>(getInstructionByName(*F, "ReadNoneCall"));
+
+  EXPECT_EQ(FMRB_OnlyReadsMemory, AAR.getModRefBehavior(ReadNoneCall));
 }
