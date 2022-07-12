@@ -485,6 +485,9 @@ namespace llvm {
   /// predicate mask.
   FunctionPass *createExpandVectorPredicationPass();
 
+  // Expands large div/rem instructions.
+  FunctionPass *createExpandLargeDivRemPass();
+
   // This pass expands memcmp() to load/stores.
   FunctionPass *createExpandMemCmpPass();
 

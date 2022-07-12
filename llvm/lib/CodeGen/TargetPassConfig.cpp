@@ -856,6 +856,7 @@ void TargetPassConfig::addIRPasses() {
   if (!DisableVerify)
     addPass(createVerifierPass());
 
+
   if (getOptLevel() != CodeGenOpt::None) {
     switch (UseCFLAA) {
     case CFLAAType::Steensgaard:
@@ -1112,6 +1113,7 @@ bool TargetPassConfig::addISelPasses() {
     addPass(createLowerEmuTLSPass());
 
   addPass(createPreISelIntrinsicLoweringPass());
+  addPass(createExpandLargeDivRemPass());
   PM->add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
   addIRPasses();
   addCodeGenPrepare();
