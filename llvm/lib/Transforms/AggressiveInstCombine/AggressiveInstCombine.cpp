@@ -427,6 +427,191 @@ static bool tryToFPToSat(Instruction &I, TargetTransformInfo &TTI) {
   return true;
 }
 
+/// This is used by foldConsecutiveLoads() to capture a Root Load node which is
+/// of type or(load, load) and recursively build the wide load. Also capture the
+/// shift amount and loadSize.
+struct LoadOps {
+  LoadInst *Root = nullptr;
+  bool FoundRoot = false;
+  uint64_t LoadSize = 0;
+  Value *Shift = nullptr;
+  Type *zext;
+};
+
+// Identify and Merge consecutive loads of the form
+// 1. (zExt(L1) << shift1) | (zExt(L2) << shift2) -> zExt(L3) << shift1
+// 2. (? | (zExt(L1) << shift1)) | (zExt(L2) << shift2) -> ? | (zExt(L3) <<
+// shift1)
+static bool foldConsecutiveLoads(Value *V, LoadOps &LOps, const DataLayout &DL,
+                                 DominatorTree &DT) {
+  Value *ShAmt2 = nullptr;
+  Value *X, *Y;
+
+  // Go to the last node with loads.
+  if (match(V,
+            m_c_Or(m_Value(X), m_OneUse(m_Shl(m_Value(Y), m_Value(ShAmt2))))))
+    foldConsecutiveLoads(X, LOps, DL, DT);
+  else
+    return false;
+
+  Instruction *L1, *L2;
+  LoadInst *LI1, *LI2;
+  Value *ShAmt1 = nullptr;
+
+  // Check if the pattern has loads
+  if (match(Y, m_OneUse(m_ZExt(m_OneUse(m_Instruction(L2)))))) {
+    LI1 = LOps.Root;
+    ShAmt1 = LOps.Shift;
+    if (LOps.FoundRoot == false &&
+        (match(X, m_OneUse(m_ZExt(m_Instruction(L1)))) ||
+         match(X, m_OneUse(m_Shl(m_OneUse(m_ZExt(m_OneUse(m_Instruction(L1)))),
+                                 m_Value(ShAmt1)))))) {
+      LI1 = dyn_cast<LoadInst>(L1);
+    }
+    LI2 = dyn_cast<LoadInst>(L2);
+
+    // Check if loads are same, atomic or volatile.
+    if ((LI1 == LI2) || !LI1 || !LI2 || (!LI1->isSimple() && !LI2->isSimple()))
+      return false;
+
+    // Find the data layout
+    bool IsBigEndian = DL.isBigEndian();
+
+    // Check if loads are consecutive and same size.
+    Value *Op1 = LI1->getOperand(0);
+    Value *Op2 = LI2->getOperand(0);
+
+    // Is second Load a GEP
+    Value *Load2Ptr;
+    uint64_t Idx2 = 0;
+    uint64_t Src2Type = 0;
+    GetElementPtrInst *GEP2 = nullptr;
+    if (isa<GetElementPtrInst>(Op2)) {
+      GEP2 = dyn_cast<GetElementPtrInst>(Op2);
+      Load2Ptr = GEP2->getPointerOperand();
+      if (ConstantInt *CI = dyn_cast<ConstantInt>(GEP2->getOperand(1)))
+        Idx2 = CI->getZExtValue();
+      Src2Type = DL.getTypeStoreSizeInBits(GEP2->getSourceElementType());
+    } else
+      // Considering this then a direct load from pointer.
+      Load2Ptr = LI2->getPointerOperand();
+
+    // Is first Load a GEP
+    Value *Load1Ptr;
+    uint64_t Idx1 = 0;
+    uint64_t Src1Type = 0;
+    GetElementPtrInst *GEP1 = nullptr;
+    if (isa<GetElementPtrInst>(Op1)) {
+      GEP1 = dyn_cast<GetElementPtrInst>(Op1);
+      Load1Ptr = GEP1->getPointerOperand();
+      if (ConstantInt *CI = dyn_cast<ConstantInt>(GEP1->getOperand(1)))
+        Idx1 = CI->getZExtValue();
+      Src1Type = DL.getTypeStoreSizeInBits(GEP1->getSourceElementType());
+    } else
+      // Considering this then a direct load from pointer.
+      Load1Ptr = LI1->getPointerOperand();
+
+    if ((GEP1 && GEP2) && (Src1Type != Src2Type))
+      return false;
+
+    // Verify if both loads have same base pointers and load sizes are same.
+    uint64_t loadSize1 = DL.getTypeStoreSizeInBits(LI1->getType());
+    uint64_t loadSize2 = DL.getTypeStoreSizeInBits(LI2->getType());
+    if ((Load1Ptr != Load2Ptr) || (loadSize1 != loadSize2))
+      return false;
+
+    // Big endian swap the shifts
+    if (IsBigEndian)
+      std::swap(ShAmt1, ShAmt2);
+
+    // Find Shifts values.
+    const APInt *Temp;
+    uint64_t Shift1 = 0, Shift2 = 0;
+    if (ShAmt1 && match(ShAmt1, m_APInt(Temp)))
+      Shift1 = Temp->getZExtValue();
+    if (ShAmt2 && match(ShAmt2, m_APInt(Temp)))
+      Shift2 = Temp->getZExtValue();
+
+    if (LOps.FoundRoot)
+      loadSize1 = LOps.LoadSize;
+
+    // Verify if shift amount and load index aligns and verifies that loads
+    // are consecutive.
+    uint64_t ShiftDiff = IsBigEndian ? loadSize2 : loadSize1;
+    if (!(((Shift2 - Shift1) == ShiftDiff) &&
+          (((Idx2 * Src2Type) - (Idx1 * Src1Type)) == loadSize1)))
+      return false;
+
+    // Update LOps
+    if (LOps.FoundRoot == false) {
+      LOps.FoundRoot = true;
+      LOps.LoadSize = loadSize1 + loadSize2;
+    } else
+      LOps.LoadSize = LOps.LoadSize + loadSize2;
+
+    LOps.Root = LI1;
+    LOps.Shift = ShAmt1;
+    LOps.zext = X->getType();
+    return true;
+  }
+  return false;
+}
+
+static bool foldLoadsIterative(Instruction &I, const DataLayout &DL,
+                               DominatorTree &DT, TargetTransformInfo &TTI) {
+  LoadOps LOps;
+  if (!foldConsecutiveLoads((Value *)(&I), LOps, DL, DT) || !LOps.FoundRoot)
+    return false;
+
+  IRBuilder<> Builder(&I);
+  Value *NewOp;
+  LoadInst *NewLoad, *LI1;
+  LI1 = LOps.Root;
+
+  // TTI based checks if we want to proceed with wider load
+  bool Allows = TTI.isTypeLegal(IntegerType::get(I.getContext(), LOps.LoadSize));
+  if (!Allows)
+    return false;
+
+  unsigned AS = LI1->getPointerAddressSpace();
+  bool Fast = false;
+  Allows = TTI.allowsMisalignedMemoryAccesses(
+      I.getContext(), LOps.LoadSize, AS, LI1->getAlign(), &Fast);
+  if (!Allows)
+    return false;
+
+  Value *Op1 = LI1->getOperand(0);
+  if (isa<GetElementPtrInst>(Op1)) {
+    GetElementPtrInst *GEP1 = dyn_cast<GetElementPtrInst>(Op1);
+    NewLoad = new LoadInst(IntegerType::get(GEP1->getContext(), LOps.LoadSize),
+                           GEP1, "", LI1->isVolatile(), LI1->getAlign(),
+                           LI1->getOrdering(), LI1->getSyncScopeID());
+  } else {
+    Value *Load1Ptr = LI1->getPointerOperand();
+    NewLoad =
+        new LoadInst(IntegerType::get(Load1Ptr->getContext(), LOps.LoadSize),
+                     Load1Ptr, "", LI1->isVolatile(), LI1->getAlign(),
+                     LI1->getOrdering(), LI1->getSyncScopeID());
+  }
+
+  NewLoad->takeName(LI1);
+  Builder.Insert(NewLoad);
+
+  // Check if zero extend needed.
+  if (LOps.zext) {
+    NewOp = Builder.CreateZExt(NewLoad, LOps.zext);
+  } else
+    NewOp = (Value *)NewLoad;
+
+  // Check if shift needed. We need to shift with the amount of load1
+  // shift if not zero.
+  if (LOps.Shift)
+    NewOp = Builder.CreateShl(NewOp, LOps.Shift);
+  I.replaceAllUsesWith(NewOp);
+
+  return true;
+}
+
 /// This is the entry point for folds that could be implemented in regular
 /// InstCombine, but they are separated because they are not expected to
 /// occur frequently and/or have more than a constant-length pattern match.
@@ -448,6 +633,8 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
       MadeChange |= foldGuardedFunnelShift(I, DT);
       MadeChange |= tryToRecognizePopCount(I);
       MadeChange |= tryToFPToSat(I, TTI);
+      MadeChange |=
+          foldLoadsIterative(I, F.getParent()->getDataLayout(), DT, TTI);
     }
   }
 
