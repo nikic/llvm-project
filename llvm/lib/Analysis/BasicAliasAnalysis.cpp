@@ -767,7 +767,16 @@ FunctionModRefBehavior BasicAAResult::getModRefBehavior(const CallBase *Call) {
   // If the call has operand bundles then aliasing attributes from the function
   // it calls do not directly apply to the call.  This can be made more precise
   // in the future.
-  if (!Call->hasOperandBundles())
+  //
+  // If the call lives in a presplit coroutine, the readnone, writelonly,
+  // inaccessiblememonly and inaccessiblemem_or_argmemonly attribute from the
+  // function might not directly apply to the call.
+  if (!Call->hasOperandBundles() &&
+      (!Call->getFunction()->isPresplitCoroutine() ||
+       (!Call->hasFnAttr(Attribute::ReadNone) &&
+        !Call->hasFnAttr(Attribute::WriteOnly) &&
+        !Call->hasFnAttr(Attribute::InaccessibleMemOnly) &&
+        !Call->hasFnAttr(Attribute::InaccessibleMemOrArgMemOnly))))
     if (const Function *F = Call->getCalledFunction())
       Min =
           FunctionModRefBehavior(Min & getBestAAResults().getModRefBehavior(F));
