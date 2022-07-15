@@ -7250,48 +7250,9 @@ ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
   if (auto BO = MatchBinaryOp(U, DT)) {
     bool IsConstArg = isa<ConstantInt>(BO->RHS);
     switch (BO->Opcode) {
-    case Instruction::Add: {
-      // For additions and multiplications, traverse add/mul chains for which we
-      // can potentially create a single SCEV, to reduce the number of
-      // get{Add,Mul}Expr calls.
-      do {
-        if (BO->Op) {
-          if (BO->Op != V && getExistingSCEV(BO->Op)) {
-            Ops.push_back(BO->Op);
-            break;
-          }
-        }
-        Ops.push_back(BO->RHS);
-        auto NewBO = MatchBinaryOp(BO->LHS, DT);
-        if (!NewBO || (NewBO->Opcode != Instruction::Add &&
-                       NewBO->Opcode != Instruction::Sub)) {
-          Ops.push_back(BO->LHS);
-          break;
-        }
-        BO = NewBO;
-      } while (true);
-      return nullptr;
-    }
-
-    case Instruction::Mul: {
-      do {
-        if (BO->Op) {
-          if (BO->Op != V && getExistingSCEV(BO->Op)) {
-            Ops.push_back(BO->Op);
-            break;
-          }
-        }
-        Ops.push_back(BO->RHS);
-        auto NewBO = MatchBinaryOp(BO->LHS, DT);
-        if (!NewBO || NewBO->Opcode != Instruction::Mul) {
-          Ops.push_back(BO->LHS);
-          break;
-        }
-        BO = NewBO;
-      } while (true);
-      return nullptr;
-    }
+    case Instruction::Add:
     case Instruction::Sub:
+    case Instruction::Mul:
     case Instruction::UDiv:
     case Instruction::URem:
       break;
@@ -7442,84 +7403,20 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
   if (auto BO = MatchBinaryOp(U, DT)) {
     switch (BO->Opcode) {
     case Instruction::Add: {
-      // The simple thing to do would be to just call getSCEV on both operands
-      // and call getAddExpr with the result. However if we're looking at a
-      // bunch of things all added together, this can be quite inefficient,
-      // because it leads to N-1 getAddExpr calls for N ultimate operands.
-      // Instead, gather up all the operands and make a single getAddExpr call.
-      // LLVM IR canonical form means we need only traverse the left operands.
-      SmallVector<const SCEV *, 4> AddOps;
-      do {
-        if (BO->Op) {
-          if (auto *OpSCEV = getExistingSCEV(BO->Op)) {
-            AddOps.push_back(OpSCEV);
-            break;
-          }
-
-          // If a NUW or NSW flag can be applied to the SCEV for this
-          // addition, then compute the SCEV for this addition by itself
-          // with a separate call to getAddExpr. We need to do that
-          // instead of pushing the operands of the addition onto AddOps,
-          // since the flags are only known to apply to this particular
-          // addition - they may not apply to other additions that can be
-          // formed with operands from AddOps.
-          const SCEV *RHS = getSCEV(BO->RHS);
-          SCEV::NoWrapFlags Flags = getNoWrapFlagsFromUB(BO->Op);
-          if (Flags != SCEV::FlagAnyWrap) {
-            const SCEV *LHS = getSCEV(BO->LHS);
-            if (BO->Opcode == Instruction::Sub)
-              AddOps.push_back(getMinusSCEV(LHS, RHS, Flags));
-            else
-              AddOps.push_back(getAddExpr(LHS, RHS, Flags));
-            break;
-          }
-        }
-
-        if (BO->Opcode == Instruction::Sub)
-          AddOps.push_back(getNegativeSCEV(getSCEV(BO->RHS)));
-        else
-          AddOps.push_back(getSCEV(BO->RHS));
-
-        auto NewBO = MatchBinaryOp(BO->LHS, DT);
-        if (!NewBO || (NewBO->Opcode != Instruction::Add &&
-                       NewBO->Opcode != Instruction::Sub)) {
-          AddOps.push_back(getSCEV(BO->LHS));
-          break;
-        }
-        BO = NewBO;
-      } while (true);
-
-      return getAddExpr(AddOps);
+      SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
+      if (BO->Op)
+        Flags = getNoWrapFlagsFromUB(BO->Op);
+      LHS = getSCEV(BO->LHS);
+      RHS = getSCEV(BO->RHS);
+      return getAddExpr(LHS, RHS, Flags);
     }
-
     case Instruction::Mul: {
-      SmallVector<const SCEV *, 4> MulOps;
-      do {
-        if (BO->Op) {
-          if (auto *OpSCEV = getExistingSCEV(BO->Op)) {
-            MulOps.push_back(OpSCEV);
-            break;
-          }
-
-          SCEV::NoWrapFlags Flags = getNoWrapFlagsFromUB(BO->Op);
-          if (Flags != SCEV::FlagAnyWrap) {
-            LHS = getSCEV(BO->LHS);
-            RHS = getSCEV(BO->RHS);
-            MulOps.push_back(getMulExpr(LHS, RHS, Flags));
-            break;
-          }
-        }
-
-        MulOps.push_back(getSCEV(BO->RHS));
-        auto NewBO = MatchBinaryOp(BO->LHS, DT);
-        if (!NewBO || NewBO->Opcode != Instruction::Mul) {
-          MulOps.push_back(getSCEV(BO->LHS));
-          break;
-        }
-        BO = NewBO;
-      } while (true);
-
-      return getMulExpr(MulOps);
+      SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
+      if (BO->Op)
+        Flags = getNoWrapFlagsFromUB(BO->Op);
+      LHS = getSCEV(BO->LHS);
+      RHS = getSCEV(BO->RHS);
+      return getMulExpr(LHS, RHS, Flags);
     }
     case Instruction::UDiv:
       LHS = getSCEV(BO->LHS);

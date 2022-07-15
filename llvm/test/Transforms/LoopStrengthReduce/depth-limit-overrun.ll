@@ -34,9 +34,7 @@ define void @test(i32 %A, i32 %B, i32 %C) {
 ; DEFAULT-NEXT:    [[LSR_IV1:%.*]] = phi i32 [ [[LSR_IV_NEXT2:%.*]], [[INNER_LOOP]] ], [ [[TMP5]], [[PREHEADER]] ]
 ; DEFAULT-NEXT:    [[LSR_IV:%.*]] = phi i32 [ [[LSR_IV_NEXT:%.*]], [[INNER_LOOP]] ], [ [[TMP3]], [[PREHEADER]] ]
 ; DEFAULT-NEXT:    [[PHI5:%.*]] = phi i32 [ [[PHI3]], [[PREHEADER]] ], [ [[I30:%.*]], [[INNER_LOOP]] ]
-; DEFAULT-NEXT:    [[PHI6:%.*]] = phi i32 [ [[PHI2]], [[PREHEADER]] ], [ [[I33:%.*]], [[INNER_LOOP]] ]
 ; DEFAULT-NEXT:    [[ITER:%.*]] = phi i32 [ [[C]], [[PREHEADER]] ], [ [[ITER_SUB:%.*]], [[INNER_LOOP]] ]
-; DEFAULT-NEXT:    [[I17:%.*]] = sub i32 [[PHI4]], [[PHI6]]
 ; DEFAULT-NEXT:    [[I18:%.*]] = sub i32 14, [[PHI5]]
 ; DEFAULT-NEXT:    [[I19:%.*]] = mul i32 [[I18]], [[C]]
 ; DEFAULT-NEXT:    [[FACTOR_PROL:%.*]] = shl i32 [[PHI5]], 1
@@ -54,8 +52,7 @@ define void @test(i32 %A, i32 %B, i32 %C) {
 ; DEFAULT-NEXT:    [[TMP19:%.*]] = add i32 [[LSR_IV]], [[TMP18]]
 ; DEFAULT-NEXT:    [[I29:%.*]] = mul i32 [[TMP11]], [[C]]
 ; DEFAULT-NEXT:    [[FACTOR_2_PROL:%.*]] = shl i32 [[TMP19]], 1
-; DEFAULT-NEXT:    [[I30]] = add i32 [[I17]], [[FACTOR_2_PROL]]
-; DEFAULT-NEXT:    [[I33]] = add i32 [[PHI6]], -3
+; DEFAULT-NEXT:    [[I30]] = add i32 [[LSR_IV]], [[FACTOR_2_PROL]]
 ; DEFAULT-NEXT:    [[ITER_SUB]] = add i32 [[ITER]], -1
 ; DEFAULT-NEXT:    [[LSR_IV_NEXT]] = add i32 [[LSR_IV]], 3
 ; DEFAULT-NEXT:    [[LSR_IV_NEXT2]] = add i32 [[LSR_IV1]], 3
@@ -74,61 +71,69 @@ define void @test(i32 %A, i32 %B, i32 %C) {
 ;
 ; LIMIT-LABEL: @test(
 ; LIMIT-NEXT:  entry:
+; LIMIT-NEXT:    [[TMP0:%.*]] = shl i32 [[B:%.*]], 1
+; LIMIT-NEXT:    [[TMP1:%.*]] = shl i32 [[C:%.*]], 1
 ; LIMIT-NEXT:    br label [[OUTER_LOOP:%.*]]
 ; LIMIT:       outer_loop:
 ; LIMIT-NEXT:    [[PHI2:%.*]] = phi i32 [ [[A:%.*]], [[ENTRY:%.*]] ], [ 204, [[OUTER_TAIL:%.*]] ]
 ; LIMIT-NEXT:    [[PHI3:%.*]] = phi i32 [ [[A]], [[ENTRY]] ], [ 243, [[OUTER_TAIL]] ]
-; LIMIT-NEXT:    [[PHI4:%.*]] = phi i32 [ [[B:%.*]], [[ENTRY]] ], [ [[I35:%.*]], [[OUTER_TAIL]] ]
+; LIMIT-NEXT:    [[PHI4:%.*]] = phi i32 [ [[B]], [[ENTRY]] ], [ [[I35:%.*]], [[OUTER_TAIL]] ]
 ; LIMIT-NEXT:    br label [[GUARD:%.*]]
 ; LIMIT:       guard:
-; LIMIT-NEXT:    [[LCMP_MOD:%.*]] = icmp eq i32 [[C:%.*]], 0
+; LIMIT-NEXT:    [[LCMP_MOD:%.*]] = icmp eq i32 [[C]], 0
 ; LIMIT-NEXT:    br i1 [[LCMP_MOD]], label [[OUTER_TAIL]], label [[PREHEADER:%.*]]
 ; LIMIT:       preheader:
 ; LIMIT-NEXT:    [[I15:%.*]] = shl i32 [[B]], 1
-; LIMIT-NEXT:    [[TMP0:%.*]] = mul i32 [[PHI2]], -1
-; LIMIT-NEXT:    [[TMP1:%.*]] = mul i32 [[TMP0]], -1
-; LIMIT-NEXT:    [[TMP2:%.*]] = sub i32 [[PHI4]], [[TMP1]]
-; LIMIT-NEXT:    [[TMP3:%.*]] = add i32 [[B]], [[PHI4]]
-; LIMIT-NEXT:    [[TMP4:%.*]] = sub i32 [[TMP3]], [[TMP1]]
-; LIMIT-NEXT:    [[TMP5:%.*]] = sub i32 14, [[TMP4]]
+; LIMIT-NEXT:    [[TMP2:%.*]] = mul i32 [[PHI2]], -1
+; LIMIT-NEXT:    [[TMP3:%.*]] = mul i32 [[TMP2]], -1
+; LIMIT-NEXT:    [[TMP4:%.*]] = sub i32 [[PHI4]], [[TMP3]]
+; LIMIT-NEXT:    [[TMP5:%.*]] = mul i32 [[PHI4]], 3
+; LIMIT-NEXT:    [[TMP6:%.*]] = add i32 [[TMP0]], [[TMP5]]
+; LIMIT-NEXT:    [[TMP7:%.*]] = mul i32 [[PHI2]], 3
+; LIMIT-NEXT:    [[TMP8:%.*]] = sub i32 [[TMP6]], [[TMP7]]
+; LIMIT-NEXT:    [[TMP9:%.*]] = add i32 [[B]], [[PHI4]]
+; LIMIT-NEXT:    [[TMP10:%.*]] = sub i32 [[TMP9]], [[TMP3]]
+; LIMIT-NEXT:    [[TMP11:%.*]] = sub i32 14, [[TMP10]]
 ; LIMIT-NEXT:    br label [[INNER_LOOP:%.*]]
 ; LIMIT:       inner_loop:
-; LIMIT-NEXT:    [[LSR_IV3:%.*]] = phi i32 [ [[LSR_IV_NEXT4:%.*]], [[INNER_LOOP]] ], [ [[TMP5]], [[PREHEADER]] ]
-; LIMIT-NEXT:    [[LSR_IV1:%.*]] = phi i32 [ [[LSR_IV_NEXT2:%.*]], [[INNER_LOOP]] ], [ [[TMP4]], [[PREHEADER]] ]
-; LIMIT-NEXT:    [[LSR_IV:%.*]] = phi i32 [ [[LSR_IV_NEXT:%.*]], [[INNER_LOOP]] ], [ [[TMP2]], [[PREHEADER]] ]
+; LIMIT-NEXT:    [[LSR_IV3:%.*]] = phi i32 [ [[LSR_IV_NEXT4:%.*]], [[INNER_LOOP]] ], [ [[TMP11]], [[PREHEADER]] ]
+; LIMIT-NEXT:    [[LSR_IV1:%.*]] = phi i32 [ [[LSR_IV_NEXT2:%.*]], [[INNER_LOOP]] ], [ 0, [[PREHEADER]] ]
+; LIMIT-NEXT:    [[LSR_IV:%.*]] = phi i32 [ [[LSR_IV_NEXT:%.*]], [[INNER_LOOP]] ], [ 0, [[PREHEADER]] ]
 ; LIMIT-NEXT:    [[PHI5:%.*]] = phi i32 [ [[PHI3]], [[PREHEADER]] ], [ [[I30:%.*]], [[INNER_LOOP]] ]
-; LIMIT-NEXT:    [[PHI6:%.*]] = phi i32 [ [[PHI2]], [[PREHEADER]] ], [ [[I33:%.*]], [[INNER_LOOP]] ]
 ; LIMIT-NEXT:    [[ITER:%.*]] = phi i32 [ [[C]], [[PREHEADER]] ], [ [[ITER_SUB:%.*]], [[INNER_LOOP]] ]
-; LIMIT-NEXT:    [[I17:%.*]] = sub i32 [[PHI4]], [[PHI6]]
+; LIMIT-NEXT:    [[TMP12:%.*]] = add i32 [[TMP4]], [[LSR_IV]]
 ; LIMIT-NEXT:    [[I18:%.*]] = sub i32 14, [[PHI5]]
 ; LIMIT-NEXT:    [[I19:%.*]] = mul i32 [[I18]], [[C]]
-; LIMIT-NEXT:    [[FACTOR_PROL:%.*]] = shl i32 [[PHI5]], 1
-; LIMIT-NEXT:    [[TMP6:%.*]] = add i32 [[LSR_IV1]], [[I19]]
-; LIMIT-NEXT:    [[TMP7:%.*]] = add i32 [[TMP6]], [[FACTOR_PROL]]
-; LIMIT-NEXT:    [[TMP8:%.*]] = shl i32 [[TMP7]], 1
-; LIMIT-NEXT:    [[TMP9:%.*]] = add i32 [[LSR_IV]], [[TMP8]]
-; LIMIT-NEXT:    [[TMP10:%.*]] = sub i32 [[LSR_IV3]], [[I19]]
-; LIMIT-NEXT:    [[TMP11:%.*]] = sub i32 [[TMP10]], [[FACTOR_PROL]]
-; LIMIT-NEXT:    [[TMP12:%.*]] = mul i32 [[C]], [[TMP11]]
-; LIMIT-NEXT:    [[TMP13:%.*]] = add i32 [[LSR_IV1]], [[I19]]
-; LIMIT-NEXT:    [[TMP14:%.*]] = add i32 [[TMP13]], [[FACTOR_PROL]]
-; LIMIT-NEXT:    [[TMP15:%.*]] = shl i32 [[TMP14]], 1
-; LIMIT-NEXT:    [[TMP16:%.*]] = add i32 [[TMP12]], [[TMP15]]
-; LIMIT-NEXT:    [[TMP17:%.*]] = add i32 [[LSR_IV]], [[TMP16]]
-; LIMIT-NEXT:    [[I29:%.*]] = mul i32 [[TMP9]], [[C]]
-; LIMIT-NEXT:    [[FACTOR_2_PROL:%.*]] = shl i32 [[TMP17]], 1
-; LIMIT-NEXT:    [[I30]] = add i32 [[I17]], [[FACTOR_2_PROL]]
-; LIMIT-NEXT:    [[I33]] = add i32 [[PHI6]], -3
+; LIMIT-NEXT:    [[TMP13:%.*]] = mul i32 [[TMP1]], [[I18]]
+; LIMIT-NEXT:    [[TMP14:%.*]] = add i32 [[LSR_IV1]], [[TMP13]]
+; LIMIT-NEXT:    [[TMP15:%.*]] = shl i32 [[PHI5]], 2
+; LIMIT-NEXT:    [[TMP16:%.*]] = add i32 [[TMP14]], [[TMP15]]
+; LIMIT-NEXT:    [[TMP17:%.*]] = add i32 [[TMP8]], [[LSR_IV]]
+; LIMIT-NEXT:    [[TMP18:%.*]] = add i32 [[TMP17]], [[TMP16]]
+; LIMIT-NEXT:    [[TMP19:%.*]] = add i32 [[LSR_IV3]], 28
+; LIMIT-NEXT:    [[TMP20:%.*]] = mul i32 [[PHI5]], -2
+; LIMIT-NEXT:    [[TMP21:%.*]] = shl i32 [[TMP20]], 1
+; LIMIT-NEXT:    [[TMP22:%.*]] = add i32 [[TMP19]], [[TMP21]]
+; LIMIT-NEXT:    [[TMP23:%.*]] = sub i32 [[TMP22]], [[I19]]
+; LIMIT-NEXT:    [[TMP24:%.*]] = mul i32 [[C]], [[TMP23]]
+; LIMIT-NEXT:    [[TMP25:%.*]] = add i32 [[LSR_IV1]], [[TMP24]]
+; LIMIT-NEXT:    [[TMP26:%.*]] = add i32 [[TMP8]], [[LSR_IV]]
+; LIMIT-NEXT:    [[TMP27:%.*]] = add i32 [[TMP26]], [[TMP15]]
+; LIMIT-NEXT:    [[TMP28:%.*]] = add i32 [[TMP27]], [[TMP25]]
+; LIMIT-NEXT:    [[I29:%.*]] = mul i32 [[TMP18]], [[C]]
+; LIMIT-NEXT:    [[FACTOR_2_PROL:%.*]] = shl i32 [[TMP28]], 1
+; LIMIT-NEXT:    [[I30]] = add i32 [[TMP12]], [[FACTOR_2_PROL]]
 ; LIMIT-NEXT:    [[ITER_SUB]] = add i32 [[ITER]], -1
 ; LIMIT-NEXT:    [[LSR_IV_NEXT]] = add i32 [[LSR_IV]], 3
-; LIMIT-NEXT:    [[LSR_IV_NEXT2]] = add i32 [[LSR_IV1]], 3
+; LIMIT-NEXT:    [[LSR_IV_NEXT2]] = add i32 [[LSR_IV1]], 6
 ; LIMIT-NEXT:    [[LSR_IV_NEXT4]] = add i32 [[LSR_IV3]], -3
 ; LIMIT-NEXT:    [[ITER_CMP:%.*]] = icmp eq i32 [[ITER_SUB]], 0
 ; LIMIT-NEXT:    br i1 [[ITER_CMP]], label [[OUTER_TAIL_LOOPEXIT:%.*]], label [[INNER_LOOP]]
 ; LIMIT:       outer_tail.loopexit:
+; LIMIT-NEXT:    [[TMP29:%.*]] = sub i32 [[PHI2]], [[LSR_IV_NEXT]]
 ; LIMIT-NEXT:    br label [[OUTER_TAIL]]
 ; LIMIT:       outer_tail:
-; LIMIT-NEXT:    [[PHI7:%.*]] = phi i32 [ [[PHI2]], [[GUARD]] ], [ [[I33]], [[OUTER_TAIL_LOOPEXIT]] ]
+; LIMIT-NEXT:    [[PHI7:%.*]] = phi i32 [ [[PHI2]], [[GUARD]] ], [ [[TMP29]], [[OUTER_TAIL_LOOPEXIT]] ]
 ; LIMIT-NEXT:    [[I35]] = sub i32 [[A]], [[PHI7]]
 ; LIMIT-NEXT:    [[CMP:%.*]] = icmp sgt i32 [[I35]], 9876
 ; LIMIT-NEXT:    br i1 [[CMP]], label [[EXIT:%.*]], label [[OUTER_LOOP]]
