@@ -498,8 +498,8 @@ nearestMatchesForCodepointName(StringRef Pattern, std::size_t MaxMatchesCount) {
   // Filling (and overriding) the matrix for the name fragment of each node
   // iteratively. CompleteName is used to collect the actual name of potential
   // match, respecting case and spacing.
-  auto VisitNode = [&](const Node &N, std::size_t Row,
-                       auto &VisitNode) -> void {
+  std::function<void(const Node &, std::size_t)> VisitNode;
+  VisitNode = [&](const Node &N, std::size_t Row) -> void {
     std::size_t J = 0;
     for (; J < N.Name.size(); J++) {
       if (!isAlnum(N.Name[J]))
@@ -532,7 +532,7 @@ nearestMatchesForCodepointName(StringRef Pattern, std::size_t MaxMatchesCount) {
         ChildOffset += C.Size;
         if (!C.isValid())
           break;
-        VisitNode(C, Row, VisitNode);
+        VisitNode(C, Row);
         if (!C.HasSibling)
           break;
       }
@@ -540,7 +540,7 @@ nearestMatchesForCodepointName(StringRef Pattern, std::size_t MaxMatchesCount) {
   };
 
   Node Root = createRoot();
-  VisitNode(Root, 1, VisitNode);
+  VisitNode(Root, 1);
   return Matches;
 }
 
