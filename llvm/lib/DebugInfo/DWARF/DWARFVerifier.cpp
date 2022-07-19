@@ -412,12 +412,12 @@ unsigned DWARFVerifier::verifyIndex(StringRef Name,
     uint64_t Sig = E.getSignature();
     if (!E.getContributions())
       continue;
-    for (auto E : enumerate(InfoColumnKind == DW_SECT_INFO
+    for (auto P : enumerate(InfoColumnKind == DW_SECT_INFO
                                 ? makeArrayRef(E.getContributions(),
                                                Index.getColumnKinds().size())
                                 : makeArrayRef(E.getContribution(), 1))) {
-      const DWARFUnitIndex::Entry::SectionContribution &SC = E.value();
-      int Col = E.index();
+      const DWARFUnitIndex::Entry::SectionContribution &SC = P.value();
+      int Col = P.index();
       if (SC.Length == 0)
         continue;
       if (!Sections[Col])
