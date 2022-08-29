@@ -1738,8 +1738,7 @@ public:
                                   const LangOptions &LangOpts,
                                   const TargetOptions &TargetOpts,
                                   const PreprocessorOptions &PPOpts,
-                                  StringRef ExistingModuleCachePath,
-                                  bool RequireStrictOptionMatches = false);
+                                  StringRef ExistingModuleCachePath);
 
   /// Returns the suggested contents of the predefines buffer,
   /// which contains a (typically-empty) subset of the predefines
