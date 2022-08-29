@@ -1562,7 +1562,13 @@ static void computeKnownBitsFromOperator(const Operator *I,
 
       Known.Zero.setAllBits();
       Known.One.setAllBits();
-      for (unsigned u = 0, e = P->getNumIncomingValues(); u < e; ++u) {
+      const unsigned RemainingTotalBudget =
+        MaxAnalysisRecursionDepth - 1 - Depth;
+      const unsigned NumIncoming = P->getNumIncomingValues();
+      const unsigned NewDepth = MaxAnalysisRecursionDepth -
+        std::max(1U, RemainingTotalBudget / NumIncoming);
+      assert(NewDepth > Depth && NewDepth < MaxAnalysisRecursionDepth);
+      for (unsigned u = 0, e = NumIncoming; u < e; ++u) {
         Value *IncValue = P->getIncomingValue(u);
         // Skip direct self references.
         if (IncValue == P) continue;
@@ -1576,9 +1582,10 @@ static void computeKnownBitsFromOperator(const Operator *I,
 
         Known2 = KnownBits(BitWidth);
 
-        // Recurse, but cap the recursion to one level, because we don't
-        // want to waste time spinning around in loops.
-        computeKnownBits(IncValue, Known2, MaxAnalysisRecursionDepth - 1, RecQ);
+        // Recurse, but spread our depth remaining across all operands to
+        // avoid exponential compile time.  Always allow one recursive step
+        // so that e.g. constants are handled regardless of number of operands.
+        computeKnownBits(IncValue, Known2, NewDepth, RecQ);
 
         // If this failed, see if we can use a conditional branch into the phi
         // to help us determine the range of the value.

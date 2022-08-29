@@ -36,7 +36,7 @@ define i32 @unroll(i32* nocapture readonly %a, i32* nocapture readonly %b, i32 %
 ; CHECK-NEXT:    [[EPIL_ITER_CMP_NOT:%.*]] = icmp eq i64 [[XTRAITER]], 1
 ; CHECK-NEXT:    br i1 [[EPIL_ITER_CMP_NOT]], label [[FOR_COND_CLEANUP_LOOPEXIT_EPILOG_LCSSA:%.*]], label [[FOR_BODY_EPIL_1:%.*]]
 ; CHECK:       for.body.epil.1:
-; CHECK-NEXT:    [[INDVARS_IV_NEXT_EPIL:%.*]] = add nuw nsw i64 [[INDVARS_IV_UNR]], 1
+; CHECK-NEXT:    [[INDVARS_IV_NEXT_EPIL:%.*]] = or i64 [[INDVARS_IV_UNR]], 1
 ; CHECK-NEXT:    [[ARRAYIDX_EPIL_1:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[INDVARS_IV_NEXT_EPIL]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* [[ARRAYIDX_EPIL_1]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX2_EPIL_1:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[INDVARS_IV_NEXT_EPIL]]
@@ -46,7 +46,7 @@ define i32 @unroll(i32* nocapture readonly %a, i32* nocapture readonly %b, i32 %
 ; CHECK-NEXT:    [[EPIL_ITER_CMP_1_NOT:%.*]] = icmp eq i64 [[XTRAITER]], 2
 ; CHECK-NEXT:    br i1 [[EPIL_ITER_CMP_1_NOT]], label [[FOR_COND_CLEANUP_LOOPEXIT_EPILOG_LCSSA]], label [[FOR_BODY_EPIL_2:%.*]]
 ; CHECK:       for.body.epil.2:
-; CHECK-NEXT:    [[INDVARS_IV_NEXT_EPIL_1:%.*]] = add nuw nsw i64 [[INDVARS_IV_UNR]], 2
+; CHECK-NEXT:    [[INDVARS_IV_NEXT_EPIL_1:%.*]] = or i64 [[INDVARS_IV_UNR]], 2
 ; CHECK-NEXT:    [[ARRAYIDX_EPIL_2:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[INDVARS_IV_NEXT_EPIL_1]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32* [[ARRAYIDX_EPIL_2]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX2_EPIL_2:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[INDVARS_IV_NEXT_EPIL_1]]
