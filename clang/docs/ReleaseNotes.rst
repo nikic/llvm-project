@@ -104,22 +104,6 @@ Improvements to Clang's diagnostics
 - ``-Wbitfield-constant-conversion`` now diagnoses implicit truncation when 1 is
   assigned to a 1-bit signed integer bitfield. This fixes
   `Issue 53253 <https://github.com/llvm/llvm-project/issues/53253>`_.
-- ``-Wincompatible-function-pointer-types`` now defaults to an error in all C
-  language modes. It may be downgraded to a warning with
-  ``-Wno-error=incompatible-function-pointer-types`` or disabled entirely with
-  ``-Wno-implicit-function-pointer-types``.
-- Clang will now print more information about failed static assertions. In
-  particular, simple static assertion expressions are evaluated to their
-  compile-time value and printed out if the assertion fails.
-- Diagnostics about uninitialized ``constexpr`` varaibles have been improved
-  to mention the missing constant initializer.
-- Correctly diagnose a future keyword if it exist as a keyword in the higher
-  language version and specifies in which version it will be a keyword. This
-  supports both c and c++ language.
-
-Non-comprehensive list of changes in this release
--------------------------------------------------
-
 
 Non-comprehensive list of changes in this release
 -------------------------------------------------
