@@ -41,11 +41,11 @@ define void @foo(i32* %A, i32 %N, i32 %M) {
 ; CHECK-NEXT:    [[IDXPROM_US:%.*]] = sext i32 [[FLATTEN_TRUNCIV]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX_US:%.*]] = getelementptr inbounds i32, i32* [[A:%.*]], i64 [[IDXPROM_US]]
 ; CHECK-NEXT:    tail call void @f(i32* [[ARRAYIDX_US]])
-; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add i64 [[INDVAR]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add nuw nsw i64 [[INDVAR]], 1
 ; CHECK-NEXT:    [[CMP2_US:%.*]] = icmp slt i64 [[INDVAR_NEXT]], [[TMP0]]
 ; CHECK-NEXT:    br label [[FOR_COND1_FOR_COND_CLEANUP3_CRIT_EDGE_US]]
 ; CHECK:       for.cond1.for.cond.cleanup3_crit_edge.us:
-; CHECK-NEXT:    [[INDVAR_NEXT2]] = add i64 [[INDVAR1]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT2]] = add nuw nsw i64 [[INDVAR1]], 1
 ; CHECK-NEXT:    [[CMP_US:%.*]] = icmp slt i64 [[INDVAR_NEXT2]], [[FLATTEN_TRIPCOUNT]]
 ; CHECK-NEXT:    br i1 [[CMP_US]], label [[FOR_COND1_PREHEADER_US]], label [[FOR_COND_CLEANUP_LOOPEXIT:%.*]]
 ; CHECK:       for.cond.cleanup.loopexit:
@@ -163,12 +163,12 @@ define void @foo2_sext(i32* nocapture readonly %A, i32 %N, i32 %M) {
 ; CHECK-NEXT:    [[ARRAYIDX_US:%.*]] = getelementptr inbounds i32, i32* [[A:%.*]], i64 [[INDVAR2]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = load i32, i32* [[ARRAYIDX_US]], align 4
 ; CHECK-NEXT:    tail call void @g(i32 [[TMP8]])
-; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add i64 [[INDVAR]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add nuw nsw i64 [[INDVAR]], 1
 ; CHECK-NEXT:    [[INC_US:%.*]] = add nuw nsw i32 [[J_016_US]], 1
 ; CHECK-NEXT:    [[CMP2_US:%.*]] = icmp slt i64 [[INDVAR_NEXT]], [[TMP0]]
 ; CHECK-NEXT:    br label [[FOR_COND1_FOR_COND_CLEANUP3_CRIT_EDGE_US]]
 ; CHECK:       for.cond1.for.cond.cleanup3_crit_edge.us:
-; CHECK-NEXT:    [[INDVAR_NEXT3]] = add i64 [[INDVAR2]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT3]] = add nuw nsw i64 [[INDVAR2]], 1
 ; CHECK-NEXT:    [[INC6_US]] = add nuw nsw i32 [[I_018_US]], 1
 ; CHECK-NEXT:    [[CMP_US:%.*]] = icmp slt i64 [[INDVAR_NEXT3]], [[FLATTEN_TRIPCOUNT]]
 ; CHECK-NEXT:    br i1 [[CMP_US]], label [[FOR_COND1_PREHEADER_US]], label [[FOR_COND_CLEANUP_LOOPEXIT:%.*]]
@@ -312,11 +312,11 @@ define void @foo2_zext(i32* nocapture readonly %A, i32 %N, i32 %M) {
 ; CHECK-NEXT:    [[ARRAYIDX_US:%.*]] = getelementptr inbounds i32, i32* [[A:%.*]], i64 [[IDXPROM_US]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* [[ARRAYIDX_US]], align 4
 ; CHECK-NEXT:    tail call void @g(i32 [[TMP4]])
-; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add i64 [[INDVAR]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add nuw nsw i64 [[INDVAR]], 1
 ; CHECK-NEXT:    [[CMP2_US:%.*]] = icmp ult i64 [[INDVAR_NEXT]], [[TMP0]]
 ; CHECK-NEXT:    br label [[FOR_COND1_FOR_COND_CLEANUP3_CRIT_EDGE_US]]
 ; CHECK:       for.cond1.for.cond.cleanup3_crit_edge.us:
-; CHECK-NEXT:    [[INDVAR_NEXT2]] = add i64 [[INDVAR1]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT2]] = add nuw nsw i64 [[INDVAR1]], 1
 ; CHECK-NEXT:    [[CMP_US:%.*]] = icmp ult i64 [[INDVAR_NEXT2]], [[FLATTEN_TRIPCOUNT]]
 ; CHECK-NEXT:    br i1 [[CMP_US]], label [[FOR_COND1_PREHEADER_US]], label [[FOR_COND_CLEANUP_LOOPEXIT19:%.*]]
 ; CHECK:       for.cond1.preheader:
@@ -448,11 +448,11 @@ define void @zext(i32 %N, i16* nocapture %A, i16 %val) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i16, i16* [[ARRAYIDX_US]], align 2
 ; CHECK-NEXT:    [[ADD5_US:%.*]] = add i16 [[TMP4]], [[VAL:%.*]]
 ; CHECK-NEXT:    store i16 [[ADD5_US]], i16* [[ARRAYIDX_US]], align 2
-; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add i64 [[INDVAR]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add nuw nsw i64 [[INDVAR]], 1
 ; CHECK-NEXT:    [[CMP2_US:%.*]] = icmp ult i64 [[INDVAR_NEXT]], [[TMP0]]
 ; CHECK-NEXT:    br label [[FOR_COND1_FOR_INC7_CRIT_EDGE_US]]
 ; CHECK:       for.cond1.for.inc7_crit_edge.us:
-; CHECK-NEXT:    [[INDVAR_NEXT2]] = add i64 [[INDVAR1]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT2]] = add nuw nsw i64 [[INDVAR1]], 1
 ; CHECK-NEXT:    [[CMP_US:%.*]] = icmp ult i64 [[INDVAR_NEXT2]], [[FLATTEN_TRIPCOUNT]]
 ; CHECK-NEXT:    br i1 [[CMP_US]], label [[FOR_COND1_PREHEADER_US]], label [[FOR_END9_LOOPEXIT:%.*]]
 ; CHECK:       for.end9.loopexit:
@@ -563,11 +563,11 @@ define void @test(i8 %n, i8 %m) {
 ; CHECK-NEXT:    [[ADD_US:%.*]] = add i8 [[TMP3]], [[MUL_US]]
 ; CHECK-NEXT:    [[CONV14_US:%.*]] = zext i8 [[FLATTEN_TRUNCIV]] to i32
 ; CHECK-NEXT:    [[CALL_US:%.*]] = tail call i32 @use_32(i32 [[CONV14_US]])
-; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add i64 [[INDVAR]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add nuw nsw i64 [[INDVAR]], 1
 ; CHECK-NEXT:    [[CMP6_US:%.*]] = icmp ult i64 [[INDVAR_NEXT]], [[TMP0]]
 ; CHECK-NEXT:    br label [[FOR_COND3_FOR_COND_CLEANUP8_CRIT_EDGE_US]]
 ; CHECK:       for.cond3.for.cond.cleanup8_crit_edge.us:
-; CHECK-NEXT:    [[INDVAR_NEXT3]] = add i64 [[INDVAR2]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT3]] = add nuw nsw i64 [[INDVAR2]], 1
 ; CHECK-NEXT:    [[CMP_US:%.*]] = icmp ult i64 [[INDVAR_NEXT3]], [[FLATTEN_TRIPCOUNT]]
 ; CHECK-NEXT:    br i1 [[CMP_US]], label [[FOR_COND3_PREHEADER_US]], label [[FOR_COND_CLEANUP_LOOPEXIT1:%.*]]
 ; CHECK:       for.cond3.preheader:
@@ -711,11 +711,11 @@ define void @test3(i8 %n, i8 %m) {
 ; CHECK-NEXT:    [[CALL20_US:%.*]] = tail call i32 @use_16(i16 [[CONV15_US]])
 ; CHECK-NEXT:    [[CONV21_US:%.*]] = zext i8 [[FLATTEN_TRUNCIV]] to i64
 ; CHECK-NEXT:    [[CALL22_US:%.*]] = tail call i32 @use_64(i64 [[CONV21_US]])
-; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add i64 [[INDVAR]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add nuw nsw i64 [[INDVAR]], 1
 ; CHECK-NEXT:    [[CMP6_US:%.*]] = icmp ult i64 [[INDVAR_NEXT]], [[TMP0]]
 ; CHECK-NEXT:    br label [[FOR_COND3_FOR_COND_CLEANUP8_CRIT_EDGE_US]]
 ; CHECK:       for.cond3.for.cond.cleanup8_crit_edge.us:
-; CHECK-NEXT:    [[INDVAR_NEXT3]] = add i64 [[INDVAR2]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT3]] = add nuw nsw i64 [[INDVAR2]], 1
 ; CHECK-NEXT:    [[CMP_US:%.*]] = icmp ult i64 [[INDVAR_NEXT3]], [[FLATTEN_TRIPCOUNT]]
 ; CHECK-NEXT:    br i1 [[CMP_US]], label [[FOR_COND3_PREHEADER_US]], label [[FOR_COND_CLEANUP_LOOPEXIT1:%.*]]
 ; CHECK:       for.cond3.preheader:
@@ -870,11 +870,11 @@ define void @test4(i16 %n, i16 %m) {
 ; CHECK-NEXT:    [[CALL18_US:%.*]] = tail call i32 @use_16(i16 [[FLATTEN_TRUNCIV]])
 ; CHECK-NEXT:    [[CONV19_US:%.*]] = sext i16 [[FLATTEN_TRUNCIV]] to i64
 ; CHECK-NEXT:    [[CALL20_US:%.*]] = tail call i32 @use_64(i64 [[CONV19_US]])
-; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add i64 [[INDVAR]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add nuw nsw i64 [[INDVAR]], 1
 ; CHECK-NEXT:    [[CMP6_US:%.*]] = icmp slt i64 [[INDVAR_NEXT]], [[TMP0]]
 ; CHECK-NEXT:    br label [[FOR_COND3_FOR_COND_CLEANUP8_CRIT_EDGE_US]]
 ; CHECK:       for.cond3.for.cond.cleanup8_crit_edge.us:
-; CHECK-NEXT:    [[INDVAR_NEXT3]] = add i64 [[INDVAR2]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT3]] = add nuw nsw i64 [[INDVAR2]], 1
 ; CHECK-NEXT:    [[CMP_US:%.*]] = icmp slt i64 [[INDVAR_NEXT3]], [[FLATTEN_TRIPCOUNT]]
 ; CHECK-NEXT:    br i1 [[CMP_US]], label [[FOR_COND3_PREHEADER_US]], label [[FOR_COND_CLEANUP_LOOPEXIT:%.*]]
 ; CHECK:       for.cond3.preheader:
@@ -993,11 +993,11 @@ define i32 @constTripCount() {
 ; CHECK:       j.loop:
 ; CHECK-NEXT:    [[INDVAR:%.*]] = phi i64 [ 0, [[I_LOOP]] ]
 ; CHECK-NEXT:    call void @payload()
-; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add i64 [[INDVAR]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add nuw nsw i64 [[INDVAR]], 1
 ; CHECK-NEXT:    [[J_ATEND:%.*]] = icmp eq i64 [[INDVAR_NEXT]], 20
 ; CHECK-NEXT:    br label [[J_LOOPDONE]]
 ; CHECK:       j.loopdone:
-; CHECK-NEXT:    [[INDVAR_NEXT2]] = add i64 [[INDVAR1]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT2]] = add nuw nsw i64 [[INDVAR1]], 1
 ; CHECK-NEXT:    [[I_ATEND:%.*]] = icmp eq i64 [[INDVAR_NEXT2]], [[FLATTEN_TRIPCOUNT]]
 ; CHECK-NEXT:    br i1 [[I_ATEND]], label [[I_LOOPDONE:%.*]], label [[I_LOOP]]
 ; CHECK:       i.loopdone:
@@ -1074,11 +1074,11 @@ define void @foo_M_sext(i32* %A, i32 %N, i16 %M) {
 ; CHECK-NEXT:    [[IDXPROM_US:%.*]] = sext i32 [[FLATTEN_TRUNCIV]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX_US:%.*]] = getelementptr inbounds i32, i32* [[A:%.*]], i64 [[IDXPROM_US]]
 ; CHECK-NEXT:    tail call void @f(i32* [[ARRAYIDX_US]])
-; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add i64 [[INDVAR]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT:%.*]] = add nuw nsw i64 [[INDVAR]], 1
 ; CHECK-NEXT:    [[CMP2_US:%.*]] = icmp slt i64 [[INDVAR_NEXT]], [[TMP0]]
 ; CHECK-NEXT:    br label [[FOR_COND1_FOR_COND_CLEANUP3_CRIT_EDGE_US]]
 ; CHECK:       for.cond1.for.cond.cleanup3_crit_edge.us:
-; CHECK-NEXT:    [[INDVAR_NEXT2]] = add i64 [[INDVAR1]], 1
+; CHECK-NEXT:    [[INDVAR_NEXT2]] = add nuw nsw i64 [[INDVAR1]], 1
 ; CHECK-NEXT:    [[CMP_US:%.*]] = icmp slt i64 [[INDVAR_NEXT2]], [[FLATTEN_TRIPCOUNT]]
 ; CHECK-NEXT:    br i1 [[CMP_US]], label [[FOR_COND1_PREHEADER_US]], label [[FOR_COND_CLEANUP_LOOPEXIT:%.*]]
 ; CHECK:       for.cond.cleanup.loopexit:
