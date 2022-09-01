@@ -243,7 +243,8 @@ bool llvm::isDereferenceablePointer(const Value *V, Type *Ty,
 ///   %t2 = load i32* %t1
 /// \endcode
 ///
-static bool AreEquivalentAddressValues(const Value *A, const Value *B) {
+static bool AreEquivalentAddressValues(const DataLayout &DL, const Value *A,
+                                       const Value *B) {
   // Test if the values are trivially equivalent.
   if (A == B)
     return true;
@@ -258,6 +259,15 @@ static bool AreEquivalentAddressValues(const Value *A, const Value *B) {
     if (const Instruction *BI = dyn_cast<Instruction>(B))
       if (cast<Instruction>(A)->isIdenticalToWhenDefined(BI))
         return true;
+
+  auto *GEP1 = dyn_cast<GEPOperator>(A);
+  auto *GEP2 = dyn_cast<GEPOperator>(B);
+  if (GEP1 && GEP2 && GEP1->getPointerOperand() == GEP2->getPointerOperand()) {
+    APInt Offset1(DL.getIndexSizeInBits(GEP1->getPointerAddressSpace()), 0);
+    APInt Offset2(Offset1);
+    return GEP1->accumulateConstantOffset(DL, Offset1) &&
+           GEP2->accumulateConstantOffset(DL, Offset2) && Offset1 == Offset2;
+  }
 
   // Otherwise they may not be equivalent.
   return false;
@@ -393,7 +403,7 @@ bool llvm::isSafeToLoadUnconditionally(Value *V, Align Alignment, APInt &Size,
         LoadSize <= DL.getTypeStoreSize(AccessedTy))
       return true;
 
-    if (AreEquivalentAddressValues(AccessedPtr->stripPointerCasts(), V) &&
+    if (AreEquivalentAddressValues(DL, AccessedPtr->stripPointerCasts(), V) &&
         LoadSize <= DL.getTypeStoreSize(AccessedTy))
       return true;
   }
@@ -477,7 +487,7 @@ static Value *getAvailableLoadStore(Instruction *Inst, const Value *Ptr,
       return nullptr;
 
     Value *LoadPtr = LI->getPointerOperand()->stripPointerCasts();
-    if (!AreEquivalentAddressValues(LoadPtr, Ptr))
+    if (!AreEquivalentAddressValues(DL, LoadPtr, Ptr))
       return nullptr;
 
     if (CastInst::isBitOrNoopPointerCastable(LI->getType(), AccessTy, DL)) {
@@ -497,7 +507,7 @@ static Value *getAvailableLoadStore(Instruction *Inst, const Value *Ptr,
       return nullptr;
 
     Value *StorePtr = SI->getPointerOperand()->stripPointerCasts();
-    if (!AreEquivalentAddressValues(StorePtr, Ptr))
+    if (!AreEquivalentAddressValues(DL, StorePtr, Ptr))
       return nullptr;
 
     if (IsLoadCSE)
