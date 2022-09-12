@@ -605,13 +605,13 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
         continue;
       }
 
-      TypeSize AllocaTypeSize = DL.getTypeAllocSize(GTI.getIndexedType());
       // For an array/pointer, add the element offset, explicitly scaled.
       if (const ConstantInt *CIdx = dyn_cast<ConstantInt>(Index)) {
         if (CIdx->isZero())
           continue;
 
         // Don't attempt to analyze GEPs if the scalable index is not zero.
+        TypeSize AllocaTypeSize = DL.getTypeAllocSize(GTI.getIndexedType());
         if (AllocaTypeSize.isScalable()) {
           Decomposed.Base = V;
           return Decomposed;
@@ -622,6 +622,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
         continue;
       }
 
+      TypeSize AllocaTypeSize = DL.getTypeAllocSize(GTI.getIndexedType());
       if (AllocaTypeSize.isScalable()) {
         Decomposed.Base = V;
         return Decomposed;
