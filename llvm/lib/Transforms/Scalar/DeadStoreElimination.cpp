@@ -384,91 +384,12 @@ static OverwriteResult isPartialOverwrite(const MemoryLocation &KillingLoc,
 /// modified between the first and the second instruction.
 /// Precondition: Second instruction must be dominated by the first
 /// instruction.
-static bool
-memoryIsNotModifiedBetween(Instruction *FirstI, Instruction *SecondI,
-                           BatchAAResults &AA, const DataLayout &DL,
-                           DominatorTree *DT) {
-  // Do a backwards scan through the CFG from SecondI to FirstI. Look for
-  // instructions which can modify the memory location accessed by SecondI.
-  //
-  // While doing the walk keep track of the address to check. It might be
-  // different in different basic blocks due to PHI translation.
-  using BlockAddressPair = std::pair<BasicBlock *, PHITransAddr>;
-  SmallVector<BlockAddressPair, 16> WorkList;
-  // Keep track of the address we visited each block with. Bail out if we
-  // visit a block with different addresses.
-  DenseMap<BasicBlock *, Value *> Visited;
-
-  BasicBlock::iterator FirstBBI(FirstI);
-  ++FirstBBI;
-  BasicBlock::iterator SecondBBI(SecondI);
-  BasicBlock *FirstBB = FirstI->getParent();
-  BasicBlock *SecondBB = SecondI->getParent();
-  MemoryLocation MemLoc;
-  if (auto *MemSet = dyn_cast<MemSetInst>(SecondI))
-    MemLoc = MemoryLocation::getForDest(MemSet);
-  else
-    MemLoc = MemoryLocation::get(SecondI);
-
-  auto *MemLocPtr = const_cast<Value *>(MemLoc.Ptr);
-
-  // Start checking the SecondBB.
-  WorkList.push_back(
-      std::make_pair(SecondBB, PHITransAddr(MemLocPtr, DL, nullptr)));
-  bool isFirstBlock = true;
-
-  // Check all blocks going backward until we reach the FirstBB.
-  while (!WorkList.empty()) {
-    BlockAddressPair Current = WorkList.pop_back_val();
-    BasicBlock *B = Current.first;
-    PHITransAddr &Addr = Current.second;
-    Value *Ptr = Addr.getAddr();
-
-    // Ignore instructions before FirstI if this is the FirstBB.
-    BasicBlock::iterator BI = (B == FirstBB ? FirstBBI : B->begin());
-
-    BasicBlock::iterator EI;
-    if (isFirstBlock) {
-      // Ignore instructions after SecondI if this is the first visit of SecondBB.
-      assert(B == SecondBB && "first block is not the store block");
-      EI = SecondBBI;
-      isFirstBlock = false;
-    } else {
-      // It's not SecondBB or (in case of a loop) the second visit of SecondBB.
-      // In this case we also have to look at instructions after SecondI.
-      EI = B->end();
-    }
-    for (; BI != EI; ++BI) {
-      Instruction *I = &*BI;
-      if (I->mayWriteToMemory() && I != SecondI)
-        if (isModSet(AA.getModRefInfo(I, MemLoc.getWithNewPtr(Ptr))))
-          return false;
-    }
-    if (B != FirstBB) {
-      assert(B != &FirstBB->getParent()->getEntryBlock() &&
-          "Should not hit the entry block because SI must be dominated by LI");
-      for (BasicBlock *Pred : predecessors(B)) {
-        PHITransAddr PredAddr = Addr;
-        if (PredAddr.NeedsPHITranslationFromBlock(B)) {
-          if (!PredAddr.IsPotentiallyPHITranslatable())
-            return false;
-          if (PredAddr.PHITranslateValue(B, Pred, DT, false))
-            return false;
-        }
-        Value *TranslatedPtr = PredAddr.getAddr();
-        auto Inserted = Visited.insert(std::make_pair(Pred, TranslatedPtr));
-        if (!Inserted.second) {
-          // We already visited this block before. If it was with a different
-          // address - bail out!
-          if (TranslatedPtr != Inserted.first->second)
-            return false;
-          // ... otherwise just skip it.
-          continue;
-        }
-        WorkList.push_back(std::make_pair(Pred, PredAddr));
-      }
-    }
-  }
+static bool memoryIsNotModifiedBetween(MemorySSA &MSSA, Instruction *FirstI,
+                                       Instruction *SecondI) {
+  MemoryAccess *Def = MSSA.getSkipSelfWalker()->getClobberingMemoryAccess(
+      MSSA.getMemoryAccess(SecondI));
+  if (!MSSA.isLiveOnEntryDef(Def) && Def != MSSA.getMemoryAccess(FirstI))
+    return false;
   return true;
 }
 
@@ -630,14 +551,13 @@ static bool tryToShortenBegin(Instruction *DeadI,
 static Constant *
 tryToMergePartialOverlappingStores(StoreInst *KillingI, StoreInst *DeadI,
                                    int64_t KillingOffset, int64_t DeadOffset,
-                                   const DataLayout &DL, BatchAAResults &AA,
-                                   DominatorTree *DT) {
+                                   const DataLayout &DL, MemorySSA &MSSA) {
 
   if (DeadI && isa<ConstantInt>(DeadI->getValueOperand()) &&
       DL.typeSizeEqualsStoreSize(DeadI->getValueOperand()->getType()) &&
       KillingI && isa<ConstantInt>(KillingI->getValueOperand()) &&
       DL.typeSizeEqualsStoreSize(KillingI->getValueOperand()->getType()) &&
-      memoryIsNotModifiedBetween(DeadI, KillingI, AA, DL, DT)) {
+      memoryIsNotModifiedBetween(MSSA, DeadI, KillingI)) {
     // If the store we find is:
     //   a) partially overwritten by the store to 'Loc'
     //   b) the killing store is fully contained in the dead one and
@@ -1772,9 +1692,8 @@ struct DSEState {
 
     if (Malloc->getOperand(0) != MemSet->getLength())
       return false;
-    if (!shouldCreateCalloc(Malloc, MemSet) ||
-        !DT.dominates(Malloc, MemSet) ||
-        !memoryIsNotModifiedBetween(Malloc, MemSet, BatchAA, DL, &DT))
+    if (!shouldCreateCalloc(Malloc, MemSet) || !DT.dominates(Malloc, MemSet) ||
+        !memoryIsNotModifiedBetween(MSSA, Malloc, MemSet))
       return false;
     IRBuilder<> IRB(Malloc);
     const auto &DL = Malloc->getModule()->getDataLayout();
@@ -2072,7 +1991,7 @@ static bool eliminateDeadStores(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
           if (DeadSI && KillingSI && DT.dominates(DeadSI, KillingSI)) {
             if (Constant *Merged = tryToMergePartialOverlappingStores(
                     KillingSI, DeadSI, KillingOffset, DeadOffset, State.DL,
-                    State.BatchAA, &DT)) {
+                    MSSA)) {
 
               // Update stored value of earlier store to merged constant.
               DeadSI->setOperand(0, Merged);
