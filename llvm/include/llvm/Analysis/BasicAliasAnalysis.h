@@ -113,9 +113,15 @@ private:
   /// Tracks instructions visited by pointsToConstantMemory.
   SmallPtrSet<const Value *, 16> Visited;
 
-  static DecomposedGEP
-  DecomposeGEPExpression(const Value *V, const DataLayout &DL,
-                         AssumptionCache *AC, DominatorTree *DT);
+  // Cache around DL.getTypeAllocSize(), which is surprisingly expensive.
+  DenseMap<const Type *, TypeSize> TypeAllocSizeCache;
+
+  // Returns DL.getTypeAllocSize() and inserts it into the cache if it's not
+  // present.
+  TypeSize GetTypeAllocSize(Type *Ty);
+
+  DecomposedGEP DecomposeGEPExpression(const Value *V, const DataLayout &DL,
+                                       AssumptionCache *AC, DominatorTree *DT);
 
   /// A Heuristic for aliasGEP that searches for a constant offset
   /// between the variables.

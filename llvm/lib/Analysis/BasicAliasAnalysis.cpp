@@ -508,6 +508,13 @@ struct BasicAAResult::DecomposedGEP {
   }
 };
 
+TypeSize BasicAAResult::GetTypeAllocSize(Type *Ty) {
+  auto [it, inserted] = TypeAllocSizeCache.insert({Ty, TypeSize::Fixed(0)});
+  if (inserted) {
+    it->second = DL.getTypeAllocSize(Ty);
+  }
+  return it->second;
+}
 
 /// If V is a symbolic pointer expression, decompose it into a base pointer
 /// with a constant offset and a number of scaled symbolic offsets.
@@ -527,6 +534,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
   unsigned MaxIndexSize = DL.getMaxIndexSizeInBits();
   DecomposedGEP Decomposed;
   Decomposed.Offset = APInt(MaxIndexSize, 0);
+
   do {
     // See if this is a bitcast or GEP.
     const Operator *Op = dyn_cast<Operator>(V);
@@ -611,7 +619,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
           continue;
 
         // Don't attempt to analyze GEPs if the scalable index is not zero.
-        TypeSize AllocTypeSize = DL.getTypeAllocSize(GTI.getIndexedType());
+        TypeSize AllocTypeSize = GetTypeAllocSize(GTI.getIndexedType());
         if (AllocTypeSize.isScalable()) {
           Decomposed.Base = V;
           return Decomposed;
@@ -622,7 +630,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
         continue;
       }
 
-      TypeSize AllocTypeSize = DL.getTypeAllocSize(GTI.getIndexedType());
+      TypeSize AllocTypeSize = GetTypeAllocSize(GTI.getIndexedType());
       if (AllocTypeSize.isScalable()) {
         Decomposed.Base = V;
         return Decomposed;
