@@ -17,10 +17,10 @@ define void @test(i32* %x, i32 %n) {
 ; CHECK-NEXT:    store i32 0, i32* [[X]], align 4
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
-; CHECK-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 1
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp sgt i32 [[REM]], 1
 ; CHECK-NEXT:    br i1 [[CMP]], label [[WHILE_BODY_1:%.*]], label [[WHILE_END]]
 ; CHECK:       while.body.1:
+; CHECK-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 1
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* [[INCDEC_PTR]], align 4
 ; CHECK-NEXT:    [[CMP1_1:%.*]] = icmp slt i32 [[TMP1]], 10
 ; CHECK-NEXT:    br i1 [[CMP1_1]], label [[IF_THEN_1:%.*]], label [[IF_END_1:%.*]]
@@ -28,10 +28,10 @@ define void @test(i32* %x, i32 %n) {
 ; CHECK-NEXT:    store i32 0, i32* [[INCDEC_PTR]], align 4
 ; CHECK-NEXT:    br label [[IF_END_1]]
 ; CHECK:       if.end.1:
-; CHECK-NEXT:    [[INCDEC_PTR_1:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 2
 ; CHECK-NEXT:    [[CMP_1:%.*]] = icmp sgt i32 [[REM]], 2
 ; CHECK-NEXT:    br i1 [[CMP_1]], label [[WHILE_BODY_2:%.*]], label [[WHILE_END]]
 ; CHECK:       while.body.2:
+; CHECK-NEXT:    [[INCDEC_PTR_1:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[INCDEC_PTR_1]], align 4
 ; CHECK-NEXT:    [[CMP1_2:%.*]] = icmp slt i32 [[TMP2]], 10
 ; CHECK-NEXT:    br i1 [[CMP1_2]], label [[IF_THEN_2:%.*]], label [[WHILE_END]]

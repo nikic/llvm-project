@@ -4234,16 +4234,20 @@ bool InstCombinerImpl::run() {
       }
     }
 
-    // See if we can trivially sink this instruction to its user if we can
-    // prove that the successor is not executed more frequently than our block.
-    // Return the UserBlock if successful.
+    // See if we can trivially sink this instruction to its user or into the
+    // nearest common dominator of its users if we can prove that the successor
+    // is not executed more frequently than our block. Return the block to sink
+    // into if successful.
     auto getOptionalSinkBlockForInst =
         [this](Instruction *I) -> Optional<BasicBlock *> {
       if (!EnableCodeSinking)
         return None;
 
       BasicBlock *BB = I->getParent();
-      BasicBlock *UserParent = nullptr;
+      // We want to sink the instruction to users' nearest
+      // common dominator, so collect a set of users' parent block to later
+      // calculate their NCD.
+      SmallPtrSet<BasicBlock *, 16> UsersParents;
       unsigned NumUsers = 0;
 
       for (auto *U : I->users()) {
@@ -4255,54 +4259,42 @@ bool InstCombinerImpl::run() {
         Instruction *UserInst = cast<Instruction>(U);
         // Special handling for Phi nodes - get the block the use occurs in.
         if (PHINode *PN = dyn_cast<PHINode>(UserInst)) {
-          for (unsigned i = 0; i < PN->getNumIncomingValues(); i++) {
-            if (PN->getIncomingValue(i) == I) {
-              // Bail out if we have uses in different blocks. We don't do any
-              // sophisticated analysis (i.e finding NearestCommonDominator of
-              // these use blocks).
-              if (UserParent && UserParent != PN->getIncomingBlock(i))
-                return None;
-              UserParent = PN->getIncomingBlock(i);
-            }
-          }
-          assert(UserParent && "expected to find user block!");
-        } else {
-          if (UserParent && UserParent != UserInst->getParent())
-            return None;
-          UserParent = UserInst->getParent();
-        }
-
-        // Make sure these checks are done only once, naturally we do the checks
-        // the first time we get the userparent, this will save compile time.
-        if (NumUsers == 0) {
-          // Try sinking to another block. If that block is unreachable, then do
-          // not bother. SimplifyCFG should handle it.
-          if (UserParent == BB || !DT.isReachableFromEntry(UserParent))
-            return None;
-
-          auto *Term = UserParent->getTerminator();
-          // See if the user is one of our successors that has only one
-          // predecessor, so that we don't have to split the critical edge.
-          // Another option where we can sink is a block that ends with a
-          // terminator that does not pass control to other block (such as
-          // return or unreachable or resume). In this case:
-          //   - I dominates the User (by SSA form);
-          //   - the User will be executed at most once.
-          // So sinking I down to User is always profitable or neutral.
-          if (UserParent->getUniquePredecessor() != BB && !succ_empty(Term))
-            return None;
-
-          assert(DT.dominates(BB, UserParent) && "Dominance relation broken?");
-        }
-
+          for (unsigned i = 0; i < PN->getNumIncomingValues(); i++)
+            if (PN->getIncomingValue(i) == I)
+              UsersParents.insert(PN->getIncomingBlock(i));
+        } else
+          UsersParents.insert(UserInst->getParent());
         NumUsers++;
       }
 
       // No user or only has droppable users.
-      if (!UserParent)
+      if (UsersParents.empty())
         return None;
 
-      return UserParent;
+      auto *UsersParentsNCD = *UsersParents.begin();
+      for (auto *UserParent : UsersParents) {
+        if (UserParent == BB || !DT.isReachableFromEntry(UserParent))
+          return None;
+        UsersParentsNCD =
+            DT.findNearestCommonDominator(UsersParentsNCD, UserParent);
+      }
+
+      if (UsersParentsNCD == BB)
+        return None;
+
+      auto *Term = UsersParentsNCD->getTerminator();
+      // See if the block we want to sink to is one of our successors that has
+      // only one predecessor, so that we don't have to split the critical edge.
+      // Another option where we can sink is a block that ends with a
+      // terminator that does not pass control to other block (such as
+      // return or unreachable or resume). In this case:
+      //   - I dominates the User (by SSA form);
+      //   - the User will be executed at most once.
+      // So sinking I down to User is always profitable or neutral.
+      if (UsersParentsNCD->getUniquePredecessor() != BB && !succ_empty(Term))
+        return None;
+      assert(DT.dominates(BB, UsersParentsNCD) && "Dominance relation broken?");
+      return UsersParentsNCD;
     };
 
     auto OptBB = getOptionalSinkBlockForInst(I);

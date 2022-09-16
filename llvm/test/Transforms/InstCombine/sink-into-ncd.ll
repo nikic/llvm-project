@@ -10,18 +10,20 @@ declare i32 @use(i8*)
 define i32 @test1(i8** %addr, i1 %c) {
 ; CHECK-LABEL: @test1(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[PTR:%.*]] = load i8*, i8** [[ADDR:%.*]], align 8
-; CHECK-NEXT:    br i1 false, label [[NULL:%.*]], label [[NOT_NULL:%.*]]
+; CHECK-NEXT:    [[COND:%.*]] = icmp eq i8** [[ADDR:%.*]], null
+; CHECK-NEXT:    br i1 [[COND]], label [[NULL:%.*]], label [[NOT_NULL:%.*]]
 ; CHECK:       null:
+; CHECK-NEXT:    [[X:%.*]] = call i32 @use(i8* null)
 ; CHECK-NEXT:    br label [[EXIT:%.*]]
 ; CHECK:       not.null:
+; CHECK-NEXT:    [[PTR:%.*]] = load i8*, i8** [[ADDR]], align 8
 ; CHECK-NEXT:    [[Y:%.*]] = call i32 @use(i8* [[PTR]])
 ; CHECK-NEXT:    br i1 [[C:%.*]], label [[EXIT]], label [[NOT_NULL_2:%.*]]
 ; CHECK:       not.null.2:
 ; CHECK-NEXT:    [[Z:%.*]] = call i32 @use(i8* [[PTR]])
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[P:%.*]] = phi i32 [ poison, [[NULL]] ], [ [[Y]], [[NOT_NULL]] ], [ [[Z]], [[NOT_NULL_2]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i32 [ [[X]], [[NULL]] ], [ [[Y]], [[NOT_NULL]] ], [ [[Z]], [[NOT_NULL_2]] ]
 ; CHECK-NEXT:    ret i32 [[P]]
 ;
 entry:
@@ -53,12 +55,12 @@ define i32 @test2(i8** %addr, i1 %c) {
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq i8** [[ADDR:%.*]], null
 ; CHECK-NEXT:    br i1 [[COND]], label [[EXIT:%.*]], label [[LOAD_BB:%.*]]
 ; CHECK:       load.bb:
-; CHECK-NEXT:    [[PTR:%.*]] = load i8*, i8** [[ADDR]], align 8
 ; CHECK-NEXT:    br i1 [[C:%.*]], label [[LEFT:%.*]], label [[RIGHT:%.*]]
 ; CHECK:       left:
 ; CHECK-NEXT:    [[X:%.*]] = call i32 @use(i8* null)
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       right:
+; CHECK-NEXT:    [[PTR:%.*]] = load i8*, i8** [[ADDR]], align 8
 ; CHECK-NEXT:    [[Y:%.*]] = call i32 @use(i8* [[PTR]])
 ; CHECK-NEXT:    br i1 [[C]], label [[EXIT]], label [[RIGHT_2:%.*]]
 ; CHECK:       right.2:
