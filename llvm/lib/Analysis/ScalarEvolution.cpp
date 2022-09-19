@@ -78,6 +78,7 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PhiValues.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -6670,20 +6671,22 @@ ScalarEvolution::getRangeRef(const SCEV *S,
                         APInt::getSignedMaxValue(BitWidth).ashr(NS - 1) + 1),
           RangeType);
 
-    // A range of Phi is a subset of union of all ranges of its input.
+    // A range of Phi is a subset of union of all ranges of its underlying
+    // values.
     if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue())) {
+      auto &PValues = PV.getValuesForPhi(Phi);
       // Make sure that we do not run over cycled Phis.
       if (PendingPhiRanges.insert(Phi).second) {
-        ConstantRange RangeFromOps(BitWidth, /*isFullSet=*/false);
-        for (const auto &Op : Phi->operands()) {
-          auto OpRange = getRangeRef(getSCEV(Op), SignHint);
-          RangeFromOps = RangeFromOps.unionWith(OpRange);
+        ConstantRange RangeFromPhiValues(BitWidth, /*isFullSet=*/false);
+        for (const auto &PhiValue : PValues) {
+          auto ValueRange = getRangeRef(getSCEV(PhiValue), SignHint);
+          RangeFromPhiValues = RangeFromPhiValues.unionWith(ValueRange);
           // No point to continue if we already have a full set.
-          if (RangeFromOps.isFullSet())
+          if (RangeFromPhiValues.isFullSet())
             break;
         }
         ConservativeResult =
-            ConservativeResult.intersectWith(RangeFromOps, RangeType);
+            ConservativeResult.intersectWith(RangeFromPhiValues, RangeType);
         bool Erased = PendingPhiRanges.erase(Phi);
         assert(Erased && "Failed to erase Phi properly?");
         (void) Erased;
@@ -13150,8 +13153,8 @@ ScalarEvolution::SCEVCallbackVH::SCEVCallbackVH(Value *V, ScalarEvolution *se)
 
 ScalarEvolution::ScalarEvolution(Function &F, TargetLibraryInfo &TLI,
                                  AssumptionCache &AC, DominatorTree &DT,
-                                 LoopInfo &LI)
-    : F(F), TLI(TLI), AC(AC), DT(DT), LI(LI),
+                                 LoopInfo &LI, PhiValues &PV)
+    : F(F), TLI(TLI), AC(AC), DT(DT), LI(LI), PV(PV),
       CouldNotCompute(new SCEVCouldNotCompute()), ValuesAtScopes(64),
       LoopDispositions(64), BlockDispositions(64) {
   // To use guards for proving predicates, we need to scan every instruction in
@@ -13171,7 +13174,7 @@ ScalarEvolution::ScalarEvolution(Function &F, TargetLibraryInfo &TLI,
 
 ScalarEvolution::ScalarEvolution(ScalarEvolution &&Arg)
     : F(Arg.F), HasGuards(Arg.HasGuards), TLI(Arg.TLI), AC(Arg.AC), DT(Arg.DT),
-      LI(Arg.LI), CouldNotCompute(std::move(Arg.CouldNotCompute)),
+      LI(Arg.LI), PV(Arg.PV), CouldNotCompute(std::move(Arg.CouldNotCompute)),
       ValueExprMap(std::move(Arg.ValueExprMap)),
       PendingLoopPredicates(std::move(Arg.PendingLoopPredicates)),
       PendingPhiRanges(std::move(Arg.PendingPhiRanges)),
@@ -13751,7 +13754,7 @@ void ScalarEvolution::getReachableBlocks(
 
 void ScalarEvolution::verify() const {
   ScalarEvolution &SE = *const_cast<ScalarEvolution *>(this);
-  ScalarEvolution SE2(F, TLI, AC, DT, LI);
+  ScalarEvolution SE2(F, TLI, AC, DT, LI, PV);
 
   SmallVector<Loop *, 8> LoopStack(LI.begin(), LI.end());
 
@@ -13997,7 +14000,8 @@ bool ScalarEvolution::invalidate(
   return !(PAC.preserved() || PAC.preservedSet<AllAnalysesOn<Function>>()) ||
          Inv.invalidate<AssumptionAnalysis>(F, PA) ||
          Inv.invalidate<DominatorTreeAnalysis>(F, PA) ||
-         Inv.invalidate<LoopAnalysis>(F, PA);
+         Inv.invalidate<LoopAnalysis>(F, PA) ||
+         Inv.invalidate<PhiValuesAnalysis>(F, PA);
 }
 
 AnalysisKey ScalarEvolutionAnalysis::Key;
@@ -14007,7 +14011,8 @@ ScalarEvolution ScalarEvolutionAnalysis::run(Function &F,
   return ScalarEvolution(F, AM.getResult<TargetLibraryAnalysis>(F),
                          AM.getResult<AssumptionAnalysis>(F),
                          AM.getResult<DominatorTreeAnalysis>(F),
-                         AM.getResult<LoopAnalysis>(F));
+                         AM.getResult<LoopAnalysis>(F),
+                         AM.getResult<PhiValuesAnalysis>(F));
 }
 
 PreservedAnalyses
@@ -14033,6 +14038,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass)
 INITIALIZE_PASS_END(ScalarEvolutionWrapperPass, "scalar-evolution",
                     "Scalar Evolution Analysis", false, true)
 
@@ -14047,7 +14053,8 @@ bool ScalarEvolutionWrapperPass::runOnFunction(Function &F) {
       F, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
       getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F),
       getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
-      getAnalysis<LoopInfoWrapperPass>().getLoopInfo()));
+      getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
+      getAnalysis<PhiValuesWrapperPass>().getResult()));
   return false;
 }
 

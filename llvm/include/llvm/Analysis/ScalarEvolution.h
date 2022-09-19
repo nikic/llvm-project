@@ -57,6 +57,7 @@ class Instruction;
 class LLVMContext;
 class Loop;
 class LoopInfo;
+class PhiValues;
 class raw_ostream;
 class ScalarEvolution;
 class SCEVAddRecExpr;
@@ -484,7 +485,7 @@ public:
   };
 
   ScalarEvolution(Function &F, TargetLibraryInfo &TLI, AssumptionCache &AC,
-                  DominatorTree &DT, LoopInfo &LI);
+                  DominatorTree &DT, LoopInfo &LI, PhiValues &PV);
   ScalarEvolution(ScalarEvolution &&Arg);
   ~ScalarEvolution();
 
@@ -1245,6 +1246,9 @@ private:
 
   /// The loop information for the function we are currently analyzing.
   LoopInfo &LI;
+
+  /// The information about underlying values of phis.
+  PhiValues &PV;
 
   /// This SCEV is used to represent unknown trip counts and things.
   std::unique_ptr<SCEVCouldNotCompute> CouldNotCompute;

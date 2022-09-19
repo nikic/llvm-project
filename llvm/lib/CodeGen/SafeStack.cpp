@@ -25,6 +25,7 @@
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PhiValues.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/StackLifetime.h"
@@ -916,7 +917,9 @@ public:
 
     DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
 
-    ScalarEvolution SE(F, TLI, ACT, *DT, LI);
+    PhiValues PV(F);
+
+    ScalarEvolution SE(F, TLI, ACT, *DT, LI, PV);
 
     return SafeStack(F, *TL, *DL, ShouldPreserveDominatorTree ? &DTU : nullptr,
                      SE)
