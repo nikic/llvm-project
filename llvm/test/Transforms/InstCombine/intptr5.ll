@@ -8,20 +8,19 @@ define  void @test(float* %a, float* readnone %a_end, i64 %b, float* %bf) unname
 ; CHECK-NEXT:    [[B_FLOAT:%.*]] = inttoptr i64 [[B:%.*]] to float*
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[BB1:%.*]], label [[BB2:%.*]]
 ; CHECK:       bb1:
+; CHECK-NEXT:    [[TMP0:%.*]] = inttoptr i64 [[B]] to float*
 ; CHECK-NEXT:    br label [[FOR_BODY_PREHEADER:%.*]]
 ; CHECK:       bb2:
-; CHECK-NEXT:    [[BFI:%.*]] = ptrtoint float* [[BF:%.*]] to i64
 ; CHECK-NEXT:    br label [[FOR_BODY_PREHEADER]]
 ; CHECK:       for.body.preheader:
-; CHECK-NEXT:    [[B_PHI:%.*]] = phi i64 [ [[B]], [[BB1]] ], [ [[BFI]], [[BB2]] ]
-; CHECK-NEXT:    [[B_PHI_PTR:%.*]] = inttoptr i64 [[B_PHI]] to float*
+; CHECK-NEXT:    [[B_PHI:%.*]] = phi float* [ [[TMP0]], [[BB1]] ], [ [[BF:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    switch i64 [[B]], label [[FOR_BODY:%.*]] [
 ; CHECK-NEXT:    i64 1, label [[FOR_BODY]]
 ; CHECK-NEXT:    ]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[A_ADDR_03:%.*]] = phi float* [ [[INCDEC_PTR:%.*]], [[FOR_BODY]] ], [ [[A]], [[FOR_BODY_PREHEADER]] ], [ [[A]], [[FOR_BODY_PREHEADER]] ]
 ; CHECK-NEXT:    [[B_ADDR_FLOAT:%.*]] = phi float* [ [[B_ADDR_FLOAT_INC:%.*]], [[FOR_BODY]] ], [ [[B_FLOAT]], [[FOR_BODY_PREHEADER]] ], [ [[B_FLOAT]], [[FOR_BODY_PREHEADER]] ]
-; CHECK-NEXT:    [[B_ADDR_I64_PTR:%.*]] = phi float* [ [[B_ADDR_FLOAT_INC]], [[FOR_BODY]] ], [ [[B_PHI_PTR]], [[FOR_BODY_PREHEADER]] ], [ [[B_PHI_PTR]], [[FOR_BODY_PREHEADER]] ]
+; CHECK-NEXT:    [[B_ADDR_I64_PTR:%.*]] = phi float* [ [[B_ADDR_FLOAT_INC]], [[FOR_BODY]] ], [ [[B_PHI]], [[FOR_BODY_PREHEADER]] ], [ [[B_PHI]], [[FOR_BODY_PREHEADER]] ]
 ; CHECK-NEXT:    [[L:%.*]] = load float, float* [[B_ADDR_FLOAT]], align 4
 ; CHECK-NEXT:    [[MUL_I:%.*]] = fmul float [[L]], 4.200000e+01
 ; CHECK-NEXT:    store float [[MUL_I]], float* [[A_ADDR_03]], align 4

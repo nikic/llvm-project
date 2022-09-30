@@ -51,17 +51,16 @@ define void @no_matching_phi(i64 %a, float* %b, i1 %cond) {
 ; CHECK-NEXT:    [[ADDB:%.*]] = getelementptr inbounds float, float* [[B:%.*]], i64 2
 ; CHECK-NEXT:    br i1 [[COND:%.*]], label [[B:%.*]], label [[A:%.*]]
 ; CHECK:       A:
+; CHECK-NEXT:    [[TMP0:%.*]] = inttoptr i64 [[ADD_INT]] to float*
 ; CHECK-NEXT:    br label [[C:%.*]]
 ; CHECK:       B:
-; CHECK-NEXT:    [[ADDB_INT:%.*]] = ptrtoint float* [[ADDB]] to i64
 ; CHECK-NEXT:    [[ADD:%.*]] = inttoptr i64 [[ADD_INT]] to float*
 ; CHECK-NEXT:    store float 1.000000e+01, float* [[ADD]], align 4
 ; CHECK-NEXT:    br label [[C]]
 ; CHECK:       C:
 ; CHECK-NEXT:    [[A_ADDR_03:%.*]] = phi float* [ [[ADDB]], [[A]] ], [ [[ADD]], [[B]] ]
-; CHECK-NEXT:    [[B_ADDR_02:%.*]] = phi i64 [ [[ADD_INT]], [[A]] ], [ [[ADDB_INT]], [[B]] ]
-; CHECK-NEXT:    [[I0:%.*]] = inttoptr i64 [[B_ADDR_02]] to float*
-; CHECK-NEXT:    [[I1:%.*]] = load float, float* [[I0]], align 4
+; CHECK-NEXT:    [[B_ADDR_02:%.*]] = phi float* [ [[TMP0]], [[A]] ], [ [[ADDB]], [[B]] ]
+; CHECK-NEXT:    [[I1:%.*]] = load float, float* [[B_ADDR_02]], align 4
 ; CHECK-NEXT:    [[MUL_I:%.*]] = fmul float [[I1]], 4.200000e+01
 ; CHECK-NEXT:    store float [[MUL_I]], float* [[A_ADDR_03]], align 4
 ; CHECK-NEXT:    ret void

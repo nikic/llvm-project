@@ -57,19 +57,18 @@ define void @test1_neg(float* %a, float* readnone %a_end, i64* %b.i64) {
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_END:%.*]]
 ; CHECK:       for.body.preheader:
 ; CHECK-NEXT:    [[B:%.*]] = load i64, i64* [[B_I64:%.*]], align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = inttoptr i64 [[B]] to float*
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[A_ADDR_03:%.*]] = phi float* [ [[INCDEC_PTR:%.*]], [[BB:%.*]] ], [ [[A]], [[FOR_BODY_PREHEADER]] ]
-; CHECK-NEXT:    [[B_ADDR_02:%.*]] = phi i64 [ [[ADD_INT:%.*]], [[BB]] ], [ [[B]], [[FOR_BODY_PREHEADER]] ]
-; CHECK-NEXT:    [[TMP:%.*]] = inttoptr i64 [[B_ADDR_02]] to float*
-; CHECK-NEXT:    [[PTRCMP:%.*]] = icmp ult float* [[TMP]], [[A_END]]
+; CHECK-NEXT:    [[B_ADDR_02:%.*]] = phi float* [ [[ADD:%.*]], [[BB]] ], [ [[TMP0]], [[FOR_BODY_PREHEADER]] ]
+; CHECK-NEXT:    [[PTRCMP:%.*]] = icmp ult float* [[B_ADDR_02]], [[A_END]]
 ; CHECK-NEXT:    br i1 [[PTRCMP]], label [[FOR_END]], label [[BB]]
 ; CHECK:       bb:
 ; CHECK-NEXT:    [[I1:%.*]] = load float, float* [[A]], align 4
 ; CHECK-NEXT:    [[MUL_I:%.*]] = fmul float [[I1]], 4.200000e+01
 ; CHECK-NEXT:    store float [[MUL_I]], float* [[A_ADDR_03]], align 4
-; CHECK-NEXT:    [[ADD:%.*]] = getelementptr inbounds float, float* [[A]], i64 1
-; CHECK-NEXT:    [[ADD_INT]] = ptrtoint float* [[ADD]] to i64
+; CHECK-NEXT:    [[ADD]] = getelementptr inbounds float, float* [[A]], i64 1
 ; CHECK-NEXT:    [[INCDEC_PTR]] = getelementptr inbounds float, float* [[A_ADDR_03]], i64 1
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ult float* [[INCDEC_PTR]], [[A_END]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[FOR_END]]
