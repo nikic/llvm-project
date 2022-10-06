@@ -510,6 +510,8 @@ public:
     NewAAQI.Depth = Depth;
     return NewAAQI;
   }
+
+  AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
 };
 
 /// AAQueryInfo that uses SimpleCaptureInfo.
@@ -523,6 +525,8 @@ public:
 class BatchAAResults;
 
 class AAResults {
+  friend class AAQueryInfo;
+
 public:
   // Make these results default constructable and movable. We have to spell
   // these out because MSVC won't synthesize them.
@@ -857,8 +861,6 @@ public:
     return canInstructionRangeModRef(I1, I2, MemoryLocation(Ptr, Size), Mode);
   }
 
-  AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI);
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
                               bool OrLocal = false);
   ModRefInfo getModRefInfo(Instruction *I, const CallBase *Call2,
@@ -924,7 +926,7 @@ public:
   BatchAAResults(AAResults &AAR, CaptureInfo *CI) : AA(AAR), AAQI(AAR, CI) {}
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
-    return AA.alias(LocA, LocB, AAQI);
+    return AAQI.alias(LocA, LocB);
   }
   bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal = false) {
     return AA.pointsToConstantMemory(Loc, AAQI, OrLocal);

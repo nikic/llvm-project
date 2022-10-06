@@ -107,36 +107,36 @@ bool AAResults::invalidate(Function &F, const PreservedAnalyses &PA,
 AliasResult AAResults::alias(const MemoryLocation &LocA,
                              const MemoryLocation &LocB) {
   SimpleAAQueryInfo AAQIP(*this);
-  return alias(LocA, LocB, AAQIP);
+  return AAQIP.alias(LocA, LocB);
 }
 
-AliasResult AAResults::alias(const MemoryLocation &LocA,
-                             const MemoryLocation &LocB, AAQueryInfo &AAQI) {
+AliasResult AAQueryInfo::alias(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB) {
   AliasResult Result = AliasResult::MayAlias;
 
   if (EnableAATrace) {
-    for (unsigned I = 0; I < AAQI.Depth; ++I)
+    for (unsigned I = 0; I < Depth; ++I)
       dbgs() << "  ";
     dbgs() << "Start " << *LocA.Ptr << " @ " << LocA.Size << ", "
            << *LocB.Ptr << " @ " << LocB.Size << "\n";
   }
 
-  AAQI.Depth++;
-  for (const auto &AA : AAs) {
-    Result = AA->alias(LocA, LocB, AAQI);
+  Depth++;
+  for (const auto &AA : AAR.AAs) {
+    Result = AA->alias(LocA, LocB, *this);
     if (Result != AliasResult::MayAlias)
       break;
   }
-  AAQI.Depth--;
+  Depth--;
 
   if (EnableAATrace) {
-    for (unsigned I = 0; I < AAQI.Depth; ++I)
+    for (unsigned I = 0; I < Depth; ++I)
       dbgs() << "  ";
     dbgs() << "End " << *LocA.Ptr << " @ " << LocA.Size << ", "
            << *LocB.Ptr << " @ " << LocB.Size << " = " << Result << "\n";
   }
 
-  if (AAQI.Depth == 0) {
+  if (Depth == 0) {
     if (Result == AliasResult::NoAlias)
       ++NumNoAlias;
     else if (Result == AliasResult::MustAlias)
@@ -245,7 +245,7 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
         continue;
       unsigned ArgIdx = I.index();
       MemoryLocation ArgLoc = MemoryLocation::getForArgument(Call, ArgIdx, TLI);
-      AliasResult ArgAlias = alias(ArgLoc, Loc, AAQI);
+      AliasResult ArgAlias = AAQI.alias(ArgLoc, Loc);
       if (ArgAlias != AliasResult::NoAlias)
         AllArgsMask |= getArgModRefInfo(Call, ArgIdx);
     }
@@ -485,7 +485,7 @@ ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
   // If the load address doesn't alias the given address, it doesn't read
   // or write the specified memory.
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(L), Loc, AAQI);
+    AliasResult AR = AAQI.alias(MemoryLocation::get(L), Loc);
     if (AR == AliasResult::NoAlias)
       return ModRefInfo::NoModRef;
   }
@@ -506,7 +506,7 @@ ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
     return ModRefInfo::ModRef;
 
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(S), Loc, AAQI);
+    AliasResult AR = AAQI.alias(MemoryLocation::get(S), Loc);
     // If the store address cannot alias the pointer in question, then the
     // specified memory cannot be modified by the store.
     if (AR == AliasResult::NoAlias)
@@ -548,7 +548,7 @@ ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
                                     const MemoryLocation &Loc,
                                     AAQueryInfo &AAQI) {
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(V), Loc, AAQI);
+    AliasResult AR = AAQI.alias(MemoryLocation::get(V), Loc);
     // If the va_arg address cannot alias the pointer in question, then the
     // specified memory cannot be accessed by the va_arg.
     if (AR == AliasResult::NoAlias)
@@ -618,7 +618,7 @@ ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
     return ModRefInfo::ModRef;
 
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(CX), Loc, AAQI);
+    AliasResult AR = AAQI.alias(MemoryLocation::get(CX), Loc);
     // If the cmpxchg address does not alias the location, it does not access
     // it.
     if (AR == AliasResult::NoAlias)
@@ -642,7 +642,7 @@ ModRefInfo AAResults::getModRefInfo(const AtomicRMWInst *RMW,
     return ModRefInfo::ModRef;
 
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(RMW), Loc, AAQI);
+    AliasResult AR = AAQI.alias(MemoryLocation::get(RMW), Loc);
     // If the atomicrmw address does not alias the location, it does not access
     // it.
     if (AR == AliasResult::NoAlias)
@@ -730,9 +730,9 @@ ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
          !Call->isByValArgument(ArgNo)))
       continue;
 
-    AliasResult AR = alias(
+    AliasResult AR = AAQI.alias(
         MemoryLocation::getBeforeOrAfter(*CI),
-        MemoryLocation::getBeforeOrAfter(Object), AAQI);
+        MemoryLocation::getBeforeOrAfter(Object));
     // If this is a no-capture pointer argument, see if we can tell that it
     // is impossible to alias the pointer we're checking.  If not, we have to
     // assume that the call could touch the pointer, even though it doesn't
