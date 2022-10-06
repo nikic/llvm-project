@@ -89,22 +89,24 @@ check_1:
 eq_1:
   call void @bar()
   br label %check_2
+
+check_2:
+  %cond2 = icmp eq i32 %v, 2
+  br i1 %cond2, label %eq_2, label %check_3
+; CHECK: check_2:
+; No metadata:
+; CHECK: br i1 %cond2, label %check_3.thread, label %check_3{{$}}
+
 ; Verify the new edge:
 ; CHECK: check_2.thread:
 ; CHECK-NEXT: call void @bar()
 ; CHECK-NEXT: br label %latch
 
-check_2:
-  %cond2 = icmp eq i32 %v, 2
-  br i1 %cond2, label %eq_2, label %check_3
-; No metadata:
-; CHECK: br i1 %cond2, label %eq_2, label %check_3{{$}}
-
 eq_2:
   call void @bar()
   br label %check_3
 ; Verify the new edge:
-; CHECK: eq_2:
+; CHECK: check_3.thread:
 ; CHECK-NEXT: call void @bar()
 ; CHECK-NEXT: br label %latch
 

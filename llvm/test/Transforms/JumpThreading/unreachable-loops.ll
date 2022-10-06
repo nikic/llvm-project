@@ -100,10 +100,6 @@ define void @PR48362() {
 ; CHECK-LABEL: @PR48362(
 ; CHECK-NEXT:  cleanup.cont1500:
 ; CHECK-NEXT:    unreachable
-; CHECK:       if.end1733:
-; CHECK-NEXT:    [[I82:%.*]] = load i32, i32* undef, align 1
-; CHECK-NEXT:    [[TOBOOL1731_NOT:%.*]] = icmp eq i32 [[I82]], 0
-; CHECK-NEXT:    br label [[IF_END1733:%.*]]
 ;
 cleanup1491:                                      ; preds = %for.body1140
   switch i32 0, label %cleanup2343.loopexit4 [

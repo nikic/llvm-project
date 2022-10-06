@@ -7,8 +7,8 @@ define void @hoge() {
 ; CHECK-NEXT:  bb:
 ; CHECK-NEXT:    [[TMP:%.*]] = and i32 undef, 1073741823
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq i32 [[TMP]], 5
-; CHECK-NEXT:    br i1 [[COND]], label [[BB10:%.*]], label [[BB13:%.*]]
-; CHECK:       bb10:
+; CHECK-NEXT:    br i1 [[COND]], label [[BB7_THREAD:%.*]], label [[BB13:%.*]]
+; CHECK:       bb7.thread:
 ; CHECK-NEXT:    tail call void @ham()
 ; CHECK-NEXT:    br label [[BB13]]
 ; CHECK:       bb13:

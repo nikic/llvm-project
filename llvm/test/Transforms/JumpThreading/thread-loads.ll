@@ -111,10 +111,13 @@ define i32 @test3(i8** %x, i1 %f) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i8** [[X:%.*]] to i32**
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32*, i32** [[TMP0]], align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[TMP1]] to i8*
-; CHECK-NEXT:    br i1 [[F:%.*]], label [[IF_END57:%.*]], label [[IF_END57]]
+; CHECK-NEXT:    br i1 [[F:%.*]], label [[IF_END57:%.*]], label [[IF_THEN56:%.*]]
+; CHECK:       if.then56:
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[TMP1]] to i8*
+; CHECK-NEXT:    br label [[IF_END57]]
 ; CHECK:       if.end57:
-; CHECK-NEXT:    [[TMP3:%.*]] = phi i8* [ [[TMP2]], [[ENTRY:%.*]] ], [ [[TMP2]], [[ENTRY]] ]
-; CHECK-NEXT:    [[TOBOOL59:%.*]] = icmp eq i8* [[TMP3]], null
+; CHECK-NEXT:    [[TMP4:%.*]] = phi i8* [ [[TMP3]], [[IF_THEN56]] ], [ [[TMP2]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[TOBOOL59:%.*]] = icmp eq i8* [[TMP4]], null
 ; CHECK-NEXT:    br i1 [[TOBOOL59]], label [[RETURN:%.*]], label [[IF_THEN60:%.*]]
 ; CHECK:       if.then60:
 ; CHECK-NEXT:    ret i32 42
@@ -683,7 +686,6 @@ right_x:
 }
 
 
-; CHECK: [[RNG4]] = !{i32 0, i32 1}
 
 !0 = !{!3, !3, i64 0}
 !1 = !{!"omnipotent char", !2}

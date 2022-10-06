@@ -10,9 +10,9 @@ target triple = "aarch64-linaro-linux-gnueabi"
 ;CHECK-LABEL: Top.split:
 ;CHECK: call void @callee(%struct.bitmap* null, %struct.bitmap* null, %struct.bitmap* %b_elt, i1 false)
 ;CHECK-LABEL: NextCond:
-;CHECK: br {{.*}} label %callee.exit
-;CHECK-LABEL: callee.exit:
-;CHECK: call void @dummy2(%struct.bitmap* %a_elt)
+;CHECK: br {{.*}} label %Cond.i
+;CHECK-LABEL: Cond.i:
+;CHECK-NEXT: call void @dummy2(%struct.bitmap* %a_elt)
 
 define void @caller(i1 %c, %struct.bitmap* %a_elt, %struct.bitmap* %b_elt) {
 entry:

@@ -1,14 +1,10 @@
 ; RUN: opt -S -jump-threading -verify -o - %s | FileCheck %s
+; This test checks that we dont infinitely recurse when a
+; binary operator references itself.
 @a = external global i16, align 1
 
 ; CHECK-LABEL: f
-; CHECK: bb6:
-; CHECK: bb2:
-; CHECK: bb3:
-; CHECK-NOT: bb0:
-; CHECK-NOT: bb1:
-; CHECK-NOT: bb4:
-; CHECK-NOT: bb5:
+; CHECK: [[OP:%.*]] = and i1 [[OP]], undef
 define void @f(i32 %p1) {
 bb0:
   %0 = icmp eq i32 %p1, 0

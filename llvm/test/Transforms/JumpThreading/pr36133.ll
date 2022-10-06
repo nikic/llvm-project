@@ -5,13 +5,14 @@ define i32 @foo(i32 %arg) {
 ; CHECK-LABEL: @foo
 ; CHECK-LABEL: bb:
 ; CHECK: icmp eq
-; CHECK-NEXT: br i1 %tmp1, label %bb7, label %bb7
+; CHECK-NEXT: br i1 %tmp1, label %bb7, label %bb2
 bb:
   %tmp = load i8*, i8** @global, align 8
   %tmp1 = icmp eq i8* %tmp, null
   br i1 %tmp1, label %bb3, label %bb2
 
-; CHECK-NOT: bb2:
+; CHECK: bb2:
+; CHECK-NEXT: br label %bb7
 bb2:
   br label %bb3
 

@@ -100,7 +100,7 @@ define void @test2(i32 %i, i32 %len, i1* %c.ptr) {
 ; A s<= B implies A s> B is false.
 ; CHECK-LABEL: @test3(
 ; CHECK: entry:
-; CHECK: br i1 %cmp, label %if.end, label %if.end3
+; CHECK: br i1 %cmp, label %if.then, label %if.end3
 ; CHECK-NOT: br i1 %cmp1, label %if.then2, label %if.end
 ; CHECK-NOT: call void @side_effect(i32 0)
 ; CHECK: br label %if.end3

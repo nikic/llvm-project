@@ -472,22 +472,22 @@ define i32 @unfold5(i32 %u, i32 %v, i32 %w, i32 %x, i32 %y, i32 %z, i32 %j) noun
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ADD3:%.*]] = add nsw i32 [[J:%.*]], 2
 ; CHECK-NEXT:    [[CMP_I:%.*]] = icmp slt i32 [[U:%.*]], [[V:%.*]]
-; CHECK-NEXT:    br i1 [[CMP_I]], label [[DOTEXIT:%.*]], label [[COND_FALSE_I:%.*]]
+; CHECK-NEXT:    br i1 [[CMP_I]], label [[DOTEXIT_THREAD:%.*]], label [[COND_FALSE_I:%.*]]
 ; CHECK:       cond.false.i:
 ; CHECK-NEXT:    [[CMP4_I:%.*]] = icmp sgt i32 [[U]], [[V]]
-; CHECK-NEXT:    br i1 [[CMP4_I]], label [[DOTEXIT]], label [[COND_FALSE_6_I:%.*]]
+; CHECK-NEXT:    br i1 [[CMP4_I]], label [[DOTEXIT_THREAD]], label [[COND_FALSE_6_I:%.*]]
 ; CHECK:       cond.false.6.i:
 ; CHECK-NEXT:    [[CMP8_I:%.*]] = icmp slt i32 [[W:%.*]], [[X:%.*]]
-; CHECK-NEXT:    br i1 [[CMP8_I]], label [[DOTEXIT]], label [[COND_FALSE_10_I:%.*]]
+; CHECK-NEXT:    br i1 [[CMP8_I]], label [[DOTEXIT_THREAD]], label [[COND_FALSE_10_I:%.*]]
 ; CHECK:       cond.false.10.i:
 ; CHECK-NEXT:    [[CMP13_I:%.*]] = icmp sgt i32 [[W]], [[X]]
-; CHECK-NEXT:    br i1 [[CMP13_I]], label [[DOTEXIT]], label [[COND_FALSE_15_I:%.*]]
+; CHECK-NEXT:    br i1 [[CMP13_I]], label [[DOTEXIT_THREAD]], label [[COND_FALSE_15_I:%.*]]
 ; CHECK:       cond.false.15.i:
 ; CHECK-NEXT:    [[CMP19_I:%.*]] = icmp sge i32 [[Y:%.*]], [[Z:%.*]]
 ; CHECK-NEXT:    [[CONV:%.*]] = zext i1 [[CMP19_I]] to i32
-; CHECK-NEXT:    br label [[DOTEXIT]]
-; CHECK:       .exit:
-; CHECK-NEXT:    [[TMP0:%.*]] = phi i32 [ [[J]], [[COND_FALSE_10_I]] ], [ [[CONV]], [[COND_FALSE_15_I]] ], [ 1, [[COND_FALSE_6_I]] ], [ 3, [[COND_FALSE_I]] ], [ 2, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    br label [[DOTEXIT_THREAD]]
+; CHECK:       .exit.thread:
+; CHECK-NEXT:    [[TMP0:%.*]] = phi i32 [ [[CONV]], [[COND_FALSE_15_I]] ], [ 1, [[COND_FALSE_6_I]] ], [ 3, [[COND_FALSE_I]] ], [ 2, [[ENTRY:%.*]] ], [ [[J]], [[COND_FALSE_10_I]] ]
 ; CHECK-NEXT:    ret i32 [[TMP0]]
 ;
 entry:

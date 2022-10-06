@@ -419,7 +419,9 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   bool Changed;
   do {
     Changed = false;
-    for (auto &BB : F) {
+    auto BBList = &(F.getBasicBlockList());
+    auto FuncRevIter = make_range(BBList->rbegin(), BBList->rend());
+    for (auto &BB : FuncRevIter) {
       if (Unreachable.count(&BB))
         continue;
       while (processBlock(&BB)) // Thread all of the branches we can over BB.
