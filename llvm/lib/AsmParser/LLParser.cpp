@@ -1472,6 +1472,31 @@ bool LLParser::parseEnumAttribute(Attribute::AttrKind Attr, AttrBuilder &B,
   }
 }
 
+static bool upgradeMemoryAttr(MemoryEffects &ME, Attribute::AttrKind Attr) {
+  switch (Attr) {
+  case Attribute::ReadNone:
+    ME &= MemoryEffects::none();
+    return true;
+  case Attribute::ReadOnly:
+    ME &= MemoryEffects::readOnly();
+    return true;
+  case Attribute::WriteOnly:
+    ME &= MemoryEffects::writeOnly();
+    return true;
+  case Attribute::ArgMemOnly:
+    ME &= MemoryEffects::argMemOnly();
+    return true;
+  case Attribute::InaccessibleMemOnly:
+    ME &= MemoryEffects::inaccessibleMemOnly();
+    return true;
+  case Attribute::InaccessibleMemOrArgMemOnly:
+    ME &= MemoryEffects::inaccessibleOrArgMemOnly();
+    return true;
+  default:
+    return false;
+  }
+}
+
 /// parseFnAttributeValuePairs
 ///   ::= <attr> | <attr> '=' <value>
 bool LLParser::parseFnAttributeValuePairs(AttrBuilder &B,
@@ -1481,10 +1506,11 @@ bool LLParser::parseFnAttributeValuePairs(AttrBuilder &B,
 
   B.clear();
 
+  MemoryEffects ME = MemoryEffects::unknown();
   while (true) {
     lltok::Kind Token = Lex.getKind();
     if (Token == lltok::rbrace)
-      return HaveError; // Finished.
+      break; // Finished.
 
     if (Token == lltok::StringConstant) {
       if (parseStringAttribute(B))
@@ -1515,8 +1541,13 @@ bool LLParser::parseFnAttributeValuePairs(AttrBuilder &B,
     Attribute::AttrKind Attr = tokenToAttribute(Token);
     if (Attr == Attribute::None) {
       if (!InAttrGrp)
-        return HaveError;
+        break;
       return error(Lex.getLoc(), "unterminated attribute group");
+    }
+
+    if (upgradeMemoryAttr(ME, Attr)) {
+      Lex.Lex();
+      continue;
     }
 
     if (parseEnumAttribute(Attr, B, InAttrGrp))
@@ -1528,6 +1559,10 @@ bool LLParser::parseFnAttributeValuePairs(AttrBuilder &B,
     if (!Attribute::canUseAsFnAttr(Attr) && Attr != Attribute::Alignment)
       HaveError |= error(Loc, "this attribute does not apply to functions");
   }
+
+  if (ME != MemoryEffects::unknown())
+    B.addMemoryAttr(ME);
+  return HaveError;
 }
 
 //===----------------------------------------------------------------------===//
