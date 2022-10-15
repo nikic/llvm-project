@@ -692,9 +692,11 @@ bool BasicAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
   unsigned MaxLookup = 8;
   SmallVector<const Value *, 16> Worklist;
   Worklist.push_back(Loc.Ptr);
+  bool IsConstant = true;
   do {
     const Value *V = getUnderlyingObject(Worklist.pop_back_val());
     if (!Visited.insert(V).second)
+      // FIXME: This is dubious, why is this not a continue?
       return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
 
     // An alloca instruction defines local memory.
@@ -707,7 +709,7 @@ bool BasicAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
       // global to be marked constant in some modules and non-constant in
       // others.  GV may even be a declaration, not a definition.
       if (!GV->isConstant())
-        return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+        IsConstant = false;
       continue;
     }
 
@@ -729,10 +731,10 @@ bool BasicAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
     }
 
     // Otherwise be conservative.
-    return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+    IsConstant = false;
   } while (!Worklist.empty() && --MaxLookup);
 
-  return Worklist.empty();
+  return IsConstant && Worklist.empty();
 }
 
 static bool isIntrinsicCall(const CallBase *Call, Intrinsic::ID IID) {
