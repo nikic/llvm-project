@@ -696,8 +696,7 @@ bool BasicAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
   do {
     const Value *V = getUnderlyingObject(Worklist.pop_back_val());
     if (!Visited.insert(V).second)
-      // FIXME: This is dubious, why is this not a continue?
-      return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+      continue;
 
     // An alloca instruction defines local memory.
     if (OrLocal && isa<AllocaInst>(V))
