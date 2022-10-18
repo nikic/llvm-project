@@ -290,9 +290,9 @@ private:
 
   void removeFromTracker(AliasSetTracker &AST);
 
-  void addPointer(AliasSetTracker &AST, PointerRec &Entry, LocationSize Size,
-                  const AAMDNodes &AAInfo, bool KnownMustAlias = false,
-                  bool SkipSizeUpdate = false);
+  void addPointer(AliasSetTracker &AST, BatchAAResults &BatchAA,
+                  PointerRec &Entry, LocationSize Size, const AAMDNodes &AAInfo,
+                  bool KnownMustAlias = false, bool SkipSizeUpdate = false);
   void addUnknownInst(Instruction *I, AAResults &AA);
 
   void removeUnknownInst(AliasSetTracker &AST, Instruction *I) {
@@ -438,6 +438,7 @@ private:
   AliasSet &addPointer(MemoryLocation Loc, AliasSet::AccessLattice E);
   AliasSet *mergeAliasSetsForPointer(const Value *Ptr, LocationSize Size,
                                      const AAMDNodes &AAInfo,
+                                     BatchAAResults &BatchAA,
                                      bool &MustAliasAll);
 
   /// Merge all alias sets into a single set that is considered to alias any

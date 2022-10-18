@@ -123,17 +123,17 @@ void AliasSet::removeFromTracker(AliasSetTracker &AST) {
   AST.removeAliasSet(this);
 }
 
-void AliasSet::addPointer(AliasSetTracker &AST, PointerRec &Entry,
-                          LocationSize Size, const AAMDNodes &AAInfo,
-                          bool KnownMustAlias, bool SkipSizeUpdate) {
+void AliasSet::addPointer(AliasSetTracker &AST, BatchAAResults &BatchAA,
+                          PointerRec &Entry, LocationSize Size,
+                          const AAMDNodes &AAInfo, bool KnownMustAlias,
+                          bool SkipSizeUpdate) {
   assert(!Entry.hasAliasSet() && "Entry already in set!");
 
   // Check to see if we have to downgrade to _may_ alias.
   if (isMustAlias())
     if (PointerRec *P = getSomePointer()) {
       if (!KnownMustAlias) {
-        AliasAnalysis &AA = AST.getAliasAnalysis();
-        AliasResult Result = AA.alias(
+        AliasResult Result = BatchAA.alias(
             MemoryLocation(P->getValue(), P->getSize(), P->getAAInfo()),
             MemoryLocation(Entry.getValue(), Size, AAInfo));
         if (Result != AliasResult::MustAlias) {
@@ -271,10 +271,10 @@ void AliasSetTracker::clear() {
 AliasSet *AliasSetTracker::mergeAliasSetsForPointer(const Value *Ptr,
                                                     LocationSize Size,
                                                     const AAMDNodes &AAInfo,
+                                                    BatchAAResults &BatchAA,
                                                     bool &MustAliasAll) {
   AliasSet *FoundSet = nullptr;
   MustAliasAll = true;
-  BatchAAResults BatchAA(AA);
   for (AliasSet &AS : llvm::make_early_inc_range(*this)) {
     if (AS.Forward)
       continue;
@@ -323,6 +323,7 @@ AliasSet &AliasSetTracker::getAliasSetFor(const MemoryLocation &MemLoc) {
 
   AliasSet::PointerRec &Entry = getEntryFor(Pointer);
 
+  BatchAAResults BatchAA(AA);
   if (AliasAnyAS) {
     // At this point, the AST is saturated, so we only have one active alias
     // set. That means we already know which alias set we want to return, and
@@ -334,7 +335,7 @@ AliasSet &AliasSetTracker::getAliasSetFor(const MemoryLocation &MemLoc) {
       assert(Entry.getAliasSet(*this) == AliasAnyAS &&
              "Entry in saturated AST must belong to only alias set");
     } else {
-      AliasAnyAS->addPointer(*this, Entry, Size, AAInfo);
+      AliasAnyAS->addPointer(*this, BatchAA, Entry, Size, AAInfo);
     }
     return *AliasAnyAS;
   }
@@ -348,21 +349,21 @@ AliasSet &AliasSetTracker::getAliasSetFor(const MemoryLocation &MemLoc) {
     // is NoAlias, mergeAliasSetsForPointer(undef, ...) will not find the
     // the right set for undef, even if it exists.
     if (Entry.updateSizeAndAAInfo(Size, AAInfo))
-      mergeAliasSetsForPointer(Pointer, Size, AAInfo, MustAliasAll);
+      mergeAliasSetsForPointer(Pointer, Size, AAInfo, BatchAA, MustAliasAll);
     // Return the set!
     return *Entry.getAliasSet(*this)->getForwardedTarget(*this);
   }
 
-  if (AliasSet *AS =
-          mergeAliasSetsForPointer(Pointer, Size, AAInfo, MustAliasAll)) {
+  if (AliasSet *AS = mergeAliasSetsForPointer(Pointer, Size, AAInfo, BatchAA,
+                                              MustAliasAll)) {
     // Add it to the alias set it aliases.
-    AS->addPointer(*this, Entry, Size, AAInfo, MustAliasAll);
+    AS->addPointer(*this, BatchAA, Entry, Size, AAInfo, MustAliasAll);
     return *AS;
   }
 
   // Otherwise create a new alias set to hold the loaded pointer.
   AliasSets.push_back(new AliasSet());
-  AliasSets.back().addPointer(*this, Entry, Size, AAInfo, true);
+  AliasSets.back().addPointer(*this, BatchAA, Entry, Size, AAInfo, true);
   return AliasSets.back();
 }
 
@@ -556,8 +557,9 @@ void AliasSetTracker::copyValue(Value *From, Value *To) {
   I = PointerMap.find_as(From);
   // Add it to the alias set it aliases...
   AliasSet *AS = I->second->getAliasSet(*this);
-  AS->addPointer(*this, Entry, I->second->getSize(), I->second->getAAInfo(),
-                 true, true);
+  BatchAAResults BatchAA(AA);
+  AS->addPointer(*this, BatchAA, Entry, I->second->getSize(),
+                 I->second->getAAInfo(), true, true);
 }
 
 AliasSet &AliasSetTracker::mergeAllAliasSets() {
