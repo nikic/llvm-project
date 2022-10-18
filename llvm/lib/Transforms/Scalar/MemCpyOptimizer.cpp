@@ -347,7 +347,7 @@ static bool accessedBetween(AliasAnalysis &AA, MemoryLocation Loc,
 
 // Check for mod of Loc between Start and End, excluding both boundaries.
 // Start and End can be in different blocks.
-static bool writtenBetween(MemorySSA *MSSA, AliasAnalysis &AA,
+static bool writtenBetween(MemorySSA *MSSA, BatchAAResults &AA,
                            MemoryLocation Loc, const MemoryUseOrDef *Start,
                            const MemoryUseOrDef *End) {
   if (isa<MemoryUse>(End)) {
@@ -368,7 +368,7 @@ static bool writtenBetween(MemorySSA *MSSA, AliasAnalysis &AA,
 
   // TODO: Only walk until we hit Start.
   MemoryAccess *Clobber = MSSA->getWalker()->getClobberingMemoryAccess(
-      End->getDefiningAccess(), Loc);
+      End->getDefiningAccess(), Loc, AA);
   return !MSSA->dominates(Clobber, Start);
 }
 
@@ -766,8 +766,9 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
       auto GetCall = [&]() -> CallInst * {
         // We defer this expensive clobber walk until the cheap checks
         // have been done on the source inside performCallSlotOptzn.
+        BatchAAResults BAA(*AA);
         if (auto *LoadClobber = dyn_cast<MemoryUseOrDef>(
-              MSSA->getWalker()->getClobberingMemoryAccess(LI)))
+                MSSA->getWalker()->getClobberingMemoryAccess(LI, BAA)))
           return dyn_cast_or_null<CallInst>(LoadClobber->getMemoryInst());
         return nullptr;
       };
@@ -1146,7 +1147,8 @@ bool MemCpyOptPass::processMemCpyMemCpyDependence(MemCpyInst *M,
   // then we could still perform the xform by moving M up to the first memcpy.
   // TODO: It would be sufficient to check the MDep source up to the memcpy
   // size of M, rather than MDep.
-  if (writtenBetween(MSSA, *AA, MemoryLocation::getForSource(MDep),
+  BatchAAResults BAA(*AA);
+  if (writtenBetween(MSSA, BAA, MemoryLocation::getForSource(MDep),
                      MSSA->getMemoryAccess(MDep), MSSA->getMemoryAccess(M)))
     return false;
 
@@ -1369,8 +1371,9 @@ bool MemCpyOptPass::performMemCpyToMemSetOptzn(MemCpyInst *MemCpy,
       MemoryLocation MemCpyLoc = MemoryLocation::getForSource(MemCpy);
       bool CanReduceSize = false;
       MemoryUseOrDef *MemSetAccess = MSSA->getMemoryAccess(MemSet);
+      BatchAAResults BAA(*AA);
       MemoryAccess *Clobber = MSSA->getWalker()->getClobberingMemoryAccess(
-          MemSetAccess->getDefiningAccess(), MemCpyLoc);
+          MemSetAccess->getDefiningAccess(), MemCpyLoc, BAA);
       if (auto *MD = dyn_cast<MemoryDef>(Clobber))
         if (hasUndefContents(MSSA, AA, MemCpy->getSource(), MD, CopySize))
           CanReduceSize = true;
@@ -1429,12 +1432,13 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
         return true;
       }
 
+  BatchAAResults BAA(*AA);
   MemoryUseOrDef *MA = MSSA->getMemoryAccess(M);
   // FIXME: Not using getClobberingMemoryAccess() here due to PR54682.
   MemoryAccess *AnyClobber = MA->getDefiningAccess();
   MemoryLocation DestLoc = MemoryLocation::getForDest(M);
   const MemoryAccess *DestClobber =
-      MSSA->getWalker()->getClobberingMemoryAccess(AnyClobber, DestLoc);
+      MSSA->getWalker()->getClobberingMemoryAccess(AnyClobber, DestLoc, BAA);
 
   // Try to turn a partially redundant memset + memcpy into
   // memcpy + smaller memset.  We don't need the memcpy size for this.
@@ -1447,7 +1451,7 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
           return true;
 
   MemoryAccess *SrcClobber = MSSA->getWalker()->getClobberingMemoryAccess(
-      AnyClobber, MemoryLocation::getForSource(M));
+      AnyClobber, MemoryLocation::getForSource(M), BAA);
 
   // There are four possible optimizations we can do for memcpy:
   //   a) memcpy-memcpy xform which exposes redundance for DSE.
@@ -1536,8 +1540,9 @@ bool MemCpyOptPass::processByValArgument(CallBase &CB, unsigned ArgNo) {
   if (!CallAccess)
     return false;
   MemCpyInst *MDep = nullptr;
+  BatchAAResults BAA(*AA);
   MemoryAccess *Clobber = MSSA->getWalker()->getClobberingMemoryAccess(
-      CallAccess->getDefiningAccess(), Loc);
+      CallAccess->getDefiningAccess(), Loc, BAA);
   if (auto *MD = dyn_cast<MemoryDef>(Clobber))
     MDep = dyn_cast_or_null<MemCpyInst>(MD->getMemoryInst());
 
@@ -1578,7 +1583,7 @@ bool MemCpyOptPass::processByValArgument(CallBase &CB, unsigned ArgNo) {
   //    *b = 42;
   //    foo(*a)
   // It would be invalid to transform the second memcpy into foo(*b).
-  if (writtenBetween(MSSA, *AA, MemoryLocation::getForSource(MDep),
+  if (writtenBetween(MSSA, BAA, MemoryLocation::getForSource(MDep),
                      MSSA->getMemoryAccess(MDep), MSSA->getMemoryAccess(&CB)))
     return false;
 

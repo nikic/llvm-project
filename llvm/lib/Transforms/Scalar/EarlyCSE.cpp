@@ -1052,7 +1052,8 @@ bool EarlyCSE::isSameMemGeneration(unsigned EarlierGeneration,
   // clobbers LaterInst.
   MemoryAccess *LaterDef;
   if (ClobberCounter < EarlyCSEMssaOptCap) {
-    LaterDef = MSSA->getWalker()->getClobberingMemoryAccess(LaterInst);
+    BatchAAResults BAA(MSSA->getAA());
+    LaterDef = MSSA->getWalker()->getClobberingMemoryAccess(LaterInst, BAA);
     ClobberCounter++;
   } else
     LaterDef = LaterMA->getDefiningAccess();

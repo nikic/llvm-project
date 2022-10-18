@@ -149,7 +149,9 @@ bool isReallyAClobber(const Value *Ptr, MemoryDef *Def, AAResults *AA) {
 bool isClobberedInFunction(const LoadInst *Load, MemorySSA *MSSA,
                            AAResults *AA) {
   MemorySSAWalker *Walker = MSSA->getWalker();
-  SmallVector<MemoryAccess *> WorkList{Walker->getClobberingMemoryAccess(Load)};
+  BatchAAResults BAA(*AA);
+  SmallVector<MemoryAccess *> WorkList{
+      Walker->getClobberingMemoryAccess(Load, BAA)};
   SmallSet<MemoryAccess *, 8> Visited;
   MemoryLocation Loc(MemoryLocation::get(Load));
 
@@ -179,8 +181,8 @@ bool isClobberedInFunction(const LoadInst *Load, MemorySSA *MSSA,
         return true;
       }
 
-      WorkList.push_back(
-          Walker->getClobberingMemoryAccess(Def->getDefiningAccess(), Loc));
+      WorkList.push_back(Walker->getClobberingMemoryAccess(
+          Def->getDefiningAccess(), Loc, BAA));
       continue;
     }
 

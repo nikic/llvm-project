@@ -1394,8 +1394,12 @@ const Expression *NewGVN::performSymbolicStoreEvaluation(Instruction *I) const {
   auto *StoreAccess = getMemoryAccess(SI);
   // Get the expression, if any, for the RHS of the MemoryDef.
   const MemoryAccess *StoreRHS = StoreAccess->getDefiningAccess();
-  if (EnableStoreRefinement)
-    StoreRHS = MSSAWalker->getClobberingMemoryAccess(StoreAccess);
+  if (EnableStoreRefinement) {
+    // TODO: It should be possible to use a single BatchAAResults instance for
+    // the whole NewGVN analysis phase, as it does not modify IR.
+    BatchAAResults BAA(*AA);
+    StoreRHS = MSSAWalker->getClobberingMemoryAccess(StoreAccess, BAA);
+  }
   // If we bypassed the use-def chains, make sure we add a use.
   StoreRHS = lookupMemoryLeader(StoreRHS);
   if (StoreRHS != StoreAccess->getDefiningAccess())
@@ -1526,8 +1530,9 @@ const Expression *NewGVN::performSymbolicLoadEvaluation(Instruction *I) const {
   if (isa<UndefValue>(LoadAddressLeader))
     return createConstantExpression(PoisonValue::get(LI->getType()));
   MemoryAccess *OriginalAccess = getMemoryAccess(I);
+  BatchAAResults BAA(*AA);
   MemoryAccess *DefiningAccess =
-      MSSAWalker->getClobberingMemoryAccess(OriginalAccess);
+      MSSAWalker->getClobberingMemoryAccess(OriginalAccess, BAA);
 
   if (!MSSA->isLiveOnEntryDef(DefiningAccess)) {
     if (auto *MD = dyn_cast<MemoryDef>(DefiningAccess)) {
@@ -1623,7 +1628,8 @@ NewGVN::ExprResult NewGVN::performSymbolicCallEvaluation(Instruction *I) const {
         createCallExpression(CI, TOPClass->getMemoryLeader()));
   } else if (AA->onlyReadsMemory(CI)) {
     if (auto *MA = MSSA->getMemoryAccess(CI)) {
-      auto *DefiningAccess = MSSAWalker->getClobberingMemoryAccess(MA);
+      BatchAAResults BAA(*AA);
+      auto *DefiningAccess = MSSAWalker->getClobberingMemoryAccess(MA, BAA);
       return ExprResult::some(createCallExpression(CI, DefiningAccess));
     } else // MSSA determined that CI does not access memory.
       return ExprResult::some(

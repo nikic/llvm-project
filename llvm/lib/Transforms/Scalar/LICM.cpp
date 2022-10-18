@@ -162,8 +162,9 @@ static bool isSafeToExecuteUnconditionally(
     const Loop *CurLoop, const LoopSafetyInfo *SafetyInfo,
     OptimizationRemarkEmitter *ORE, const Instruction *CtxI,
     AssumptionCache *AC, bool AllowSpeculation);
-static bool pointerInvalidatedByLoop(MemorySSA *MSSA, MemoryUse *MU,
-                                     Loop *CurLoop, Instruction &I,
+static bool pointerInvalidatedByLoop(MemorySSA *MSSA, BatchAAResults &BAA,
+                                     MemoryUse *MU, Loop *CurLoop,
+                                     Instruction &I,
                                      SinkAndHoistLICMFlags &Flags);
 static bool pointerInvalidatedByBlock(BasicBlock &BB, MemorySSA &MSSA,
                                       MemoryUse &MU);
@@ -1173,8 +1174,10 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
     if (isLoadInvariantInLoop(LI, DT, CurLoop))
       return true;
 
+    BatchAAResults BAA(*AA);
     bool Invalidated = pointerInvalidatedByLoop(
-        MSSA, cast<MemoryUse>(MSSA->getMemoryAccess(LI)), CurLoop, I, Flags);
+        MSSA, BAA, cast<MemoryUse>(MSSA->getMemoryAccess(LI)), CurLoop, I,
+        Flags);
     // Check loop-invariant address because this may also be a sinkable load
     // whose address is not necessarily loop-invariant.
     if (ORE && Invalidated && CurLoop->isLoopInvariant(LI->getPointerOperand()))
@@ -1221,11 +1224,12 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
       // writes to this memory in the loop, we can hoist or sink.
       if (Behavior.onlyAccessesArgPointees()) {
         // TODO: expand to writeable arguments
+        BatchAAResults BAA(*AA);
         for (Value *Op : CI->args())
           if (Op->getType()->isPointerTy() &&
               pointerInvalidatedByLoop(
-                  MSSA, cast<MemoryUse>(MSSA->getMemoryAccess(CI)), CurLoop, I,
-                  Flags))
+                  MSSA, BAA, cast<MemoryUse>(MSSA->getMemoryAccess(CI)),
+                  CurLoop, I, Flags))
             return false;
         return true;
       }
@@ -1264,6 +1268,7 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
     // Could do better here, but this is conservatively correct.
     // TODO: Cache set of Uses on the first walk in runOnLoop, update when
     // moving accesses. Can also extend to dominating uses.
+    BatchAAResults BAA(*AA);
     auto *SIMD = MSSA->getMemoryAccess(SI);
     for (auto *BB : CurLoop->getBlocks())
       if (auto *Accesses = MSSA->getBlockAccesses(BB)) {
@@ -1290,13 +1295,14 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
               // Check if the call may read from the memory location written
               // to by SI. Check CI's attributes and arguments; the number of
               // such checks performed is limited above by NoOfMemAccTooLarge.
-              ModRefInfo MRI = AA->getModRefInfo(CI, MemoryLocation::get(SI));
+              ModRefInfo MRI = BAA.getModRefInfo(CI, MemoryLocation::get(SI));
               if (isModOrRefSet(MRI))
                 return false;
             }
           }
       }
-    auto *Source = MSSA->getSkipSelfWalker()->getClobberingMemoryAccess(SI);
+    auto *Source =
+        MSSA->getSkipSelfWalker()->getClobberingMemoryAccess(SI, BAA);
     Flags.incrementClobberingCalls();
     // If there are no clobbering Defs in the loop, store is safe to hoist.
     return MSSA->isLiveOnEntryDef(Source) ||
@@ -2301,8 +2307,9 @@ collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L) {
   return Result;
 }
 
-static bool pointerInvalidatedByLoop(MemorySSA *MSSA, MemoryUse *MU,
-                                     Loop *CurLoop, Instruction &I,
+static bool pointerInvalidatedByLoop(MemorySSA *MSSA, BatchAAResults &BAA,
+                                     MemoryUse *MU, Loop *CurLoop,
+                                     Instruction &I,
                                      SinkAndHoistLICMFlags &Flags) {
   // For hoisting, use the walker to determine safety
   if (!Flags.getIsSink()) {
@@ -2311,7 +2318,7 @@ static bool pointerInvalidatedByLoop(MemorySSA *MSSA, MemoryUse *MU,
     if (Flags.tooManyClobberingCalls())
       Source = MU->getDefiningAccess();
     else {
-      Source = MSSA->getSkipSelfWalker()->getClobberingMemoryAccess(MU);
+      Source = MSSA->getSkipSelfWalker()->getClobberingMemoryAccess(MU, BAA);
       Flags.incrementClobberingCalls();
     }
     return !MSSA->isLiveOnEntryDef(Source) &&
