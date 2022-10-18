@@ -192,21 +192,26 @@ public:
 /// Reduced version of MemoryLocation that only stores a pointer and size.
 /// Used for caching AATags independent BasicAA results.
 struct AACacheLoc {
-  const Value *Ptr;
+  using PtrTy = PointerIntPair<const Value *, 1, bool>;
+  PtrTy Ptr;
   LocationSize Size;
+
+  AACacheLoc(PtrTy Ptr, LocationSize Size) : Ptr(Ptr), Size(Size) {}
+  AACacheLoc(const Value *Ptr, LocationSize Size, bool MayBeCrossIteration)
+      : Ptr(Ptr, MayBeCrossIteration), Size(Size) {}
 };
 
 template <> struct DenseMapInfo<AACacheLoc> {
   static inline AACacheLoc getEmptyKey() {
-    return {DenseMapInfo<const Value *>::getEmptyKey(),
+    return {DenseMapInfo<AACacheLoc::PtrTy>::getEmptyKey(),
             DenseMapInfo<LocationSize>::getEmptyKey()};
   }
   static inline AACacheLoc getTombstoneKey() {
-    return {DenseMapInfo<const Value *>::getTombstoneKey(),
+    return {DenseMapInfo<AACacheLoc::PtrTy>::getTombstoneKey(),
             DenseMapInfo<LocationSize>::getTombstoneKey()};
   }
   static unsigned getHashValue(const AACacheLoc &Val) {
-    return DenseMapInfo<const Value *>::getHashValue(Val.Ptr) ^
+    return DenseMapInfo<AACacheLoc::PtrTy>::getHashValue(Val.Ptr) ^
            DenseMapInfo<LocationSize>::getHashValue(Val.Size);
   }
   static bool isEqual(const AACacheLoc &LHS, const AACacheLoc &RHS) {
