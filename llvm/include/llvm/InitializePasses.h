@@ -378,6 +378,8 @@ void initializeSROALegacyPassPass(PassRegistry&);
 void initializeSafeStackLegacyPassPass(PassRegistry&);
 void initializeSafepointIRVerifierPass(PassRegistry&);
 void initializeSelectOptimizePass(PassRegistry &);
+void initializeSeparateStorageAAWrapperPassPass(
+    PassRegistry &); // facebook T130678741
 void initializeScalarEvolutionWrapperPassPass(PassRegistry&);
 void initializeScalarizeMaskedMemIntrinLegacyPassPass(PassRegistry &);
 void initializeScalarizerLegacyPassPass(PassRegistry&);

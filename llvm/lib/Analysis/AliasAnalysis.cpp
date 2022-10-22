@@ -34,6 +34,7 @@
 #include "llvm/Analysis/ObjCARCAliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
+#include "llvm/Analysis/SeparateStorageAliasAnalysis.h" // facebook T130678741
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -843,6 +844,7 @@ INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(SCEVAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TypeBasedAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(SeparateStorageAAWrapperPass) // facebook T130678741
 INITIALIZE_PASS_END(AAResultsWrapperPass, "aa",
                     "Function Alias Analysis Results", false, true)
 
@@ -880,6 +882,11 @@ bool AAResultsWrapperPass::runOnFunction(Function &F) {
     AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<TypeBasedAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
+  // facebook begin T130678741
+  if (auto *WrapperPass =
+          getAnalysisIfAvailable<SeparateStorageAAWrapperPass>())
+    AAR->addAAResult(WrapperPass->getResult());
+  // facebook end T130678741
   if (auto *WrapperPass = getAnalysisIfAvailable<GlobalsAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<SCEVAAWrapperPass>())
@@ -910,6 +917,7 @@ void AAResultsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   // the legacy pass manager.
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
+  AU.addUsedIfAvailable<SeparateStorageAAWrapperPass>(); // facebook T130678741
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<SCEVAAWrapperPass>();
   AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
@@ -938,6 +946,11 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
     AAR.addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = P.getAnalysisIfAvailable<TypeBasedAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
+  // facebook begin T130678741
+  if (auto *WrapperPass =
+          P.getAnalysisIfAvailable<SeparateStorageAAWrapperPass>())
+    AAR.addAAResult(WrapperPass->getResult());
+  // facebook end T130678741
   if (auto *WrapperPass = P.getAnalysisIfAvailable<GlobalsAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = P.getAnalysisIfAvailable<CFLAndersAAWrapperPass>())
@@ -1031,6 +1044,7 @@ void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
+  AU.addUsedIfAvailable<SeparateStorageAAWrapperPass>(); // facebook T130678741
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
   AU.addUsedIfAvailable<CFLSteensAAWrapperPass>();

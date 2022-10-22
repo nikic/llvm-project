@@ -248,6 +248,7 @@
 ; CHECK-AA-DEFAULT: Running analysis: BasicAA
 ; CHECK-AA-DEFAULT: Running analysis: ScopedNoAliasAA
 ; CHECK-AA-DEFAULT: Running analysis: TypeBasedAA
+; CHECK-AA-DEFAULT: Running analysis: SeparateStorageAA
 
 ; RUN: opt -disable-output -disable-verify -verify-cfg-preserved=1 -debug-pass-manager %s 2>&1 \
 ; RUN:     -passes='require<aa>,invalidate<domtree>,aa-eval' -aa-pipeline='basic-aa' \
@@ -349,6 +350,7 @@
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: BasicAA
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: TypeBasedAA
+; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: SeparateStorageAA
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}>

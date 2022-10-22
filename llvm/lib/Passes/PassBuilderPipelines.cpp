@@ -22,6 +22,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
+#include "llvm/Analysis/SeparateStorageAliasAnalysis.h" // facebook T130678741
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/OptimizationLevel.h"
@@ -1889,6 +1890,7 @@ AAManager PassBuilder::buildDefaultAAPipeline() {
   // information about aliasing.
   AA.registerFunctionAnalysis<ScopedNoAliasAA>();
   AA.registerFunctionAnalysis<TypeBasedAA>();
+  AA.registerFunctionAnalysis<SeparateStorageAA>(); // facebook T130678741
 
   // Add support for querying global aliasing information when available.
   // Because the `AAManager` is a function analysis and `GlobalsAA` is a module

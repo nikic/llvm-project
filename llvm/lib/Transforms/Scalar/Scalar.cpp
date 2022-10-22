@@ -17,6 +17,7 @@
 #include "llvm-c/Transforms/Scalar.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
+#include "llvm/Analysis/SeparateStorageAliasAnalysis.h" // facebook T130678741
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
@@ -277,6 +278,12 @@ void LLVMAddGVNHoistLegacyPass(LLVMPassManagerRef PM) {
 void LLVMAddTypeBasedAliasAnalysisPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createTypeBasedAAWrapperPass());
 }
+
+// facebook begin T130678741
+void LLVMAddSeparateStorageAnalysisPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createSeparateStorageAAWrapperPass());
+}
+// facebook end T130678741
 
 void LLVMAddScopedNoAliasAAPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createScopedNoAliasAAWrapperPass());

@@ -50,6 +50,7 @@ public:
     // TODO: How to make parent passes discoverable?
     // TODO: Should be sensitive to compiler options in PassManagerBuilder, to
     // which we do not have access here.
+    FPM->add(createSeparateStorageAAWrapperPass()); // facebook T130678741
     FPM->add(createScopedNoAliasAAWrapperPass());
     FPM->add(createTypeBasedAAWrapperPass());
     FPM->add(createAAResultsWrapperPass());

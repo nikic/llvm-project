@@ -116,6 +116,7 @@ static_library("Analysis") {
     "ScalarEvolutionDivision.cpp",
     "ScalarEvolutionNormalization.cpp",
     "ScopedNoAliasAA.cpp",
+    "SeparateStorageAliasAnalysis.cpp", # facebook T130678741
     "StackLifetime.cpp",
     "StackSafetyAnalysis.cpp",
     "SyncDependenceAnalysis.cpp",

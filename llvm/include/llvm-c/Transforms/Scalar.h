@@ -149,6 +149,11 @@ void LLVMAddLowerConstantIntrinsicsPass(LLVMPassManagerRef PM);
 /** See llvm::createTypeBasedAliasAnalysisPass function */
 void LLVMAddTypeBasedAliasAnalysisPass(LLVMPassManagerRef PM);
 
+// facebook begin T130678741
+/** See llvm::createSeparateStorageAliasAnalysisPass function */
+void LLVMAddSeparateStorageAliasAnalysisPass(LLVMPassManagerRef PM);
+// facebook end T130678741
+
 /** See llvm::createScopedNoAliasAAPass function */
 void LLVMAddScopedNoAliasAAPass(LLVMPassManagerRef PM);
 

@@ -136,6 +136,7 @@ add_llvm_component_library(LLVMAnalysis
   ScalarEvolutionAliasAnalysis.cpp
   ScalarEvolutionDivision.cpp
   ScalarEvolutionNormalization.cpp
+  SeparateStorageAliasAnalysis.cpp # facebook T130678741
   StackLifetime.cpp
   StackSafetyAnalysis.cpp
   SyncDependenceAnalysis.cpp
