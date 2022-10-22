@@ -61,6 +61,12 @@ public:
   AliasResult query(const MemoryLocation &, const MemoryLocation &);
   AliasResult alias(const MemoryLocation &, const MemoryLocation &,
                     AAQueryInfo &);
+  // facebook begin T130678741
+  AliasResult aliasAt(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                      const Instruction *, AAQueryInfo &AAQI) {
+    return alias(LocA, LocB, AAQI);
+  }
+  // facebook end T130678741
 
 private:
   /// Ensures that the given function is available in the cache.

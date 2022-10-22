@@ -86,6 +86,13 @@ public:
     return QueryResult;
   }
 
+  // facebook begin T130678741
+  AliasResult aliasAt(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                      const Instruction *, AAQueryInfo &AAQI) {
+    return alias(LocA, LocB, AAQI);
+  }
+  // facebook end T130678741
+
 private:
   std::function<const TargetLibraryInfo &(Function &)> GetTLI;
 

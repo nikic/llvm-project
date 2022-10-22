@@ -68,6 +68,12 @@ public:
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &AAQI);
+  // facebook begin T130678741
+  AliasResult aliasAt(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                      const Instruction *, AAQueryInfo &AAQI) {
+    return alias(LocA, LocB, AAQI);
+  }
+  // facebook end T130678741
 
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);

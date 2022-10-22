@@ -34,6 +34,13 @@ public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &AAQI);
 
+  // facebook begin T130678741
+  AliasResult aliasAt(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                      const Instruction *, AAQueryInfo &AAQI) {
+    return alias(LocA, LocB, AAQI);
+  }
+  // facebook end T130678741
+
   bool invalidate(Function &F, const PreservedAnalyses &PA,
                   FunctionAnalysisManager::Invalidator &Inv);
 

@@ -318,6 +318,13 @@ public:
   /// alias analysis implementations.
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
 
+  // facebook begin T130678741
+  // I can be NULL, in which case we're querying as to whether an aliasing
+  // relationship holds through the entire function.
+  AliasResult aliasAt(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                      const Instruction *I);
+  // facebook end T130678741
+
   /// A convenience wrapper around the primary \c alias interface.
   AliasResult alias(const Value *V1, LocationSize V1Size, const Value *V2,
                     LocationSize V2Size) {
@@ -614,7 +621,12 @@ public:
   }
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI);
+      AAQueryInfo &AAQI);
+  // facebook begin T130678741
+  AliasResult aliasAt(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                      const Instruction *I, AAQueryInfo &AAQI);
+  // facebook end T130678741
+
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
                               bool OrLocal = false);
   ModRefInfo getModRefInfo(Instruction *I, const CallBase *Call2,
@@ -746,6 +758,13 @@ public:
   virtual AliasResult alias(const MemoryLocation &LocA,
                             const MemoryLocation &LocB, AAQueryInfo &AAQI) = 0;
 
+  // facebook begin T130678741
+  // For flow-sensitive queries
+  virtual AliasResult aliasAt(const MemoryLocation &LocA,
+                              const MemoryLocation &LocB, const Instruction *I,
+                              AAQueryInfo &AAQI) = 0;
+  // facebook end T130678741
+
   /// Checks whether the given location points to constant memory, or if
   /// \p OrLocal is true whether it points to a local alloca.
   virtual bool pointsToConstantMemory(const MemoryLocation &Loc,
@@ -804,6 +823,13 @@ public:
     return Result.alias(LocA, LocB, AAQI);
   }
 
+  // facebook begin T130678741
+  AliasResult aliasAt(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                      const Instruction *I, AAQueryInfo &AAQI) override {
+    return Result.aliasAt(LocA, LocB, I, AAQI);
+  }
+  // facebook end T130678741
+
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
                               bool OrLocal) override {
     return Result.pointsToConstantMemory(Loc, AAQI, OrLocal);
@@ -858,6 +884,13 @@ public:
                     AAQueryInfo &AAQI) {
     return AliasResult::MayAlias;
   }
+
+  // facebook begin T130678741
+  AliasResult aliasAt(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                      const Instruction *I, AAQueryInfo &AAQI) {
+    return AliasResult::MayAlias;
+  }
+  // facebook end T130678741
 
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
                               bool OrLocal) {

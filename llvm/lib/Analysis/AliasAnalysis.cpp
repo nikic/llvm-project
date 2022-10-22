@@ -112,6 +112,13 @@ AliasResult AAResults::alias(const MemoryLocation &LocA,
 
 AliasResult AAResults::alias(const MemoryLocation &LocA,
                              const MemoryLocation &LocB, AAQueryInfo &AAQI) {
+  return aliasAt(LocA, LocB, nullptr, AAQI); // facebook T130678741
+}
+
+// facebook begin T130678741
+AliasResult AAResults::aliasAt(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB, const Instruction *I,
+                               AAQueryInfo &AAQI) {
   AliasResult Result = AliasResult::MayAlias;
 
   if (EnableAATrace) {
@@ -123,7 +130,11 @@ AliasResult AAResults::alias(const MemoryLocation &LocA,
 
   AAQI.Depth++;
   for (const auto &AA : AAs) {
-    Result = AA->alias(LocA, LocB, AAQI);
+    if (I) {
+      Result = AA->aliasAt(LocA, LocB, I, AAQI);
+    } else {
+      Result = AA->alias(LocA, LocB, AAQI);
+    }
     if (Result != AliasResult::MayAlias)
       break;
   }
@@ -146,6 +157,7 @@ AliasResult AAResults::alias(const MemoryLocation &LocA,
   }
   return Result;
 }
+// facebook end T130678741
 
 bool AAResults::pointsToConstantMemory(const MemoryLocation &Loc,
                                        bool OrLocal) {
@@ -244,7 +256,7 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
         continue;
       unsigned ArgIdx = I.index();
       MemoryLocation ArgLoc = MemoryLocation::getForArgument(Call, ArgIdx, TLI);
-      AliasResult ArgAlias = alias(ArgLoc, Loc, AAQI);
+      AliasResult ArgAlias = aliasAt(ArgLoc, Loc, Call, AAQI);
       if (ArgAlias != AliasResult::NoAlias)
         AllArgsMask |= getArgModRefInfo(Call, ArgIdx);
     }
@@ -483,7 +495,10 @@ ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
   // If the load address doesn't alias the given address, it doesn't read
   // or write the specified memory.
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(L), Loc, AAQI);
+    // facebook begin T130678741
+    AliasResult AR =
+        aliasAt(MemoryLocation::get(L), Loc, L, AAQI);
+    // facebook end T130678741
     if (AR == AliasResult::NoAlias)
       return ModRefInfo::NoModRef;
   }
@@ -504,7 +519,9 @@ ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
     return ModRefInfo::ModRef;
 
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(S), Loc, AAQI);
+    // facebook begin T130678741
+    AliasResult AR = aliasAt(MemoryLocation::get(S), Loc, S, AAQI);
+    // facebook end T130678741
     // If the store address cannot alias the pointer in question, then the
     // specified memory cannot be modified by the store.
     if (AR == AliasResult::NoAlias)
@@ -546,7 +563,9 @@ ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
                                     const MemoryLocation &Loc,
                                     AAQueryInfo &AAQI) {
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(V), Loc, AAQI);
+    // facebook begin T130678741
+    AliasResult AR = aliasAt(MemoryLocation::get(V), Loc, V, AAQI);
+    // facebook end T130678741
     // If the va_arg address cannot alias the pointer in question, then the
     // specified memory cannot be accessed by the va_arg.
     if (AR == AliasResult::NoAlias)
@@ -616,7 +635,9 @@ ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
     return ModRefInfo::ModRef;
 
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(CX), Loc, AAQI);
+    // facebook begin T130678741
+    AliasResult AR = aliasAt(MemoryLocation::get(CX), Loc, CX, AAQI);
+    // facebook end T130678741
     // If the cmpxchg address does not alias the location, it does not access
     // it.
     if (AR == AliasResult::NoAlias)
@@ -640,7 +661,9 @@ ModRefInfo AAResults::getModRefInfo(const AtomicRMWInst *RMW,
     return ModRefInfo::ModRef;
 
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(RMW), Loc, AAQI);
+    // facebook begin T130678741
+    AliasResult AR = aliasAt(MemoryLocation::get(RMW), Loc, RMW, AAQI);
+    // facebook end T130678741
     // If the atomicrmw address does not alias the location, it does not access
     // it.
     if (AR == AliasResult::NoAlias)
@@ -728,9 +751,11 @@ ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
          !Call->isByValArgument(ArgNo)))
       continue;
 
-    AliasResult AR = alias(
+    // facebook begin T130678741
+    AliasResult AR = aliasAt(
         MemoryLocation::getBeforeOrAfter(*CI),
-        MemoryLocation::getBeforeOrAfter(Object), AAQI);
+        MemoryLocation::getBeforeOrAfter(Object), Call, AAQI);
+    // facebook end T130678741
     // If this is a no-capture pointer argument, see if we can tell that it
     // is impossible to alias the pointer we're checking.  If not, we have to
     // assume that the call could touch the pointer, even though it doesn't
