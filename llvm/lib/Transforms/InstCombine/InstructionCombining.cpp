@@ -2781,6 +2781,7 @@ static bool isAllocSiteRemovable(Instruction *AI,
             [[fallthrough]];
           }
           case Intrinsic::assume:
+          case Intrinsic::experimental_separate_storage: // facebook T130678741
           case Intrinsic::invariant_start:
           case Intrinsic::invariant_end:
           case Intrinsic::lifetime_start:

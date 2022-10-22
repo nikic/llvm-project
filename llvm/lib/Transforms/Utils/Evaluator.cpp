@@ -468,6 +468,13 @@ bool Evaluator::EvaluateBlock(BasicBlock::iterator CurInst, BasicBlock *&NextBB,
           LLVM_DEBUG(dbgs() << "Skipping assume intrinsic.\n");
           ++CurInst;
           continue;
+          // facebook begin T130678741
+        } else if (II->getIntrinsicID() ==
+                   Intrinsic::experimental_separate_storage) {
+          LLVM_DEBUG(dbgs() << "Skipping separate storage intrinsic.\n");
+          ++CurInst;
+          continue;
+          // facebook end T130678741
         } else if (II->getIntrinsicID() == Intrinsic::sideeffect) {
           LLVM_DEBUG(dbgs() << "Skipping sideeffect intrinsic.\n");
           ++CurInst;

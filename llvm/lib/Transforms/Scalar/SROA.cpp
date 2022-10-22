@@ -3090,7 +3090,12 @@ private:
     Pass.DeadInsts.push_back(&II);
 
     if (II.isDroppable()) {
-      assert(II.getIntrinsicID() == Intrinsic::assume && "Expected assume");
+      // facebook begin T130678741
+      assert((II.getIntrinsicID() == Intrinsic::experimental_separate_storage ||
+              II.getIntrinsicID() == Intrinsic::assume) &&
+             "Expected assume");
+      // facebook end T130678741
+
       // TODO For now we forget assumed information, this can be improved.
       OldPtr->dropDroppableUsesIn(II);
       return true;
@@ -4686,7 +4691,7 @@ bool SROAPass::deleteDeadInstructions(
   bool Changed = false;
   while (!DeadInsts.empty()) {
     Instruction *I = dyn_cast_or_null<Instruction>(DeadInsts.pop_back_val());
-    if (!I) continue; 
+    if (!I) continue;
     LLVM_DEBUG(dbgs() << "Deleting dead instruction: " << *I << "\n");
 
     // If the instruction is an alloca, find the possible dbg.declare connected

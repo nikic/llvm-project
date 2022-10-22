@@ -579,6 +579,13 @@ def int_readcyclecounter : DefaultAttrsIntrinsic<[llvm_i64_ty]>;
 def int_assume : DefaultAttrsIntrinsic<
     [], [llvm_i1_ty], [IntrInaccessibleMemOnly, NoUndef<ArgIndex<0>>]>;
 
+// facebook begin T130678741
+// No pointer derived from the first argument will alias any pointer derived
+// from the second.
+def int_experimental_separate_storage : DefaultAttrsIntrinsic<
+    [], [llvm_ptr_ty, llvm_ptr_ty], [IntrInaccessibleMemOnly]>;
+// facebook end T130678741
+
 // 'llvm.experimental.noalias.scope.decl' intrinsic: Inserted at the location of
 // noalias scope declaration. Makes it possible to identify that a noalias scope
 // is only valid inside the body of a loop.

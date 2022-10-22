@@ -224,10 +224,13 @@ void Value::dropDroppableUse(Use &U) {
       CallInst::BundleOpInfo &BOI = Assume->getBundleOpInfoForOperand(OpNo);
       BOI.Tag = Assume->getContext().pImpl->getOrInsertBundleTag("ignore");
     }
-    return;
+    // facebook begin T130678741
+  } else if (auto *SSI = dyn_cast<SeparateStorageInst>(U.getUser())) {
+    U.set(Constant::getNullValue(U->getType()));
+  } else {
+    llvm_unreachable("unkown droppable use");
   }
-
-  llvm_unreachable("unkown droppable use");
+  // facebook end T130678741
 }
 
 bool Value::isUsedInBasicBlock(const BasicBlock *BB) const {
@@ -818,7 +821,7 @@ bool Value::canBeFreed() const {
   // which is why we need the explicit opt in on a per collector basis.
   if (!F->hasGC())
     return true;
-  
+
   const auto &GCName = F->getGC();
   if (GCName == "statepoint-example") {
     auto *PT = cast<PointerType>(this->getType());

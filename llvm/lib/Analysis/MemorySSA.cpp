@@ -302,6 +302,7 @@ instructionClobbersQuery(const MemoryDef *MD, const MemoryLocation &UseLoc,
     case Intrinsic::invariant_start:
     case Intrinsic::invariant_end:
     case Intrinsic::assume:
+    case Intrinsic::experimental_separate_storage: // facebook T130678741
     case Intrinsic::experimental_noalias_scope_decl:
     case Intrinsic::pseudoprobe:
       return false;
@@ -1742,6 +1743,7 @@ MemoryUseOrDef *MemorySSA::createNewAccess(Instruction *I,
     default:
       break;
     case Intrinsic::assume:
+    case Intrinsic::experimental_separate_storage: // facebook T130678741
     case Intrinsic::experimental_noalias_scope_decl:
     case Intrinsic::pseudoprobe:
       return nullptr;

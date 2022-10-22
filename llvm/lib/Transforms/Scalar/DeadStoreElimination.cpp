@@ -694,6 +694,7 @@ bool isNoopIntrinsic(Instruction *I) {
     case Intrinsic::invariant_end:
     case Intrinsic::launder_invariant_group:
     case Intrinsic::assume:
+    case Intrinsic::experimental_separate_storage: // facebook T130678741
       return true;
     case Intrinsic::dbg_addr:
     case Intrinsic::dbg_declare:

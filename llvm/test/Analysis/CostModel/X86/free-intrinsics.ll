@@ -6,6 +6,7 @@ define i32 @trivially_free() {
 ; CHECK-SIZE-LABEL: 'trivially_free'
 ; CHECK-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a0 = call i32 @llvm.annotation.i32(i32 undef, i8* undef, i8* undef, i32 undef)
 ; CHECK-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: call void @llvm.assume(i1 undef)
+; CHECK-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: call void @llvm.experimental.separate.storage(i8* undef, i8* undef)
 ; CHECK-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: call void @llvm.experimental.noalias.scope.decl(metadata !0)
 ; CHECK-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: call void @llvm.sideeffect()
 ; CHECK-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = call {}* @llvm.invariant.start.p0i8(i64 1, i8* undef)
@@ -23,6 +24,7 @@ define i32 @trivially_free() {
 ; CHECK-THROUGHPUT-LABEL: 'trivially_free'
 ; CHECK-THROUGHPUT-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a0 = call i32 @llvm.annotation.i32(i32 undef, i8* undef, i8* undef, i32 undef)
 ; CHECK-THROUGHPUT-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: call void @llvm.assume(i1 undef)
+; CHECK-THROUGHPUT-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: call void @llvm.experimental.separate.storage(i8* undef, i8* undef)
 ; CHECK-THROUGHPUT-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: call void @llvm.experimental.noalias.scope.decl(metadata !0)
 ; CHECK-THROUGHPUT-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: call void @llvm.sideeffect()
 ; CHECK-THROUGHPUT-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = call {}* @llvm.invariant.start.p0i8(i64 1, i8* undef)
@@ -39,6 +41,9 @@ define i32 @trivially_free() {
 ;
   %a0 = call i32 @llvm.annotation.i32(i32 undef, i8* undef, i8* undef, i32 undef)
   call void @llvm.assume(i1 undef)
+  ; facebook begin T130678741
+  call void @llvm.experimental.separate.storage(i8* undef, i8* undef)
+  ; facebook end T130678741
   call void @llvm.experimental.noalias.scope.decl(metadata !4)
   call void @llvm.sideeffect()
   call void @llvm.dbg.declare(metadata i8** undef, metadata !0, metadata !DIExpression())
@@ -59,6 +64,9 @@ define i32 @trivially_free() {
 
 declare i32 @llvm.annotation.i32(i32, i8*, i8*, i32)
 declare void @llvm.assume(i1)
+; facebook begin T130678741
+declare void @llvm.experimental.separate.storage(i8*, i8*)
+; facebook end T130678741
 declare void @llvm.experimental.noalias.scope.decl(metadata)
 declare void @llvm.sideeffect()
 declare void @llvm.dbg.declare(metadata, metadata, metadata)

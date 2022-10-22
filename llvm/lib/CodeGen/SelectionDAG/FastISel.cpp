@@ -1202,6 +1202,10 @@ bool FastISel::selectIntrinsicCall(const IntrinsicInst *II) {
   case Intrinsic::sideeffect:
   // Neither does the assume intrinsic; it's also OK not to codegen its operand.
   case Intrinsic::assume:
+  // facebook begin T130678741
+  // Ditto
+  case Intrinsic::experimental_separate_storage:
+  // facebook end T130678741
   // Neither does the llvm.experimental.noalias.scope.decl intrinsic
   case Intrinsic::experimental_noalias_scope_decl:
     return true;

@@ -713,7 +713,19 @@ bool CodeGenPrepare::eliminateAssumptions(Function &F) {
         resetIteratorIfInvalidatedWhileCalling(&BB, [&]() {
           RecursivelyDeleteTriviallyDeadInstructions(Operand, TLInfo, nullptr);
         });
+      // facebook begin T130678741
+      } else if (auto *SSI = dyn_cast<SeparateStorageInst>(I)) {
+        MadeChange = true;
+        Value *Operand1 = SSI->getOperand(0);
+        Value *Operand2 = SSI->getOperand(1);
+        SSI->eraseFromParent();
+
+        resetIteratorIfInvalidatedWhileCalling(&BB, [&]() {
+          RecursivelyDeleteTriviallyDeadInstructions(Operand1, TLInfo, nullptr);
+          RecursivelyDeleteTriviallyDeadInstructions(Operand2, TLInfo, nullptr);
+        });
       }
+      // facebook end T130678741
     }
   }
   return MadeChange;
@@ -2288,6 +2300,11 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, ModifyDT &ModifiedDT) {
       break;
     case Intrinsic::assume:
       llvm_unreachable("llvm.assume should have been removed already");
+    // facebook begin T130678741
+    case Intrinsic::experimental_separate_storage:
+      llvm_unreachable("llvm.experimental.separate.storage should have been "
+                       "removed already");
+    // facebook end T130678741
     case Intrinsic::experimental_widenable_condition: {
       // Give up on future widening oppurtunties so that we can fold away dead
       // paths and merge blocks before going into block-local instruction

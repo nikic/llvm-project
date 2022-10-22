@@ -113,7 +113,10 @@ MutableArrayRef<uint8_t> User::getDescriptor() {
 }
 
 bool User::isDroppable() const {
-  return isa<AssumeInst>(this) || isa<PseudoProbeInst>(this);
+  // facebook begin T130678741
+  return isa<AssumeInst>(this) || isa<SeparateStorageInst>(this) ||
+         isa<PseudoProbeInst>(this);
+  // facebook end T130678741
 }
 
 //===----------------------------------------------------------------------===//

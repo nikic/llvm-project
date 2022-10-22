@@ -1205,6 +1205,10 @@ std::pair<unsigned, unsigned> GVNHoist::hoistExpressions(Function &F) {
         if (auto *Intr = dyn_cast<IntrinsicInst>(Call)) {
           if (isa<DbgInfoIntrinsic>(Intr) ||
               Intr->getIntrinsicID() == Intrinsic::assume ||
+              // facebook begin T130678741
+              Intr->getIntrinsicID() ==
+                  Intrinsic::experimental_separate_storage ||
+              // facebook end T130678741
               Intr->getIntrinsicID() == Intrinsic::sideeffect)
             continue;
         }

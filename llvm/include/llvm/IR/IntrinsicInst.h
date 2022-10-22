@@ -78,6 +78,7 @@ public:
     case Intrinsic::umul_fix_sat:
     case Intrinsic::fma:
     case Intrinsic::fmuladd:
+    case Intrinsic::experimental_separate_storage: // facebook T130678741
       return true;
     default:
       return false;
@@ -89,6 +90,7 @@ public:
     switch (getIntrinsicID()) {
     default: break;
     case Intrinsic::assume:
+    case Intrinsic::experimental_separate_storage: // facebook T130678741
     case Intrinsic::sideeffect:
     case Intrinsic::pseudoprobe:
     case Intrinsic::dbg_declare:
@@ -1436,6 +1438,19 @@ public:
     return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
   }
 };
+
+// facebook begin T130678741
+/// This represents the llvm.experimental.separate.storage intrinsic.
+class SeparateStorageInst : public IntrinsicInst {
+public:
+  static bool classof(const IntrinsicInst *I) {
+    return I->getIntrinsicID() == Intrinsic::experimental_separate_storage;
+  }
+  static bool classof(const Value *V) {
+    return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+  }
+};
+// facebook end T130678741
 
 } // end namespace llvm
 

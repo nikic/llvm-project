@@ -553,6 +553,9 @@ bool llvm::isInTailCallPosition(const CallBase &Call, const TargetMachine &TM) {
     if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(BBI))
       if (II->getIntrinsicID() == Intrinsic::lifetime_end ||
           II->getIntrinsicID() == Intrinsic::assume ||
+          // facebook begin T130678741
+          II->getIntrinsicID() == Intrinsic::experimental_separate_storage ||
+          // facebook end T130678741
           II->getIntrinsicID() == Intrinsic::experimental_noalias_scope_decl)
         continue;
     if (BBI->mayHaveSideEffects() || BBI->mayReadFromMemory() ||
