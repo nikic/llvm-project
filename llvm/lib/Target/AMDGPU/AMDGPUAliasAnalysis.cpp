@@ -124,29 +124,33 @@ AliasResult AMDGPUAAResult::alias(const MemoryLocation &LocA,
   return AAResultBase::alias(LocA, LocB, AAQI);
 }
 
-bool AMDGPUAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
-                                            AAQueryInfo &AAQI, bool OrLocal) {
+ModRefInfo AMDGPUAAResult::getModRefInfoMask(const MemoryLocation &Loc,
+                                             AAQueryInfo &AAQI,
+                                             bool IgnoreLocals) {
+  if (!Loc.Ptr)
+    return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
+
   unsigned AS = Loc.Ptr->getType()->getPointerAddressSpace();
   if (AS == AMDGPUAS::CONSTANT_ADDRESS ||
       AS == AMDGPUAS::CONSTANT_ADDRESS_32BIT)
-    return true;
+    return ModRefInfo::NoModRef;
 
   const Value *Base = getUnderlyingObject(Loc.Ptr);
   AS = Base->getType()->getPointerAddressSpace();
   if (AS == AMDGPUAS::CONSTANT_ADDRESS ||
       AS == AMDGPUAS::CONSTANT_ADDRESS_32BIT)
-    return true;
+    return ModRefInfo::NoModRef;
 
   if (const GlobalVariable *GV = dyn_cast<GlobalVariable>(Base)) {
     if (GV->isConstant())
-      return true;
+      return ModRefInfo::NoModRef;
   } else if (const Argument *Arg = dyn_cast<Argument>(Base)) {
     const Function *F = Arg->getParent();
 
     // Only assume constant memory for arguments on kernels.
     switch (F->getCallingConv()) {
     default:
-      return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+      return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
     case CallingConv::AMDGPU_LS:
     case CallingConv::AMDGPU_HS:
     case CallingConv::AMDGPU_ES:
@@ -170,8 +174,8 @@ bool AMDGPUAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
     if (F->hasParamAttribute(ArgNo, Attribute::NoAlias) &&
         (F->hasParamAttribute(ArgNo, Attribute::ReadNone) ||
          F->hasParamAttribute(ArgNo, Attribute::ReadOnly))) {
-      return true;
+      return ModRefInfo::Ref;
     }
   }
-  return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+  return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
 }

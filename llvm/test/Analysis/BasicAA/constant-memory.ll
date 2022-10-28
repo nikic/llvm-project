@@ -4,18 +4,16 @@
 
 declare void @dummy()
 
-; FIXME: This could be NoModRef
 ; CHECK-LABEL: Function: basic
-; CHECK: Just Ref: Ptr: i32* @c	<->  call void @dummy()
+; CHECK: NoModRef: Ptr: i32* @c	<->  call void @dummy()
 define void @basic(ptr %p) {
   call void @dummy()
   load i32, ptr @c
   ret void
 }
 
-; FIXME: This could be NoModRef
 ; CHECK-LABEL: Function: recphi
-; CHECK: Just Ref: Ptr: i32* %p	<->  call void @dummy()
+; CHECK: NoModRef: Ptr: i32* %p	<->  call void @dummy()
 define void @recphi() {
 entry:
   br label %loop
