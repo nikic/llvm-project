@@ -262,7 +262,7 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
   // Apply the ModRef mask. This ensures that if Loc is a constant memory
   // location, we take into account the fact that the call definitely could not
   // modify the memory location.
-  if (!isNoModRef(Result))
+  if (isModSet(Result))
     Result &= getModRefInfoMask(Loc);
 
   return Result;
