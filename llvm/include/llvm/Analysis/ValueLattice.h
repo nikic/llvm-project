@@ -9,6 +9,7 @@
 #ifndef LLVM_ANALYSIS_VALUELATTICE_H
 #define LLVM_ANALYSIS_VALUELATTICE_H
 
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Instructions.h"
@@ -452,7 +453,8 @@ public:
   /// true, false or undef constants, or nullptr if the comparison cannot be
   /// evaluated.
   Constant *getCompare(CmpInst::Predicate Pred, Type *Ty,
-                       const ValueLatticeElement &Other) const {
+                       const ValueLatticeElement &Other,
+                       const DataLayout &DL) const {
     // Not yet resolved.
     if (isUnknown() || Other.isUnknown())
       return nullptr;
@@ -463,7 +465,8 @@ public:
       return nullptr;
 
     if (isConstant() && Other.isConstant())
-      return ConstantExpr::getCompare(Pred, getConstant(), Other.getConstant());
+      return ConstantFoldCompareInstOperands(Pred, getConstant(),
+                                             Other.getConstant(), DL);
 
     if (ICmpInst::isEquality(Pred)) {
       // not(C) != C => true, not(C) == C => false.
