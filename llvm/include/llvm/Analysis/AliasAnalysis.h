@@ -400,6 +400,9 @@ public:
   /// Return the behavior of the given call site.
   MemoryEffects getMemoryEffects(const CallBase *Call);
 
+  /// Return the behavior of the given instruction.
+  MemoryEffects getMemoryEffects(const Instruction *I);
+
   /// Return the behavior when calling the given function.
   MemoryEffects getMemoryEffects(const Function *F);
 
@@ -560,10 +563,9 @@ public:
   /// For function calls, this delegates to the alias-analysis specific
   /// call-site mod-ref behavior queries. Otherwise it delegates to the specific
   /// helpers above.
-  ModRefInfo getModRefInfo(const Instruction *I,
-                           const Optional<MemoryLocation> &OptLoc) {
+  ModRefInfo getModRefInfo(const Instruction *I, const MemoryLocation &Loc) {
     SimpleAAQueryInfo AAQIP(*this);
-    return getModRefInfo(I, OptLoc, AAQIP);
+    return getModRefInfo(I, Loc, AAQIP);
   }
 
   /// A convenience wrapper for constructing the memory location.
@@ -656,13 +658,13 @@ public:
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const CatchReturnInst *I, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
-  ModRefInfo getModRefInfo(const Instruction *I,
-                           const Optional<MemoryLocation> &OptLoc,
+  ModRefInfo getModRefInfo(const Instruction *I, const MemoryLocation &Loc,
                            AAQueryInfo &AAQIP);
   ModRefInfo callCapturesBefore(const Instruction *I,
                                 const MemoryLocation &MemLoc, DominatorTree *DT,
                                 AAQueryInfo &AAQIP);
   MemoryEffects getMemoryEffects(const CallBase *Call, AAQueryInfo &AAQI);
+  MemoryEffects getMemoryEffects(const Instruction *I, AAQueryInfo &AAQI);
 
 private:
   class Concept;
@@ -711,8 +713,7 @@ public:
   ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2) {
     return AA.getModRefInfo(Call1, Call2, AAQI);
   }
-  ModRefInfo getModRefInfo(const Instruction *I,
-                           const Optional<MemoryLocation> &OptLoc) {
+  ModRefInfo getModRefInfo(const Instruction *I, const MemoryLocation &OptLoc) {
     return AA.getModRefInfo(I, OptLoc, AAQI);
   }
   ModRefInfo getModRefInfo(Instruction *I, const CallBase *Call2) {
@@ -723,6 +724,9 @@ public:
   }
   MemoryEffects getMemoryEffects(const CallBase *Call) {
     return AA.getMemoryEffects(Call, AAQI);
+  }
+  MemoryEffects getMemoryEffects(const Instruction *I) {
+    return AA.getMemoryEffects(I, AAQI);
   }
   bool isMustAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
     return alias(LocA, LocB) == AliasResult::MustAlias;

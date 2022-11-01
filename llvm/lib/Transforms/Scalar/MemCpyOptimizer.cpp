@@ -577,7 +577,7 @@ bool MemCpyOptPass::moveUp(StoreInst *SI, Instruction *P, const LoadInst *LI) {
     if (!isGuaranteedToTransferExecutionToSuccessor(C))
       return false;
 
-    bool MayAlias = isModOrRefSet(AA->getModRefInfo(C, None));
+    bool MayAlias = !AA->getMemoryEffects(C).doesNotAccessMemory();
 
     bool NeedLift = false;
     if (Args.erase(C))

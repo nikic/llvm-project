@@ -1760,7 +1760,7 @@ MemoryUseOrDef *MemorySSA::createNewAccess(Instruction *I,
     Def = isa<MemoryDef>(Template);
     Use = isa<MemoryUse>(Template);
 #if !defined(NDEBUG)
-    ModRefInfo ModRef = AAP->getModRefInfo(I, None);
+    ModRefInfo ModRef = AAP->getMemoryEffects(I).getModRef();
     bool DefCheck, UseCheck;
     DefCheck = isModSet(ModRef) || isOrdered(I);
     UseCheck = isRefSet(ModRef);
@@ -1768,7 +1768,7 @@ MemoryUseOrDef *MemorySSA::createNewAccess(Instruction *I,
 #endif
   } else {
     // Find out what affect this instruction has on memory.
-    ModRefInfo ModRef = AAP->getModRefInfo(I, None);
+    ModRefInfo ModRef = AAP->getMemoryEffects(I).getModRef();
     // The isOrdered check is used to ensure that volatiles end up as defs
     // (atomics end up as ModRef right now anyway).  Until we separate the
     // ordering chain from the memory chain, this enables people to see at least

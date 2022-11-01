@@ -415,6 +415,63 @@ MemoryEffects AAResults::getMemoryEffects(const Function *F) {
   return Result;
 }
 
+MemoryEffects AAResults::getMemoryEffects(const Instruction *I) {
+  SimpleAAQueryInfo AAQI(*this);
+  return getMemoryEffects(I, AAQI);
+}
+
+MemoryEffects AAResults::getMemoryEffects(const Instruction *I,
+                                          AAQueryInfo &AAQI) {
+  switch (I->getOpcode()) {
+  case Instruction::Call:
+  case Instruction::CallBr:
+  case Instruction::Invoke:
+    return getMemoryEffects(cast<CallBase>(I), AAQI);
+  case Instruction::Load: {
+    const auto *LI = cast<LoadInst>(I);
+    // TODO: This does not look correct for volatile.
+    // TODO: This looks overly conservative for atomics.
+    if (isStrongerThan(LI->getOrdering(), AtomicOrdering::Unordered))
+      return MemoryEffects::unknown();
+    return MemoryEffects::argMemOnly(ModRefInfo::Ref);
+  }
+  case Instruction::Store: {
+    const auto *SI = cast<StoreInst>(I);
+    // TODO: This does not look correct for volatile.
+    // TODO: This looks overly conservative for atomics.
+    if (isStrongerThan(SI->getOrdering(), AtomicOrdering::Unordered))
+      return MemoryEffects::unknown();
+    return MemoryEffects::argMemOnly(ModRefInfo::Mod);
+  }
+  case Instruction::AtomicCmpXchg: {
+    const auto *CX = cast<AtomicCmpXchgInst>(I);
+    // Acquire/Release cmpxchg has properties that matter for arbitrary
+    // addresses.
+    if (isStrongerThanMonotonic(CX->getSuccessOrdering()))
+      return MemoryEffects::unknown();
+    return MemoryEffects::argMemOnly(ModRefInfo::ModRef);
+  }
+  case Instruction::AtomicRMW: {
+    const auto *RMW = cast<AtomicRMWInst>(I);
+    // Acquire/Release atomicrmw has properties that matter for arbitrary
+    // addresses.
+    if (isStrongerThanMonotonic(RMW->getOrdering()))
+      return MemoryEffects::unknown();
+    return MemoryEffects::argMemOnly(ModRefInfo::ModRef);
+  }
+  case Instruction::VAArg:
+  case Instruction::Fence:
+  case Instruction::CatchPad:
+  case Instruction::CatchRet:
+    // FIXME: Can we be any more precise here?
+    return MemoryEffects::unknown();
+  default:
+    assert(!I->mayReadOrWriteMemory() &&
+           "Unhandled memory access instruction!");
+    return MemoryEffects::none();
+  }
+}
+
 raw_ostream &llvm::operator<<(raw_ostream &OS, AliasResult AR) {
   switch (AR) {
   case AliasResult::NoAlias:
@@ -489,11 +546,9 @@ ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
 
   // If the load address doesn't alias the given address, it doesn't read
   // or write the specified memory.
-  if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(L), Loc, AAQI);
-    if (AR == AliasResult::NoAlias)
-      return ModRefInfo::NoModRef;
-  }
+  AliasResult AR = alias(MemoryLocation::get(L), Loc, AAQI);
+  if (AR == AliasResult::NoAlias)
+    return ModRefInfo::NoModRef;
   // Otherwise, a load just reads.
   return ModRefInfo::Ref;
 }
@@ -510,20 +565,18 @@ ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
   if (isStrongerThan(S->getOrdering(), AtomicOrdering::Unordered))
     return ModRefInfo::ModRef;
 
-  if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(S), Loc, AAQI);
-    // If the store address cannot alias the pointer in question, then the
-    // specified memory cannot be modified by the store.
-    if (AR == AliasResult::NoAlias)
-      return ModRefInfo::NoModRef;
+  AliasResult AR = alias(MemoryLocation::get(S), Loc, AAQI);
+  // If the store address cannot alias the pointer in question, then the
+  // specified memory cannot be modified by the store.
+  if (AR == AliasResult::NoAlias)
+    return ModRefInfo::NoModRef;
 
-    // Examine the ModRef mask. If Mod isn't present, then return NoModRef.
-    // This ensures that if Loc is a constant memory location, we take into
-    // account the fact that the store definitely could not modify the memory
-    // location.
-    if (!isModSet(getModRefInfoMask(Loc)))
-      return ModRefInfo::NoModRef;
-  }
+  // Examine the ModRef mask. If Mod isn't present, then return NoModRef.
+  // This ensures that if Loc is a constant memory location, we take into
+  // account the fact that the store definitely could not modify the memory
+  // location.
+  if (!isModSet(getModRefInfoMask(Loc)))
+    return ModRefInfo::NoModRef;
 
   // Otherwise, a store just writes.
   return ModRefInfo::Mod;
@@ -541,9 +594,7 @@ ModRefInfo AAResults::getModRefInfo(const FenceInst *S,
   // All we know about a fence instruction is what we get from the ModRef
   // mask: if Loc is a constant memory location, the fence definitely could
   // not modify it.
-  if (Loc.Ptr)
-    return getModRefInfoMask(Loc);
-  return ModRefInfo::ModRef;
+  return getModRefInfoMask(Loc);
 }
 
 ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
@@ -555,20 +606,15 @@ ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
 ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
                                     const MemoryLocation &Loc,
                                     AAQueryInfo &AAQI) {
-  if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(V), Loc, AAQI);
-    // If the va_arg address cannot alias the pointer in question, then the
-    // specified memory cannot be accessed by the va_arg.
-    if (AR == AliasResult::NoAlias)
-      return ModRefInfo::NoModRef;
+  AliasResult AR = alias(MemoryLocation::get(V), Loc, AAQI);
+  // If the va_arg address cannot alias the pointer in question, then the
+  // specified memory cannot be accessed by the va_arg.
+  if (AR == AliasResult::NoAlias)
+    return ModRefInfo::NoModRef;
 
-    // If the pointer is a pointer to invariant memory, then it could not have
-    // been modified by this va_arg.
-    return getModRefInfoMask(Loc, AAQI);
-  }
-
-  // Otherwise, a va_arg reads and writes.
-  return ModRefInfo::ModRef;
+  // If the pointer is a pointer to invariant memory, then it could not have
+  // been modified by this va_arg.
+  return getModRefInfoMask(Loc, AAQI);
 }
 
 ModRefInfo AAResults::getModRefInfo(const CatchPadInst *CatchPad,
@@ -580,14 +626,9 @@ ModRefInfo AAResults::getModRefInfo(const CatchPadInst *CatchPad,
 ModRefInfo AAResults::getModRefInfo(const CatchPadInst *CatchPad,
                                     const MemoryLocation &Loc,
                                     AAQueryInfo &AAQI) {
-  if (Loc.Ptr) {
-    // If the pointer is a pointer to invariant memory,
-    // then it could not have been modified by this catchpad.
-    return getModRefInfoMask(Loc, AAQI);
-  }
-
-  // Otherwise, a catchpad reads and writes.
-  return ModRefInfo::ModRef;
+  // If the pointer is a pointer to invariant memory,
+  // then it could not have been modified by this catchpad.
+  return getModRefInfoMask(Loc, AAQI);
 }
 
 ModRefInfo AAResults::getModRefInfo(const CatchReturnInst *CatchRet,
@@ -599,14 +640,9 @@ ModRefInfo AAResults::getModRefInfo(const CatchReturnInst *CatchRet,
 ModRefInfo AAResults::getModRefInfo(const CatchReturnInst *CatchRet,
                                     const MemoryLocation &Loc,
                                     AAQueryInfo &AAQI) {
-  if (Loc.Ptr) {
-    // If the pointer is a pointer to invariant memory,
-    // then it could not have been modified by this catchpad.
-    return getModRefInfoMask(Loc, AAQI);
-  }
-
-  // Otherwise, a catchret reads and writes.
-  return ModRefInfo::ModRef;
+  // If the pointer is a pointer to invariant memory,
+  // then it could not have been modified by this catchpad.
+  return getModRefInfoMask(Loc, AAQI);
 }
 
 ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
@@ -622,13 +658,11 @@ ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
   if (isStrongerThanMonotonic(CX->getSuccessOrdering()))
     return ModRefInfo::ModRef;
 
-  if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(CX), Loc, AAQI);
-    // If the cmpxchg address does not alias the location, it does not access
-    // it.
-    if (AR == AliasResult::NoAlias)
-      return ModRefInfo::NoModRef;
-  }
+  AliasResult AR = alias(MemoryLocation::get(CX), Loc, AAQI);
+  // If the cmpxchg address does not alias the location, it does not access
+  // it.
+  if (AR == AliasResult::NoAlias)
+    return ModRefInfo::NoModRef;
 
   return ModRefInfo::ModRef;
 }
@@ -646,27 +680,18 @@ ModRefInfo AAResults::getModRefInfo(const AtomicRMWInst *RMW,
   if (isStrongerThanMonotonic(RMW->getOrdering()))
     return ModRefInfo::ModRef;
 
-  if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(RMW), Loc, AAQI);
-    // If the atomicrmw address does not alias the location, it does not access
-    // it.
-    if (AR == AliasResult::NoAlias)
-      return ModRefInfo::NoModRef;
-  }
+  AliasResult AR = alias(MemoryLocation::get(RMW), Loc, AAQI);
+  // If the atomicrmw address does not alias the location, it does not access
+  // it.
+  if (AR == AliasResult::NoAlias)
+    return ModRefInfo::NoModRef;
 
   return ModRefInfo::ModRef;
 }
 
 ModRefInfo AAResults::getModRefInfo(const Instruction *I,
-                                    const Optional<MemoryLocation> &OptLoc,
+                                    const MemoryLocation &Loc,
                                     AAQueryInfo &AAQIP) {
-  if (OptLoc == None) {
-    if (const auto *Call = dyn_cast<CallBase>(I))
-      return getMemoryEffects(Call, AAQIP).getModRef();
-  }
-
-  const MemoryLocation &Loc = OptLoc.value_or(MemoryLocation());
-
   switch (I->getOpcode()) {
   case Instruction::VAArg:
     return getModRefInfo((const VAArgInst *)I, Loc, AAQIP);
