@@ -533,11 +533,6 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, MemoryEffects ME) {
 //===----------------------------------------------------------------------===//
 
 ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
-                                    const MemoryLocation &Loc) {
-  SimpleAAQueryInfo AAQIP(*this);
-  return getModRefInfo(L, Loc, AAQIP);
-}
-ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
                                     const MemoryLocation &Loc,
                                     AAQueryInfo &AAQI) {
   // Be conservative in the face of atomic.
@@ -553,11 +548,6 @@ ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
   return ModRefInfo::Ref;
 }
 
-ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
-                                    const MemoryLocation &Loc) {
-  SimpleAAQueryInfo AAQIP(*this);
-  return getModRefInfo(S, Loc, AAQIP);
-}
 ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
                                     const MemoryLocation &Loc,
                                     AAQueryInfo &AAQI) {
@@ -583,24 +573,12 @@ ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
 }
 
 ModRefInfo AAResults::getModRefInfo(const FenceInst *S,
-                                    const MemoryLocation &Loc) {
-  SimpleAAQueryInfo AAQIP(*this);
-  return getModRefInfo(S, Loc, AAQIP);
-}
-
-ModRefInfo AAResults::getModRefInfo(const FenceInst *S,
                                     const MemoryLocation &Loc,
                                     AAQueryInfo &AAQI) {
   // All we know about a fence instruction is what we get from the ModRef
   // mask: if Loc is a constant memory location, the fence definitely could
   // not modify it.
   return getModRefInfoMask(Loc);
-}
-
-ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
-                                    const MemoryLocation &Loc) {
-  SimpleAAQueryInfo AAQIP(*this);
-  return getModRefInfo(V, Loc, AAQIP);
 }
 
 ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
@@ -618,12 +596,6 @@ ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
 }
 
 ModRefInfo AAResults::getModRefInfo(const CatchPadInst *CatchPad,
-                                    const MemoryLocation &Loc) {
-  SimpleAAQueryInfo AAQIP(*this);
-  return getModRefInfo(CatchPad, Loc, AAQIP);
-}
-
-ModRefInfo AAResults::getModRefInfo(const CatchPadInst *CatchPad,
                                     const MemoryLocation &Loc,
                                     AAQueryInfo &AAQI) {
   // If the pointer is a pointer to invariant memory,
@@ -632,23 +604,11 @@ ModRefInfo AAResults::getModRefInfo(const CatchPadInst *CatchPad,
 }
 
 ModRefInfo AAResults::getModRefInfo(const CatchReturnInst *CatchRet,
-                                    const MemoryLocation &Loc) {
-  SimpleAAQueryInfo AAQIP(*this);
-  return getModRefInfo(CatchRet, Loc, AAQIP);
-}
-
-ModRefInfo AAResults::getModRefInfo(const CatchReturnInst *CatchRet,
                                     const MemoryLocation &Loc,
                                     AAQueryInfo &AAQI) {
   // If the pointer is a pointer to invariant memory,
   // then it could not have been modified by this catchpad.
   return getModRefInfoMask(Loc, AAQI);
-}
-
-ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
-                                    const MemoryLocation &Loc) {
-  SimpleAAQueryInfo AAQIP(*this);
-  return getModRefInfo(CX, Loc, AAQIP);
 }
 
 ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
@@ -665,12 +625,6 @@ ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
     return ModRefInfo::NoModRef;
 
   return ModRefInfo::ModRef;
-}
-
-ModRefInfo AAResults::getModRefInfo(const AtomicRMWInst *RMW,
-                                    const MemoryLocation &Loc) {
-  SimpleAAQueryInfo AAQIP(*this);
-  return getModRefInfo(RMW, Loc, AAQIP);
 }
 
 ModRefInfo AAResults::getModRefInfo(const AtomicRMWInst *RMW,
