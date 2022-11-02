@@ -1811,6 +1811,22 @@ LazyValueInfo::Tristate LazyValueInfo::getPredicateAt(unsigned P, Value *LHS,
   // Got two non-Constant values. While we could handle them somewhat,
   // by getting their constant ranges, and applying ConstantRange::icmp(),
   // so far it did not appear to be profitable.
+  if (UseBlockValue) {
+    Module *M = CxtI->getModule();
+    ValueLatticeElement L =
+        getImpl(PImpl, AC, M).getValueInBlock(LHS, CxtI->getParent(), CxtI);
+    ValueLatticeElement R =
+        getImpl(PImpl, AC, M).getValueInBlock(RHS, CxtI->getParent(), CxtI);
+    Type *Ty = Type::getInt1Ty(CxtI->getContext());
+    if (Constant *Res = L.getCompare((CmpInst::Predicate)P, Ty, R,
+                                     M->getDataLayout())) {
+      if (Res->isNullValue())
+        return LazyValueInfo::False;
+      if (Res->isOneValue())
+        return LazyValueInfo::True;
+    }
+    return LazyValueInfo::Unknown;
+  }
   return LazyValueInfo::Unknown;
 }
 
