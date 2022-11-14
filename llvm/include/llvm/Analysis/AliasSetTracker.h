@@ -11,6 +11,8 @@
 // of disjoint sets. Each AliasSet object constructed by the AliasSetTracker
 // object refers to memory disjoint from the other sets.
 //
+// An AliasSetTracker can only be used on immutable IR.
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_ALIASSETTRACKER_H
@@ -31,7 +33,6 @@
 
 namespace llvm {
 
-class AAResults;
 class AliasResult;
 class AliasSetTracker;
 class AnyMemSetInst;
@@ -293,7 +294,7 @@ private:
   void addPointer(AliasSetTracker &AST, PointerRec &Entry, LocationSize Size,
                   const AAMDNodes &AAInfo, bool KnownMustAlias = false,
                   bool SkipSizeUpdate = false);
-  void addUnknownInst(Instruction *I, AAResults &AA);
+  void addUnknownInst(Instruction *I, BatchAAResults &AA);
 
   void removeUnknownInst(AliasSetTracker &AST, Instruction *I) {
     bool WasEmpty = UnknownInsts.empty();
@@ -338,7 +339,7 @@ class AliasSetTracker {
   /// handle.
   struct ASTCallbackVHDenseMapInfo : public DenseMapInfo<Value *> {};
 
-  AAResults &AA;
+  BatchAAResults &AA;
   ilist<AliasSet> AliasSets;
 
   using PointerMapType = DenseMap<ASTCallbackVH, AliasSet::PointerRec *,
@@ -350,7 +351,7 @@ class AliasSetTracker {
 public:
   /// Create an empty collection of AliasSets, and use the specified alias
   /// analysis object to disambiguate load and store addresses.
-  explicit AliasSetTracker(AAResults &AA) : AA(AA) {}
+  explicit AliasSetTracker(BatchAAResults &AA) : AA(AA) {}
   ~AliasSetTracker() { clear(); }
 
   /// These methods are used to add different types of instructions to the alias
@@ -388,19 +389,7 @@ public:
   AliasSet &getAliasSetFor(const MemoryLocation &MemLoc);
 
   /// Return the underlying alias analysis object used by this tracker.
-  AAResults &getAliasAnalysis() const { return AA; }
-
-  /// This method is used to remove a pointer value from the AliasSetTracker
-  /// entirely. It should be used when an instruction is deleted from the
-  /// program to update the AST. If you don't use this, you would have dangling
-  /// pointers to deleted instructions.
-  void deleteValue(Value *PtrVal);
-
-  /// This method should be used whenever a preexisting value in the program is
-  /// copied or cloned, introducing a new value.  Note that it is ok for clients
-  /// that use this method to introduce the same value multiple times: if the
-  /// tracker already knows about a value, it will ignore the request.
-  void copyValue(Value *From, Value *To);
+  BatchAAResults &getAliasAnalysis() const { return AA; }
 
   using iterator = ilist<AliasSet>::iterator;
   using const_iterator = ilist<AliasSet>::const_iterator;

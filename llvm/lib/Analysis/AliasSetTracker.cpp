@@ -132,7 +132,7 @@ void AliasSet::addPointer(AliasSetTracker &AST, PointerRec &Entry,
   if (isMustAlias())
     if (PointerRec *P = getSomePointer()) {
       if (!KnownMustAlias) {
-        AliasAnalysis &AA = AST.getAliasAnalysis();
+        BatchAAResults &AA = AST.getAliasAnalysis();
         AliasResult Result = AA.alias(
             MemoryLocation(P->getValue(), P->getSize(), P->getAAInfo()),
             MemoryLocation(Entry.getValue(), Size, AAInfo));
@@ -161,7 +161,7 @@ void AliasSet::addPointer(AliasSetTracker &AST, PointerRec &Entry,
     AST.TotalMayAliasSetSize++;
 }
 
-void AliasSet::addUnknownInst(Instruction *I, AliasAnalysis &AA) {
+void AliasSet::addUnknownInst(Instruction *I, BatchAAResults &AA) {
   if (UnknownInsts.empty())
     addRef();
   UnknownInsts.emplace_back(I);
@@ -274,12 +274,11 @@ AliasSet *AliasSetTracker::mergeAliasSetsForPointer(const Value *Ptr,
                                                     bool &MustAliasAll) {
   AliasSet *FoundSet = nullptr;
   MustAliasAll = true;
-  BatchAAResults BatchAA(AA);
   for (AliasSet &AS : llvm::make_early_inc_range(*this)) {
     if (AS.Forward)
       continue;
 
-    AliasResult AR = AS.aliasesPointer(Ptr, Size, AAInfo, BatchAA);
+    AliasResult AR = AS.aliasesPointer(Ptr, Size, AAInfo, AA);
     if (AR == AliasResult::NoAlias)
       continue;
 
@@ -291,7 +290,7 @@ AliasSet *AliasSetTracker::mergeAliasSetsForPointer(const Value *Ptr,
       FoundSet = &AS;
     } else {
       // Otherwise, we must merge the sets.
-      FoundSet->mergeSetIn(AS, *this, BatchAA);
+      FoundSet->mergeSetIn(AS, *this, AA);
     }
   }
 
@@ -299,17 +298,16 @@ AliasSet *AliasSetTracker::mergeAliasSetsForPointer(const Value *Ptr,
 }
 
 AliasSet *AliasSetTracker::findAliasSetForUnknownInst(Instruction *Inst) {
-  BatchAAResults BatchAA(AA);
   AliasSet *FoundSet = nullptr;
   for (AliasSet &AS : llvm::make_early_inc_range(*this)) {
-    if (AS.Forward || !AS.aliasesUnknownInst(Inst, BatchAA))
+    if (AS.Forward || !AS.aliasesUnknownInst(Inst, AA))
       continue;
     if (!FoundSet) {
       // If this is the first alias set ptr can go into, remember it.
       FoundSet = &AS;
     } else {
       // Otherwise, we must merge the sets.
-      FoundSet->mergeSetIn(AS, *this, BatchAA);
+      FoundSet->mergeSetIn(AS, *this, AA);
     }
   }
   return FoundSet;
@@ -509,57 +507,6 @@ void AliasSetTracker::add(const AliasSetTracker &AST) {
   }
 }
 
-// deleteValue method - This method is used to remove a pointer value from the
-// AliasSetTracker entirely.  It should be used when an instruction is deleted
-// from the program to update the AST.  If you don't use this, you would have
-// dangling pointers to deleted instructions.
-//
-void AliasSetTracker::deleteValue(Value *PtrVal) {
-  // First, look up the PointerRec for this pointer.
-  PointerMapType::iterator I = PointerMap.find_as(PtrVal);
-  if (I == PointerMap.end()) return;  // Noop
-
-  // If we found one, remove the pointer from the alias set it is in.
-  AliasSet::PointerRec *PtrValEnt = I->second;
-  AliasSet *AS = PtrValEnt->getAliasSet(*this);
-
-  // Unlink and delete from the list of values.
-  PtrValEnt->eraseFromList();
-
-  if (AS->Alias == AliasSet::SetMayAlias) {
-    AS->SetSize--;
-    TotalMayAliasSetSize--;
-  }
-
-  // Stop using the alias set.
-  AS->dropRef(*this);
-
-  PointerMap.erase(I);
-}
-
-// copyValue - This method should be used whenever a preexisting value in the
-// program is copied or cloned, introducing a new value.  Note that it is ok for
-// clients that use this method to introduce the same value multiple times: if
-// the tracker already knows about a value, it will ignore the request.
-//
-void AliasSetTracker::copyValue(Value *From, Value *To) {
-  // First, look up the PointerRec for this pointer.
-  PointerMapType::iterator I = PointerMap.find_as(From);
-  if (I == PointerMap.end())
-    return;  // Noop
-  assert(I->second->hasAliasSet() && "Dead entry?");
-
-  AliasSet::PointerRec &Entry = getEntryFor(To);
-  if (Entry.hasAliasSet()) return;    // Already in the tracker!
-
-  // getEntryFor above may invalidate iterator \c I, so reinitialize it.
-  I = PointerMap.find_as(From);
-  // Add it to the alias set it aliases...
-  AliasSet *AS = I->second->getAliasSet(*this);
-  AS->addPointer(*this, Entry, I->second->getSize(), I->second->getAAInfo(),
-                 true, true);
-}
-
 AliasSet &AliasSetTracker::mergeAllAliasSets() {
   assert(!AliasAnyAS && (TotalMayAliasSetSize > SaturationThreshold) &&
          "Full merge should happen once, when the saturation threshold is "
@@ -580,7 +527,6 @@ AliasSet &AliasSetTracker::mergeAllAliasSets() {
   AliasAnyAS->Access = AliasSet::ModRefAccess;
   AliasAnyAS->AliasAny = true;
 
-  BatchAAResults BatchAA(AA);
   for (auto *Cur : ASVector) {
     // If Cur was already forwarding, just forward to the new AS instead.
     AliasSet *FwdTo = Cur->Forward;
@@ -592,7 +538,7 @@ AliasSet &AliasSetTracker::mergeAllAliasSets() {
     }
 
     // Otherwise, perform the actual merge.
-    AliasAnyAS->mergeSetIn(*Cur, *this, BatchAA);
+    AliasAnyAS->mergeSetIn(*Cur, *this, AA);
   }
 
   return *AliasAnyAS;
@@ -677,13 +623,11 @@ LLVM_DUMP_METHOD void AliasSetTracker::dump() const { print(dbgs()); }
 //===----------------------------------------------------------------------===//
 
 void AliasSetTracker::ASTCallbackVH::deleted() {
-  assert(AST && "ASTCallbackVH called with a null AliasSetTracker!");
-  AST->deleteValue(getValPtr());
-  // this now dangles!
+  llvm_unreachable("AliasSetTracker must work on immutable IR");
 }
 
 void AliasSetTracker::ASTCallbackVH::allUsesReplacedWith(Value *V) {
-  AST->copyValue(getValPtr(), V);
+  llvm_unreachable("AliasSetTracker must work on immutable IR");
 }
 
 AliasSetTracker::ASTCallbackVH::ASTCallbackVH(Value *V, AliasSetTracker *ast)
@@ -703,7 +647,8 @@ AliasSetsPrinterPass::AliasSetsPrinterPass(raw_ostream &OS) : OS(OS) {}
 PreservedAnalyses AliasSetsPrinterPass::run(Function &F,
                                             FunctionAnalysisManager &AM) {
   auto &AA = AM.getResult<AAManager>(F);
-  AliasSetTracker Tracker(AA);
+  BatchAAResults BatchAA(AA);
+  AliasSetTracker Tracker(BatchAA);
   OS << "Alias sets for function '" << F.getName() << "':\n";
   for (Instruction &I : instructions(F))
     Tracker.add(&I);
