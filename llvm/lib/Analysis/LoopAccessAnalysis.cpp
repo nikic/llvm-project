@@ -622,7 +622,9 @@ public:
   AccessAnalysis(Loop *TheLoop, BatchAAResults &BAA, LoopInfo *LI,
                  MemoryDepChecker::DepCandidates &DA,
                  PredicatedScalarEvolution &PSE)
-      : TheLoop(TheLoop), AST(BAA), LI(LI), DepCands(DA), PSE(PSE) {}
+      : TheLoop(TheLoop), AST(BAA), LI(LI), DepCands(DA), PSE(PSE) {
+    BAA.enableCrossIterationMode();
+  }
 
   /// Register a load  and whether it is only read from.
   void addLoad(MemoryLocation &Loc, Type *AccessTy, bool IsReadOnly) {
