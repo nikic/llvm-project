@@ -23,7 +23,7 @@ if (DEFINED LLVM_HAVE_TF_AOT OR DEFINED LLVM_HAVE_TF_API)
         tensorflow/core/protobuf/error_codes
         tensorflow/core/example/feature
         tensorflow/core/example/example)
-      list(APPEND MLLinkDeps 
+      list(APPEND MLLinkDeps
         tensorflow-lite::tensorflow-lite
         protobuf::libprotobuf)
     else()
@@ -136,6 +136,7 @@ add_llvm_component_library(LLVMAnalysis
   ScalarEvolutionAliasAnalysis.cpp
   ScalarEvolutionDivision.cpp
   ScalarEvolutionNormalization.cpp
+  SeparateStorageAliasAnalysis.cpp
   StackLifetime.cpp
   StackSafetyAnalysis.cpp
   SyncDependenceAnalysis.cpp

@@ -31,6 +31,7 @@
 ; CHECK-NEXT:       RISCV gather/scatter lowering
 ; CHECK-NEXT:       RISCV CodeGenPrepare
 ; CHECK-NEXT:       Module Verifier
+; CHECK-NEXT:       Separate Storage Alias Analysis
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:       Canonicalize natural loops
 ; CHECK-NEXT:       Scalar Evolution Analysis

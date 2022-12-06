@@ -14,6 +14,7 @@
 ; CHECK-NEXT:      MVE gather/scatter lowering
 ; CHECK-NEXT:      MVE lane interleaving
 ; CHECK-NEXT:      Module Verifier
+; CHECK-NEXT:      Separate Storage Alias Analysis
 ; CHECK-NEXT:      Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:      Canonicalize natural loops
 ; CHECK-NEXT:      Scalar Evolution Analysis

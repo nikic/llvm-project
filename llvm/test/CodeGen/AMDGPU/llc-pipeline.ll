@@ -196,6 +196,7 @@
 ; GCN-O1-NEXT:      Natural Loop Information
 ; GCN-O1-NEXT:      Legacy Divergence Analysis
 ; GCN-O1-NEXT:      AMDGPU IR optimizations
+; GCN-O1-NEXT:      Separate Storage Alias Analysis
 ; GCN-O1-NEXT:      Basic Alias Analysis (stateless AA impl)
 ; GCN-O1-NEXT:      Canonicalize natural loops
 ; GCN-O1-NEXT:      Scalar Evolution Analysis
@@ -480,6 +481,7 @@
 ; GCN-O1-OPTS-NEXT:      Post-Dominator Tree Construction
 ; GCN-O1-OPTS-NEXT:      Legacy Divergence Analysis
 ; GCN-O1-OPTS-NEXT:      AMDGPU IR optimizations
+; GCN-O1-OPTS-NEXT:      Separate Storage Alias Analysis
 ; GCN-O1-OPTS-NEXT:      Canonicalize natural loops
 ; GCN-O1-OPTS-NEXT:      Scalar Evolution Analysis
 ; GCN-O1-OPTS-NEXT:      Loop Pass Manager
@@ -778,6 +780,7 @@
 ; GCN-O2-NEXT:      Post-Dominator Tree Construction
 ; GCN-O2-NEXT:      Legacy Divergence Analysis
 ; GCN-O2-NEXT:      AMDGPU IR optimizations
+; GCN-O2-NEXT:      Separate Storage Alias Analysis
 ; GCN-O2-NEXT:      Canonicalize natural loops
 ; GCN-O2-NEXT:      Scalar Evolution Analysis
 ; GCN-O2-NEXT:      Loop Pass Manager
@@ -1083,6 +1086,7 @@
 ; GCN-O3-NEXT:      Post-Dominator Tree Construction
 ; GCN-O3-NEXT:      Legacy Divergence Analysis
 ; GCN-O3-NEXT:      AMDGPU IR optimizations
+; GCN-O3-NEXT:      Separate Storage Alias Analysis
 ; GCN-O3-NEXT:      Basic Alias Analysis (stateless AA impl)
 ; GCN-O3-NEXT:      Canonicalize natural loops
 ; GCN-O3-NEXT:      Scalar Evolution Analysis

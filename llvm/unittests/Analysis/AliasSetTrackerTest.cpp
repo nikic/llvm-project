@@ -72,7 +72,7 @@ TEST(AliasSetTracker, AliasUnknownInst) {
   AliasSetTracker AST(BAA);
   for (auto &BB : *Test)
     AST.add(BB);
-  // There should be 2 disjoint alias sets. 1 from each call. 
+  // There should be 2 disjoint alias sets. 1 from each call.
   ASSERT_EQ((int)AST.getAliasSets().size(), 2);
 
   // Directly test aliasesUnknownInst.

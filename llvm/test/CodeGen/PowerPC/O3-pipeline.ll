@@ -42,6 +42,7 @@
 ; CHECK-NEXT:       Loop Pass Manager
 ; CHECK-NEXT:         Loop Invariant Code Motion
 ; CHECK-NEXT:       Module Verifier
+; CHECK-NEXT:       Separate Storage Alias Analysis
 ; CHECK-NEXT:       Loop Pass Manager
 ; CHECK-NEXT:         Canonicalize Freeze Instructions in Loops
 ; CHECK-NEXT:         Induction Variable Users

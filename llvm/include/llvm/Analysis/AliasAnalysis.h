@@ -906,7 +906,8 @@ private:
 
   SmallVector<void (*)(Function &F, FunctionAnalysisManager &AM,
                        AAResults &AAResults),
-              4> ResultGetters;
+              5>
+      ResultGetters;
 
   template <typename AnalysisT>
   static void getFunctionAAResultImpl(Function &F,

@@ -363,6 +363,7 @@ void initializeSROALegacyPassPass(PassRegistry&);
 void initializeSafeStackLegacyPassPass(PassRegistry&);
 void initializeSafepointIRVerifierPass(PassRegistry&);
 void initializeSelectOptimizePass(PassRegistry &);
+void initializeSeparateStorageAAWrapperPassPass(PassRegistry &);
 void initializeScalarEvolutionWrapperPassPass(PassRegistry&);
 void initializeScalarizeMaskedMemIntrinLegacyPassPass(PassRegistry &);
 void initializeScalarizerLegacyPassPass(PassRegistry&);
