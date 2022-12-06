@@ -373,7 +373,7 @@ static bool isStructPathTBAA(const MDNode *MD) {
 
 AliasResult TypeBasedAAResult::alias(const MemoryLocation &LocA,
                                      const MemoryLocation &LocB,
-                                     AAQueryInfo &AAQI) {
+                                     AAQueryInfo &AAQI, const Instruction *) {
   if (!EnableTBAA)
     return AAResultBase::alias(LocA, LocB, AAQI);
 

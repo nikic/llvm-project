@@ -36,7 +36,7 @@ using namespace llvm::objcarc;
 
 AliasResult ObjCARCAAResult::alias(const MemoryLocation &LocA,
                                    const MemoryLocation &LocB,
-                                   AAQueryInfo &AAQI) {
+                                   AAQueryInfo &AAQI, const Instruction *) {
   if (!EnableARCOpts)
     return AAResultBase::alias(LocA, LocB, AAQI);
 

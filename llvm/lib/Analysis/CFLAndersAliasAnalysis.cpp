@@ -879,7 +879,7 @@ AliasResult CFLAndersAAResult::query(const MemoryLocation &LocA,
 
 AliasResult CFLAndersAAResult::alias(const MemoryLocation &LocA,
                                      const MemoryLocation &LocB,
-                                     AAQueryInfo &AAQI) {
+                                     AAQueryInfo &AAQI, const Instruction *) {
   if (LocA.Ptr == LocB.Ptr)
     return AliasResult::MustAlias;
 

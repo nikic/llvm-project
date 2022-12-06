@@ -53,7 +53,8 @@ static cl::opt<bool> EnableScopedNoAlias("enable-scoped-noalias",
 
 AliasResult ScopedNoAliasAAResult::alias(const MemoryLocation &LocA,
                                          const MemoryLocation &LocB,
-                                         AAQueryInfo &AAQI) {
+                                         AAQueryInfo &AAQI,
+                                         const Instruction *) {
   if (!EnableScopedNoAlias)
     return AAResultBase::alias(LocA, LocB, AAQI);
 

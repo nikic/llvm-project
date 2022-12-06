@@ -67,7 +67,7 @@ public:
   AliasResult query(const MemoryLocation &LocA, const MemoryLocation &LocB);
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI) {
+                    AAQueryInfo &AAQI, const Instruction * /* I */) {
     if (LocA.Ptr == LocB.Ptr)
       return AliasResult::MustAlias;
 

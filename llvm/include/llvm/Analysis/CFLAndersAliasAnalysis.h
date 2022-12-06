@@ -60,7 +60,7 @@ public:
 
   AliasResult query(const MemoryLocation &, const MemoryLocation &);
   AliasResult alias(const MemoryLocation &, const MemoryLocation &,
-                    AAQueryInfo &);
+                    AAQueryInfo &, const Instruction *I);
 
 private:
   /// Ensures that the given function is available in the cache.
