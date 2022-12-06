@@ -1274,6 +1274,11 @@ Currently, only the following parameter attributes are defined:
     function, returning a pointer to allocated storage disjoint from the
     storage for any other object accessible to the caller.
 
+``separate_storage(<val1>, <val2>)``
+    This attribute, in an :ref:`assume operand bundle <assume_opbundles>`,
+    indicates that no pointer :ref:`based <pointeraliasing>` on one of its
+    arguments can alias any pointer based on the other.
+
 .. _nocapture:
 
 ``nocapture``

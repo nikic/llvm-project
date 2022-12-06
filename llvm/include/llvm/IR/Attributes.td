@@ -178,6 +178,10 @@ def NoCfCheck : EnumAttr<"nocf_check", [FnAttr]>;
 /// Function should not be instrumented.
 def NoProfile : EnumAttr<"noprofile", [FnAttr]>;
 
+/// As an operand bundle on an assume intrinsic, Indicates that its two pointer
+/// operands do not alias.
+def SeparateStorage : EnumAttr<"separate_storage", [ParamAttr]>;
+
 /// This function should not be instrumented but it is ok to inline profiled
 // functions into it.
 def SkipProfile : EnumAttr<"skipprofile", [FnAttr]>;

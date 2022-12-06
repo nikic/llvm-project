@@ -744,6 +744,8 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
     return bitc::ATTR_KIND_RETURNED;
   case Attribute::ReturnsTwice:
     return bitc::ATTR_KIND_RETURNS_TWICE;
+  case Attribute::SeparateStorage:
+    return bitc::ATTR_KIND_SEPARATE_STORAGE;
   case Attribute::SExt:
     return bitc::ATTR_KIND_S_EXT;
   case Attribute::Speculatable:

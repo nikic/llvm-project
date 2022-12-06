@@ -981,6 +981,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::ReadNone:
       case Attribute::ReadOnly:
       case Attribute::Returned:
+      case Attribute::SeparateStorage:
       case Attribute::SExt:
       case Attribute::StructRet:
       case Attribute::SwiftError:

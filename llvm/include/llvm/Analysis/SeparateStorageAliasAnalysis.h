@@ -19,13 +19,21 @@
 #include "llvm/Pass.h"
 
 namespace llvm {
+class AssumptionCache;
+class DominatorTree;
+
 /// A simple AA result that uses calls to the separate storage intrinsics.
 class SeparateStorageAAResult : public AAResultBase {
 public:
-  bool invalidate(Function &, const PreservedAnalyses &,
-                  FunctionAnalysisManager::Invalidator &) {
-    return false;
-  }
+  SeparateStorageAAResult(AssumptionCache &AC, DominatorTree &DT);
+  bool invalidate(Function &Fn, const PreservedAnalyses &PA,
+                  FunctionAnalysisManager::Invalidator &Inv);
+  AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                    AAQueryInfo &AAQI, const Instruction *I);
+
+private:
+  AssumptionCache &AC;
+  DominatorTree &DT;
 };
 
 /// Analysis pass providing a never-invalidated alias analysis result.

@@ -16,9 +16,9 @@
 ; CHECK-NEXT: Target Pass Configuration
 ; CHECK-NEXT: Machine Module Information
 ; CHECK-NEXT: Target Transform Information
+; CHECK-NEXT: Assumption Cache Tracker
 ; CHECK-NEXT: Type-Based Alias Analysis
 ; CHECK-NEXT: Scoped NoAlias Alias Analysis
-; CHECK-NEXT: Assumption Cache Tracker
 ; CHECK-NEXT: Profile summary info
 ; CHECK-NEXT: Create Garbage Collector Module Metadata
 ; CHECK-NEXT: Machine Branch Probability Analysis
@@ -33,8 +33,8 @@
 ; CHECK-NEXT:       Lower AMX intrinsics
 ; CHECK-NEXT:       Lower AMX type for load/store
 ; CHECK-NEXT:       Module Verifier
-; CHECK-NEXT:       Separate Storage Alias Analysis
 ; CHECK-NEXT:       Dominator Tree Construction
+; CHECK-NEXT:       Separate Storage Alias Analysis
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:       Natural Loop Information
 ; CHECK-NEXT:       Canonicalize natural loops

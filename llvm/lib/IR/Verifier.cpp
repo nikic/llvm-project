@@ -4981,6 +4981,15 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
                 "third argument should be an integer if present", Call);
         return;
       }
+      if (Kind == Attribute::SeparateStorage) {
+        Check(ArgCount == 2,
+              "separate_storage assumptions should have 2 arguments", Call);
+        Check(Call.getOperand(Elem.Begin)->getType()->isPointerTy() &&
+                  Call.getOperand(Elem.Begin + 1)->getType()->isPointerTy(),
+              "arguments to separate_storage assumptions should be pointers",
+              Call);
+        return;
+      }
       Check(ArgCount <= 2, "too many arguments", Call);
       if (Kind == Attribute::None)
         break;
