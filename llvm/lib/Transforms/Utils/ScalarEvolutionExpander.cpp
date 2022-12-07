@@ -2109,7 +2109,8 @@ template<typename T> static InstructionCost costAndCollectOperands(
 
   switch (S->getSCEVType()) {
   case scCouldNotCompute:
-    llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
+  case scFolded:
+    llvm_unreachable("Attempt to use a SCEVCouldNotCompute/SCEVFolded object!");
   case scUnknown:
   case scConstant:
     return 0;
@@ -2246,7 +2247,8 @@ bool SCEVExpander::isHighCostExpansionHelper(
 
   switch (S->getSCEVType()) {
   case scCouldNotCompute:
-    llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
+  case scFolded:
+    llvm_unreachable("Attempt to use a SCEVCouldNotCompute/SCEVFolded object!");
   case scUnknown:
     // Assume to be zero-cost.
     return false;

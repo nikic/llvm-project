@@ -396,6 +396,9 @@ void SCEV::print(raw_ostream &OS) const {
   case scCouldNotCompute:
     OS << "***COULDNOTCOMPUTE***";
     return;
+  case scFolded:
+    OS << "***FOLDED***";
+    return;
   }
   llvm_unreachable("Unknown SCEV kind!");
 }
@@ -427,7 +430,8 @@ Type *SCEV::getType() const {
   case scUnknown:
     return cast<SCEVUnknown>(this)->getType();
   case scCouldNotCompute:
-    llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
+  case scFolded:
+    llvm_unreachable("Attempt to use a SCEVCouldNotCompute/SCEVFolded object!");
   }
   llvm_unreachable("Unknown SCEV kind!");
 }
@@ -857,7 +861,8 @@ CompareSCEVComplexity(EquivalenceClasses<const SCEV *> &EqCacheSCEV,
   }
 
   case scCouldNotCompute:
-    llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
+  case scFolded:
+    llvm_unreachable("Attempt to use a SCEVCouldNotCompute/SCEVFolded object!");
   }
   llvm_unreachable("Unknown SCEV kind!");
 }
@@ -1626,7 +1631,11 @@ ScalarEvolution::getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
   ID.AddPointer(Op);
   ID.AddPointer(Ty);
   void *IP = nullptr;
-  if (const SCEV *S = UniqueSCEVs.FindNodeOrInsertPos(ID, IP)) return S;
+  if (const SCEV *S = UniqueSCEVs.FindNodeOrInsertPos(ID, IP)) {
+    if (const auto *F = dyn_cast<SCEVFolded>(S))
+      return F->Folded;
+    return S;
+  }
   if (Depth > MaxCastDepth) {
     SCEV *S = new (SCEVAllocator) SCEVZeroExtendExpr(ID.Intern(SCEVAllocator),
                                                      Op, Ty);
@@ -1634,7 +1643,33 @@ ScalarEvolution::getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
     registerUser(S, Op);
     return S;
   }
+  const SCEV *Res = getZeroExtendExprImpl(Op, Ty, Depth);
+  // Recompute the insert position, as it may have been invalidated.
+  if (const SCEV *S = UniqueSCEVs.FindNodeOrInsertPos(ID, IP)) {
+    if (const auto *F = dyn_cast<SCEVFolded>(S))
+      return F->Folded;
+    return S;
+  }
 
+  if (Res) {
+    // Remember the fold result.
+    SCEV *S = new (SCEVAllocator) SCEVFolded(ID.Intern(SCEVAllocator), Res);
+    UniqueSCEVs.InsertNode(S, IP);
+    registerUser(S, Res);
+    return Res;
+  }
+
+  // The cast wasn't folded; create an explicit cast node.
+  SCEV *S = new (SCEVAllocator) SCEVZeroExtendExpr(ID.Intern(SCEVAllocator),
+                                                   Op, Ty);
+  UniqueSCEVs.InsertNode(S, IP);
+  registerUser(S, Op);
+  return S;
+}
+
+const SCEV *
+ScalarEvolution::getZeroExtendExprImpl(const SCEV *Op, Type *Ty,
+                                       unsigned Depth) {
   // zext(trunc(x)) --> zext(x) or x or trunc(x)
   if (const SCEVTruncateExpr *ST = dyn_cast<SCEVTruncateExpr>(Op)) {
     // It's possible the bits taken off by the truncate were all zero bits. If
@@ -1893,14 +1928,7 @@ ScalarEvolution::getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
           }
   }
 
-  // The cast wasn't folded; create an explicit cast node.
-  // Recompute the insert position, as it may have been invalidated.
-  if (const SCEV *S = UniqueSCEVs.FindNodeOrInsertPos(ID, IP)) return S;
-  SCEV *S = new (SCEVAllocator) SCEVZeroExtendExpr(ID.Intern(SCEVAllocator),
-                                                   Op, Ty);
-  UniqueSCEVs.InsertNode(S, IP);
-  registerUser(S, Op);
-  return S;
+  return nullptr;
 }
 
 const SCEV *
@@ -5882,6 +5910,8 @@ static bool IsAvailableOnEntry(const Loop *L, DominatorTree &DT, const SCEV *S,
       case scCouldNotCompute:
         // We do not try to smart about these at all.
         return setUnavailable();
+      case scFolded:
+        llvm_unreachable("SCEVFolded should not occur here");
       }
       llvm_unreachable("Unknown SCEV kind!");
     }
@@ -9732,6 +9762,8 @@ static Constant *BuildConstantFromSCEV(const SCEV *V) {
   case scUMinExpr:
   case scSequentialUMinExpr:
     return nullptr; // TODO: smax, umax, smin, umax, umin_seq.
+  case scFolded:
+    llvm_unreachable("SCEVFolded should not occur here");
   }
   llvm_unreachable("Unknown SCEV kind!");
 }
@@ -13649,7 +13681,8 @@ ScalarEvolution::computeLoopDisposition(const SCEV *S, const Loop *L) {
       return (L && !L->contains(I)) ? LoopInvariant : LoopVariant;
     return LoopInvariant;
   case scCouldNotCompute:
-    llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
+  case scFolded:
+    llvm_unreachable("Attempt to use a SCEVCouldNotCompute/SCEVFolded object!");
   }
   llvm_unreachable("Unknown SCEV kind!");
 }
@@ -13744,7 +13777,8 @@ ScalarEvolution::computeBlockDisposition(const SCEV *S, const BasicBlock *BB) {
     }
     return ProperlyDominatesBlock;
   case scCouldNotCompute:
-    llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
+  case scFolded:
+    llvm_unreachable("Attempt to use a SCEVCouldNotCompute/SCEVFolded object!");
   }
   llvm_unreachable("Unknown SCEV kind!");
 }
@@ -13786,9 +13820,15 @@ void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs) {
     const SCEV *Curr = Worklist.pop_back_val();
     auto Users = SCEVUsers.find(Curr);
     if (Users != SCEVUsers.end())
-      for (const auto *User : Users->second)
+      for (const auto *User : Users->second) {
+        if (isa<SCEVFolded>(User)) {
+          // TODO: Leak?
+          UniqueSCEVs.RemoveNode(const_cast<SCEV *>(User));
+          continue;
+        }
         if (ToForget.insert(User).second)
           Worklist.push_back(User);
+      }
   }
 
   for (const auto *S : ToForget)

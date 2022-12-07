@@ -53,7 +53,11 @@ enum SCEVTypes : unsigned short {
   scSequentialUMinExpr,
   scPtrToInt,
   scUnknown,
-  scCouldNotCompute
+  scCouldNotCompute,
+  // Internal SCEV type used to cache the folded result of node, e.g. if
+  // zext S folds to S', then a Folded SCEV node is used to store that fact
+  // in the folding set and avoid repeated analysis.
+  scFolded,
 };
 
 /// This class represents a constant integer value.
@@ -609,6 +613,18 @@ public:
   static bool classof(const SCEV *S) { return S->getSCEVType() == scUnknown; }
 };
 
+class SCEVFolded : public SCEV {
+  friend class ScalarEvolution;
+
+  const SCEV *Folded;
+
+  SCEVFolded(const FoldingSetNodeIDRef ID, const SCEV *Folded)
+      : SCEV(ID, scFolded, 1), Folded(Folded) {}
+
+public:
+  static bool classof(const SCEV *S) { return S->getSCEVType() == scFolded; }
+};
+
 /// This class defines a simple visitor class that may be used for
 /// various SCEV analysis purposes.
 template <typename SC, typename RetVal = void> struct SCEVVisitor {
@@ -647,6 +663,8 @@ template <typename SC, typename RetVal = void> struct SCEVVisitor {
       return ((SC *)this)->visitUnknown((const SCEVUnknown *)S);
     case scCouldNotCompute:
       return ((SC *)this)->visitCouldNotCompute((const SCEVCouldNotCompute *)S);
+    case scFolded:
+      llvm_unreachable("Cannot visit scFolded");
     }
     llvm_unreachable("Unknown SCEV kind!");
   }
@@ -712,7 +730,9 @@ public:
         continue;
       }
       case scCouldNotCompute:
-        llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
+      case scFolded:
+        llvm_unreachable(
+            "Attempt to use a SCEVCouldNotCompute/SCEVFolded object!");
       }
       llvm_unreachable("Unknown SCEV kind!");
     }
