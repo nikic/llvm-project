@@ -27,30 +27,43 @@ define dso_local void @foo(i32 noundef %arg, ptr noundef nonnull align 4 derefer
 ; CHECK-NEXT:    [[ARG_OFF:%.*]] = add i32 [[ARG]], 127
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[ARG_OFF]], 255
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[BB12:%.*]], label [[BB13:%.*]]
-; CHECK:       bb12.loopexit:
-; CHECK-NEXT:    [[I3_SROA_8_0_INSERT_EXT:%.*]] = zext i32 [[I21_3:%.*]] to i64
-; CHECK-NEXT:    [[I3_SROA_8_0_INSERT_SHIFT:%.*]] = shl nuw i64 [[I3_SROA_8_0_INSERT_EXT]], 32
-; CHECK-NEXT:    [[I3_SROA_0_0_INSERT_EXT:%.*]] = zext i32 [[I21_2:%.*]] to i64
-; CHECK-NEXT:    [[I3_SROA_0_0_INSERT_INSERT:%.*]] = or i64 [[I3_SROA_8_0_INSERT_SHIFT]], [[I3_SROA_0_0_INSERT_EXT]]
-; CHECK-NEXT:    br label [[BB12]]
 ; CHECK:       bb12:
-; CHECK-NEXT:    [[TMP1:%.*]] = phi i64 [ [[I3_SROA_0_0_INSERT_INSERT]], [[BB12_LOOPEXIT:%.*]] ], [ 180388626456, [[BB:%.*]] ]
-; CHECK-NEXT:    store i64 [[TMP1]], ptr [[ARG1:%.*]], align 4, !tbaa [[TBAA5:![0-9]+]]
+; CHECK-NEXT:    [[TMP1:%.*]] = phi <8 x i8> [ <i8 24, i8 0, i8 0, i8 0, i8 42, i8 0, i8 0, i8 0>, [[BB:%.*]] ], [ [[I3_SROA_0_4_VECBLEND24:%.*]], [[BB13]] ]
+; CHECK-NEXT:    store <8 x i8> [[TMP1]], ptr [[ARG1:%.*]], align 4, !tbaa [[TBAA5:![0-9]+]]
 ; CHECK-NEXT:    ret void
 ; CHECK:       bb13:
-; CHECK-NEXT:    [[I3_SROA_8_0:%.*]] = phi i32 [ [[I21_3]], [[BB13]] ], [ 42, [[BB]] ]
-; CHECK-NEXT:    [[I3_SROA_0_0:%.*]] = phi i32 [ [[I21_2]], [[BB13]] ], [ 24, [[BB]] ]
+; CHECK-NEXT:    [[I3_SROA_0_0:%.*]] = phi <8 x i8> [ [[I3_SROA_0_4_VECBLEND24]], [[BB13]] ], [ <i8 24, i8 0, i8 0, i8 0, i8 42, i8 0, i8 0, i8 0>, [[BB]] ]
 ; CHECK-NEXT:    [[I4_05:%.*]] = phi i32 [ [[I24_3:%.*]], [[BB13]] ], [ 0, [[BB]] ]
-; CHECK-NEXT:    [[I21:%.*]] = mul nsw i32 [[I3_SROA_0_0]], [[I4_05]]
+; CHECK-NEXT:    [[I3_SROA_0_0_VEC_EXTRACT_BC:%.*]] = bitcast <8 x i8> [[I3_SROA_0_0]] to <2 x i32>
+; CHECK-NEXT:    [[I3_SROA_0_0_VEC_EXTRACT_EXTRACT:%.*]] = extractelement <2 x i32> [[I3_SROA_0_0_VEC_EXTRACT_BC]], i64 0
+; CHECK-NEXT:    [[I21:%.*]] = mul nsw i32 [[I3_SROA_0_0_VEC_EXTRACT_EXTRACT]], [[I4_05]]
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32 [[I21]] to <4 x i8>
+; CHECK-NEXT:    [[I3_SROA_0_0_VEC_EXPAND:%.*]] = shufflevector <4 x i8> [[TMP2]], <4 x i8> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[I3_SROA_0_0_VECBLEND:%.*]] = shufflevector <8 x i8> [[I3_SROA_0_0_VEC_EXPAND]], <8 x i8> [[I3_SROA_0_0]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 12, i32 13, i32 14, i32 15>
 ; CHECK-NEXT:    [[I24:%.*]] = or i32 [[I4_05]], 1
-; CHECK-NEXT:    [[I21_1:%.*]] = mul nsw i32 [[I3_SROA_8_0]], [[I24]]
+; CHECK-NEXT:    [[I3_SROA_0_4_VEC_EXTRACT_BC:%.*]] = bitcast <8 x i8> [[I3_SROA_0_0_VECBLEND]] to <2 x i32>
+; CHECK-NEXT:    [[I3_SROA_0_4_VEC_EXTRACT_EXTRACT:%.*]] = extractelement <2 x i32> [[I3_SROA_0_4_VEC_EXTRACT_BC]], i64 1
+; CHECK-NEXT:    [[I21_1:%.*]] = mul nsw i32 [[I3_SROA_0_4_VEC_EXTRACT_EXTRACT]], [[I24]]
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32 [[I21_1]] to <4 x i8>
+; CHECK-NEXT:    [[I3_SROA_0_4_VEC_EXPAND:%.*]] = shufflevector <4 x i8> [[TMP3]], <4 x i8> poison, <8 x i32> <i32 undef, i32 undef, i32 undef, i32 undef, i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[I3_SROA_0_4_VECBLEND:%.*]] = shufflevector <8 x i8> [[I3_SROA_0_0_VECBLEND]], <8 x i8> [[I3_SROA_0_4_VEC_EXPAND]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 12, i32 13, i32 14, i32 15>
 ; CHECK-NEXT:    [[I24_1:%.*]] = or i32 [[I4_05]], 2
-; CHECK-NEXT:    [[I21_2]] = mul nsw i32 [[I21]], [[I24_1]]
+; CHECK-NEXT:    [[I3_SROA_0_0_VEC_EXTRACT18_BC:%.*]] = bitcast <8 x i8> [[I3_SROA_0_4_VECBLEND]] to <2 x i32>
+; CHECK-NEXT:    [[I3_SROA_0_0_VEC_EXTRACT18_EXTRACT:%.*]] = extractelement <2 x i32> [[I3_SROA_0_0_VEC_EXTRACT18_BC]], i64 0
+; CHECK-NEXT:    [[I21_2:%.*]] = mul nsw i32 [[I3_SROA_0_0_VEC_EXTRACT18_EXTRACT]], [[I24_1]]
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32 [[I21_2]] to <4 x i8>
+; CHECK-NEXT:    [[I3_SROA_0_0_VEC_EXPAND15:%.*]] = shufflevector <4 x i8> [[TMP4]], <4 x i8> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[I3_SROA_0_0_VECBLEND16:%.*]] = shufflevector <8 x i8> [[I3_SROA_0_0_VEC_EXPAND15]], <8 x i8> [[I3_SROA_0_4_VECBLEND]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 12, i32 13, i32 14, i32 15>
 ; CHECK-NEXT:    [[I24_2:%.*]] = or i32 [[I4_05]], 3
-; CHECK-NEXT:    [[I21_3]] = mul nsw i32 [[I21_1]], [[I24_2]]
+; CHECK-NEXT:    [[I3_SROA_0_4_VEC_EXTRACT21_BC:%.*]] = bitcast <8 x i8> [[I3_SROA_0_0_VECBLEND16]] to <2 x i32>
+; CHECK-NEXT:    [[I3_SROA_0_4_VEC_EXTRACT21_EXTRACT:%.*]] = extractelement <2 x i32> [[I3_SROA_0_4_VEC_EXTRACT21_BC]], i64 1
+; CHECK-NEXT:    [[I21_3:%.*]] = mul nsw i32 [[I3_SROA_0_4_VEC_EXTRACT21_EXTRACT]], [[I24_2]]
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32 [[I21_3]] to <4 x i8>
+; CHECK-NEXT:    [[I3_SROA_0_4_VEC_EXPAND23:%.*]] = shufflevector <4 x i8> [[TMP5]], <4 x i8> poison, <8 x i32> <i32 undef, i32 undef, i32 undef, i32 undef, i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[I3_SROA_0_4_VECBLEND24]] = shufflevector <8 x i8> [[I3_SROA_0_0_VECBLEND16]], <8 x i8> [[I3_SROA_0_4_VEC_EXPAND23]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 12, i32 13, i32 14, i32 15>
 ; CHECK-NEXT:    [[I24_3]] = add nuw nsw i32 [[I4_05]], 4
 ; CHECK-NEXT:    [[I11_NOT_3:%.*]] = icmp eq i32 [[I24_3]], [[I10]]
-; CHECK-NEXT:    br i1 [[I11_NOT_3]], label [[BB12_LOOPEXIT]], label [[BB13]], !llvm.loop [[LOOP8:![0-9]+]]
+; CHECK-NEXT:    br i1 [[I11_NOT_3]], label [[BB12]], label [[BB13]], !llvm.loop [[LOOP8:![0-9]+]]
 ;
 bb:
   %i = alloca i32, align 4

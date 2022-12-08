@@ -161,7 +161,7 @@ define void @test_no_simplify1() {
 
 define void @test_no_simplify2() {
 ; CHECK-LABEL: @test_no_simplify2(
-; CHECK-NEXT:    store i64 478560413032, ptr @a, align 1
+; CHECK-NEXT:    store <8 x i8> <i8 104, i8 101, i8 108, i8 108, i8 111, i8 0, i8 0, i8 0>, ptr @a, align 1
 ; CHECK-NEXT:    ret void
 ;
 

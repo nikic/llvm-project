@@ -11,7 +11,7 @@ declare ptr @strncpy(ptr, ptr, i64)
 
 define void @fill_with_zeros(ptr %dst) {
 ; CHECK-LABEL: @fill_with_zeros(
-; CHECK-NEXT:    store i32 97, ptr [[DST:%.*]], align 1
+; CHECK-NEXT:    store <4 x i8> <i8 97, i8 0, i8 0, i8 0>, ptr [[DST:%.*]], align 1
 ; CHECK-NEXT:    ret void
 ;
   tail call ptr @strncpy(ptr %dst, ptr @str, i64 4)
@@ -20,7 +20,7 @@ define void @fill_with_zeros(ptr %dst) {
 
 define void @fill_with_zeros2(ptr %dst) {
 ; CHECK-LABEL: @fill_with_zeros2(
-; CHECK-NEXT:    store i32 6513249, ptr [[DST:%.*]], align 1
+; CHECK-NEXT:    store <4 x i8> <i8 97, i8 98, i8 99, i8 0>, ptr [[DST:%.*]], align 1
 ; CHECK-NEXT:    ret void
 ;
   tail call ptr @strncpy(ptr %dst, ptr @str2, i64 4)
@@ -29,7 +29,7 @@ define void @fill_with_zeros2(ptr %dst) {
 
 define void @fill_with_zeros3(ptr %dst) {
 ; CHECK-LABEL: @fill_with_zeros3(
-; CHECK-NEXT:    store i32 1684234849, ptr [[DST:%.*]], align 1
+; CHECK-NEXT:    store <4 x i8> <i8 97, i8 98, i8 99, i8 100>, ptr [[DST:%.*]], align 1
 ; CHECK-NEXT:    ret void
 ;
   tail call ptr @strncpy(ptr %dst, ptr @str3, i64 4)

@@ -10,9 +10,9 @@ declare ptr @memccpy(ptr, ptr, i32, i64)
 
 define ptr @memccpy_to_memcpy(ptr %dst) {
 ; CHECK-LABEL: @memccpy_to_memcpy(
-; CHECK-NEXT:    store i64 8245940763182785896, ptr [[DST:%.*]], align 1
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i8, ptr [[DST]], i64 8
-; CHECK-NEXT:    ret ptr [[TMP2]]
+; CHECK-NEXT:    store <8 x i8> <i8 104, i8 101, i8 108, i8 108, i8 111, i8 119, i8 111, i8 114>, ptr [[DST:%.*]], align 1
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i8, ptr [[DST]], i64 8
+; CHECK-NEXT:    ret ptr [[TMP1]]
 ;
   %call = call ptr @memccpy(ptr %dst, ptr @hello, i32 114, i64 12) ; 114 is 'r'
   ret ptr %call
@@ -20,9 +20,9 @@ define ptr @memccpy_to_memcpy(ptr %dst) {
 
 define ptr @memccpy_to_memcpy2(ptr %dst) {
 ; CHECK-LABEL: @memccpy_to_memcpy2(
-; CHECK-NEXT:    store i64 8245940763182785896, ptr [[DST:%.*]], align 1
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i8, ptr [[DST]], i64 8
-; CHECK-NEXT:    ret ptr [[TMP2]]
+; CHECK-NEXT:    store <8 x i8> <i8 104, i8 101, i8 108, i8 108, i8 111, i8 119, i8 111, i8 114>, ptr [[DST:%.*]], align 1
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i8, ptr [[DST]], i64 8
+; CHECK-NEXT:    ret ptr [[TMP1]]
 ;
   %call = call ptr @memccpy(ptr %dst, ptr @hello, i32 114, i64 8); ; 114 is 'r'
   ret ptr %call

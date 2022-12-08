@@ -178,11 +178,14 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
   unsigned SrcAddrSp =
     cast<PointerType>(MI->getArgOperand(1)->getType())->getAddressSpace();
   unsigned DstAddrSp =
-    cast<PointerType>(MI->getArgOperand(0)->getType())->getAddressSpace();
+      cast<PointerType>(MI->getArgOperand(0)->getType())->getAddressSpace();
 
-  IntegerType* IntType = IntegerType::get(MI->getContext(), Size<<3);
-  Type *NewSrcPtrTy = PointerType::get(IntType, SrcAddrSp);
-  Type *NewDstPtrTy = PointerType::get(IntType, DstAddrSp);
+  LLVMContext &Context = MI->getContext();
+  Type *NewValTy = isa<AtomicMemTransferInst>(MI) || Size == 1
+                       ? (Type*)Type::getIntNTy(Context, Size * 8)
+                       : FixedVectorType::get(Type::getInt8Ty(Context), Size);
+  Type *NewSrcPtrTy = PointerType::get(NewValTy, SrcAddrSp);
+  Type *NewDstPtrTy = PointerType::get(NewValTy, DstAddrSp);
 
   // If the memcpy has metadata describing the members, see if we can get the
   // TBAA tag describing our copy.
@@ -203,7 +206,7 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
 
   Value *Src = Builder.CreateBitCast(MI->getArgOperand(1), NewSrcPtrTy);
   Value *Dest = Builder.CreateBitCast(MI->getArgOperand(0), NewDstPtrTy);
-  LoadInst *L = Builder.CreateLoad(IntType, Src);
+  LoadInst *L = Builder.CreateLoad(NewValTy, Src);
   // Alignment from the mem intrinsic will be better, so use it.
   L->setAlignment(*CopySrcAlign);
   if (CopyMD)

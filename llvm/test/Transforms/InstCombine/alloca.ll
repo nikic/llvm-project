@@ -189,8 +189,8 @@ define void @test9(ptr %a) {
 ; ALL-LABEL: @test9(
 ; ALL-NEXT:  entry:
 ; ALL-NEXT:    [[ARGMEM:%.*]] = alloca inalloca <{ [[STRUCT_TYPE:%.*]] }>, align 8
-; ALL-NEXT:    [[TMP0:%.*]] = load i64, ptr [[A:%.*]], align 4
-; ALL-NEXT:    store i64 [[TMP0]], ptr [[ARGMEM]], align 8
+; ALL-NEXT:    [[TMP0:%.*]] = load <8 x i8>, ptr [[A:%.*]], align 4
+; ALL-NEXT:    store <8 x i8> [[TMP0]], ptr [[ARGMEM]], align 8
 ; ALL-NEXT:    call void @test9_aux(ptr nonnull inalloca(<{ [[STRUCT_TYPE]] }>) [[ARGMEM]])
 ; ALL-NEXT:    ret void
 ;

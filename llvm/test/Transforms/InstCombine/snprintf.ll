@@ -76,7 +76,7 @@ define i32 @test_percentage_return_value() #0 {
 
 define void @test_correct_copy(ptr %buf) #0 {
 ; CHECK-LABEL: @test_correct_copy(
-; CHECK-NEXT:    store i32 7500915, ptr [[BUF:%.*]], align 1
+; CHECK-NEXT:    store <4 x i8> <i8 115, i8 116, i8 114, i8 0>, ptr [[BUF:%.*]], align 1
 ; CHECK-NEXT:    ret void
 ;
   %call = call i32 (ptr, i64, ptr, ...) @snprintf(ptr %buf, i64 32, ptr @.str) #2
@@ -130,7 +130,7 @@ define i32 @test_str_small_size(ptr %buf) #0 {
 
 define i32 @test_str_ok_size(ptr %buf) #0 {
 ; CHECK-LABEL: @test_str_ok_size(
-; CHECK-NEXT:    store i32 7500915, ptr [[BUF:%.*]], align 1
+; CHECK-NEXT:    store <4 x i8> <i8 115, i8 116, i8 114, i8 0>, ptr [[BUF:%.*]], align 1
 ; CHECK-NEXT:    ret i32 3
 ;
   %call = call i32 (ptr, i64, ptr, ...) @snprintf(ptr %buf, i64 32, ptr @.str.3, ptr @.str) #2
@@ -159,7 +159,7 @@ define i32 @test_str_ok_size_musttail(ptr %buf, i64 %x, ptr %y, ...) {
 ; snprintf(buf, 32, "%s", "str") -> memcpy -> store
 define i32 @test_str_ok_size_tail2(ptr %buf) {
 ; CHECK-LABEL: @test_str_ok_size_tail2(
-; CHECK-NEXT:    store i32 7500915, ptr [[BUF:%.*]], align 1
+; CHECK-NEXT:    store <4 x i8> <i8 115, i8 116, i8 114, i8 0>, ptr [[BUF:%.*]], align 1
 ; CHECK-NEXT:    ret i32 3
 ;
   %1 = tail call i32 (ptr, i64, ptr, ...) @snprintf(ptr %buf, i64 8, ptr @.str.3, ptr @.str)
