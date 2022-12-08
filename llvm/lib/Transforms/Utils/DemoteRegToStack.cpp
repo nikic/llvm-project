@@ -139,12 +139,27 @@ AllocaInst *llvm::DemotePHIToStack(PHINode *P, Instruction *AllocaPoint) {
   // Insert a load in place of the PHI and replace all uses.
   BasicBlock::iterator InsertPt = P->getIterator();
 
+  // Don't insert before PHI nodes or landingpad instrs.
   for (; isa<PHINode>(InsertPt) || InsertPt->isEHPad(); ++InsertPt)
-    /* empty */;   // Don't insert before PHI nodes or landingpad instrs.
-
-  Value *V =
-      new LoadInst(P->getType(), Slot, P->getName() + ".reload", &*InsertPt);
-  P->replaceAllUsesWith(V);
+    if (isa<CatchSwitchInst>(InsertPt))
+      break;
+  if (CatchSwitchInst *CSI = dyn_cast<CatchSwitchInst>(InsertPt)) {
+    // We need a separate load before each actual use of the PHI
+    SmallVector<Instruction *, 4> users;
+    for (User *U : P->users()) {
+      Instruction *User = cast<Instruction>(U);
+      users.push_back(User);
+    }
+    for (Instruction *User : users) {
+      Value *V =
+          new LoadInst(P->getType(), Slot, P->getName() + ".reload", User);
+      User->replaceUsesOfWith(P, V);
+    }
+  } else {
+    Value *V =
+        new LoadInst(P->getType(), Slot, P->getName() + ".reload", &*InsertPt);
+    P->replaceAllUsesWith(V);
+  }
 
   // Delete PHI.
   P->eraseFromParent();
