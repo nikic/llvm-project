@@ -1189,8 +1189,8 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
   LLVM_DEBUG(AssertSorted(*Cache));
 
   BatchAAResults BatchAA(AA);
-  while (!Worklist.empty()) {
-    BasicBlock *BB = Worklist.pop_back_val();
+  for (unsigned WorklistIdx = 0; WorklistIdx < Worklist.size(); ++WorklistIdx) {
+    BasicBlock *BB = Worklist[WorklistIdx];
 
     // If we do process a large number of blocks it becomes very expensive and
     // likely it isn't worth worrying about
