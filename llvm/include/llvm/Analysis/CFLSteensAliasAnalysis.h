@@ -67,7 +67,7 @@ public:
   AliasResult query(const MemoryLocation &LocA, const MemoryLocation &LocB);
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI) {
+                    AAQueryInfo &AAQI, const Instruction *) {
     if (LocA.Ptr == LocB.Ptr)
       return AliasResult::MustAlias;
 
@@ -77,11 +77,11 @@ public:
     // ConstantExpr, but every query needs to have at least one Value tied to a
     // Function, and neither GlobalValues nor ConstantExprs are.
     if (isa<Constant>(LocA.Ptr) && isa<Constant>(LocB.Ptr))
-      return AAResultBase::alias(LocA, LocB, AAQI);
+      return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
 
     AliasResult QueryResult = query(LocA, LocB);
     if (QueryResult == AliasResult::MayAlias)
-      return AAResultBase::alias(LocA, LocB, AAQI);
+      return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
 
     return QueryResult;
   }
