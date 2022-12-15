@@ -2096,14 +2096,17 @@ bool llvm::promoteLoopAccessesToScalars(
         // alignment than any other guaranteed stores, in which case we can
         // raise the alignment on the promoted store.
         Align InstAlignment = Store->getAlign();
-        bool GuaranteedToExecute =
-            SafetyInfo->isGuaranteedToExecute(*UI, DT, CurLoop);
-        StoreIsGuanteedToExecute |= GuaranteedToExecute;
-        if (GuaranteedToExecute) {
-          DereferenceableInPH = true;
-          if (StoreSafety == StoreSafetyUnknown)
-            StoreSafety = StoreSafe;
-          Alignment = std::max(Alignment, InstAlignment);
+        if (!StoreIsGuanteedToExecute || !DereferenceableInPH ||
+            StoreSafety == StoreSafetyUnknown || InstAlignment > Alignment) {
+          bool GuaranteedToExecute =
+              SafetyInfo->isGuaranteedToExecute(*UI, DT, CurLoop);
+          StoreIsGuanteedToExecute |= GuaranteedToExecute;
+          if (GuaranteedToExecute) {
+            DereferenceableInPH = true;
+            if (StoreSafety == StoreSafetyUnknown)
+              StoreSafety = StoreSafe;
+            Alignment = std::max(Alignment, InstAlignment);
+          }
         }
 
         // If a store dominates all exit blocks, it is safe to sink.
