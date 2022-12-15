@@ -55,6 +55,8 @@ unsigned llvm::getDefaultMaxUsesToExploreForCaptureTracking() {
 
 CaptureTracker::~CaptureTracker() = default;
 
+bool CaptureTracker::visitUse(const Use *U) { return false; }
+
 bool CaptureTracker::shouldExplore(const Use *U) { return true; }
 
 bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
@@ -444,7 +446,7 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
   Worklist.reserve(getDefaultMaxUsesToExploreForCaptureTracking());
   SmallSet<const Use *, 20> Visited;
 
-  auto AddUses = [&](const Value *V) {
+  auto VisitUses = [&](const Value *V) {
     for (const Use &U : V->uses()) {
       // If there are lots of uses, conservatively say that the value
       // is captured to avoid taking too much compile time.
@@ -460,7 +462,7 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
     }
     return true;
   };
-  if (!AddUses(V))
+  if (!VisitUses(V))
     return;
 
   auto IsDereferenceableOrNull = [Tracker](Value *V, const DataLayout &DL) {
@@ -468,6 +470,8 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
   };
   while (!Worklist.empty()) {
     const Use *U = Worklist.pop_back_val();
+    if (Tracker->visitUse(U))
+      return;
     switch (DetermineUseCaptureKind(*U, IsDereferenceableOrNull)) {
     case UseCaptureKind::NO_CAPTURE:
       continue;
@@ -476,7 +480,7 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
         return;
       continue;
     case UseCaptureKind::PASSTHROUGH:
-      if (!AddUses(U->getUser()))
+      if (!VisitUses(U->getUser()))
         return;
       continue;
     }
