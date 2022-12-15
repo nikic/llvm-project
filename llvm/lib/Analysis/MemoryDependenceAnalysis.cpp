@@ -1183,7 +1183,6 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
   // won't get any reuse from currently inserted values, because we don't
   // revisit blocks after we insert info for them.
   unsigned NumSortedEntries = Cache->size();
-  unsigned WorklistEntries = BlockNumberLimit;
   bool GotWorklistLimit = false;
   LLVM_DEBUG(AssertSorted(*Cache));
 
@@ -1257,7 +1256,7 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
           goto PredTranslationFailure;
         }
       }
-      if (NewBlocks.size() > WorklistEntries) {
+      if (Visited.size() > BlockNumberLimit) {
         // Make sure to clean up the Visited map before continuing on to
         // PredTranslationFailure.
         for (unsigned i = 0; i < NewBlocks.size(); i++)
@@ -1265,7 +1264,6 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
         GotWorklistLimit = true;
         goto PredTranslationFailure;
       }
-      WorklistEntries -= NewBlocks.size();
       Worklist.append(NewBlocks.begin(), NewBlocks.end());
       continue;
     }
@@ -1322,6 +1320,15 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
         for (unsigned i = 0, n = PredList.size(); i < n; ++i)
           Visited.erase(PredList[i].first);
 
+        goto PredTranslationFailure;
+      }
+
+      if (Visited.size() > BlockNumberLimit) {
+        // Make sure to clean up the Visited map before continuing on to
+        // PredTranslationFailure.
+        for (unsigned i = 0, n = PredList.size(); i < n; i++)
+          Visited.erase(PredList[i].first);
+        GotWorklistLimit = true;
         goto PredTranslationFailure;
       }
     }
