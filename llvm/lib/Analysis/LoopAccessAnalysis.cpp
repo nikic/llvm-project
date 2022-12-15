@@ -624,7 +624,7 @@ public:
                  PredicatedScalarEvolution &PSE)
       : TheLoop(TheLoop), BAA(*AA), AST(BAA), LI(LI), DepCands(DA), PSE(PSE) {
     // We're analyzing dependences across loop iterations.
-    BAA.enableCrossIterationMode();
+    BAA.setCrossIterationMode(true);
   }
 
   /// Register a load  and whether it is only read from.

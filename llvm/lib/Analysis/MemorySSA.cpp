@@ -933,6 +933,8 @@ public:
   MemoryAccess *findClobber(BatchAAResults &BAA, MemoryAccess *Start,
                             UpwardsMemoryQuery &Q, unsigned &UpWalkLimit) {
     AA = &BAA;
+    assert(!AA->getCrossIterationMode() &&
+           "Should not be in cross-iteration mode initially");
     Query = &Q;
     UpwardWalkLimit = &UpWalkLimit;
     // Starting limit must be > 0.
@@ -953,6 +955,9 @@ public:
     if (WalkResult.IsKnownClobber) {
       Result = WalkResult.Result;
     } else {
+      // We're looking through a phi, which might involve following a cycle
+      // backedge.
+      AA->setCrossIterationMode(true);
       OptznResult OptRes = tryOptimizePhi(cast<MemoryPhi>(FirstDesc.Last),
                                           Current, Q.StartingLoc);
       verifyOptResult(OptRes);
@@ -964,6 +969,8 @@ public:
     if (!Q.SkipSelfAccess && *UpwardWalkLimit > 0)
       checkClobberSanity(Current, Result, Q.StartingLoc, MSSA, Q, BAA);
 #endif
+    // Restore initial value.
+    AA->setCrossIterationMode(false);
     return Result;
   }
 };

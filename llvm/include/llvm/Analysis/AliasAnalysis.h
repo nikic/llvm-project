@@ -653,8 +653,12 @@ public:
   }
 
   /// Assume that values may come from different cycle iterations.
-  void enableCrossIterationMode() {
-    AAQI.MayBeCrossIteration = true;
+  void setCrossIterationMode(bool Enable) {
+    AAQI.MayBeCrossIteration = Enable;
+  }
+  /// Whether we assume that values may come from different cycle iterations.
+  bool getCrossIterationMode() const {
+    return AAQI.MayBeCrossIteration;
   }
 };
 
