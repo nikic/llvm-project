@@ -45,6 +45,7 @@
 ; CHECK-O3-NEXT: Running pass: CallSiteSplittingPass
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-O-NEXT: Running pass: IPSCCPPass
+; CHECK-O-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O-NEXT: Running pass: CalledValuePropagationPass
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: PromotePass
@@ -71,11 +72,11 @@
 ; CHECK-O123SZ-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-O123SZ-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O-NEXT: Running pass: PGOInstrumentationUse
+; CHECK-O-NEXT: Running analysis: ProfileSummaryAnalysis
 ; These next two can appear in any order since they are accessed as parameters
 ; on the same call to BlockFrequencyInfo::calculate.
 ; CHECK-O-DAG: Running analysis: BranchProbabilityAnalysis on foo
 ; CHECK-O-DAG: Running analysis: PostDominatorTreeAnalysis on foo
-; CHECK-O-DAG: Running analysis: LoopAnalysis on foo
 ; CHECK-O-NEXT: Running analysis: BlockFrequencyAnalysis on foo
 ; CHECK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-O123SZ-NEXT: Invalidating analysis: LazyCallGraphAnalysis on

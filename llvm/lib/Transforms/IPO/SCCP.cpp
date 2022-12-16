@@ -43,7 +43,7 @@ STATISTIC(NumInstReplaced,
           "Number of instructions replaced with (simpler) instruction");
 
 static cl::opt<bool> SpecializeFunctions("specialize-functions",
-    cl::init(false), cl::Hidden, cl::desc("Enable function specialization"));
+    cl::init(true), cl::Hidden, cl::desc("Enable function specialization"));
 
 static cl::opt<unsigned> FuncSpecializationMaxIters(
     "func-specialization-max-iters", cl::init(1), cl::Hidden, cl::desc(
