@@ -75,8 +75,8 @@ public:
     ArrayTyID,          ///< Arrays
     FixedVectorTyID,    ///< Fixed width SIMD vector type
     ScalableVectorTyID, ///< Scalable SIMD vector type
-    TypedPointerTyID,   ///< Typed pointer used by some GPU targets
     TargetExtTyID,      ///< Target extension type
+    TypedPointerTyID,   ///< Typed pointer used by some GPU targets
   };
 
 private:
