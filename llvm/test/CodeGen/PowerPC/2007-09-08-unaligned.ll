@@ -20,16 +20,16 @@ define i32 @foo() {
 ; CHECK-NEXT:    lis 3, s@ha
 ; CHECK-NEXT:    la 3, s@l(3)
 ; CHECK-NEXT:    lis 4, u@ha
-; CHECK-NEXT:    lwz 3, 1(3)
-; CHECK-NEXT:    la 4, u@l(4)
-; CHECK-NEXT:    lfd 0, 1(4)
+; CHECK-NEXT:    lwz 5, 1(3)
+; CHECK-NEXT:    la 3, u@l(4)
+; CHECK-NEXT:    lfd 0, 1(3)
 ; CHECK-NEXT:    lis 4, t@ha
 ; CHECK-NEXT:    la 4, t@l(4)
-; CHECK-NEXT:    stw 3, 1(4)
-; CHECK-NEXT:    lis 3, v@ha
-; CHECK-NEXT:    la 3, v@l(3)
-; CHECK-NEXT:    stfd 0, 1(3)
+; CHECK-NEXT:    stw 5, 1(4)
+; CHECK-NEXT:    lis 4, v@ha
+; CHECK-NEXT:    la 4, v@l(4)
 ; CHECK-NEXT:    lwz 3, 12(1)
+; CHECK-NEXT:    stfd 0, 1(4)
 ; CHECK-NEXT:    addi 1, 1, 16
 ; CHECK-NEXT:    blr
 entry:

@@ -4,9 +4,12 @@
 define signext i16 @f(ptr %bp, ptr %ss)   {
 ; CHECK-LABEL: f:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    pushl %esi
+; CHECK-NEXT:    pushl %edi
 ; CHECK-NEXT:    .cfi_def_cfa_offset 8
-; CHECK-NEXT:    .cfi_offset %esi, -8
+; CHECK-NEXT:    pushl %esi
+; CHECK-NEXT:    .cfi_def_cfa_offset 12
+; CHECK-NEXT:    .cfi_offset %esi, -12
+; CHECK-NEXT:    .cfi_offset %edi, -8
 ; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; CHECK-NEXT:    .p2align 4, 0x90
@@ -15,13 +18,17 @@ define signext i16 @f(ptr %bp, ptr %ss)   {
 ; CHECK-NEXT:    movl (%eax), %edx
 ; CHECK-NEXT:    movl (%ecx), %esi
 ; CHECK-NEXT:    andl $15, %edx
-; CHECK-NEXT:    andl $15, %esi
-; CHECK-NEXT:    addl %esi, (%ecx)
+; CHECK-NEXT:    movl %esi, %edi
+; CHECK-NEXT:    andl $15, %edi
+; CHECK-NEXT:    addl %esi, %edi
+; CHECK-NEXT:    movl %edi, (%ecx)
 ; CHECK-NEXT:    cmpl $63, %edx
 ; CHECK-NEXT:    jb .LBB0_1
 ; CHECK-NEXT:  # %bb.2: # %UnifiedReturnBlock
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    popl %esi
+; CHECK-NEXT:    .cfi_def_cfa_offset 8
+; CHECK-NEXT:    popl %edi
 ; CHECK-NEXT:    .cfi_def_cfa_offset 4
 ; CHECK-NEXT:    retl
 entry:

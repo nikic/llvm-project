@@ -1948,45 +1948,43 @@ define <2 x i64> @mul_v2i64_60_120(<2 x i64> %x) nounwind {
 ; FIXME: We should be able to insert an AssertZExt for this.
 define <2 x i64> @mul_v2i64_zext_cross_bb(ptr %in, ptr %y) {
 ; X86-SSE2-LABEL: mul_v2i64_zext_cross_bb:
-; X86-SSE2:       # %bb.0:
+; X86-SSE2:       # %bb.0: # %foo
 ; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-SSE2-NEXT:    movq {{.*#+}} xmm0 = mem[0],zero
-; X86-SSE2-NEXT:    pxor %xmm1, %xmm1
-; X86-SSE2-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
 ; X86-SSE2-NEXT:    movq {{.*#+}} xmm1 = mem[0],zero
 ; X86-SSE2-NEXT:    punpckldq {{.*#+}} xmm1 = xmm1[0,0,1,1]
+; X86-SSE2-NEXT:    movq {{.*#+}} xmm0 = mem[0],zero
+; X86-SSE2-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0,0,1,1]
 ; X86-SSE2-NEXT:    pmuludq %xmm1, %xmm0
 ; X86-SSE2-NEXT:    retl
 ;
 ; X86-SSE4-LABEL: mul_v2i64_zext_cross_bb:
-; X86-SSE4:       # %bb.0:
+; X86-SSE4:       # %bb.0: # %foo
 ; X86-SSE4-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-SSE4-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm0 = mem[0],zero,mem[1],zero
 ; X86-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm1 = mem[0],zero,mem[1],zero
+; X86-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm0 = mem[0],zero,mem[1],zero
 ; X86-SSE4-NEXT:    pmuludq %xmm1, %xmm0
 ; X86-SSE4-NEXT:    retl
 ;
 ; X64-SSE2-LABEL: mul_v2i64_zext_cross_bb:
-; X64-SSE2:       # %bb.0:
+; X64-SSE2:       # %bb.0: # %foo
 ; X64-SSE2-NEXT:    movq {{.*#+}} xmm0 = mem[0],zero
-; X64-SSE2-NEXT:    pxor %xmm1, %xmm1
-; X64-SSE2-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
-; X64-SSE2-NEXT:    movq {{.*#+}} xmm1 = mem[0],zero
-; X64-SSE2-NEXT:    pshufd {{.*#+}} xmm1 = xmm1[0,1,1,3]
+; X64-SSE2-NEXT:    pshufd {{.*#+}} xmm1 = xmm0[0,1,1,3]
+; X64-SSE2-NEXT:    movq {{.*#+}} xmm0 = mem[0],zero
+; X64-SSE2-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,1,1,3]
 ; X64-SSE2-NEXT:    pmuludq %xmm1, %xmm0
 ; X64-SSE2-NEXT:    retq
 ;
 ; X64-SSE4-LABEL: mul_v2i64_zext_cross_bb:
-; X64-SSE4:       # %bb.0:
-; X64-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm0 = mem[0],zero,mem[1],zero
+; X64-SSE4:       # %bb.0: # %foo
 ; X64-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm1 = mem[0],zero,mem[1],zero
+; X64-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm0 = mem[0],zero,mem[1],zero
 ; X64-SSE4-NEXT:    pmuludq %xmm1, %xmm0
 ; X64-SSE4-NEXT:    retq
 ;
 ; X64-AVX-LABEL: mul_v2i64_zext_cross_bb:
-; X64-AVX:       # %bb.0:
+; X64-AVX:       # %bb.0: # %foo
 ; X64-AVX-NEXT:    vpmovzxdq {{.*#+}} xmm0 = mem[0],zero,mem[1],zero
 ; X64-AVX-NEXT:    vpmovzxdq {{.*#+}} xmm1 = mem[0],zero,mem[1],zero
 ; X64-AVX-NEXT:    vpmuludq %xmm1, %xmm0, %xmm0
@@ -2004,79 +2002,73 @@ foo:
 
 define <4 x i64> @mul_v4i64_zext_cross_bb(ptr %in, ptr %y) {
 ; X86-SSE2-LABEL: mul_v4i64_zext_cross_bb:
-; X86-SSE2:       # %bb.0:
+; X86-SSE2:       # %bb.0: # %foo
 ; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-SSE2-NEXT:    movdqa (%ecx), %xmm0
-; X86-SSE2-NEXT:    pxor %xmm2, %xmm2
-; X86-SSE2-NEXT:    movdqa %xmm0, %xmm1
-; X86-SSE2-NEXT:    punpckhdq {{.*#+}} xmm1 = xmm1[2],xmm2[2],xmm1[3],xmm2[3]
-; X86-SSE2-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0],xmm2[0],xmm0[1],xmm2[1]
-; X86-SSE2-NEXT:    movdqa (%eax), %xmm2
-; X86-SSE2-NEXT:    pshufd {{.*#+}} xmm3 = xmm2[2,1,3,3]
-; X86-SSE2-NEXT:    pmuludq %xmm3, %xmm1
-; X86-SSE2-NEXT:    pshufd {{.*#+}} xmm2 = xmm2[0,1,1,3]
-; X86-SSE2-NEXT:    pmuludq %xmm2, %xmm0
+; X86-SSE2-NEXT:    pshufd {{.*#+}} xmm2 = xmm0[2,1,3,3]
+; X86-SSE2-NEXT:    pshufd {{.*#+}} xmm3 = xmm0[0,1,1,3]
+; X86-SSE2-NEXT:    movdqa (%eax), %xmm0
+; X86-SSE2-NEXT:    pshufd {{.*#+}} xmm1 = xmm0[2,1,3,3]
+; X86-SSE2-NEXT:    pmuludq %xmm2, %xmm1
+; X86-SSE2-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,1,1,3]
+; X86-SSE2-NEXT:    pmuludq %xmm3, %xmm0
 ; X86-SSE2-NEXT:    retl
 ;
 ; X86-SSE4-LABEL: mul_v4i64_zext_cross_bb:
-; X86-SSE4:       # %bb.0:
+; X86-SSE4:       # %bb.0: # %foo
 ; X86-SSE4-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-SSE4-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm1 = mem[0],zero,mem[1],zero
 ; X86-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm0 = mem[0],zero,mem[1],zero
 ; X86-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm2 = mem[0],zero,mem[1],zero
-; X86-SSE4-NEXT:    pmuludq %xmm2, %xmm1
-; X86-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm2 = mem[0],zero,mem[1],zero
+; X86-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm1 = mem[0],zero,mem[1],zero
+; X86-SSE4-NEXT:    pmuludq %xmm0, %xmm1
+; X86-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm0 = mem[0],zero,mem[1],zero
 ; X86-SSE4-NEXT:    pmuludq %xmm2, %xmm0
 ; X86-SSE4-NEXT:    retl
 ;
 ; X64-SSE2-LABEL: mul_v4i64_zext_cross_bb:
-; X64-SSE2:       # %bb.0:
+; X64-SSE2:       # %bb.0: # %foo
 ; X64-SSE2-NEXT:    movdqa (%rdi), %xmm0
-; X64-SSE2-NEXT:    pxor %xmm2, %xmm2
-; X64-SSE2-NEXT:    movdqa %xmm0, %xmm1
-; X64-SSE2-NEXT:    punpckhdq {{.*#+}} xmm1 = xmm1[2],xmm2[2],xmm1[3],xmm2[3]
-; X64-SSE2-NEXT:    punpckldq {{.*#+}} xmm0 = xmm0[0],xmm2[0],xmm0[1],xmm2[1]
-; X64-SSE2-NEXT:    movdqa (%rsi), %xmm2
-; X64-SSE2-NEXT:    pshufd {{.*#+}} xmm3 = xmm2[2,1,3,3]
-; X64-SSE2-NEXT:    pmuludq %xmm3, %xmm1
-; X64-SSE2-NEXT:    pshufd {{.*#+}} xmm2 = xmm2[0,1,1,3]
-; X64-SSE2-NEXT:    pmuludq %xmm2, %xmm0
+; X64-SSE2-NEXT:    pshufd {{.*#+}} xmm2 = xmm0[2,1,3,3]
+; X64-SSE2-NEXT:    pshufd {{.*#+}} xmm3 = xmm0[0,1,1,3]
+; X64-SSE2-NEXT:    movdqa (%rsi), %xmm0
+; X64-SSE2-NEXT:    pshufd {{.*#+}} xmm1 = xmm0[2,1,3,3]
+; X64-SSE2-NEXT:    pmuludq %xmm2, %xmm1
+; X64-SSE2-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,1,1,3]
+; X64-SSE2-NEXT:    pmuludq %xmm3, %xmm0
 ; X64-SSE2-NEXT:    retq
 ;
 ; X64-SSE4-LABEL: mul_v4i64_zext_cross_bb:
-; X64-SSE4:       # %bb.0:
-; X64-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm1 = mem[0],zero,mem[1],zero
+; X64-SSE4:       # %bb.0: # %foo
 ; X64-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm0 = mem[0],zero,mem[1],zero
 ; X64-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm2 = mem[0],zero,mem[1],zero
-; X64-SSE4-NEXT:    pmuludq %xmm2, %xmm1
-; X64-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm2 = mem[0],zero,mem[1],zero
+; X64-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm1 = mem[0],zero,mem[1],zero
+; X64-SSE4-NEXT:    pmuludq %xmm0, %xmm1
+; X64-SSE4-NEXT:    pmovzxdq {{.*#+}} xmm0 = mem[0],zero,mem[1],zero
 ; X64-SSE4-NEXT:    pmuludq %xmm2, %xmm0
 ; X64-SSE4-NEXT:    retq
 ;
 ; X64-XOP-LABEL: mul_v4i64_zext_cross_bb:
-; X64-XOP:       # %bb.0:
+; X64-XOP:       # %bb.0: # %foo
 ; X64-XOP-NEXT:    vpmovzxdq {{.*#+}} xmm0 = mem[0],zero,mem[1],zero
 ; X64-XOP-NEXT:    vpmovzxdq {{.*#+}} xmm1 = mem[0],zero,mem[1],zero
-; X64-XOP-NEXT:    vinsertf128 $1, %xmm0, %ymm1, %ymm0
-; X64-XOP-NEXT:    vpmovzxdq {{.*#+}} xmm1 = mem[0],zero,mem[1],zero
 ; X64-XOP-NEXT:    vpmovzxdq {{.*#+}} xmm2 = mem[0],zero,mem[1],zero
-; X64-XOP-NEXT:    vextractf128 $1, %ymm0, %xmm3
-; X64-XOP-NEXT:    vpmuludq %xmm2, %xmm3, %xmm2
-; X64-XOP-NEXT:    vpmuludq %xmm1, %xmm0, %xmm0
-; X64-XOP-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
+; X64-XOP-NEXT:    vpmuludq %xmm2, %xmm0, %xmm0
+; X64-XOP-NEXT:    vpmovzxdq {{.*#+}} xmm2 = mem[0],zero,mem[1],zero
+; X64-XOP-NEXT:    vpmuludq %xmm2, %xmm1, %xmm1
+; X64-XOP-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
 ; X64-XOP-NEXT:    retq
 ;
 ; X64-AVX2-LABEL: mul_v4i64_zext_cross_bb:
-; X64-AVX2:       # %bb.0:
+; X64-AVX2:       # %bb.0: # %foo
 ; X64-AVX2-NEXT:    vpmovzxdq {{.*#+}} ymm0 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-AVX2-NEXT:    vpmovzxdq {{.*#+}} ymm1 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-AVX2-NEXT:    vpmuludq %ymm1, %ymm0, %ymm0
 ; X64-AVX2-NEXT:    retq
 ;
 ; X64-AVX512DQ-LABEL: mul_v4i64_zext_cross_bb:
-; X64-AVX512DQ:       # %bb.0:
+; X64-AVX512DQ:       # %bb.0: # %foo
 ; X64-AVX512DQ-NEXT:    vpmovzxdq {{.*#+}} ymm0 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-AVX512DQ-NEXT:    vpmovzxdq {{.*#+}} ymm1 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-AVX512DQ-NEXT:    vpmuludq %ymm1, %ymm0, %ymm0

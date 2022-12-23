@@ -34,7 +34,7 @@ define signext i32 @zeroEqualityTest02(ptr %x, ptr %y) {
 ; Check 16 bytes - requires 2 loads for each param (or use vectors?).
 define signext i32 @zeroEqualityTest01(ptr %x, ptr %y) {
 ; CHECK-LABEL: zeroEqualityTest01:
-; CHECK:       # %bb.0:
+; CHECK:       # %bb.0: # %loadbb
 ; CHECK-NEXT:    ld 5, 0(3)
 ; CHECK-NEXT:    ld 6, 0(4)
 ; CHECK-NEXT:    cmpld 5, 6
@@ -57,7 +57,7 @@ define signext i32 @zeroEqualityTest01(ptr %x, ptr %y) {
 ; Check 7 bytes - requires 3 loads for each param.
 define signext i32 @zeroEqualityTest03(ptr %x, ptr %y) {
 ; CHECK-LABEL: zeroEqualityTest03:
-; CHECK:       # %bb.0:
+; CHECK:       # %bb.0: # %loadbb
 ; CHECK-NEXT:    lwz 5, 0(3)
 ; CHECK-NEXT:    lwz 6, 0(4)
 ; CHECK-NEXT:    cmplw 5, 6
@@ -120,11 +120,11 @@ define signext i32 @equalityFoldTwoConstants() {
 
 define signext i32 @equalityFoldOneConstant(ptr %X) {
 ; CHECK-LABEL: equalityFoldOneConstant:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    ld 4, 0(3)
-; CHECK-NEXT:    li 5, 1
-; CHECK-NEXT:    rldic 5, 5, 32, 31
-; CHECK-NEXT:    cmpld 4, 5
+; CHECK:       # %bb.0: # %loadbb
+; CHECK-NEXT:    li 4, 1
+; CHECK-NEXT:    ld 5, 0(3)
+; CHECK-NEXT:    rldic 4, 4, 32, 31
+; CHECK-NEXT:    cmpld 5, 4
 ; CHECK-NEXT:    bne 0, .LBB6_2
 ; CHECK-NEXT:  # %bb.1: # %loadbb1
 ; CHECK-NEXT:    lis 4, -32768

@@ -26,57 +26,50 @@ define ptr @Manifest(ptr %x, ptr %env, ptr %style, ptr %bthr, ptr %fthr, ptr %ta
 ; CHECK-NEXT:    push {r4, r5, r6, r7, lr}
 ; CHECK-NEXT:    add r7, sp, #12
 ; CHECK-NEXT:    push.w {r8, r10, r11}
-; CHECK-NEXT:    sub sp, #292
-; CHECK-NEXT:    add.w r10, r7, #8
-; CHECK-NEXT:    ldrd r8, lr, [r7, #20]
-; CHECK-NEXT:    movs r5, #0
-; CHECK-NEXT:    cmp r5, #0
-; CHECK-NEXT:    ldm.w r10, {r4, r9, r10}
-; CHECK-NEXT:    ldr.w r12, [r7, #28]
+; CHECK-NEXT:    sub sp, #284
+; CHECK-NEXT:    movs r6, #0
+; CHECK-NEXT:    cmp r6, #0
 ; CHECK-NEXT:    ittt ne
-; CHECK-NEXT:    addne sp, #292
+; CHECK-NEXT:    addne sp, #284
 ; CHECK-NEXT:    popne.w {r8, r10, r11}
 ; CHECK-NEXT:    popne {r4, r5, r6, r7, pc}
-; CHECK-NEXT:  LBB0_1: @ %bb20
+; CHECK-NEXT:  LBB0_1: @ %entry
 ; CHECK-NEXT:    cmp.w r0, #450
 ; CHECK-NEXT:    bge LBB0_4
-; CHECK-NEXT:  @ %bb.2: @ %bb20
+; CHECK-NEXT:  @ %bb.2: @ %entry
 ; CHECK-NEXT:    cmp r0, #209
 ; CHECK-NEXT:    ble LBB0_5
-; CHECK-NEXT:  @ %bb.3: @ %bb420
+; CHECK-NEXT:  @ %bb.3: @ %entry
 ; CHECK-NEXT:    movw r5, :lower16:(L_zz_hold$non_lazy_ptr-(LPC0_0+4))
+; CHECK-NEXT:    mov.w r9, #0
 ; CHECK-NEXT:    movt r5, :upper16:(L_zz_hold$non_lazy_ptr-(LPC0_0+4))
-; CHECK-NEXT:    movw r11, :lower16:(L_zz_res$non_lazy_ptr-(LPC0_1+4))
+; CHECK-NEXT:    movw r6, :lower16:(L_zz_res$non_lazy_ptr-(LPC0_1+4))
+; CHECK-NEXT:    movt r6, :upper16:(L_zz_res$non_lazy_ptr-(LPC0_1+4))
 ; CHECK-NEXT:  LPC0_0:
 ; CHECK-NEXT:    add r5, pc
-; CHECK-NEXT:    movt r11, :upper16:(L_zz_res$non_lazy_ptr-(LPC0_1+4))
 ; CHECK-NEXT:  LPC0_1:
-; CHECK-NEXT:    add r11, pc
+; CHECK-NEXT:    add r6, pc
+; CHECK-NEXT:    ldrd lr, r12, [r7, #24]
 ; CHECK-NEXT:    ldr r5, [r5]
-; CHECK-NEXT:    str r5, [sp, #32] @ 4-byte Spill
-; CHECK-NEXT:    ldr.w r5, [r11]
-; CHECK-NEXT:    mov.w r11, #0
-; CHECK-NEXT:    str r5, [sp, #28] @ 4-byte Spill
-; CHECK-NEXT:    ldr r5, [sp, #32] @ 4-byte Reload
-; CHECK-NEXT:    str.w r11, [r5]
-; CHECK-NEXT:    movs r5, #0
-; CHECK-NEXT:    ldr r6, [sp, #28] @ 4-byte Reload
-; CHECK-NEXT:    str r5, [r6]
-; CHECK-NEXT:    ldr r5, [sp, #32] @ 4-byte Reload
+; CHECK-NEXT:    ldr r6, [r6]
+; CHECK-NEXT:    ldrd r10, r8, [r7, #16]
+; CHECK-NEXT:    str.w r9, [r5]
+; CHECK-NEXT:    str.w r9, [r6]
 ; CHECK-NEXT:    str r0, [r5]
 ; CHECK-NEXT:    ldr r0, [r7, #32]
-; CHECK-NEXT:    stm.w sp, {r4, r9, r10}
-; CHECK-NEXT:    strd r8, lr, [sp, #12]
-; CHECK-NEXT:    str.w r12, [sp, #20]
+; CHECK-NEXT:    ldrd r4, r11, [r7, #8]
+; CHECK-NEXT:    strd r4, r11, [sp]
+; CHECK-NEXT:    strd r10, r8, [sp, #8]
+; CHECK-NEXT:    strd lr, r12, [sp, #16]
 ; CHECK-NEXT:    str r0, [sp, #24]
 ; CHECK-NEXT:    bl _Manifest
 ; CHECK-NEXT:    trap
-; CHECK-NEXT:  LBB0_4: @ %bb20
+; CHECK-NEXT:  LBB0_4: @ %entry
 ; CHECK-NEXT:    cmp.w r0, #560
 ; CHECK-NEXT:    itt ge
 ; CHECK-NEXT:    movge r0, #0
 ; CHECK-NEXT:    cmpge r0, #0
-; CHECK-NEXT:  LBB0_5: @ %bb20
+; CHECK-NEXT:  LBB0_5: @ %entry
 ; CHECK-NEXT:    trap
 entry:
   %xgaps.i = alloca [32 x ptr], align 4   ; <ptr> [#uses=0]

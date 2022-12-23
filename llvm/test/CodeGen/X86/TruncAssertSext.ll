@@ -6,9 +6,9 @@
 
 define i64 @main(i64 %a) {
 ; CHECK-LABEL: main:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    orq $-2, %rdi
-; CHECK-NEXT:    movl %edi, %eax
+; CHECK:       # %bb.0: # %l
+; CHECK-NEXT:    movq %rdi, %rax
+; CHECK-NEXT:    orl $-2, %eax
 ; CHECK-NEXT:    retq
   %or = or i64 %a, -2
   %trunc = trunc i64 %or to i32

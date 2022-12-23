@@ -4320,7 +4320,7 @@ define void @urem_v4i64(ptr %x, ptr %y) {
 
 define void @extract_v4i64(ptr %x, ptr %y) {
 ; LMULMAX2-LABEL: extract_v4i64:
-; LMULMAX2:       # %bb.0:
+; LMULMAX2:       # %bb.0: # %compute
 ; LMULMAX2-NEXT:    vsetivli zero, 4, e64, m2, ta, ma
 ; LMULMAX2-NEXT:    vle64.v v8, (a0)
 ; LMULMAX2-NEXT:    vle64.v v10, (a1)
@@ -4328,20 +4328,35 @@ define void @extract_v4i64(ptr %x, ptr %y) {
 ; LMULMAX2-NEXT:    vse64.v v8, (a0)
 ; LMULMAX2-NEXT:    ret
 ;
-; LMULMAX1-LABEL: extract_v4i64:
-; LMULMAX1:       # %bb.0:
-; LMULMAX1-NEXT:    vsetivli zero, 2, e64, m1, ta, ma
-; LMULMAX1-NEXT:    vle64.v v8, (a0)
-; LMULMAX1-NEXT:    addi a2, a0, 16
-; LMULMAX1-NEXT:    vle64.v v9, (a2)
-; LMULMAX1-NEXT:    vle64.v v10, (a1)
-; LMULMAX1-NEXT:    addi a1, a1, 16
-; LMULMAX1-NEXT:    vle64.v v11, (a1)
-; LMULMAX1-NEXT:    vadd.vv v9, v9, v11
-; LMULMAX1-NEXT:    vadd.vv v8, v8, v10
-; LMULMAX1-NEXT:    vse64.v v8, (a0)
-; LMULMAX1-NEXT:    vse64.v v9, (a2)
-; LMULMAX1-NEXT:    ret
+; LMULMAX1-RV32-LABEL: extract_v4i64:
+; LMULMAX1-RV32:       # %bb.0: # %compute
+; LMULMAX1-RV32-NEXT:    vsetivli zero, 2, e64, m1, ta, ma
+; LMULMAX1-RV32-NEXT:    vle64.v v8, (a0)
+; LMULMAX1-RV32-NEXT:    addi a2, a0, 16
+; LMULMAX1-RV32-NEXT:    vle64.v v9, (a2)
+; LMULMAX1-RV32-NEXT:    addi a3, a1, 16
+; LMULMAX1-RV32-NEXT:    vle64.v v10, (a3)
+; LMULMAX1-RV32-NEXT:    vle64.v v11, (a1)
+; LMULMAX1-RV32-NEXT:    vadd.vv v9, v9, v10
+; LMULMAX1-RV32-NEXT:    vadd.vv v8, v8, v11
+; LMULMAX1-RV32-NEXT:    vse64.v v8, (a0)
+; LMULMAX1-RV32-NEXT:    vse64.v v9, (a2)
+; LMULMAX1-RV32-NEXT:    ret
+;
+; LMULMAX1-RV64-LABEL: extract_v4i64:
+; LMULMAX1-RV64:       # %bb.0: # %compute
+; LMULMAX1-RV64-NEXT:    vsetivli zero, 2, e64, m1, ta, ma
+; LMULMAX1-RV64-NEXT:    vle64.v v8, (a0)
+; LMULMAX1-RV64-NEXT:    addi a2, a1, 16
+; LMULMAX1-RV64-NEXT:    vle64.v v9, (a2)
+; LMULMAX1-RV64-NEXT:    addi a2, a0, 16
+; LMULMAX1-RV64-NEXT:    vle64.v v10, (a2)
+; LMULMAX1-RV64-NEXT:    vle64.v v11, (a1)
+; LMULMAX1-RV64-NEXT:    vadd.vv v9, v10, v9
+; LMULMAX1-RV64-NEXT:    vadd.vv v8, v8, v11
+; LMULMAX1-RV64-NEXT:    vse64.v v8, (a0)
+; LMULMAX1-RV64-NEXT:    vse64.v v9, (a2)
+; LMULMAX1-RV64-NEXT:    ret
   %a = load <4 x i64>, ptr %x
   %b = load <4 x i64>, ptr %y
   br label %"compute"

@@ -7,9 +7,8 @@
 
 define void @test(ptr %p) {
 ; CHECK-LABEL: test:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    movl $256, %eax # imm = 0x100
-; CHECK-NEXT:    movq %rax, (%rdi)
+; CHECK:       # %bb.0: # %bb2
+; CHECK-NEXT:    movq $256, (%rdi) # imm = 0x100
 ; CHECK-NEXT:    retq
   %sel = select i1 true, i64 256, i64 0
   br label %bb2

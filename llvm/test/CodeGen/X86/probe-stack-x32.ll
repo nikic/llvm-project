@@ -38,10 +38,7 @@ start:
 define void @test3() nounwind #0 {
 ; CHECK-LABEL: test3:
 ; CHECK:       # %bb.0: # %start
-; CHECK-NEXT:    pushq %rbp
-; CHECK-NEXT:    movl %esp, %ebp
-; CHECK-NEXT:    pushq %rax
-; CHECK-NEXT:    subl $1992, %esp # imm = 0x7C8
+; CHECK-NEXT:    subl $2000, %esp # imm = 0x7D0
 start:
   br label %block
 

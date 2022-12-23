@@ -7,14 +7,9 @@
 define void @f1(<2 x i64> %a0) {
 ; CHECK-LABEL: f1:
 ; CHECK:       # %bb.0: # %bb
-; CHECK-NEXT:    vlrepg %v0, 0(%r1)
-; CHECK-NEXT:    vgbm %v1, 0
-; CHECK-NEXT:    vceqg %v2, %v24, %v1
-; CHECK-NEXT:    vn %v0, %v0, %v0
-; CHECK-NEXT:    vno %v2, %v2, %v2
-; CHECK-NEXT:    vceqg %v0, %v0, %v1
-; CHECK-NEXT:    vx %v0, %v0, %v2
-; CHECK-NEXT:    vnc %v0, %v2, %v0
+; CHECK-NEXT:    vgbm %v0, 0
+; CHECK-NEXT:    vceqg %v0, %v24, %v0
+; CHECK-NEXT:    vno %v0, %v0, %v0
 ; CHECK-NEXT:    vlgvf %r0, %v0, 1
 ; CHECK-NEXT:    tmll %r0, 1
 ; CHECK-NEXT:  # %bb.1: # %bb15

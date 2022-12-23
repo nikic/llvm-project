@@ -220,18 +220,16 @@ define void @test_multi_def(ptr dereferenceable(8) %x1,
 ; CHECK-NEXT:    movq (%rdi), %rdx
 ; CHECK-NEXT:    movq (%rsi), %rsi
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  LBB4_2: ## %for.body
+; CHECK-NEXT:  LBB4_1: ## %for.body
 ; CHECK-NEXT:    ## =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    mulxq %rsi, %r9, %rdi
 ; CHECK-NEXT:    addq %r9, (%rax)
 ; CHECK-NEXT:    adcq %rdi, 8(%rax)
-; CHECK-NEXT:  ## %bb.1: ## %for.check
-; CHECK-NEXT:    ## in Loop: Header=BB4_2 Depth=1
 ; CHECK-NEXT:    incq %r8
 ; CHECK-NEXT:    addq $16, %rax
 ; CHECK-NEXT:    cmpq %rcx, %r8
-; CHECK-NEXT:    jl LBB4_2
-; CHECK-NEXT:  ## %bb.3: ## %exit
+; CHECK-NEXT:    jl LBB4_1
+; CHECK-NEXT:  ## %bb.2: ## %exit
 ; CHECK-NEXT:    retq
                             ptr dereferenceable(8) %x2,
                             ptr %y, i64 %count) nounwind nofree nosync {
@@ -268,18 +266,16 @@ define void @test_div_def(ptr dereferenceable(8) %x1,
 ; CHECK-NEXT:    movl (%rdi), %edi
 ; CHECK-NEXT:    movl (%rsi), %esi
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  LBB5_2: ## %for.body
+; CHECK-NEXT:  LBB5_1: ## %for.body
 ; CHECK-NEXT:    ## =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    movl %edi, %eax
 ; CHECK-NEXT:    xorl %edx, %edx
 ; CHECK-NEXT:    divl %esi
 ; CHECK-NEXT:    addl %eax, (%r8,%r9,4)
-; CHECK-NEXT:  ## %bb.1: ## %for.check
-; CHECK-NEXT:    ## in Loop: Header=BB5_2 Depth=1
 ; CHECK-NEXT:    incq %r9
 ; CHECK-NEXT:    cmpl %ecx, %r9d
-; CHECK-NEXT:    jl LBB5_2
-; CHECK-NEXT:  ## %bb.3: ## %exit
+; CHECK-NEXT:    jl LBB5_1
+; CHECK-NEXT:  ## %bb.2: ## %exit
 ; CHECK-NEXT:    retq
                           ptr dereferenceable(8) %x2,
                           ptr %y, i32 %count) nounwind nofree nosync {

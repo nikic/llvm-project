@@ -171,7 +171,7 @@ define i1 @length2_eq_nobuiltin_attr(ptr %X, ptr %Y) nounwind {
 
 define i32 @length3(ptr %X, ptr %Y) nounwind {
 ; X86-LABEL: length3:
-; X86:       # %bb.0:
+; X86:       # %bb.0: # %loadbb
 ; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
@@ -180,14 +180,14 @@ define i32 @length3(ptr %X, ptr %Y) nounwind {
 ; X86-NEXT:    rolw $8, %dx
 ; X86-NEXT:    rolw $8, %si
 ; X86-NEXT:    cmpw %si, %dx
-; X86-NEXT:    jne .LBB11_3
-; X86-NEXT:  # %bb.1: # %loadbb1
+; X86-NEXT:    jne .LBB11_1
+; X86-NEXT:  # %bb.2: # %loadbb1
 ; X86-NEXT:    movzbl 2(%eax), %eax
 ; X86-NEXT:    movzbl 2(%ecx), %ecx
 ; X86-NEXT:    subl %ecx, %eax
 ; X86-NEXT:    popl %esi
 ; X86-NEXT:    retl
-; X86-NEXT:  .LBB11_3: # %res_block
+; X86-NEXT:  .LBB11_1: # %res_block
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpw %si, %dx
 ; X86-NEXT:    sbbl %eax, %eax
@@ -304,7 +304,7 @@ define i1 @length4_eq_const(ptr %X) nounwind {
 
 define i32 @length5(ptr %X, ptr %Y) nounwind {
 ; X86-LABEL: length5:
-; X86:       # %bb.0:
+; X86:       # %bb.0: # %loadbb
 ; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
@@ -313,14 +313,14 @@ define i32 @length5(ptr %X, ptr %Y) nounwind {
 ; X86-NEXT:    bswapl %edx
 ; X86-NEXT:    bswapl %esi
 ; X86-NEXT:    cmpl %esi, %edx
-; X86-NEXT:    jne .LBB18_3
-; X86-NEXT:  # %bb.1: # %loadbb1
+; X86-NEXT:    jne .LBB18_1
+; X86-NEXT:  # %bb.2: # %loadbb1
 ; X86-NEXT:    movzbl 4(%eax), %eax
 ; X86-NEXT:    movzbl 4(%ecx), %ecx
 ; X86-NEXT:    subl %ecx, %eax
 ; X86-NEXT:    popl %esi
 ; X86-NEXT:    retl
-; X86-NEXT:  .LBB18_3: # %res_block
+; X86-NEXT:  .LBB18_1: # %res_block
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpl %esi, %edx
 ; X86-NEXT:    sbbl %eax, %eax
@@ -351,7 +351,7 @@ define i1 @length5_eq(ptr %X, ptr %Y) nounwind {
 
 define i1 @length5_lt(ptr %X, ptr %Y) nounwind {
 ; X86-LABEL: length5_lt:
-; X86:       # %bb.0:
+; X86:       # %bb.0: # %loadbb
 ; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
@@ -360,18 +360,18 @@ define i1 @length5_lt(ptr %X, ptr %Y) nounwind {
 ; X86-NEXT:    bswapl %edx
 ; X86-NEXT:    bswapl %esi
 ; X86-NEXT:    cmpl %esi, %edx
-; X86-NEXT:    jne .LBB20_3
-; X86-NEXT:  # %bb.1: # %loadbb1
+; X86-NEXT:    jne .LBB20_1
+; X86-NEXT:  # %bb.2: # %loadbb1
 ; X86-NEXT:    movzbl 4(%eax), %eax
 ; X86-NEXT:    movzbl 4(%ecx), %ecx
 ; X86-NEXT:    subl %ecx, %eax
-; X86-NEXT:    jmp .LBB20_2
-; X86-NEXT:  .LBB20_3: # %res_block
+; X86-NEXT:    jmp .LBB20_3
+; X86-NEXT:  .LBB20_1: # %res_block
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpl %esi, %edx
 ; X86-NEXT:    sbbl %eax, %eax
 ; X86-NEXT:    orl $1, %eax
-; X86-NEXT:  .LBB20_2: # %endblock
+; X86-NEXT:  .LBB20_3: # %endblock
 ; X86-NEXT:    shrl $31, %eax
 ; X86-NEXT:    # kill: def $al killed $al killed $eax
 ; X86-NEXT:    popl %esi
@@ -383,7 +383,7 @@ define i1 @length5_lt(ptr %X, ptr %Y) nounwind {
 
 define i32 @length7(ptr %X, ptr %Y) nounwind {
 ; X86-LABEL: length7:
-; X86:       # %bb.0:
+; X86:       # %bb.0: # %loadbb
 ; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %esi
@@ -392,21 +392,23 @@ define i32 @length7(ptr %X, ptr %Y) nounwind {
 ; X86-NEXT:    bswapl %ecx
 ; X86-NEXT:    bswapl %edx
 ; X86-NEXT:    cmpl %edx, %ecx
-; X86-NEXT:    jne .LBB21_2
-; X86-NEXT:  # %bb.1: # %loadbb1
+; X86-NEXT:    jne .LBB21_1
+; X86-NEXT:  # %bb.2: # %loadbb1
 ; X86-NEXT:    movl 3(%esi), %ecx
 ; X86-NEXT:    movl 3(%eax), %edx
 ; X86-NEXT:    bswapl %ecx
 ; X86-NEXT:    bswapl %edx
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpl %edx, %ecx
-; X86-NEXT:    je .LBB21_3
-; X86-NEXT:  .LBB21_2: # %res_block
+; X86-NEXT:    jne .LBB21_1
+; X86-NEXT:  # %bb.3: # %endblock
+; X86-NEXT:    popl %esi
+; X86-NEXT:    retl
+; X86-NEXT:  .LBB21_1: # %res_block
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpl %edx, %ecx
 ; X86-NEXT:    sbbl %eax, %eax
 ; X86-NEXT:    orl $1, %eax
-; X86-NEXT:  .LBB21_3: # %endblock
 ; X86-NEXT:    popl %esi
 ; X86-NEXT:    retl
   %m = tail call i32 @memcmp(ptr %X, ptr %Y, i32 7) nounwind
@@ -415,7 +417,7 @@ define i32 @length7(ptr %X, ptr %Y) nounwind {
 
 define i1 @length7_lt(ptr %X, ptr %Y) nounwind {
 ; X86-LABEL: length7_lt:
-; X86:       # %bb.0:
+; X86:       # %bb.0: # %loadbb
 ; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %esi
@@ -424,8 +426,8 @@ define i1 @length7_lt(ptr %X, ptr %Y) nounwind {
 ; X86-NEXT:    bswapl %ecx
 ; X86-NEXT:    bswapl %edx
 ; X86-NEXT:    cmpl %edx, %ecx
-; X86-NEXT:    jne .LBB22_2
-; X86-NEXT:  # %bb.1: # %loadbb1
+; X86-NEXT:    jne .LBB22_1
+; X86-NEXT:  # %bb.2: # %loadbb1
 ; X86-NEXT:    movl 3(%esi), %ecx
 ; X86-NEXT:    movl 3(%eax), %edx
 ; X86-NEXT:    bswapl %ecx
@@ -433,7 +435,7 @@ define i1 @length7_lt(ptr %X, ptr %Y) nounwind {
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpl %edx, %ecx
 ; X86-NEXT:    je .LBB22_3
-; X86-NEXT:  .LBB22_2: # %res_block
+; X86-NEXT:  .LBB22_1: # %res_block
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpl %edx, %ecx
 ; X86-NEXT:    sbbl %eax, %eax
@@ -467,7 +469,7 @@ define i1 @length7_eq(ptr %X, ptr %Y) nounwind {
 
 define i32 @length8(ptr %X, ptr %Y) nounwind {
 ; X86-LABEL: length8:
-; X86:       # %bb.0:
+; X86:       # %bb.0: # %loadbb
 ; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %esi
@@ -476,21 +478,23 @@ define i32 @length8(ptr %X, ptr %Y) nounwind {
 ; X86-NEXT:    bswapl %ecx
 ; X86-NEXT:    bswapl %edx
 ; X86-NEXT:    cmpl %edx, %ecx
-; X86-NEXT:    jne .LBB24_2
-; X86-NEXT:  # %bb.1: # %loadbb1
+; X86-NEXT:    jne .LBB24_1
+; X86-NEXT:  # %bb.2: # %loadbb1
 ; X86-NEXT:    movl 4(%esi), %ecx
 ; X86-NEXT:    movl 4(%eax), %edx
 ; X86-NEXT:    bswapl %ecx
 ; X86-NEXT:    bswapl %edx
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpl %edx, %ecx
-; X86-NEXT:    je .LBB24_3
-; X86-NEXT:  .LBB24_2: # %res_block
+; X86-NEXT:    jne .LBB24_1
+; X86-NEXT:  # %bb.3: # %endblock
+; X86-NEXT:    popl %esi
+; X86-NEXT:    retl
+; X86-NEXT:  .LBB24_1: # %res_block
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpl %edx, %ecx
 ; X86-NEXT:    sbbl %eax, %eax
 ; X86-NEXT:    orl $1, %eax
-; X86-NEXT:  .LBB24_3: # %endblock
 ; X86-NEXT:    popl %esi
 ; X86-NEXT:    retl
   %m = tail call i32 @memcmp(ptr %X, ptr %Y, i32 8) nounwind

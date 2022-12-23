@@ -3015,13 +3015,13 @@ define void @relax_jal_spill_32_restore_block_correspondence() {
 ; CHECK-RV64-NEXT:    #APP
 ; CHECK-RV64-NEXT:    li t5, 30
 ; CHECK-RV64-NEXT:    #NO_APP
+; CHECK-RV64-NEXT:    sd t5, 16(sp) # 8-byte Folded Spill
+; CHECK-RV64-NEXT:    sext.w t5, t5
 ; CHECK-RV64-NEXT:    #APP
 ; CHECK-RV64-NEXT:    li t6, 31
 ; CHECK-RV64-NEXT:    #NO_APP
 ; CHECK-RV64-NEXT:    sd t6, 8(sp) # 8-byte Folded Spill
 ; CHECK-RV64-NEXT:    sext.w t6, t6
-; CHECK-RV64-NEXT:    sd t5, 16(sp) # 8-byte Folded Spill
-; CHECK-RV64-NEXT:    sext.w t5, t5
 ; CHECK-RV64-NEXT:    bne t5, t6, .LBB6_1
 ; CHECK-RV64-NEXT:  # %bb.7: # %entry
 ; CHECK-RV64-NEXT:    jump .LBB6_4, t5

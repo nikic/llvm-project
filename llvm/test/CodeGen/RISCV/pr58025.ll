@@ -4,9 +4,9 @@
 define void @f() {
 ; CHECK-LABEL: f:
 ; CHECK:       # %bb.0: # %BB
-; CHECK-NEXT:    lui a0, 260096
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-NEXT:    lui a0, 260096
 ; CHECK-NEXT:    sw a0, 12(sp)
 ; CHECK-NEXT:    addi sp, sp, 16
 ; CHECK-NEXT:    ret

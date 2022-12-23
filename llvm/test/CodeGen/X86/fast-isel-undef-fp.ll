@@ -8,7 +8,6 @@ define dso_local x86_fp80 @test_f80() {
 ; CHECK-LABEL: test_f80:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    fldz
-; CHECK-NEXT:    fchs
 ; CHECK-NEXT:    retq
 entry:
   %fneg1 = fneg contract x86_fp80 undef
@@ -21,9 +20,6 @@ exit:                                             ; preds = %entry
 define dso_local void @test_f32(ptr%p) {
 ; CHECK-LABEL: test_f32:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    fldz
-; CHECK-NEXT:    fchs
-; CHECK-NEXT:    fstps (%rdi)
 ; CHECK-NEXT:    retq
 entry:
   %fneg1 = fneg contract float undef
@@ -37,9 +33,6 @@ exit:                                             ; preds = %entry
 define dso_local void @test_f64(ptr%p) {
 ; CHECK-LABEL: test_f64:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    fldz
-; CHECK-NEXT:    fchs
-; CHECK-NEXT:    fstpl (%rdi)
 ; CHECK-NEXT:    retq
 entry:
   %fneg1 = fneg contract double undef

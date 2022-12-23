@@ -72,7 +72,7 @@ define i1 @length2_eq_nobuiltin_attr(ptr %X, ptr %Y) nounwind optsize {
 
 define i32 @length3(ptr %X, ptr %Y) nounwind optsize {
 ; X86-LABEL: length3:
-; X86:       # %bb.0:
+; X86:       # %bb.0: # %loadbb
 ; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
@@ -81,18 +81,18 @@ define i32 @length3(ptr %X, ptr %Y) nounwind optsize {
 ; X86-NEXT:    rolw $8, %dx
 ; X86-NEXT:    rolw $8, %si
 ; X86-NEXT:    cmpw %si, %dx
-; X86-NEXT:    jne .LBB4_3
-; X86-NEXT:  # %bb.1: # %loadbb1
+; X86-NEXT:    jne .LBB4_1
+; X86-NEXT:  # %bb.2: # %loadbb1
 ; X86-NEXT:    movzbl 2(%eax), %eax
 ; X86-NEXT:    movzbl 2(%ecx), %ecx
 ; X86-NEXT:    subl %ecx, %eax
-; X86-NEXT:    jmp .LBB4_2
-; X86-NEXT:  .LBB4_3: # %res_block
+; X86-NEXT:    jmp .LBB4_3
+; X86-NEXT:  .LBB4_1: # %res_block
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpw %si, %dx
 ; X86-NEXT:    sbbl %eax, %eax
 ; X86-NEXT:    orl $1, %eax
-; X86-NEXT:  .LBB4_2: # %endblock
+; X86-NEXT:  .LBB4_3: # %endblock
 ; X86-NEXT:    popl %esi
 ; X86-NEXT:    retl
   %m = tail call i32 @memcmp(ptr %X, ptr %Y, i32 3) nounwind
@@ -163,7 +163,7 @@ define i1 @length4_eq_const(ptr %X) nounwind optsize {
 
 define i32 @length5(ptr %X, ptr %Y) nounwind optsize {
 ; X86-LABEL: length5:
-; X86:       # %bb.0:
+; X86:       # %bb.0: # %loadbb
 ; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
@@ -172,18 +172,18 @@ define i32 @length5(ptr %X, ptr %Y) nounwind optsize {
 ; X86-NEXT:    bswapl %edx
 ; X86-NEXT:    bswapl %esi
 ; X86-NEXT:    cmpl %esi, %edx
-; X86-NEXT:    jne .LBB9_3
-; X86-NEXT:  # %bb.1: # %loadbb1
+; X86-NEXT:    jne .LBB9_1
+; X86-NEXT:  # %bb.2: # %loadbb1
 ; X86-NEXT:    movzbl 4(%eax), %eax
 ; X86-NEXT:    movzbl 4(%ecx), %ecx
 ; X86-NEXT:    subl %ecx, %eax
-; X86-NEXT:    jmp .LBB9_2
-; X86-NEXT:  .LBB9_3: # %res_block
+; X86-NEXT:    jmp .LBB9_3
+; X86-NEXT:  .LBB9_1: # %res_block
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpl %esi, %edx
 ; X86-NEXT:    sbbl %eax, %eax
 ; X86-NEXT:    orl $1, %eax
-; X86-NEXT:  .LBB9_2: # %endblock
+; X86-NEXT:  .LBB9_3: # %endblock
 ; X86-NEXT:    popl %esi
 ; X86-NEXT:    retl
   %m = tail call i32 @memcmp(ptr %X, ptr %Y, i32 5) nounwind
@@ -210,7 +210,7 @@ define i1 @length5_eq(ptr %X, ptr %Y) nounwind optsize {
 
 define i32 @length8(ptr %X, ptr %Y) nounwind optsize {
 ; X86-LABEL: length8:
-; X86:       # %bb.0:
+; X86:       # %bb.0: # %loadbb
 ; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %esi
@@ -219,8 +219,8 @@ define i32 @length8(ptr %X, ptr %Y) nounwind optsize {
 ; X86-NEXT:    bswapl %ecx
 ; X86-NEXT:    bswapl %edx
 ; X86-NEXT:    cmpl %edx, %ecx
-; X86-NEXT:    jne .LBB11_2
-; X86-NEXT:  # %bb.1: # %loadbb1
+; X86-NEXT:    jne .LBB11_1
+; X86-NEXT:  # %bb.2: # %loadbb1
 ; X86-NEXT:    movl 4(%esi), %ecx
 ; X86-NEXT:    movl 4(%eax), %edx
 ; X86-NEXT:    bswapl %ecx
@@ -228,7 +228,7 @@ define i32 @length8(ptr %X, ptr %Y) nounwind optsize {
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpl %edx, %ecx
 ; X86-NEXT:    je .LBB11_3
-; X86-NEXT:  .LBB11_2: # %res_block
+; X86-NEXT:  .LBB11_1: # %res_block
 ; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    cmpl %edx, %ecx
 ; X86-NEXT:    sbbl %eax, %eax

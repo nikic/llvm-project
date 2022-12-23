@@ -4,13 +4,7 @@
 define void @PR57474() nounwind {
 ; CHECK-LABEL: PR57474:
 ; CHECK:       # %bb.0: # %BB
-; CHECK-NEXT:    pushq %rbp
-; CHECK-NEXT:    movq %rsp, %rbp
-; CHECK-NEXT:    movq %rsp, %rax
-; CHECK-NEXT:    leaq -16(%rax), %rsp
-; CHECK-NEXT:    movw $-32768, -16(%rax) # imm = 0x8000
-; CHECK-NEXT:    movq %rbp, %rsp
-; CHECK-NEXT:    popq %rbp
+; CHECK-NEXT:    movw $-32768, -{{[0-9]+}}(%rsp) # imm = 0x8000
 ; CHECK-NEXT:    retq
 BB:
   br label %BB1

@@ -560,6 +560,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   // Eliminate blocks that contain only PHI nodes and an
   // unconditional branch.
   EverMadeChange |= eliminateMostlyEmptyBlocks(F);
+  EverMadeChange |= eliminateFallThrough(F);
 
   ModifyDT ModifiedDT = ModifyDT::NotModifyDT;
   if (!DisableBranchOpts)

@@ -2086,7 +2086,7 @@ define swiftcc ptr @testAssign4(ptr %error_ref, ptr swifterror %err) {
 ; CHECK-i386-NEXT:    movl %esi, (%esp)
 ; CHECK-i386-NEXT:    calll _foo2
 ; CHECK-i386-NEXT:    movl $0, (%esi)
-; CHECK-i386-NEXT:    movl (%esi), %eax
+; CHECK-i386-NEXT:    xorl %eax, %eax
 ; CHECK-i386-NEXT:    addl $8, %esp
 ; CHECK-i386-NEXT:    popl %esi
 ; CHECK-i386-NEXT:    retl

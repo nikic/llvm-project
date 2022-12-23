@@ -14,16 +14,11 @@ define i64 @foo() {
 
 define i64 @main() {
 ; CHECK-LABEL: main:
-; CHECK:       # %bb.0:
+; CHECK:       # %bb.0: # %l
 ; CHECK-NEXT:    pushq %rax
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
 ; CHECK-NEXT:    callq foo@PLT
-; CHECK-NEXT:    movabsq $-4294967041, %rcx # imm = 0xFFFFFFFF000000FF
-; CHECK-NEXT:    andq %rax, %rcx
-; CHECK-NEXT:    movl %ecx, %ecx
-; CHECK-NEXT:    leaq (,%rcx,8), %rax
-; CHECK-NEXT:    subq %rcx, %rax
-; CHECK-NEXT:    shrq $32, %rax
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    popq %rcx
 ; CHECK-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-NEXT:    retq
