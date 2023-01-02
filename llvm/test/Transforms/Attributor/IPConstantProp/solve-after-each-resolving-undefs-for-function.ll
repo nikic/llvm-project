@@ -31,7 +31,7 @@ if.end:                                          ; preds = %if.then1, %entry
 define internal i32 @test1(i1 %c) {
 ; CGSCC: Function Attrs: nofree nosync nounwind willreturn memory(none)
 ; CGSCC-LABEL: define {{[^@]+}}@test1
-; CGSCC-SAME: (i1 [[C:%.*]]) #[[ATTR1:[0-9]+]] {
+; CGSCC-SAME: (i1 noundef [[C:%.*]]) #[[ATTR1:[0-9]+]] {
 ; CGSCC-NEXT:  entry:
 ; CGSCC-NEXT:    br label [[IF_THEN:%.*]]
 ; CGSCC:       if.then:
@@ -66,8 +66,8 @@ define i32 @main(i1 %c) {
 ;
 ; CGSCC: Function Attrs: nofree nosync nounwind willreturn memory(none)
 ; CGSCC-LABEL: define {{[^@]+}}@main
-; CGSCC-SAME: (i1 [[C:%.*]]) #[[ATTR1]] {
-; CGSCC-NEXT:    [[RES:%.*]] = call noundef i32 @test1(i1 [[C]]) #[[ATTR2]]
+; CGSCC-SAME: (i1 noundef [[C:%.*]]) #[[ATTR1]] {
+; CGSCC-NEXT:    [[RES:%.*]] = call noundef i32 @test1(i1 noundef [[C]]) #[[ATTR2]]
 ; CGSCC-NEXT:    ret i32 [[RES]]
 ;
   %res = call i32 @test1(i1 %c)

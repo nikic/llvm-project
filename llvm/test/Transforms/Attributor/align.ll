@@ -134,14 +134,23 @@ define i32* @test6_2() #0 {
 
 ; Function Attrs: nounwind readnone ssp uwtable
 define internal i8* @f1(i8* readnone %0) local_unnamed_addr #0 {
-; CHECK: Function Attrs: nofree noinline norecurse nosync nounwind willreturn memory(none) uwtable
-; CHECK-LABEL: define {{[^@]+}}@f1
-; CHECK-SAME: (i8* noalias nofree nonnull readnone align 8 dereferenceable(1) "no-capture-maybe-returned" [[TMP0:%.*]]) local_unnamed_addr #[[ATTR0]] {
-; CHECK-NEXT:    br label [[TMP3:%.*]]
-; CHECK:       2:
-; CHECK-NEXT:    unreachable
-; CHECK:       3:
-; CHECK-NEXT:    ret i8* [[TMP0]]
+; TUNIT: Function Attrs: nofree noinline norecurse nosync nounwind willreturn memory(none) uwtable
+; TUNIT-LABEL: define {{[^@]+}}@f1
+; TUNIT-SAME: (i8* noalias nofree nonnull readnone align 8 dereferenceable(1) "no-capture-maybe-returned" [[TMP0:%.*]]) local_unnamed_addr #[[ATTR0]] {
+; TUNIT-NEXT:    br label [[TMP3:%.*]]
+; TUNIT:       2:
+; TUNIT-NEXT:    unreachable
+; TUNIT:       3:
+; TUNIT-NEXT:    ret i8* [[TMP0]]
+;
+; CGSCC: Function Attrs: nofree noinline norecurse nosync nounwind willreturn memory(none) uwtable
+; CGSCC-LABEL: define {{[^@]+}}@f1
+; CGSCC-SAME: (i8* noalias nofree noundef nonnull readnone align 8 dereferenceable(1) "no-capture-maybe-returned" [[TMP0:%.*]]) local_unnamed_addr #[[ATTR0]] {
+; CGSCC-NEXT:    br label [[TMP3:%.*]]
+; CGSCC:       2:
+; CGSCC-NEXT:    unreachable
+; CGSCC:       3:
+; CGSCC-NEXT:    ret i8* [[TMP0]]
 ;
   %2 = icmp eq i8* %0, null
   br i1 %2, label %3, label %5
@@ -237,7 +246,7 @@ define align 4 i8* @test7() #0 {
 define internal i8* @f1b(i8* readnone %0) local_unnamed_addr #0 {
 ; CGSCC: Function Attrs: nofree noinline norecurse nosync nounwind willreturn memory(none) uwtable
 ; CGSCC-LABEL: define {{[^@]+}}@f1b
-; CGSCC-SAME: (i8* noalias nofree nonnull readnone align 8 dereferenceable(1) "no-capture-maybe-returned" [[TMP0:%.*]]) local_unnamed_addr #[[ATTR0]] {
+; CGSCC-SAME: (i8* noalias nofree noundef nonnull readnone align 8 dereferenceable(1) "no-capture-maybe-returned" [[TMP0:%.*]]) local_unnamed_addr #[[ATTR0]] {
 ; CGSCC-NEXT:    br label [[TMP3:%.*]]
 ; CGSCC:       2:
 ; CGSCC-NEXT:    unreachable

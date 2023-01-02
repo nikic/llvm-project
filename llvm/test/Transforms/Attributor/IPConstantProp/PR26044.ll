@@ -23,7 +23,7 @@ define void @fn2(ptr %P, i1 %C) {
 ;
 ; CGSCC: Function Attrs: nofree nosync nounwind memory(argmem: readwrite)
 ; CGSCC-LABEL: define {{[^@]+}}@fn2
-; CGSCC-SAME: (ptr nocapture nofree nonnull align 4 dereferenceable(4) [[P:%.*]], i1 [[C:%.*]]) #[[ATTR0:[0-9]+]] {
+; CGSCC-SAME: (ptr nocapture nofree noundef nonnull align 4 dereferenceable(4) [[P:%.*]], i1 noundef [[C:%.*]]) #[[ATTR0:[0-9]+]] {
 ; CGSCC-NEXT:  entry:
 ; CGSCC-NEXT:    br label [[IF_END:%.*]]
 ; CGSCC:       for.cond1:
@@ -85,7 +85,7 @@ define void @fn_no_null_opt(ptr %P, i1 %C) null_pointer_is_valid {
 ;
 ; CGSCC: Function Attrs: nofree nosync nounwind null_pointer_is_valid
 ; CGSCC-LABEL: define {{[^@]+}}@fn_no_null_opt
-; CGSCC-SAME: (ptr nocapture nofree writeonly align 4 dereferenceable_or_null(4) [[P:%.*]], i1 [[C:%.*]]) #[[ATTR2:[0-9]+]] {
+; CGSCC-SAME: (ptr nocapture nofree noundef writeonly align 4 dereferenceable_or_null(4) [[P:%.*]], i1 noundef [[C:%.*]]) #[[ATTR2:[0-9]+]] {
 ; CGSCC-NEXT:  entry:
 ; CGSCC-NEXT:    br label [[IF_END:%.*]]
 ; CGSCC:       for.cond1:

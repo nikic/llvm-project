@@ -5776,16 +5776,25 @@ void llvm::getGuaranteedNonPoisonOps(const Instruction *I,
   }
 }
 
-bool llvm::mustTriggerUB(const Instruction *I,
-                         const SmallSet<const Value *, 16>& KnownPoison) {
-  SmallVector<const Value *, 4> NonPoisonOps;
-  getGuaranteedNonPoisonOps(I, NonPoisonOps);
+static bool mustTriggerUB(const Instruction *I,
+                          const SmallSet<const Value *, 16> &KnownUndefOrPoison,
+                          bool PoisonOnly) {
+  SmallVector<const Value *, 4> NonUndefOrPoisonOps;
+  if (PoisonOnly)
+    getGuaranteedNonPoisonOps(I, NonUndefOrPoisonOps);
+  else
+    getGuaranteedWellDefinedOps(I, NonUndefOrPoisonOps);
 
-  for (const auto *V : NonPoisonOps)
-    if (KnownPoison.count(V))
+  for (const auto *V : NonUndefOrPoisonOps)
+    if (KnownUndefOrPoison.count(V))
       return true;
 
   return false;
+}
+
+bool llvm::mustTriggerUB(const Instruction *I,
+                         const SmallSet<const Value *, 16>& KnownPoison) {
+  return ::mustTriggerUB(I, KnownPoison, /*PoisonOnly*/ true);
 }
 
 static bool programUndefinedIfUndefOrPoison(const Value *V,
@@ -5815,34 +5824,12 @@ static bool programUndefinedIfUndefOrPoison(const Value *V,
   unsigned ScanLimit = 32;
   BasicBlock::const_iterator End = BB->end();
 
-  if (!PoisonOnly) {
-    // Since undef does not propagate eagerly, be conservative & just check
-    // whether a value is directly passed to an instruction that must take
-    // well-defined operands.
-
-    for (const auto &I : make_range(Begin, End)) {
-      if (isa<DbgInfoIntrinsic>(I))
-        continue;
-      if (--ScanLimit == 0)
-        break;
-
-      SmallVector<const Value *, 4> WellDefinedOps;
-      getGuaranteedWellDefinedOps(&I, WellDefinedOps);
-      if (is_contained(WellDefinedOps, V))
-        return true;
-
-      if (!isGuaranteedToTransferExecutionToSuccessor(&I))
-        break;
-    }
-    return false;
-  }
-
-  // Set of instructions that we have proved will yield poison if Inst
+  // Set of instructions that we have proved will yield undef/poison if Inst
   // does.
-  SmallSet<const Value *, 16> YieldsPoison;
+  SmallSet<const Value *, 16> YieldsUndefOrPoison;
   SmallSet<const BasicBlock *, 4> Visited;
 
-  YieldsPoison.insert(V);
+  YieldsUndefOrPoison.insert(V);
   Visited.insert(BB);
 
   while (true) {
@@ -5851,16 +5838,18 @@ static bool programUndefinedIfUndefOrPoison(const Value *V,
         continue;
       if (--ScanLimit == 0)
         return false;
-      if (mustTriggerUB(&I, YieldsPoison))
+      if (mustTriggerUB(&I, YieldsUndefOrPoison, PoisonOnly))
         return true;
       if (!isGuaranteedToTransferExecutionToSuccessor(&I))
         return false;
 
       // If an operand is poison and propagates it, mark I as yielding poison.
-      for (const Use &Op : I.operands()) {
-        if (YieldsPoison.count(Op) && propagatesPoison(Op)) {
-          YieldsPoison.insert(&I);
-          break;
+      if (PoisonOnly) {
+        for (const Use &Op : I.operands()) {
+          if (YieldsUndefOrPoison.count(Op) && propagatesPoison(Op)) {
+            YieldsUndefOrPoison.insert(&I);
+            break;
+          }
         }
       }
     }
