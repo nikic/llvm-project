@@ -1294,7 +1294,50 @@ Instruction *InstCombinerImpl::foldICmpWithZero(ICmpInst &Cmp) {
     if (XKnown.countMaxPopulation() == 1 && YKnown.countMinPopulation() >= 2)
       return new ICmpInst(Pred, X, Cmp.getOperand(1));
   }
+  // (icmp eq/ne (mul X Y)) ->
+  // if Y % 2 != 0 AND X % 2 != 0
+  //    (false/true)
+  // if X % 2 != 0
+  //    (icmp eq/ne Y)
+  // if Y % 2 != 0
+  //    (icmp eq/ne X)
+  // if X non-zero and Y non-zero and no_overflow(X * Y)
+  //    (false/true)
+  // if Y non-zero and no_overflow(X * Y)
+  //    (icmp eq/ne X)
+  // if X non-zero and no_overflow(X * Y)
+  //    (icmp eq/ne Y)
+  if (match(Cmp.getOperand(0), m_Mul(m_Value(X), m_Value(Y))) &&
+      ICmpInst::isEquality(Pred)) {
+    KnownBits XKnown = computeKnownBits(X, 0, &Cmp);
+    KnownBits YKnown = computeKnownBits(Y, 0, &Cmp);
+    bool XExtra = XKnown.countMaxTrailingZeros() == 0;
+    bool YExtra = YKnown.countMaxTrailingZeros() == 0;
+    if (!XExtra && !YExtra) {
+      // No information about oddness of X or Y so see if we can do the
+      // transformation using overflow information and zero/non-status
+      BinaryOperator *BO0 = dyn_cast<BinaryOperator>(Cmp.getOperand(0));
+      if (BO0 && (BO0->hasNoUnsignedWrap() || BO0->hasNoSignedWrap())) {
+          const SimplifyQuery Q = SQ.getWithInstruction(&Cmp);
+          XExtra = llvm::isKnownNonZero(X, DL, 0, Q.AC, Q.CxtI, Q.DT);
+          YExtra = llvm::isKnownNonZero(Y, DL, 0, Q.AC, Q.CxtI, Q.DT);
+       }
+    }
+    // If both are odd the multiplication is non-zero
+    if (XExtra && YExtra)
+      return (Pred == ICmpInst::ICMP_EQ)
+                 ? replaceInstUsesWith(Cmp,
+                                       ConstantInt::getFalse(Cmp.getType()))
+                 : replaceInstUsesWith(Cmp,
+                                       ConstantInt::getTrue(Cmp.getType()));
 
+    // If one of the ops is odd, we can replace the multiplation with just
+    // testing the other op
+    else if (XExtra)
+      return new ICmpInst(Pred, Y, Cmp.getOperand(1));
+    else if (YExtra)
+      return new ICmpInst(Pred, X, Cmp.getOperand(1));
+  }
   return nullptr;
 }
 
