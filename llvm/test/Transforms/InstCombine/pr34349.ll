@@ -10,8 +10,11 @@ define i8 @fast_div_201(i8 %p) {
 ; CHECK-NEXT:    [[V6:%.*]] = trunc i16 [[V5]] to i8
 ; CHECK-NEXT:    [[V7:%.*]] = sub i8 [[P]], [[V6]]
 ; CHECK-NEXT:    [[V8:%.*]] = lshr i8 [[V7]], 1
-; CHECK-NEXT:    [[V13:%.*]] = add nuw i8 [[V8]], [[V6]]
-; CHECK-NEXT:    [[V14:%.*]] = lshr i8 [[V13]], 7
+; CHECK-NEXT:    [[TMP0:%.*]] = trunc i8 [[V8]] to i7
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc i16 [[V5]] to i7
+; CHECK-NEXT:    [[TMP2:%.*]] = xor i7 [[TMP0]], -1
+; CHECK-NEXT:    [[ADD_NARROWED_OVERFLOW:%.*]] = icmp ult i7 [[TMP2]], [[TMP1]]
+; CHECK-NEXT:    [[V14:%.*]] = zext i1 [[ADD_NARROWED_OVERFLOW]] to i8
 ; CHECK-NEXT:    ret i8 [[V14]]
 ;
 entry:

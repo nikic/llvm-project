@@ -489,6 +489,13 @@ public:
     return llvm::ComputeMaxSignificantBits(Op, DL, Depth, &AC, CxtI, &DT);
   }
 
+  unsigned
+  ComputeMaxUnsignedSignificantBits(const Value *Op, unsigned Depth = 0,
+                                    const Instruction *CxtI = nullptr) const {
+    return llvm::ComputeMaxUnsignedSignificantBits(Op, DL, Depth, &AC, CxtI,
+                                                   &DT);
+  }
+
   OverflowResult computeOverflowForUnsignedMul(const Value *LHS,
                                                const Value *RHS,
                                                const Instruction *CxtI) const {

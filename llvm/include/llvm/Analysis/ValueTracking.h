@@ -205,6 +205,15 @@ unsigned ComputeMaxSignificantBits(const Value *Op, const DataLayout &DL,
                                    const Instruction *CxtI = nullptr,
                                    const DominatorTree *DT = nullptr);
 
+/// Get the upper bound on bit size for this Value \p Op as an unsigned integer.
+/// i.e.  x == zext(trunc(x to MaxSignificantBits) to bitwidth(x)).
+unsigned ComputeMaxUnsignedSignificantBits(const Value *Op,
+                                           const DataLayout &DL,
+                                           unsigned Depth = 0,
+                                           AssumptionCache *AC = nullptr,
+                                           const Instruction *CxtI = nullptr,
+                                           const DominatorTree *DT = nullptr);
+
 /// Map a call instruction to an intrinsic ID.  Libcalls which have equivalent
 /// intrinsics are treated as-if they were intrinsics.
 Intrinsic::ID getIntrinsicForCallSite(const CallBase &CB,

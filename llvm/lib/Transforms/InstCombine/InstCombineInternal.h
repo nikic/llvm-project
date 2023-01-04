@@ -374,6 +374,7 @@ private:
   Value *matchSelectFromAndOr(Value *A, Value *B, Value *C, Value *D);
   Value *getSelectCondition(Value *A, Value *B);
 
+  Instruction *foldLShrOverflowBit(BinaryOperator &I);
   Instruction *foldExtractOfOverflowIntrinsic(ExtractValueInst &EV);
   Instruction *foldIntrinsicWithOverflowCommon(IntrinsicInst *II);
   Instruction *foldFPSignBitOps(BinaryOperator &I);

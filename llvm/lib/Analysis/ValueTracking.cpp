@@ -396,6 +396,13 @@ unsigned llvm::ComputeMaxSignificantBits(const Value *V, const DataLayout &DL,
   return V->getType()->getScalarSizeInBits() - SignBits + 1;
 }
 
+unsigned llvm::ComputeMaxUnsignedSignificantBits(
+    const Value *V, const DataLayout &DL, unsigned Depth, AssumptionCache *AC,
+    const Instruction *CxtI, const DominatorTree *DT) {
+  KnownBits KB = computeKnownBits(V, DL, Depth, AC, CxtI, DT);
+  return V->getType()->getScalarSizeInBits() - KB.countMinLeadingZeros();
+}
+
 static void computeKnownBitsAddSub(bool Add, const Value *Op0, const Value *Op1,
                                    bool NSW, const APInt &DemandedElts,
                                    KnownBits &KnownOut, KnownBits &Known2,
