@@ -1027,7 +1027,7 @@ void SCEVExpander::fixupInsertPoints(Instruction *I) {
 bool SCEVExpander::hoistIVInc(Instruction *IncV, Instruction *InsertPos,
                               bool RecomputePoisonFlags) {
   auto FixupPoisonFlags = [this](Instruction *I) {
-    if (!I->hasPoisonGeneratingFlags())
+    if (!I->hasPoisonGeneratingFlags() || programUndefinedIfPoison(I))
       return;
     // Drop flags that are potentially inferred from old context and infer flags
     // in new context.
