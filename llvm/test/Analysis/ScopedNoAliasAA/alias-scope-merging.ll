@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -passes=memcpyopt | FileCheck --match-full-lines %s
+; RUN: opt < %s -S -passes=memcpyopt -memcpyopt-stack-move-threshold=0 | FileCheck --match-full-lines %s
 
 ; Alias scopes are merged by taking the intersection of domains, then the union of the scopes within those domains
 define i8 @test(i8 %input) {

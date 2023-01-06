@@ -96,6 +96,13 @@ namespace llvm {
     /// capturing instructions that will not be passed into captured().
     virtual void tooManyUses() = 0;
 
+    /// visitUse - We found a use of a value derived from the pointer. This is
+    /// called after shouldExplore(). Return true to stop the traversal or
+    /// false to continue looking for more uses.
+    ///
+    /// U->getUser() is always an Instruction.
+    virtual bool visitUse(const Use *U);
+
     /// shouldExplore - This is the use of a value derived from the pointer.
     /// To prune the search (ie., assume that none of its users could possibly
     /// capture) return false. To search it, return true.

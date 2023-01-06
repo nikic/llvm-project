@@ -12,7 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/MemCpyOptimizer.h"
+#include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/Bitfields.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -25,6 +28,7 @@
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
@@ -66,12 +70,18 @@ using namespace llvm;
 static cl::opt<bool> EnableMemCpyOptWithoutLibcalls(
     "enable-memcpyopt-without-libcalls", cl::Hidden,
     cl::desc("Enable memcpyopt even when libcalls are disabled"));
+static cl::opt<unsigned>
+    MemCpyOptStackMoveThreshold("memcpyopt-stack-move-threshold", cl::Hidden,
+                                cl::desc("Maximum number of basic blocks the "
+                                         "stack-move optimization may examine"),
+                                cl::init(250));
 
 STATISTIC(NumMemCpyInstr, "Number of memcpy instructions deleted");
 STATISTIC(NumMemSetInfer, "Number of memsets inferred");
 STATISTIC(NumMoveToCpy,   "Number of memmoves converted to memcpy");
 STATISTIC(NumCpyToSet,    "Number of memcpys converted to memset");
 STATISTIC(NumCallSlot,    "Number of call slot optimizations performed");
+STATISTIC(NumStackMove, "Number of stack-move optimizations performed");
 
 namespace {
 
@@ -276,6 +286,8 @@ private:
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addRequired<PostDominatorTreeWrapperPass>();
+    AU.addPreserved<PostDominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<AAResultsWrapperPass>();
@@ -296,6 +308,7 @@ INITIALIZE_PASS_BEGIN(MemCpyOptLegacyPass, "memcpyopt", "MemCpy Optimization",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
@@ -798,6 +811,25 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
         eraseInstruction(LI);
         ++NumMemCpyInstr;
         return true;
+      }
+
+      // If this is a load-store pair from a stack slot to a stack slot, we
+      // might be able to perform the stack-move optimization just as we do for
+      // memcpys from an alloca to an alloca.
+      if (AllocaInst *DestAlloca =
+              dyn_cast<AllocaInst>(SI->getPointerOperand())) {
+        if (AllocaInst *SrcAlloca =
+                dyn_cast<AllocaInst>(LI->getPointerOperand())) {
+          if (performStackMoveOptzn(LI, SI, DestAlloca, SrcAlloca,
+                                    DL.getTypeStoreSize(T))) {
+            // Avoid invalidating the iterator.
+            BBI = SI->getNextNonDebugInstruction()->getIterator();
+            eraseInstruction(SI);
+            eraseInstruction(LI);
+            ++NumMemCpyInstr;
+            return true;
+          }
+        }
       }
     }
   }
@@ -1433,6 +1465,577 @@ bool MemCpyOptPass::performMemCpyToMemSetOptzn(MemCpyInst *MemCpy,
   return true;
 }
 
+// These helper classes are used for the stack-move optimization. See the
+// comments above performStackMoveOptzn() for more details.
+
+namespace {
+
+// Tracks liveness on the basic block level. This is conservative; see the
+// comments above performStackMoveOptzn() for justification.
+class BasicBlockLiveness {
+  // The earliest definition or use we've seen, combined with the three bits
+  // below.
+  PointerIntPair<Instruction *, 3> Value;
+
+  // Whether the alloca is live-in to the block (from predecessor basic blocks).
+  using LiveIn = Bitfield::Element<bool, 0, 1>;
+  // Whether the alloca is live-out from the block (to successor basic blocks).
+  using LiveOut = Bitfield::Element<bool, 1, 1>;
+  // Whether there's at least one use of the alloca in this basic block. This
+  // flag is important for detecting liveness conflicts, since the other
+  // information stored here isn't sufficient to determine that a use is present
+  // if a definition precedes it.
+  using HasUse = Bitfield::Element<bool, 2, 1>;
+
+  // Records a new def or use instruction.
+  void setDefUseInst(Instruction *I) {
+    assert((!hasDefUseInst() || I->comesBefore(getDefUseInst())) &&
+           "Tried to overwrite an earlier def or use with a later one!");
+    Value.setPointer(I);
+  }
+
+  // Sets the flag which determines whether this block has a use.
+  void setHasUse(bool On) {
+    unsigned V = Value.getInt();
+    Bitfield::set<HasUse>(V, On);
+    Value.setInt(V);
+  }
+
+public:
+  BasicBlockLiveness() : Value(nullptr) {}
+
+  // Returns the earliest definition or use we've seen in this block.
+  Instruction *getDefUseInst() const { return Value.getPointer(); }
+  // Returns true if there's a definition or use of the memory in this block.
+  bool hasDefUseInst() const { return Value.getPointer() != nullptr; }
+  // Returns true if the memory is live-in to this block (i.e. live-out of a
+  // predecessor).
+  bool isLiveIn() const { return Bitfield::get<LiveIn>(Value.getInt()); }
+  // Returns true if the memory is live-out of this block (i.e. live-in to a
+  // successor).
+  bool isLiveOut() const { return Bitfield::get<LiveOut>(Value.getInt()); }
+  // Returns true if there is at least one use of the memory in this block.
+  bool hasUse() const { return Bitfield::get<HasUse>(Value.getInt()); }
+  // Returns true if this alloca is live anywhere in this block or has
+  // at least one use in it. If this returns false, the alloca is
+  // guaranteed to be completely dead within this basic block.
+  bool isLiveAnywhereOrHasUses() const {
+    return isLiveIn() || isLiveOut() || hasUse();
+  }
+
+  // Records a new definition or use of the alloca being tracked within this
+  // basic block.
+  void update(Instruction *I, bool IsDef) {
+    if (!hasDefUseInst() || I->comesBefore(getDefUseInst())) {
+      setDefUseInst(I);
+      setLiveIn(!IsDef);
+    }
+    if (!IsDef)
+      setHasUse(true);
+  }
+
+  // Adjusts the live-in flag for this block.
+  void setLiveIn(bool On) {
+    unsigned V = Value.getInt();
+    Bitfield::set<LiveIn>(V, On);
+    Value.setInt(V);
+  }
+
+  // Adjusts the live-out flag for this block.
+  void setLiveOut(bool On) {
+    unsigned V = Value.getInt();
+    Bitfield::set<LiveOut>(V, On);
+    Value.setInt(V);
+  }
+};
+
+using BasicBlockLivenessMap = DenseMap<BasicBlock *, BasicBlockLiveness>;
+
+// Tracks uses of an alloca for the purposes of the stack-move optimization.
+//
+// This class does three things: (1) it makes sure that the alloca is never
+// captured; (2) it records defs and uses of the alloca in a map for the
+// liveness analysis to use; (3) it finds the nearest dominator and
+// postdominator of all uses of this alloca for the purpose of lifetime
+// intrinsic "shrink wrapping" if the optimization goes through.
+class StackMoveTracker : public CaptureTracker {
+  // Data layout info.
+  const DataLayout &DL;
+  // Dominator tree info.
+  DominatorTree &DT;
+  // Postdominator tree info.
+  PostDominatorTree &PDT;
+  // The memcpy instruction.
+  Instruction *Store;
+  // The size of the underlying alloca, in bits.
+  TypeSize AllocaSizeInBits;
+
+public:
+  // Keeps track of the lifetime intrinsics that we find. We'll need to remove
+  // these if the optimization goes through.
+  SmallVector<IntrinsicInst *, 4> LifetimeMarkers;
+  // Keeps track of instructions that have !noalias metadata. We need to drop
+  // that metadata if the optimization succeeds.
+  std::vector<Instruction *> NoAliasInstrs;
+  // Liveness information for this alloca, tracked on the basic block level.
+  BasicBlockLivenessMap BBLiveness;
+  // Liveness information for this alloca, tracked on the instruction level for
+  // the single basic block containing the memcpy.
+  DenseMap<Instruction *, bool> StoreBBDefUseMap;
+  // The nearest basic block that dominates all uses of the alloca that we've
+  // seen so far. This is only null if we haven't seen any uses yet.
+  BasicBlock *Dom;
+  // The nearest basic block that postdominates all uses of the alloca that
+  // we've seen so far. This can be null if there's no such postdominator.
+  BasicBlock *PostDom;
+  // The user that caused us to bail out, if any.
+  User *AbortingUser;
+  // Whether we should bail out of the stack-move optimization.
+  bool Abort;
+
+  StackMoveTracker(Instruction *Store, AllocaInst *Alloca, DominatorTree &DT,
+                   PostDominatorTree &PDT)
+      : DL(Store->getModule()->getDataLayout()), DT(DT), PDT(PDT), Store(Store),
+        AllocaSizeInBits(*Alloca->getAllocationSizeInBits(DL)), Dom(nullptr),
+        PostDom(nullptr), AbortingUser(nullptr), Abort(false) {}
+
+private:
+  // Called whenever we see a use or a definition of the alloca. If IsDef is
+  // true, this is a def; otherwise, it's a use.
+  void recordUseOrDef(Instruction *I, bool IsDef) {
+    BasicBlock *BB = I->getParent();
+    BBLiveness[BB].update(I, IsDef);
+
+    // For the basic block containing the store, track liveness on the
+    // instruction level.
+    if (BB == Store->getParent())
+      StoreBBDefUseMap[I] = IsDef;
+
+    // If the instruction has !noalias metadata, record it so that we can delete
+    // the metadata if the optimization succeeds.
+    if (I->hasMetadata(LLVMContext::MD_noalias))
+      NoAliasInstrs.push_back(I);
+  }
+
+public:
+  // If there are too many uses, just bail out to avoid spending excessive
+  // compile time.
+  void tooManyUses() override { Abort = true; }
+
+  // If the pointer was captured, we can't usefully track it, so just bail out.
+  bool captured(const Use *U) override {
+    if (!Abort) {
+      AbortingUser = U->getUser();
+      Abort = true;
+      return true;
+    }
+
+    return false;
+  }
+
+  // Classifies a use as either a true use or a definition, records that, and
+  // updates the nearest common dominator and postdominator accordingly.
+  bool visitUse(const Use *U) override {
+    Instruction *I = cast<Instruction>(U->getUser());
+    BasicBlock *BB = I->getParent();
+
+    // GEPs don't count as uses of the alloca memory (just of the pointer to the
+    // alloca), so we don't care about them here.
+    if (isa<GetElementPtrInst>(I) && U->getOperandNo() == 0)
+      return false;
+
+    // Update the nearest common dominator and postdominator. We know that this
+    // is the first use if Dom is null, because multiple blocks always have a
+    // mutual common dominator (though not necessarily a common postdominator).
+    if (Dom == nullptr) {
+      Dom = PostDom = BB;
+    } else {
+      Dom = DT.findNearestCommonDominator(Dom, BB);
+      if (PostDom != nullptr)
+        PostDom = PDT.findNearestCommonDominator(PostDom, BB);
+    }
+
+    // If an instruction overwrites all bytes of the alloca, it's a definition,
+    // not a use. Detect those cases here.
+    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+      if (II->isLifetimeStartOrEnd()) {
+        // We treat a call to a lifetime intrinsic that covers the entire alloca
+        // as a definition, since both llvm.lifetime.start and llvm.lifetime.end
+        // intrinsics conceptually fill all the bytes of the alloca with an
+        // undefined value. We also note these locations of these intrinsic
+        // calls so that we can delete them later if the optimization succeeds.
+        int64_t Size = cast<ConstantInt>(II->getArgOperand(0))->getSExtValue();
+        if (Size < 0 || uint64_t(Size) * 8 == AllocaSizeInBits) {
+          recordUseOrDef(II, true);
+          LifetimeMarkers.push_back(II);
+          return false;
+        }
+      } else if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(II)) {
+        if (MI->getArgOperandNo(U) == 0) {
+          if (ConstantInt *CI = dyn_cast<ConstantInt>(MI->getLength())) {
+            if (CI->getZExtValue() * 8 == AllocaSizeInBits.getFixedSize()) {
+              // Memcpy, memmove, and memset instructions that fill every byte
+              // of the alloca are definitions.
+              recordUseOrDef(MI, true);
+              return false;
+            }
+          }
+        }
+      }
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+      // Stores that overwrite all bytes of the alloca are definitions.
+      if (U->getOperandNo() == 1 &&
+          DL.getTypeStoreSizeInBits(SI->getValueOperand()->getType()) ==
+              AllocaSizeInBits.getFixedSize()) {
+        recordUseOrDef(SI, true);
+        return false;
+      }
+    }
+
+    // Otherwise, this instruction is a use. Make a note of that fact and
+    // continue.
+    recordUseOrDef(I, false);
+    return false;
+  }
+};
+
+} // namespace
+
+// Performs liveness dataflow analysis for an alloca at the basic block level as
+// part of the stack-move optimization.
+//
+// This implements the "backwards variable-at-a-time" variant of liveness
+// analysis, propagating liveness information backwards from uses until it sees
+// a basic block with a definition or one in which the variable is already
+// live-out. As implemented, this is a linear-time algorithm, because it only
+// visits every basic block at most once and the number of tracked variables is
+// constant (two--the source and destination of the memcpy).
+//
+// In order to avoid spending too much compile time, this operates on the level
+// of basic blocks instead of instructions, making it a conservative
+// analysis. See the comments in performStackMoveOptzn() for more details.
+//
+// Returns true if the analysis succeeded or false if it failed due to examining
+// too many basic blocks.
+static bool computeLiveness(BasicBlockLivenessMap &BBLiveness) {
+  // Start by initializing a worklist with all basic blocks that are live-in
+  // (i.e. they potentially need to propagate liveness to their predecessors).
+  SmallVector<BasicBlock *, 8> Worklist;
+  for (auto &Pair : BBLiveness) {
+    if (Pair.second.isLiveIn())
+      Worklist.push_back(Pair.first);
+  }
+
+  // Iterate until we have no more blocks to process.
+  unsigned Count = 0;
+  while (!Worklist.empty()) {
+    BasicBlock *BB = Worklist.back();
+    Worklist.pop_back();
+
+    // Cap the number of basic blocks we examine in order to avoid blowing up
+    // compile time. The default threshold was empirically determined to be
+    // sufficient 90% of the time in the Rust compiler.
+    ++Count;
+    if (Count >= MemCpyOptStackMoveThreshold) {
+      LLVM_DEBUG(
+          dbgs()
+          << "Stack Move: Exceeded max basic block threshold, bailing\n");
+      return false;
+    }
+
+    // We know that the alloca must be live-in to this basic block, or else we
+    // wouldn't have added the block to the worklist in the first place.
+    assert(BBLiveness.lookup(BB).isLiveIn() &&
+           "Shouldn't have added a BB that wasn't live-in to the worklist!");
+
+    // Propagate liveness back to predecessors.
+    for (BasicBlock *Pred : predecessors(BB)) {
+      BasicBlockLiveness PredLiveness = BBLiveness.lookup(Pred);
+
+      // Skip predecessors in which the variable is already known to be
+      // live-out.
+      if (!PredLiveness.isLiveOut()) {
+        PredLiveness.setLiveOut(true);
+
+        // Don't enqueue predecessors if they contain direct defs or uses of the
+        // variable. If a predecessor contains a use of the variable that
+        // dominates all the other uses or defs of the variable within that
+        // block, then we already added that predecessor to the worklist at the
+        // beginning of this procedure, so we don't need to add it again. If, on
+        // the other hand, the predecessor contains a definition of the variable
+        // that dominates all the other uses or defs of the variable within the
+        // block, then the predecessor won't propagate any liveness to *its*
+        // predecessors, so we don't need to enqueue it either.
+        if (!PredLiveness.hasDefUseInst()) {
+          // We know that this predecessor is a basic block that contains
+          // neither defs nor uses of the variable and in which the variable is
+          // live-out. So the variable must be live-in to this predecessor too.
+          PredLiveness.setLiveIn(true);
+          Worklist.push_back(Pred);
+        }
+
+        BBLiveness[Pred] = PredLiveness;
+      }
+    }
+  }
+
+  return true;
+}
+
+// Returns true if the alloca is at the start of the entry block, modulo a few
+// instructions like GEPs and debug info. We only perform the stack-move
+// optimization for such allocas, which simplifies the logic.
+static bool allocaIsAtStartOfEntryBlock(AllocaInst *AI) {
+  BasicBlock *BB = AI->getParent();
+  if (!BB->isEntryBlock()) {
+    LLVM_DEBUG(dbgs() << "Stack Move: Alloca isn't in entry block\n");
+    return false;
+  }
+
+  for (Instruction &I : *BB) {
+    if (&I == AI)
+      return true;
+    if (isa<AllocaInst>(I) || isa<GetElementPtrInst>(I) ||
+        isa<DbgInfoIntrinsic>(I) || I.isLifetimeStartOrEnd()) {
+      continue;
+    }
+    LLVM_DEBUG(
+        dbgs()
+        << "Stack Move: Alloca isn't at start of entry block\n  Instruction:"
+        << I << "\n");
+    return false;
+  }
+
+  llvm_unreachable("Alloca wasn't found in its parent basic block");
+}
+
+// Attempts to optimize the pattern whereby memory is copied from an alloca to
+// another alloca, where the two allocas aren't live simultaneously except
+// during the transfer. If successful, the two allocas can be merged into one
+// and the transfer can be deleted. This pattern is generated frequently in
+// Rust, due to the ubiquity of move operations in that language.
+//
+// We choose to limit this optimization to cases in which neither alloca was
+// captured, in order to avoid interprocedural analysis. As it turns out, the
+// same CaptureTracking framework that is needed to detect this condition also
+// turns out to be useful for gathering definitions and uses. So our general
+// approach is to run CaptureTracking to find captures and simultaneously gather
+// up uses and defs, followed by the standard liveness dataflow analysis to
+// ensure that the source and destination aren't simultaneously live anywhere.
+//
+// To avoid blowing up compile time, we perform the liveness analysis
+// conservatively on the basic block level rather than on the instruction level,
+// with the exception of the basic block containing the memcpy itself. This
+// means that any basic block that contains a use of both the source and
+// destination causes us to conservatively bail out, even if the source and
+// destination aren't actually simultaneously live. Empirically, this happens
+// less than 2% of the time in typical Rust code, making the
+// precision/compile-time tradeoff well worth it.
+//
+// Once we determine that the optimization is safe to perform, we replace all
+// uses of the destination alloca with the source alloca. We also "shrink wrap"
+// the lifetime markers of the single merged alloca to the nearest dominating
+// and postdominating basic block. Note that the "shrink wrapping" procedure is
+// a safe transformation only because we restrict the scope of this optimization
+// to allocas that aren't captured.
+bool MemCpyOptPass::performStackMoveOptzn(Instruction *Load, Instruction *Store,
+                                          AllocaInst *DestAlloca,
+                                          AllocaInst *SrcAlloca,
+                                          uint64_t Size) {
+  // If the optimization is disabled, forget it.
+  if (MemCpyOptStackMoveThreshold == 0)
+    return false;
+
+  LLVM_DEBUG(dbgs() << "Stack Move: Attempting to optimize:\n"
+                    << *Store << "\n");
+
+  // Make sure the two allocas are in the same address space.
+  if (SrcAlloca->getAddressSpace() != DestAlloca->getAddressSpace()) {
+    LLVM_DEBUG(dbgs() << "Stack Move: Address space mismatch\n");
+    return false;
+  }
+
+  // Calculate the static size of the allocas to be merged, bailing out if we
+  // can't.
+  const DataLayout &DL = DestAlloca->getModule()->getDataLayout();
+  std::optional<TypeSize> SrcSize = SrcAlloca->getAllocationSizeInBits(DL);
+  if (!SrcSize || SrcSize->isScalable() ||
+      Size * 8 != SrcSize->getFixedSize()) {
+    LLVM_DEBUG(dbgs() << "Stack Move: Source alloca size mismatch\n");
+    return false;
+  }
+  std::optional<TypeSize> DestSize = DestAlloca->getAllocationSizeInBits(DL);
+  if (!DestSize || DestSize->isScalable() ||
+      Size * 8 != DestSize->getFixedSize()) {
+    LLVM_DEBUG(dbgs() << "Stack Move: Destination alloca size mismatch\n");
+    return false;
+  }
+
+  // Make sure the allocas are at the start of the entry block. This lets us
+  // avoid having to do annoying checks to ensure the allocas dominate their
+  // uses, as well as problems related to llvm.stacksave and llvm.stackrestore
+  // intrinsics.
+  if (!allocaIsAtStartOfEntryBlock(DestAlloca) ||
+      !allocaIsAtStartOfEntryBlock(SrcAlloca)) {
+    return false;
+  }
+
+  // Gather up all uses of the destination. Make sure that it wasn't captured
+  // anywhere.
+  StackMoveTracker DestTracker(Store, DestAlloca, *DT, *PDT);
+  PointerMayBeCaptured(DestAlloca, &DestTracker);
+  if (DestTracker.Abort) {
+    LLVM_DEBUG({
+      dbgs() << "Stack Move: Destination was captured:";
+      if (DestTracker.AbortingUser != nullptr)
+        dbgs() << "\n" << *DestTracker.AbortingUser;
+      dbgs() << "\n";
+    });
+    return false;
+  }
+
+  // Likewise, collect all uses of the source, again making sure that it wasn't
+  // captured anywhere.
+  StackMoveTracker SrcTracker(Store, SrcAlloca, *DT, *PDT);
+  PointerMayBeCaptured(SrcAlloca, &SrcTracker);
+  if (SrcTracker.Abort) {
+    LLVM_DEBUG({
+      dbgs() << "Stack Move: Source was captured:";
+      if (SrcTracker.AbortingUser != nullptr)
+        dbgs() << "\n" << *SrcTracker.AbortingUser;
+      dbgs() << "\n";
+    });
+    return false;
+  }
+
+  // Compute liveness on the basic block level.
+  BasicBlock *StoreBB = Store->getParent();
+  if (!computeLiveness(DestTracker.BBLiveness) ||
+      !computeLiveness(SrcTracker.BBLiveness)) {
+    return false;
+  }
+
+  // Check for liveness conflicts on the basic block level (with the exception
+  // of the basic block containing the memcpy). This is conservative compared to
+  // computing liveness on the instruction level. The precision loss is only 2%
+  // on the Rust compiler, however, making this compile-time tradeoff
+  // worthwhile.
+  for (auto DestPair : DestTracker.BBLiveness) {
+    BasicBlock *BB = DestPair.first;
+    if (BB != StoreBB && DestPair.second.isLiveAnywhereOrHasUses() &&
+        SrcTracker.BBLiveness.lookup(BB).isLiveAnywhereOrHasUses()) {
+      LLVM_DEBUG(dbgs() << "Stack Move: Detected liveness conflict, "
+                           "bailing:\n  Basic Block: "
+                        << BB->getNameOrAsOperand() << "\n");
+      return false;
+    }
+  }
+
+  // Check liveness inside the single basic block containing the load and
+  // store.
+  bool DestLive = DestTracker.BBLiveness.lookup(StoreBB).isLiveOut();
+  bool SrcLive = SrcTracker.BBLiveness.lookup(StoreBB).isLiveOut();
+  for (auto &BI : reverse(*StoreBB)) {
+    if (DestLive && SrcLive && &BI != Load && &BI != Store) {
+      LLVM_DEBUG(
+          dbgs() << "Stack Move: Detected liveness conflict inside the basic "
+                    "block containing the memcpy, bailing:\n  Instruction: "
+                 << BI << "\n");
+      return false;
+    }
+
+    auto DestDefUseIt = DestTracker.StoreBBDefUseMap.find(&BI);
+    auto SrcDefUseIt = SrcTracker.StoreBBDefUseMap.find(&BI);
+    if (DestDefUseIt != DestTracker.StoreBBDefUseMap.end())
+      DestLive = !DestDefUseIt->second;
+    if (SrcDefUseIt != SrcTracker.StoreBBDefUseMap.end())
+      SrcLive = !SrcDefUseIt->second;
+  }
+
+  // We can do the transformation. First, align the allocas appropriately.
+  SrcAlloca->setAlignment(
+      std::max(SrcAlloca->getAlign(), DestAlloca->getAlign()));
+
+  // Merge the two allocas.
+  DestAlloca->replaceAllUsesWith(SrcAlloca);
+
+  // Drop metadata on the source alloca.
+  SrcAlloca->dropUnknownNonDebugMetadata();
+
+  // Now "shrink wrap" the lifetimes. Begin by creating a new lifetime start
+  // marker at the start of the nearest common dominator of all defs and uses of
+  // the merged alloca.
+  //
+  // We could be more precise here and query AA to find the latest point in the
+  // basic block at which to place the call to the intrinsic, but that doesn't
+  // seem worth it at the moment.
+  assert(DestTracker.Dom != nullptr && SrcTracker.Dom != nullptr &&
+         "There must be a common dominator for all defs and uses of the source "
+         "and destination");
+  Type *IntPtrTy =
+      Type::getIntNTy(SrcAlloca->getContext(), DL.getPointerSizeInBits());
+  ConstantInt *CI = cast<ConstantInt>(ConstantInt::get(IntPtrTy, Size));
+  BasicBlock *Dom =
+      DT->findNearestCommonDominator(DestTracker.Dom, SrcTracker.Dom);
+  BasicBlock::iterator InsertionPt = Dom->getFirstNonPHIOrDbgOrAlloca();
+  if (Dom == SrcAlloca->getParent() && InsertionPt != Dom->end() &&
+      InsertionPt->comesBefore(SrcAlloca)) {
+    // Make sure that the alloca dominates the lifetime start intrinsic.
+    // Usually, the call to getFirstNonPHIOrDbgOrAlloca() above ensures that,
+    // but if the allocas aren't all at the start of the basic block we might
+    // have to fix things up.
+    InsertionPt = ++BasicBlock::iterator(SrcAlloca);
+  }
+  IRBuilder<>(Dom, InsertionPt).CreateLifetimeStart(SrcAlloca, CI);
+
+  // Next, create a new lifetime end marker at the end of the nearest common
+  // postdominator of all defs and uses of the merged alloca, if there is one.
+  // If there's no such postdominator, just don't bother; we could create one at
+  // each exit block, but that'd be essentially semantically meaningless.
+  if (DestTracker.PostDom != nullptr && SrcTracker.PostDom != nullptr) {
+    if (BasicBlock *PostDom = PDT->findNearestCommonDominator(
+            DestTracker.PostDom, SrcTracker.PostDom)) {
+      // Edge case: It's possible that the terminating instruction of the
+      // postdominating basic block is itself an invoke instruction that uses
+      // the alloca. Placing the lifetime end intrinsic before that call would
+      // be incorrect. Detect this situation and choose the next postdominator
+      // instead.
+      MemoryLocation Loc = MemoryLocation::getBeforeOrAfter(SrcAlloca);
+      if (isModOrRefSet(AA->getModRefInfo(PostDom->getTerminator(), Loc))) {
+        auto PostDomNode = (*PDT)[PostDom]->getIDom();
+        PostDom = PostDomNode != nullptr ? PostDomNode->getBlock() : nullptr;
+      }
+
+      // Add the lifetime end intrinsic.
+      if (PostDom != nullptr) {
+        IRBuilder<>(PostDom, BasicBlock::iterator(PostDom->getTerminator()))
+            .CreateLifetimeEnd(SrcAlloca, CI);
+      }
+    }
+  }
+
+  // Remove all other lifetime markers.
+  for (IntrinsicInst *II : DestTracker.LifetimeMarkers)
+    eraseInstruction(II);
+  for (IntrinsicInst *II : SrcTracker.LifetimeMarkers)
+    eraseInstruction(II);
+
+  // As this transformation can cause memory accesses that didn't previously
+  // alias to begin to alias one another, we remove !noalias metadata from any
+  // uses of either alloca. This is conservative, but more precision doesn't
+  // seem worthwhile right now.
+  for (Instruction *I : DestTracker.NoAliasInstrs)
+    I->setMetadata(LLVMContext::MD_noalias, nullptr);
+  for (Instruction *I : SrcTracker.NoAliasInstrs)
+    I->setMetadata(LLVMContext::MD_noalias, nullptr);
+
+  // We're done! We don't need to delete the memcpy because later passes will do
+  // it.
+  LLVM_DEBUG(dbgs() << "Stack Move: Performed stack-move optimization\n");
+  ++NumStackMove;
+  return true;
+}
+
 /// Perform simplification of memcpy's.  If we have memcpy A
 /// which copies X to Y, and memcpy B which copies Y to Z, then we can rewrite
 /// B to be a memcpy from X to Z (or potentially a memmove, depending on
@@ -1490,13 +2093,14 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
   MemoryAccess *SrcClobber = MSSA->getWalker()->getClobberingMemoryAccess(
       AnyClobber, MemoryLocation::getForSource(M), BAA);
 
-  // There are four possible optimizations we can do for memcpy:
+  // There are five possible optimizations we can do for memcpy:
   //   a) memcpy-memcpy xform which exposes redundance for DSE.
   //   b) call-memcpy xform for return slot optimization.
   //   c) memcpy from freshly alloca'd space or space that has just started
   //      its lifetime copies undefined data, and we can therefore eliminate
   //      the memcpy in favor of the data that was already at the destination.
   //   d) memcpy from a just-memset'd source can be turned into memset.
+  //   e) elimination of memcpy via stack-move optimization.
   if (auto *MD = dyn_cast<MemoryDef>(SrcClobber)) {
     if (Instruction *MI = MD->getMemoryInst()) {
       if (auto *CopySize = dyn_cast<ConstantInt>(M->getLength())) {
@@ -1514,8 +2118,10 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
           }
         }
       }
-      if (auto *MDep = dyn_cast<MemCpyInst>(MI))
-        return processMemCpyMemCpyDependence(M, MDep, BAA);
+      if (auto *MDep = dyn_cast<MemCpyInst>(MI)) {
+        if (processMemCpyMemCpyDependence(M, MDep, BAA))
+          return true;
+      }
       if (auto *MDep = dyn_cast<MemSetInst>(MI)) {
         if (performMemCpyToMemSetOptzn(M, MDep, BAA)) {
           LLVM_DEBUG(dbgs() << "Converted memcpy to memset\n");
@@ -1532,6 +2138,26 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
       ++NumMemCpyInstr;
       return true;
     }
+  }
+
+  // If the transfer is from a stack slot to a stack slot, then we may be able
+  // to perform the stack-move optimization. See the comments in
+  // performStackMoveOptzn() for more details.
+  AllocaInst *DestAlloca = dyn_cast<AllocaInst>(M->getDest());
+  if (DestAlloca == nullptr)
+    return false;
+  AllocaInst *SrcAlloca = dyn_cast<AllocaInst>(M->getSource());
+  if (SrcAlloca == nullptr)
+    return false;
+  ConstantInt *Len = dyn_cast<ConstantInt>(M->getLength());
+  if (Len == nullptr)
+    return false;
+  if (performStackMoveOptzn(M, M, DestAlloca, SrcAlloca, Len->getZExtValue())) {
+    // Avoid invalidating the iterator.
+    BBI = M->getNextNonDebugInstruction()->getIterator();
+    eraseInstruction(M);
+    ++NumMemCpyInstr;
+    return true;
   }
 
   return false;
@@ -1689,9 +2315,10 @@ PreservedAnalyses MemCpyOptPass::run(Function &F, FunctionAnalysisManager &AM) {
   auto *AA = &AM.getResult<AAManager>(F);
   auto *AC = &AM.getResult<AssumptionAnalysis>(F);
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
+  auto *PDT = &AM.getResult<PostDominatorTreeAnalysis>(F);
   auto *MSSA = &AM.getResult<MemorySSAAnalysis>(F);
 
-  bool MadeChange = runImpl(F, &TLI, AA, AC, DT, &MSSA->getMSSA());
+  bool MadeChange = runImpl(F, &TLI, AA, AC, DT, PDT, &MSSA->getMSSA());
   if (!MadeChange)
     return PreservedAnalyses::all();
 
@@ -1703,12 +2330,14 @@ PreservedAnalyses MemCpyOptPass::run(Function &F, FunctionAnalysisManager &AM) {
 
 bool MemCpyOptPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                             AliasAnalysis *AA_, AssumptionCache *AC_,
-                            DominatorTree *DT_, MemorySSA *MSSA_) {
+                            DominatorTree *DT_, PostDominatorTree *PDT_,
+                            MemorySSA *MSSA_) {
   bool MadeChange = false;
   TLI = TLI_;
   AA = AA_;
   AC = AC_;
   DT = DT_;
+  PDT = PDT_;
   MSSA = MSSA_;
   MemorySSAUpdater MSSAU_(MSSA_);
   MSSAU = &MSSAU_;
@@ -1734,7 +2363,8 @@ bool MemCpyOptLegacyPass::runOnFunction(Function &F) {
   auto *AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto *PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   auto *MSSA = &getAnalysis<MemorySSAWrapperPass>().getMSSA();
 
-  return Impl.runImpl(F, TLI, AA, AC, DT, MSSA);
+  return Impl.runImpl(F, TLI, AA, AC, DT, PDT, MSSA);
 }
