@@ -158,9 +158,9 @@ define void @test_2(i1 %c) local_unnamed_addr {
 ; CHECK:       cond.true133:
 ; CHECK-NEXT:    br label [[COND_END144:%.*]]
 ; CHECK:       cond.false138:
-; CHECK-NEXT:    store ptr poison, ptr null, align 4294967296
 ; CHECK-NEXT:    br label [[COND_END144]]
 ; CHECK:       cond.end144:
+; CHECK-NEXT:    store ptr poison, ptr null, align 4294967296
 ; CHECK-NEXT:    br label [[WHILE_COND]]
 ;
 entry:
