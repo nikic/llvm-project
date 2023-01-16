@@ -135,6 +135,11 @@ static cl::opt<bool>
 AllowIVWidening("indvars-widen-indvars", cl::Hidden, cl::init(true),
                 cl::desc("Allow widening of indvars to eliminate s/zext"));
 
+static cl::opt<unsigned>
+MaxJoinedICmpsToAnalyze("indvars-max-joined-icmps", cl::Hidden, cl::init(8),
+                        cl::desc("Max amount of ICmp's joined via AND/OR to "
+                                 "apply complex analyzes for."));
+
 namespace {
 
 class IndVarSimplify {
@@ -1465,11 +1470,47 @@ static bool optimizeLoopExitWithUnknownExitCount(
           LeafConditions.push_back(ICmp);
   } while (!Worklist.empty());
 
+  // If the number of conditions is reasonably small, and this block is the last
+  // block without SkipLastIter, we can try to apply SkipLastIter to some of its
+  // conditions if there is another condition that gives the very same exit
+  // count.
+  bool TryMoreOptimisticLastIter = false;
+  if (!SkipLastIter && LeafConditions.size() <= MaxJoinedICmpsToAnalyze &&
+      SE->getExitCount(L, ExitingBB,
+                       ScalarEvolution::ExitCountKind::SymbolicMaximum) ==
+          MaxIter)
+    TryMoreOptimisticLastIter = true;
+
   bool Changed = false;
-  for (auto *OldCond : LeafConditions)
+  for (size_t i = 0; i < LeafConditions.size(); ++i) {
+    auto *OldCond = LeafConditions[i];
+    bool OptimisticSkipLastIter = SkipLastIter;
+    if (TryMoreOptimisticLastIter) {
+      for (size_t j = 0; j < LeafConditions.size(); j++)
+        if (i != j) {
+          auto EL = SE->computeExitLimitFromCond(L, LeafConditions[j], Inverted,
+                                                 /*ControlsExit*/ false);
+          // If something is going to exit on the last iteration, all other leaf
+          // conditions may skip it.
+          auto *ExitMax = EL.SymbolicMaxNotTaken;
+          if (!isa<SCEVCouldNotCompute>(ExitMax)) {
+            // They could be of different types (specifically this happens after
+            // IV widening).
+            auto *WiderType =
+                SE->getWiderType(ExitMax->getType(), MaxIter->getType());
+            auto *WideExitMax = SE->getNoopOrZeroExtend(ExitMax, WiderType);
+            auto *WideMaxIter = SE->getNoopOrZeroExtend(MaxIter, WiderType);
+            if (WideExitMax == WideMaxIter) {
+              OptimisticSkipLastIter = true;
+              break;
+            }
+          }
+        }
+    }
+
     if (auto Replaced =
             createReplacement(OldCond, L, ExitingBB, MaxIter, Inverted,
-                              SkipLastIter, SE, Rewriter)) {
+                              OptimisticSkipLastIter, SE, Rewriter)) {
       Changed = true;
       auto *NewCond = *Replaced;
       if (auto *NCI = dyn_cast<Instruction>(NewCond)) {
@@ -1482,6 +1523,7 @@ static bool optimizeLoopExitWithUnknownExitCount(
       OldCond->replaceAllUsesWith(NewCond);
       DeadInsts.push_back(OldCond);
     }
+  }
   return Changed;
 }
 
