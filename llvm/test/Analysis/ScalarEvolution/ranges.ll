@@ -126,3 +126,329 @@ loop:
   %shr = lshr i32 %range.1, 1
   br label %loop
 }
+
+define void @add_1(i32 %n) {
+; CHECK-LABEL: 'add_1'
+; CHECK-NEXT:  Classifying expressions for: @add_1
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,-2147483648) Exits: %n LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 1
+; CHECK-NEXT:    --> {1,+,1}<nuw><%loop> U: [1,0) S: [1,0) Exits: (1 + %n) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_1
+; CHECK-NEXT:  Loop %loop: backedge-taken count is %n
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is %n
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is %n
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %loop: Trip multiple is 1
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add nsw i32 %iv, 1
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}
+
+define void @add_2(i32 %n) {
+; CHECK-LABEL: 'add_2'
+; CHECK-NEXT:  Classifying expressions for: @add_2
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,2}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,2147483647) Exits: (2 * ((1 + %n) /u 2))<nuw> LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 2
+; CHECK-NEXT:    --> {2,+,2}<nuw><%loop> U: [2,-1) S: [-2147483648,2147483647) Exits: (2 + (2 * ((1 + %n) /u 2))<nuw>) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_2
+; CHECK-NEXT:  Loop %loop: backedge-taken count is ((1 + %n) /u 2)
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 2147483647
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((1 + %n) /u 2)
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((1 + %n) /u 2)
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %loop: Trip multiple is 1
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add nsw i32 %iv, 2
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}
+define void @add_3(i32 %n) {
+; CHECK-LABEL: 'add_3'
+; CHECK-NEXT:  Classifying expressions for: @add_3
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,3}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,-2147483648) Exits: (3 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 3) + (1 umin %n))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 3
+; CHECK-NEXT:    --> {3,+,3}<nuw><%loop> U: [3,0) S: [3,0) Exits: (3 + (3 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 3) + (1 umin %n)))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_3
+; CHECK-NEXT:  Loop %loop: backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 3) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 1431655765
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 3) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 3) + (1 umin %n))
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %loop: Trip multiple is 1
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add nsw i32 %iv, 3
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}
+define void @add_4(i32 %n) {
+; CHECK-LABEL: 'add_4'
+; CHECK-NEXT:  Classifying expressions for: @add_4
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,4}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,2147483645) Exits: (4 * ((3 + %n) /u 4))<nuw> LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 4
+; CHECK-NEXT:    --> {4,+,4}<nuw><%loop> U: [4,-3) S: [-2147483648,2147483645) Exits: (4 + (4 * ((3 + %n) /u 4))<nuw>) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_4
+; CHECK-NEXT:  Loop %loop: backedge-taken count is ((3 + %n) /u 4)
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 1073741823
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((3 + %n) /u 4)
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((3 + %n) /u 4)
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %loop: Trip multiple is 1
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add nsw i32 %iv, 4
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}
+define void @add_5(i32 %n) {
+; CHECK-LABEL: 'add_5'
+; CHECK-NEXT:  Classifying expressions for: @add_5
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,5}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,-2147483648) Exits: (5 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 5) + (1 umin %n))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 5
+; CHECK-NEXT:    --> {5,+,5}<nuw><%loop> U: [5,0) S: [5,0) Exits: (5 + (5 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 5) + (1 umin %n)))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_5
+; CHECK-NEXT:  Loop %loop: backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 5) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 858993459
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 5) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 5) + (1 umin %n))
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %loop: Trip multiple is 1
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add nsw i32 %iv, 5
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}
+define void @add_6(i32 %n) {
+; CHECK-LABEL: 'add_6'
+; CHECK-NEXT:  Classifying expressions for: @add_6
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,6}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,2147483647) Exits: (6 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 6) + (1 umin %n))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 6
+; CHECK-NEXT:    --> {6,+,6}<nuw><%loop> U: [6,-3) S: [-2147483648,2147483647) Exits: (6 + (6 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 6) + (1 umin %n)))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_6
+; CHECK-NEXT:  Loop %loop: backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 6) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 715827882
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 6) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 6) + (1 umin %n))
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %loop: Trip multiple is 1
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add nsw i32 %iv, 6
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}
+define void @add_7(i32 %n) {
+; CHECK-LABEL: 'add_7'
+; CHECK-NEXT:  Classifying expressions for: @add_7
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,7}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,-2147483648) Exits: (7 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 7
+; CHECK-NEXT:    --> {7,+,7}<nuw><%loop> U: [7,-3) S: [7,0) Exits: (7 + (7 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n)))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_7
+; CHECK-NEXT:  Loop %loop: backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 613566756
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %loop: Trip multiple is 1
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add nsw i32 %iv, 7
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}
+define void @add_8(i32 %n) {
+; CHECK-LABEL: 'add_8'
+; CHECK-NEXT:  Classifying expressions for: @add_8
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,8}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,2147483641) Exits: (8 * ((7 + %n) /u 8))<nuw> LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 8
+; CHECK-NEXT:    --> {8,+,8}<nuw><%loop> U: [8,-7) S: [-2147483648,2147483641) Exits: (8 + (8 * ((7 + %n) /u 8))<nuw>) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_8
+; CHECK-NEXT:  Loop %loop: backedge-taken count is ((7 + %n) /u 8)
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 536870911
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((7 + %n) /u 8)
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((7 + %n) /u 8)
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %loop: Trip multiple is 1
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add nsw i32 %iv, 8
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}
+
+define void @add_9(i32 %n) {
+; CHECK-LABEL: 'add_9'
+; CHECK-NEXT:  Classifying expressions for: @add_9
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,9}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,-2147483648) Exits: (9 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 9) + (1 umin %n))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 9
+; CHECK-NEXT:    --> {9,+,9}<nuw><%loop> U: [9,-3) S: [9,0) Exits: (9 + (9 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 9) + (1 umin %n)))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_9
+; CHECK-NEXT:  Loop %loop: backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 9) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 477218588
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 9) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 9) + (1 umin %n))
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %loop: Trip multiple is 1
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add nsw i32 %iv, 9
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}
+
+define void @add_10(i32 %n) {
+; CHECK-LABEL: 'add_10'
+; CHECK-NEXT:  Classifying expressions for: @add_10
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,10}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,2147483647) Exits: (10 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 10) + (1 umin %n))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 10
+; CHECK-NEXT:    --> {10,+,10}<nuw><%loop> U: [10,-5) S: [-2147483648,2147483647) Exits: (10 + (10 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 10) + (1 umin %n)))) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_10
+; CHECK-NEXT:  Loop %loop: backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 10) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 429496729
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 10) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 10) + (1 umin %n))
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %loop: Trip multiple is 1
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add nsw i32 %iv, 10
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}
+
+define void @add_8_nowrap(i32 %n) {
+; CHECK-LABEL: 'add_8_nowrap'
+; CHECK-NEXT:  Classifying expressions for: @add_8_nowrap
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,8}<%loop> U: [0,-7) S: [-2147483648,2147483641) Exits: <<Unknown>> LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add i32 %iv, 8
+; CHECK-NEXT:    --> {8,+,8}<%loop> U: [0,-7) S: [-2147483648,2147483641) Exits: <<Unknown>> LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_8_nowrap
+; CHECK-NEXT:  Loop %loop: Unpredictable backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable constant max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable symbolic max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable predicated backedge-taken count.
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add i32 %iv, 8
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}
+
+define void @add_10_nowrap(i32 %n) {
+; CHECK-LABEL: 'add_10_nowrap'
+; CHECK-NEXT:  Classifying expressions for: @add_10_nowrap
+; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+; CHECK-NEXT:    --> {0,+,10}<%loop> U: [0,-1) S: [-2147483648,2147483647) Exits: <<Unknown>> LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    %iv.inc = add i32 %iv, 10
+; CHECK-NEXT:    --> {10,+,10}<%loop> U: [0,-1) S: [-2147483648,2147483647) Exits: <<Unknown>> LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:  Determining loop execution counts for: @add_10_nowrap
+; CHECK-NEXT:  Loop %loop: Unpredictable backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable constant max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable symbolic max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable predicated backedge-taken count.
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
+  %iv.inc = add i32 %iv, 10
+  %becond = icmp ult i32 %iv, %n
+  br i1 %becond, label %loop, label %leave
+
+leave:
+  ret void
+}

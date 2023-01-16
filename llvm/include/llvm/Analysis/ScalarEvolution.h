@@ -953,11 +953,22 @@ public:
   /// and recompute is simpler.
   void forgetBlockAndLoopDispositions(Value *V = nullptr);
 
+  /// Determine the maximum constant multiple C such that `S % C == 0`. This
+  /// assumes that S is an unsigned SCEV. If S does not guarentee no unsigned
+  /// wrap, then we compute the max multiple such that the multiple is a power
+  /// of 2. Multiples that are powers of 2 will still divide S even if S wraps.
+  ///
+  /// If S is a multiple of 0, than any integer is a multiple of S. We return 0
+  /// in this case.
+  APInt getMaxConstantMultiple(const SCEV *S);
+
+  APInt getMaxNonZeroConstantMultiple(const SCEV *S);
+
   /// Determine the minimum number of zero bits that S is guaranteed to end in
   /// (at every loop iteration).  It is, at the same time, the minimum number
   /// of times S is divisible by 2.  For example, given {4,+,8} it returns 2.
   /// If S is guaranteed to be 0, it returns the bitwidth of S.
-  uint32_t GetMinTrailingZeros(const SCEV *S);
+  uint32_t getMinTrailingZeros(const SCEV *S);
 
   /// Determine the unsigned range for a particular SCEV.
   /// NOTE: This returns a copy of the reference returned by getRangeRef.
@@ -1356,14 +1367,14 @@ private:
   /// predicate by splitting it into a set of independent predicates.
   bool ProvingSplitPredicate = false;
 
-  /// Memoized values for the GetMinTrailingZeros
-  DenseMap<const SCEV *, uint32_t> MinTrailingZerosCache;
+  /// Memoized values for the GetMaxConstantTripMultiple
+  DenseMap<const SCEV *, APInt> MaxConstantTripMultipleCache;
 
   /// Return the Value set from which the SCEV expr is generated.
   ArrayRef<Value *> getSCEVValues(const SCEV *S);
 
-  /// Private helper method for the GetMinTrailingZeros method
-  uint32_t GetMinTrailingZerosImpl(const SCEV *S);
+  /// Private helper method for the GetMaxConstantTripMultiple method
+  APInt getMaxConstantMultipleImpl(const SCEV *S);
 
   /// Information about the number of loop iterations for which a loop exit's
   /// branch condition evaluates to the not-taken path.  This is a temporary
