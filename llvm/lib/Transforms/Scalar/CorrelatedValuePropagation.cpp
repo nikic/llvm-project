@@ -1053,11 +1053,11 @@ static bool processBinOp(BinaryOperator *BinOp, LazyValueInfo *LVI) {
     return false;
 
   Instruction::BinaryOps Opcode = BinOp->getOpcode();
-  Value *LHS = BinOp->getOperand(0);
-  Value *RHS = BinOp->getOperand(1);
+  const Use &LHS = BinOp->getOperandUse(0);
+  const Use &RHS = BinOp->getOperandUse(1);
 
-  ConstantRange LRange = LVI->getConstantRange(LHS, BinOp);
-  ConstantRange RRange = LVI->getConstantRange(RHS, BinOp);
+  ConstantRange LRange = LVI->getConstantRangeAtUse(LHS, BinOp);
+  ConstantRange RRange = LVI->getConstantRangeAtUse(RHS, BinOp);
 
   bool Changed = false;
   bool NewNUW = false, NewNSW = false;

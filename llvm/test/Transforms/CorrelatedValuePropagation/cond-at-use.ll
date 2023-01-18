@@ -533,7 +533,7 @@ define i32 @sext_convert(i16 %x) {
 
 define i16 @infer_flags(i16 %x) {
 ; CHECK-LABEL: @infer_flags(
-; CHECK-NEXT:    [[ADD:%.*]] = add i16 [[X:%.*]], 42
+; CHECK-NEXT:    [[ADD:%.*]] = add nuw nsw i16 [[X:%.*]], 42
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i16 [[X]], 100
 ; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[CMP]], i16 [[ADD]], i16 24
 ; CHECK-NEXT:    ret i16 [[SEL]]
