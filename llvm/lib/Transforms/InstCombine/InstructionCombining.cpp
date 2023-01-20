@@ -2031,11 +2031,15 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
     if (SrcGEP->getNumOperands() == 2 && shouldMergeGEPs(*Src, *SrcGEP))
       return nullptr;   // Wait until our source is folded to completion.
 
+  // Only try to combine GEPs if the source has one use or is a constant GEP,
+  // otherwise we will duplicate index arithmetic.
+  if (!Src->hasOneUse() && !Src->hasAllConstantIndices())
+    return nullptr;
+
   // For constant GEPs, use a more general offset-based folding approach.
   // Only do this for opaque pointers, as the result element type may change.
   Type *PtrTy = Src->getType()->getScalarType();
-  if (PtrTy->isOpaquePointerTy() && GEP.hasAllConstantIndices() &&
-      (Src->hasOneUse() || Src->hasAllConstantIndices())) {
+  if (PtrTy->isOpaquePointerTy() && GEP.hasAllConstantIndices()) {
     // Split Src into a variable part and a constant suffix.
     gep_type_iterator GTI = gep_type_begin(*Src);
     Type *BaseType = GTI.getIndexedType();
