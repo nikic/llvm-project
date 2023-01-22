@@ -366,6 +366,17 @@ void SCEV::print(raw_ostream &OS) const {
     OS << "(" << *UDiv->getLHS() << " /u " << *UDiv->getRHS() << ")";
     return;
   }
+
+  case scSelectExpr: {
+    const SCEVSelectExpr *Sel = cast<SCEVSelectExpr>(this);
+    OS << "(select ";
+    ListSeparator LS(", ");
+    for (const SCEV *Op : Sel->operands())
+      OS << LS << *Op;
+    OS << ")";
+    return;
+  }
+
   case scUnknown: {
     const SCEVUnknown *U = cast<SCEVUnknown>(this);
     Type *AllocTy;
@@ -422,6 +433,8 @@ Type *SCEV::getType() const {
     return cast<SCEVAddExpr>(this)->getType();
   case scUDivExpr:
     return cast<SCEVUDivExpr>(this)->getType();
+  case scSelectExpr:
+    return cast<SCEVSelectExpr>(this)->getType();
   case scUnknown:
     return cast<SCEVUnknown>(this)->getType();
   case scCouldNotCompute:
@@ -451,6 +464,8 @@ ArrayRef<const SCEV *> SCEV::operands() const {
     return cast<SCEVNAryExpr>(this)->operands();
   case scUDivExpr:
     return cast<SCEVUDivExpr>(this)->operands();
+  case scSelectExpr:
+    return cast<SCEVSelectExpr>(this)->operands();
   case scCouldNotCompute:
     llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
   }
@@ -827,56 +842,29 @@ CompareSCEVComplexity(EquivalenceClasses<const SCEV *> &EqCacheSCEV,
   case scUMaxExpr:
   case scSMinExpr:
   case scUMinExpr:
-  case scSequentialUMinExpr: {
-    const SCEVNAryExpr *LC = cast<SCEVNAryExpr>(LHS);
-    const SCEVNAryExpr *RC = cast<SCEVNAryExpr>(RHS);
+  case scSequentialUMinExpr:
+  case scSelectExpr:
+  case scUDivExpr:
+  case scPtrToInt:
+  case scTruncate:
+  case scZeroExtend:
+  case scSignExtend: {
+    ArrayRef LOps = LHS->operands();
+    ArrayRef ROps = RHS->operands();
 
-    // Lexicographically compare n-ary expressions.
-    unsigned LNumOps = LC->getNumOperands(), RNumOps = RC->getNumOperands();
+    // Lexicographically compare simple n-ary-like expressions.
+    unsigned LNumOps = LOps.size(), RNumOps = ROps.size();
     if (LNumOps != RNumOps)
       return (int)LNumOps - (int)RNumOps;
 
     for (unsigned i = 0; i != LNumOps; ++i) {
-      auto X = CompareSCEVComplexity(EqCacheSCEV, EqCacheValue, LI,
-                                     LC->getOperand(i), RC->getOperand(i), DT,
-                                     Depth + 1);
+      auto X = CompareSCEVComplexity(EqCacheSCEV, EqCacheValue, LI, LOps[i],
+                                     ROps[i], DT, Depth + 1);
       if (X != 0)
         return X;
     }
     EqCacheSCEV.unionSets(LHS, RHS);
     return 0;
-  }
-
-  case scUDivExpr: {
-    const SCEVUDivExpr *LC = cast<SCEVUDivExpr>(LHS);
-    const SCEVUDivExpr *RC = cast<SCEVUDivExpr>(RHS);
-
-    // Lexicographically compare udiv expressions.
-    auto X = CompareSCEVComplexity(EqCacheSCEV, EqCacheValue, LI, LC->getLHS(),
-                                   RC->getLHS(), DT, Depth + 1);
-    if (X != 0)
-      return X;
-    X = CompareSCEVComplexity(EqCacheSCEV, EqCacheValue, LI, LC->getRHS(),
-                              RC->getRHS(), DT, Depth + 1);
-    if (X == 0)
-      EqCacheSCEV.unionSets(LHS, RHS);
-    return X;
-  }
-
-  case scPtrToInt:
-  case scTruncate:
-  case scZeroExtend:
-  case scSignExtend: {
-    const SCEVCastExpr *LC = cast<SCEVCastExpr>(LHS);
-    const SCEVCastExpr *RC = cast<SCEVCastExpr>(RHS);
-
-    // Compare cast expressions by operand.
-    auto X =
-        CompareSCEVComplexity(EqCacheSCEV, EqCacheValue, LI, LC->getOperand(),
-                              RC->getOperand(), DT, Depth + 1);
-    if (X == 0)
-      EqCacheSCEV.unionSets(LHS, RHS);
-    return X;
   }
 
   case scCouldNotCompute:
@@ -4129,6 +4117,8 @@ public:
     return visitAnyMinMaxExpr(Expr);
   }
 
+  RetVal visitSelectExpr(const SCEVSelectExpr *Expr) { return Expr; }
+
   RetVal visitUnknown(const SCEVUnknown *Expr) { return Expr; }
 
   RetVal visitCouldNotCompute(const SCEVCouldNotCompute *Expr) { return Expr; }
@@ -4279,6 +4269,8 @@ ScalarEvolution::getSequentialMinMaxExpr(SCEVTypes Kind,
     }
   }
 
+  // FIXME: for i1-typed sequential min/max's, canonicalize to select.
+
   // Okay, it looks like we really DO need an expr.  Check to see if we
   // already have one, otherwise create a new one.
   FoldingSetNodeID ID;
@@ -4338,6 +4330,50 @@ const SCEV *ScalarEvolution::getUMinExpr(SmallVectorImpl<const SCEV *> &Ops,
                                          bool Sequential) {
   return Sequential ? getSequentialMinMaxExpr(scSequentialUMinExpr, Ops)
                     : getMinMaxExpr(scUMinExpr, Ops);
+}
+
+const SCEV *ScalarEvolution::getSelectExpr(ArrayRef<const SCEV *> Ops) {
+  static constexpr SCEVTypes Kind = scSelectExpr;
+
+  assert(Ops.size() == 3 && "Unexpected operand count to the select!");
+  assert(Ops[0]->getType()->isIntegerTy(1) && "First operand must be bool!");
+  assert(Ops[1]->getType()->isPointerTy() == Ops[2]->getType()->isPointerTy() &&
+         getEffectiveSCEVType(Ops[1]->getType()) ==
+             getEffectiveSCEVType(Ops[2]->getType()) &&
+         "Types of select's hands do not match!");
+
+  // Check if we have created the same expression before.
+  if (const SCEV *S = findExistingSCEVInCache(Kind, Ops))
+    return S;
+
+  // FIXME: perform simplifications.
+  // FIXME: perform `createNonSelectNodeForSelectOrPHIInstWithICmpInstCond()`
+  // here?
+
+  // If both hands of select are identical, just return one of them.
+  if (Ops[1] == Ops[2])
+    return Ops[1];
+
+  // Have we succeeded in constant-folding the condition?
+  if (auto *CondConst = dyn_cast<SCEVConstant>(Ops[0]))
+    return CondConst->isOne() ? Ops[1] : Ops[2];
+
+  // Okay, it looks like we really DO need an expr.  Check to see if we
+  // already have one, otherwise create a new one.
+  FoldingSetNodeID ID;
+  ID.AddInteger(Kind);
+  for (const SCEV *Op : Ops)
+    ID.AddPointer(Op);
+  void *IP = nullptr;
+  const SCEV *ExistingSCEV = UniqueSCEVs.FindNodeOrInsertPos(ID, IP);
+  if (ExistingSCEV)
+    return ExistingSCEV;
+
+  SCEV *S = new (SCEVAllocator) SCEVSelectExpr(ID.Intern(SCEVAllocator), Ops);
+
+  UniqueSCEVs.InsertNode(S, IP);
+  registerUser(S, Ops);
+  return S;
 }
 
 const SCEV *
@@ -5933,6 +5969,7 @@ static bool IsAvailableOnEntry(const Loop *L, DominatorTree &DT, const SCEV *S,
       case scUMinExpr:
       case scSMinExpr:
       case scSequentialUMinExpr:
+      case scSelectExpr:
         // These expressions are available if their operand(s) is/are.
         return true;
 
@@ -6103,8 +6140,10 @@ bool SCEVMinMaxExprContains(const SCEV *Root, const SCEV *OperandToFind,
   return FC.Found;
 }
 
-const SCEV *ScalarEvolution::createNodeForSelectOrPHIInstWithICmpInstCond(
-    Instruction *I, ICmpInst *Cond, Value *TrueVal, Value *FalseVal) {
+// FIXME: this should be done in `ScalarEvolution::getSelectExpr()`.
+const std::optional<const SCEV *>
+ScalarEvolution::createNonSelectNodeForSelectOrPHIInstWithICmpInstCond(
+    Type *Ty, ICmpInst *Cond, Value *TrueVal, Value *FalseVal) {
   // Try to match some simple smax or umax patterns.
   auto *ICI = Cond;
 
@@ -6124,7 +6163,7 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHIInstWithICmpInstCond(
   case ICmpInst::ICMP_UGE:
     // a > b ? a+x : b+x  ->  max(a, b)+x
     // a > b ? b+x : a+x  ->  min(a, b)+x
-    if (getTypeSizeInBits(LHS->getType()) <= getTypeSizeInBits(I->getType())) {
+    if (getTypeSizeInBits(LHS->getType()) <= getTypeSizeInBits(Ty)) {
       bool Signed = ICI->isSigned();
       const SCEV *LA = getSCEV(TrueVal);
       const SCEV *RA = getSCEV(FalseVal);
@@ -6146,9 +6185,9 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHIInstWithICmpInstCond(
             return Op;
         }
         if (Signed)
-          Op = getNoopOrSignExtend(Op, I->getType());
+          Op = getNoopOrSignExtend(Op, Ty);
         else
-          Op = getNoopOrZeroExtend(Op, I->getType());
+          Op = getNoopOrZeroExtend(Op, Ty);
         return Op;
       };
       LS = CoerceOperand(LS);
@@ -6173,9 +6212,9 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHIInstWithICmpInstCond(
     [[fallthrough]];
   case ICmpInst::ICMP_EQ:
     // x == 0 ? C+y : x+y  ->  umax(x, C)+y   iff C u<= 1
-    if (getTypeSizeInBits(LHS->getType()) <= getTypeSizeInBits(I->getType()) &&
+    if (getTypeSizeInBits(LHS->getType()) <= getTypeSizeInBits(Ty) &&
         isa<ConstantInt>(RHS) && cast<ConstantInt>(RHS)->isZero()) {
-      const SCEV *X = getNoopOrZeroExtend(getSCEV(LHS), I->getType());
+      const SCEV *X = getNoopOrZeroExtend(getSCEV(LHS), Ty);
       const SCEV *TrueValExpr = getSCEV(TrueVal);    // C+y
       const SCEV *FalseValExpr = getSCEV(FalseVal);  // x+y
       const SCEV *Y = getMinusSCEV(FalseValExpr, X); // y = (x+y)-x
@@ -6192,10 +6231,10 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHIInstWithICmpInstCond(
       const SCEV *X = getSCEV(LHS);
       while (auto *ZExt = dyn_cast<SCEVZeroExtendExpr>(X))
         X = ZExt->getOperand();
-      if (getTypeSizeInBits(X->getType()) <= getTypeSizeInBits(I->getType())) {
+      if (getTypeSizeInBits(X->getType()) <= getTypeSizeInBits(Ty)) {
         const SCEV *FalseValExpr = getSCEV(FalseVal);
         if (SCEVMinMaxExprContains(FalseValExpr, X, scSequentialUMinExpr))
-          return getUMinExpr(getNoopOrZeroExtend(X, I->getType()), FalseValExpr,
+          return getUMinExpr(getNoopOrZeroExtend(X, Ty), FalseValExpr,
                              /*Sequential=*/true);
       }
     }
@@ -6204,70 +6243,7 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHIInstWithICmpInstCond(
     break;
   }
 
-  return getUnknown(I);
-}
-
-static std::optional<const SCEV *>
-createNodeForSelectViaUMinSeq(ScalarEvolution *SE, const SCEV *CondExpr,
-                              const SCEV *TrueExpr, const SCEV *FalseExpr) {
-  assert(CondExpr->getType()->isIntegerTy(1) &&
-         TrueExpr->getType() == FalseExpr->getType() &&
-         TrueExpr->getType()->isIntegerTy(1) &&
-         "Unexpected operands of a select.");
-
-  // i1 cond ? i1 x : i1 C  -->  C + (i1  cond ? (i1 x - i1 C) : i1 0)
-  //                        -->  C + (umin_seq  cond, x - C)
-  //
-  // i1 cond ? i1 C : i1 x  -->  C + (i1  cond ? i1 0 : (i1 x - i1 C))
-  //                        -->  C + (i1 ~cond ? (i1 x - i1 C) : i1 0)
-  //                        -->  C + (umin_seq ~cond, x - C)
-
-  // FIXME: while we can't legally model the case where both of the hands
-  // are fully variable, we only require that the *difference* is constant.
-  if (!isa<SCEVConstant>(TrueExpr) && !isa<SCEVConstant>(FalseExpr))
-    return std::nullopt;
-
-  const SCEV *X, *C;
-  if (isa<SCEVConstant>(TrueExpr)) {
-    CondExpr = SE->getNotSCEV(CondExpr);
-    X = FalseExpr;
-    C = TrueExpr;
-  } else {
-    X = TrueExpr;
-    C = FalseExpr;
-  }
-  return SE->getAddExpr(C, SE->getUMinExpr(CondExpr, SE->getMinusSCEV(X, C),
-                                           /*Sequential=*/true));
-}
-
-static std::optional<const SCEV *>
-createNodeForSelectViaUMinSeq(ScalarEvolution *SE, Value *Cond, Value *TrueVal,
-                              Value *FalseVal) {
-  if (!isa<ConstantInt>(TrueVal) && !isa<ConstantInt>(FalseVal))
-    return std::nullopt;
-
-  const auto *SECond = SE->getSCEV(Cond);
-  const auto *SETrue = SE->getSCEV(TrueVal);
-  const auto *SEFalse = SE->getSCEV(FalseVal);
-  return createNodeForSelectViaUMinSeq(SE, SECond, SETrue, SEFalse);
-}
-
-const SCEV *ScalarEvolution::createNodeForSelectOrPHIViaUMinSeq(
-    Value *V, Value *Cond, Value *TrueVal, Value *FalseVal) {
-  assert(Cond->getType()->isIntegerTy(1) && "Select condition is not an i1?");
-  assert(TrueVal->getType() == FalseVal->getType() &&
-         V->getType() == TrueVal->getType() &&
-         "Types of select hands and of the result must match.");
-
-  // For now, only deal with i1-typed `select`s.
-  if (!V->getType()->isIntegerTy(1))
-    return getUnknown(V);
-
-  if (std::optional<const SCEV *> S =
-          createNodeForSelectViaUMinSeq(this, Cond, TrueVal, FalseVal))
-    return *S;
-
-  return getUnknown(V);
+  return std::nullopt;
 }
 
 const SCEV *ScalarEvolution::createNodeForSelectOrPHI(Value *V, Value *Cond,
@@ -6280,14 +6256,14 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHI(Value *V, Value *Cond,
 
   if (auto *I = dyn_cast<Instruction>(V)) {
     if (auto *ICI = dyn_cast<ICmpInst>(Cond)) {
-      const SCEV *S = createNodeForSelectOrPHIInstWithICmpInstCond(
-          I, ICI, TrueVal, FalseVal);
-      if (!isa<SCEVUnknown>(S))
-        return S;
+      if (std::optional<const SCEV *> S =
+              createNonSelectNodeForSelectOrPHIInstWithICmpInstCond(
+                  I->getType(), ICI, TrueVal, FalseVal))
+        return *S;
     }
   }
 
-  return createNodeForSelectOrPHIViaUMinSeq(V, Cond, TrueVal, FalseVal);
+  return getSelectExpr({getSCEV(Cond), getSCEV(TrueVal), getSCEV(FalseVal)});
 }
 
 /// Expand GEP instructions into add and multiply operations. This allows them
@@ -6774,6 +6750,14 @@ const ConstantRange &ScalarEvolution::getRangeRef(
     return setRange(S, SignHint,
                     ConservativeResult.intersectWith(X, RangeType));
   }
+  case scSelectExpr: {
+    const SCEVSelectExpr *Sel = cast<SCEVSelectExpr>(S);
+    ConstantRange T = getRangeRef(Sel->getTrueValue(), SignHint, Depth + 1);
+    ConstantRange F = getRangeRef(Sel->getFalseValue(), SignHint, Depth + 1);
+    return setRange(
+        Sel, SignHint,
+        ConservativeResult.intersectWith(T.unionWith(F), RangeType));
+  }
   case scUnknown: {
     const SCEVUnknown *U = cast<SCEVUnknown>(S);
 
@@ -7035,7 +7019,7 @@ ConstantRange ScalarEvolution::getRangeViaFactoring(const SCEV *Start,
   // == RangeOf({A,+,P}) union RangeOf({B,+,Q})
 
   struct SelectPattern {
-    Value *Condition = nullptr;
+    const SCEV *Condition = nullptr;
     APInt TrueValue;
     APInt FalseValue;
 
@@ -7066,17 +7050,20 @@ ConstantRange ScalarEvolution::getRangeViaFactoring(const SCEV *Start,
 
       using namespace llvm::PatternMatch;
 
-      auto *SU = dyn_cast<SCEVUnknown>(S);
-      const APInt *TrueVal, *FalseVal;
-      if (!SU ||
-          !match(SU->getValue(), m_Select(m_Value(Condition), m_APInt(TrueVal),
-                                          m_APInt(FalseVal)))) {
+      auto *SelExpr = dyn_cast<SCEVSelectExpr>(S);
+      const SCEVConstant *TrueConst = nullptr, *FalseConst = nullptr;
+      if (SelExpr) {
+        Condition = SelExpr->getCondition();
+        TrueConst = dyn_cast<SCEVConstant>(SelExpr->getTrueValue());
+        FalseConst = dyn_cast<SCEVConstant>(SelExpr->getFalseValue());
+      }
+      if (!TrueConst || !FalseConst) {
         Condition = nullptr;
         return;
       }
 
-      TrueValue = *TrueVal;
-      FalseValue = *FalseVal;
+      TrueValue = TrueConst->getAPInt();
+      FalseValue = FalseConst->getAPInt();
 
       // Re-apply the cast we peeled off earlier
       if (CastOp)
@@ -9797,6 +9784,17 @@ static Constant *BuildConstantFromSCEV(const SCEV *V) {
     }
     return C;
   }
+  case scSelectExpr: {
+    const SCEVSelectExpr *S = cast<SCEVSelectExpr>(V);
+    std::array<Constant *, 3> CstOps;
+    for (auto I : zip(S->operands(), CstOps)) {
+      Constant *&CstOp = std::get<1>(I);
+      CstOp = BuildConstantFromSCEV(std::get<0>(I));
+      if (!CstOp)
+        return nullptr;
+    }
+    return ConstantExpr::getSelect(CstOps[0], CstOps[1], CstOps[2]);
+  }
   case scUDivExpr:
   case scSMaxExpr:
   case scUMaxExpr:
@@ -9883,37 +9881,40 @@ const SCEV *ScalarEvolution::computeSCEVAtScope(const SCEV *V, const Loop *L) {
   case scSMaxExpr:
   case scUMinExpr:
   case scSMinExpr:
-  case scSequentialUMinExpr: {
-    const auto *Comm = cast<SCEVNAryExpr>(V);
+  case scSequentialUMinExpr:
+  case scSelectExpr: {
+    ArrayRef<const SCEV *> Ops = V->operands();
     // Avoid performing the look-up in the common case where the specified
     // expression has no loop-variant portions.
-    for (unsigned i = 0, e = Comm->getNumOperands(); i != e; ++i) {
-      const SCEV *OpAtScope = getSCEVAtScope(Comm->getOperand(i), L);
-      if (OpAtScope != Comm->getOperand(i)) {
+    for (unsigned i = 0, e = Ops.size(); i != e; ++i) {
+      const SCEV *OpAtScope = getSCEVAtScope(Ops[i], L);
+      if (OpAtScope != Ops[i]) {
         // Okay, at least one of these operands is loop variant but might be
         // foldable.  Build a new instance of the folded commutative expression.
         SmallVector<const SCEV *, 8> NewOps;
-        NewOps.reserve(Comm->getNumOperands());
-        append_range(NewOps, Comm->operands().take_front(i));
+        NewOps.reserve(Ops.size());
+        append_range(NewOps, V->operands().take_front(i));
         NewOps.push_back(OpAtScope);
 
         for (++i; i != e; ++i) {
-          OpAtScope = getSCEVAtScope(Comm->getOperand(i), L);
+          OpAtScope = getSCEVAtScope(Ops[i], L);
           NewOps.push_back(OpAtScope);
         }
-        if (isa<SCEVAddExpr>(Comm))
-          return getAddExpr(NewOps, Comm->getNoWrapFlags());
-        if (isa<SCEVMulExpr>(Comm))
-          return getMulExpr(NewOps, Comm->getNoWrapFlags());
-        if (isa<SCEVMinMaxExpr>(Comm))
-          return getMinMaxExpr(Comm->getSCEVType(), NewOps);
-        if (isa<SCEVSequentialMinMaxExpr>(Comm))
-          return getSequentialMinMaxExpr(Comm->getSCEVType(), NewOps);
-        llvm_unreachable("Unknown commutative / sequential min/max SCEV type!");
+        if (isa<SCEVAddExpr>(V))
+          return getAddExpr(NewOps, cast<SCEVAddExpr>(V)->getNoWrapFlags());
+        if (isa<SCEVMulExpr>(V))
+          return getMulExpr(NewOps, cast<SCEVMulExpr>(V)->getNoWrapFlags());
+        if (isa<SCEVMinMaxExpr>(V))
+          return getMinMaxExpr(V->getSCEVType(), NewOps);
+        if (isa<SCEVSequentialMinMaxExpr>(V))
+          return getSequentialMinMaxExpr(V->getSCEVType(), NewOps);
+        if (isa<SCEVSelectExpr>(V))
+          return getSelectExpr(NewOps);
+        llvm_unreachable("Unknown SCEV type!");
       }
     }
     // If we got here, all operands are loop invariant.
-    return Comm;
+    return V;
   }
   case scUnknown: {
     // If this instruction is evolved from a constant-evolving PHI, compute the
@@ -13731,9 +13732,11 @@ ScalarEvolution::computeLoopDisposition(const SCEV *S, const Loop *L) {
   case scSMaxExpr:
   case scUMinExpr:
   case scSMinExpr:
-  case scSequentialUMinExpr: {
+  case scSequentialUMinExpr:
+  case scUDivExpr:
+  case scSelectExpr: {
     bool HasVarying = false;
-    for (const auto *Op : cast<SCEVNAryExpr>(S)->operands()) {
+    for (const auto *Op : S->operands()) {
       LoopDisposition D = getLoopDisposition(Op, L);
       if (D == LoopVariant)
         return LoopVariant;
@@ -13741,17 +13744,6 @@ ScalarEvolution::computeLoopDisposition(const SCEV *S, const Loop *L) {
         HasVarying = true;
     }
     return HasVarying ? LoopComputable : LoopInvariant;
-  }
-  case scUDivExpr: {
-    const SCEVUDivExpr *UDiv = cast<SCEVUDivExpr>(S);
-    LoopDisposition LD = getLoopDisposition(UDiv->getLHS(), L);
-    if (LD == LoopVariant)
-      return LoopVariant;
-    LoopDisposition RD = getLoopDisposition(UDiv->getRHS(), L);
-    if (RD == LoopVariant)
-      return LoopVariant;
-    return (LD == LoopInvariant && RD == LoopInvariant) ?
-           LoopInvariant : LoopComputable;
   }
   case scUnknown:
     // All non-instruction values are loop invariant.  All instructions are loop
@@ -13822,29 +13814,18 @@ ScalarEvolution::computeBlockDisposition(const SCEV *S, const BasicBlock *BB) {
   case scSMaxExpr:
   case scUMinExpr:
   case scSMinExpr:
-  case scSequentialUMinExpr: {
-    const SCEVNAryExpr *NAry = cast<SCEVNAryExpr>(S);
+  case scSequentialUMinExpr:
+  case scUDivExpr:
+  case scSelectExpr: {
     bool Proper = true;
-    for (const SCEV *NAryOp : NAry->operands()) {
-      BlockDisposition D = getBlockDisposition(NAryOp, BB);
+    for (const SCEV *SOp : S->operands()) {
+      BlockDisposition D = getBlockDisposition(SOp, BB);
       if (D == DoesNotDominateBlock)
         return DoesNotDominateBlock;
       if (D == DominatesBlock)
         Proper = false;
     }
     return Proper ? ProperlyDominatesBlock : DominatesBlock;
-  }
-  case scUDivExpr: {
-    const SCEVUDivExpr *UDiv = cast<SCEVUDivExpr>(S);
-    const SCEV *LHS = UDiv->getLHS(), *RHS = UDiv->getRHS();
-    BlockDisposition LD = getBlockDisposition(LHS, BB);
-    if (LD == DoesNotDominateBlock)
-      return DoesNotDominateBlock;
-    BlockDisposition RD = getBlockDisposition(RHS, BB);
-    if (RD == DoesNotDominateBlock)
-      return DoesNotDominateBlock;
-    return (LD == ProperlyDominatesBlock && RD == ProperlyDominatesBlock) ?
-      ProperlyDominatesBlock : DominatesBlock;
   }
   case scUnknown:
     if (Instruction *I =

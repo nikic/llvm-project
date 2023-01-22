@@ -689,27 +689,22 @@ const Loop *SCEVExpander::getRelevantLoop(const SCEV *S) {
     const Loop *Result = getRelevantLoop(C->getOperand());
     return RelevantLoops[C] = Result;
   }
-  case scUDivExpr: {
-    const SCEVUDivExpr *D = cast<SCEVUDivExpr>(S);
-    const Loop *Result = PickMostRelevantLoop(
-        getRelevantLoop(D->getLHS()), getRelevantLoop(D->getRHS()), SE.DT);
-    return RelevantLoops[D] = Result;
-  }
   case scAddExpr:
   case scMulExpr:
+  case scUDivExpr:
   case scAddRecExpr:
   case scUMaxExpr:
   case scSMaxExpr:
   case scUMinExpr:
   case scSMinExpr:
-  case scSequentialUMinExpr: {
-    const SCEVNAryExpr *N = cast<SCEVNAryExpr>(S);
+  case scSequentialUMinExpr:
+  case scSelectExpr: {
     const Loop *L = nullptr;
     if (const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(S))
       L = AR->getLoop();
-    for (const SCEV *Op : N->operands())
+    for (const SCEV *Op : S->operands())
       L = PickMostRelevantLoop(L, getRelevantLoop(Op), SE.DT);
-    return RelevantLoops[N] = L;
+    return RelevantLoops[S] = L;
   }
   case scUnknown: {
     const SCEVUnknown *U = cast<SCEVUnknown>(S);
@@ -1754,6 +1749,13 @@ Value *SCEVExpander::visitSequentialUMinExpr(const SCEVSequentialUMinExpr *S) {
   return expandMinMaxExpr(S, Intrinsic::umin, "umin", /*IsSequential*/true);
 }
 
+Value *SCEVExpander::visitSelectExpr(const SCEVSelectExpr *S) {
+  std::array<Value *, 3> Vals;
+  for (auto I : zip(S->operands(), Vals))
+    std::get<1>(I) = expand(std::get<0>(I));
+  return Builder.CreateSelect(Vals[0], Vals[1], Vals[2]);
+}
+
 Value *SCEVExpander::expandCodeForImpl(const SCEV *SH, Type *Ty,
                                        Instruction *IP) {
   setInsertPoint(IP);
@@ -2123,7 +2125,7 @@ template<typename T> static InstructionCost costAndCollectOperands(
   auto CmpSelCost = [&](unsigned Opcode, unsigned NumRequired, unsigned MinIdx,
                         unsigned MaxIdx) -> InstructionCost {
     Operations.emplace_back(Opcode, MinIdx, MaxIdx);
-    Type *OpType = S->getOperand(0)->getType();
+    Type *OpType = S->getType();
     return NumRequired * TTI.getCmpSelInstrCost(
                              Opcode, OpType, CmpInst::makeCmpResultType(OpType),
                              CmpInst::BAD_ICMP_PREDICATE, CostKind);
@@ -2230,6 +2232,9 @@ template<typename T> static InstructionCost costAndCollectOperands(
     Cost += MulCost * (PolyDegree - 1);
     break;
   }
+  case scSelectExpr:
+    Cost += CmpSelCost(Instruction::Select, 1, 0, 2);
+    break;
   }
 
   for (auto &CostOp : Operations) {
@@ -2327,6 +2332,11 @@ bool SCEVExpander::isHighCostExpansionHelper(
            "Polynomial should be at least linear");
     Cost += costAndCollectOperands<SCEVAddRecExpr>(
         WorkItem, TTI, CostKind, Worklist);
+    return Cost > Budget;
+  }
+  case scSelectExpr: {
+    Cost += costAndCollectOperands<SCEVSelectExpr>(WorkItem, TTI, CostKind,
+                                                   Worklist);
     return Cost > Budget;
   }
   }
