@@ -1012,7 +1012,8 @@ static bool isDeadPHICycle(Instruction *I,
   if (PotentiallyDeadInstrs.size() == 16)
     return false;
 
-  if (I->mayHaveSideEffects() || !wouldInstructionBeTriviallyDead(I))
+  if (!isa<PHINode>(I) && !isa<BinaryOperator>(I) &&
+      !isa<GetElementPtrInst>(I))
     return false;
   
   return all_of(I->users(), [&PotentiallyDeadInstrs](User *U) {
