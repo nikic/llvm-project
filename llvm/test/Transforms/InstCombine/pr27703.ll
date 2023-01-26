@@ -1,6 +1,6 @@
 ; RUN: opt < %s -passes=instcombine -S | FileCheck %s
 
-define void @mem() {
+define ptr @mem() {
 bb:
   br label %bb6
 
@@ -13,7 +13,7 @@ bb6:
   br label %bb6
 
 bb206:
-  ret void
+  ret ptr %t2
 ; CHECK: phi
 ; CHECK-NEXT: load
 ; CHECK-NEXT: load

@@ -377,10 +377,8 @@ define void @test8(ptr %inout, i1 %c1) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_COND:%.*]]
 ; CHECK:       for.cond:
-; CHECK-NEXT:    [[LOCAL_VAR_7_0:%.*]] = phi <4 x float> [ <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, [[ENTRY:%.*]] ], [ [[TMP0:%.*]], [[FOR_BODY:%.*]] ]
-; CHECK-NEXT:    br i1 [[C1:%.*]], label [[FOR_BODY]], label [[FOR_END:%.*]]
+; CHECK-NEXT:    br i1 [[C1:%.*]], label [[FOR_BODY:%.*]], label [[FOR_END:%.*]]
 ; CHECK:       for.body:
-; CHECK-NEXT:    [[TMP0]] = insertelement <4 x float> [[LOCAL_VAR_7_0]], float 0.000000e+00, i64 2
 ; CHECK-NEXT:    br label [[FOR_COND]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void
@@ -1069,8 +1067,8 @@ define double @fmul_negated_constant_expression(double %x) {
 define float @negate_if_true(float %x, i1 %cond) {
 ; CHECK-LABEL: @negate_if_true(
 ; CHECK-NEXT:    [[TMP1:%.*]] = fneg float [[X:%.*]]
-; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[COND:%.*]], float [[TMP1]], float [[X]]
-; CHECK-NEXT:    ret float [[TMP2]]
+; CHECK-NEXT:    [[R:%.*]] = select i1 [[COND:%.*]], float [[TMP1]], float [[X]]
+; CHECK-NEXT:    ret float [[R]]
 ;
   %sel = select i1 %cond, float -1.0, float 1.0
   %r = fmul float %sel, %x
@@ -1080,8 +1078,8 @@ define float @negate_if_true(float %x, i1 %cond) {
 define float @negate_if_false(float %x, i1 %cond) {
 ; CHECK-LABEL: @negate_if_false(
 ; CHECK-NEXT:    [[TMP1:%.*]] = fneg arcp float [[X:%.*]]
-; CHECK-NEXT:    [[TMP2:%.*]] = select arcp i1 [[COND:%.*]], float [[X]], float [[TMP1]]
-; CHECK-NEXT:    ret float [[TMP2]]
+; CHECK-NEXT:    [[R:%.*]] = select arcp i1 [[COND:%.*]], float [[X]], float [[TMP1]]
+; CHECK-NEXT:    ret float [[R]]
 ;
   %sel = select i1 %cond, float 1.0, float -1.0
   %r = fmul arcp float %sel, %x
@@ -1092,8 +1090,8 @@ define <2 x double> @negate_if_true_commute(<2 x double> %px, i1 %cond) {
 ; CHECK-LABEL: @negate_if_true_commute(
 ; CHECK-NEXT:    [[X:%.*]] = fdiv <2 x double> <double 4.200000e+01, double 4.200000e+01>, [[PX:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = fneg ninf <2 x double> [[X]]
-; CHECK-NEXT:    [[TMP2:%.*]] = select ninf i1 [[COND:%.*]], <2 x double> [[TMP1]], <2 x double> [[X]]
-; CHECK-NEXT:    ret <2 x double> [[TMP2]]
+; CHECK-NEXT:    [[R:%.*]] = select ninf i1 [[COND:%.*]], <2 x double> [[TMP1]], <2 x double> [[X]]
+; CHECK-NEXT:    ret <2 x double> [[R]]
 ;
   %x = fdiv <2 x double> <double 42.0, double 42.0>, %px  ; thwart complexity-based canonicalization
   %sel = select i1 %cond, <2 x double> <double -1.0, double -1.0>, <2 x double> <double 1.0, double 1.0>
@@ -1105,8 +1103,8 @@ define <2 x double> @negate_if_false_commute(<2 x double> %px, <2 x i1> %cond) {
 ; CHECK-LABEL: @negate_if_false_commute(
 ; CHECK-NEXT:    [[X:%.*]] = fdiv <2 x double> <double 4.200000e+01, double 5.100000e+00>, [[PX:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = fneg <2 x double> [[X]]
-; CHECK-NEXT:    [[TMP2:%.*]] = select <2 x i1> [[COND:%.*]], <2 x double> [[X]], <2 x double> [[TMP1]]
-; CHECK-NEXT:    ret <2 x double> [[TMP2]]
+; CHECK-NEXT:    [[R:%.*]] = select <2 x i1> [[COND:%.*]], <2 x double> [[X]], <2 x double> [[TMP1]]
+; CHECK-NEXT:    ret <2 x double> [[R]]
 ;
   %x = fdiv <2 x double> <double 42.0, double 5.1>, %px  ; thwart complexity-based canonicalization
   %sel = select <2 x i1> %cond, <2 x double> <double 1.0, double 1.0>, <2 x double> <double -1.0, double -1.0>
@@ -1203,8 +1201,8 @@ define <vscale x 2 x float> @mul_scalable_splat_zero(<vscale x 2 x float> %z) {
 
 define half @mul_zero_nnan(half %x) {
 ; CHECK-LABEL: @mul_zero_nnan(
-; CHECK-NEXT:    [[TMP1:%.*]] = call nnan half @llvm.copysign.f16(half 0xH0000, half [[X:%.*]])
-; CHECK-NEXT:    ret half [[TMP1]]
+; CHECK-NEXT:    [[R:%.*]] = call nnan half @llvm.copysign.f16(half 0xH0000, half [[X:%.*]])
+; CHECK-NEXT:    ret half [[R]]
 ;
   %r = fmul nnan half %x, 0.0
   ret half %r
@@ -1214,8 +1212,8 @@ define half @mul_zero_nnan(half %x) {
 
 define <2 x float> @mul_zero_nnan_vec_poison(<2 x float> %x) {
 ; CHECK-LABEL: @mul_zero_nnan_vec_poison(
-; CHECK-NEXT:    [[TMP1:%.*]] = call nnan <2 x float> @llvm.copysign.v2f32(<2 x float> <float 0.000000e+00, float poison>, <2 x float> [[X:%.*]])
-; CHECK-NEXT:    ret <2 x float> [[TMP1]]
+; CHECK-NEXT:    [[R:%.*]] = call nnan <2 x float> @llvm.copysign.v2f32(<2 x float> <float 0.000000e+00, float poison>, <2 x float> [[X:%.*]])
+; CHECK-NEXT:    ret <2 x float> [[R]]
 ;
   %r = fmul nnan <2 x float> %x, <float 0.0, float poison>
   ret <2 x float> %r
