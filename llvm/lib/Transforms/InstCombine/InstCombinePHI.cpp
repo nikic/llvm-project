@@ -1002,23 +1002,25 @@ Instruction *InstCombinerImpl::foldPHIArgOpIntoPHI(PHINode &PN) {
 /// ┌─────┐  │
 /// │  y  │ ─┘
 /// └─────┘
-static bool isDeadPHICycle(Instruction *I,
-                           SmallPtrSetImpl<Instruction *> &PotentiallyDeadInstrs) {
-  // Remember this node, and if we find the cycle, return.
-  if (!PotentiallyDeadInstrs.insert(I).second)
-    return true;
+static bool isDeadPHICycle(PHINode *PN) {
+  SmallSetVector<Instruction *, 16> PotentiallyDeadInstrs;
+  PotentiallyDeadInstrs.insert(PN);
+  for (unsigned P = 0; P < PotentiallyDeadInstrs.size(); ++P) {
+    Instruction *I = PotentiallyDeadInstrs[P];
+    if (!isa<PHINode>(I) && !isa<BinaryOperator>(I) &&
+        !isa<GetElementPtrInst>(I))
+      return false;
 
-  // Don't scan crazily complex things.
-  if (PotentiallyDeadInstrs.size() == 16)
-    return false;
+    for (User *U : I->users()) {
+      if (!PotentiallyDeadInstrs.insert(cast<Instruction>(U)))
+        continue;
 
-  if (!isa<PHINode>(I) && !isa<BinaryOperator>(I) &&
-      !isa<GetElementPtrInst>(I))
-    return false;
-  
-  return all_of(I->users(), [&PotentiallyDeadInstrs](User *U) {
-    return isDeadPHICycle(cast<Instruction>(U), PotentiallyDeadInstrs);
-  });
+      // Don't scan crazily complex things.
+      if (PotentiallyDeadInstrs.size() == 16)
+        return false;
+    }
+  }
+  return true;
 }
 
 /// Return true if this phi node is always equal to NonPhiInVal.
@@ -1447,8 +1449,7 @@ Instruction *InstCombinerImpl::visitPHINode(PHINode &PN) {
   // If there is a cycle in the PHI node graph which is a dead, remove it.
   // I.e. if this PHI has a use that is another PHI, and that PHI uses the first
   // phi, and there are no other uses outside of this cycle, then break it.
-  SmallPtrSet<Instruction*, 16> PotentiallyDeadInstrs;
-  if (isDeadPHICycle(&PN, PotentiallyDeadInstrs))
+  if (isDeadPHICycle(&PN))
     return replaceInstUsesWith(PN, PoisonValue::get(PN.getType()));
 
   if (PN.hasOneUse()) {
