@@ -1121,36 +1121,58 @@ Constant *
 ConstantFoldConstantImpl(const Constant *C, const DataLayout &DL,
                          const TargetLibraryInfo *TLI,
                          SmallDenseMap<Constant *, Constant *> &FoldedOps) {
-  if (!isa<ConstantVector>(C) && !isa<ConstantExpr>(C))
-    return const_cast<Constant *>(C);
+  SmallVector<Constant *> Worklist = {const_cast<Constant *>(C)};
 
-  SmallVector<Constant *, 8> Ops;
-  for (const Use &OldU : C->operands()) {
-    Constant *OldC = cast<Constant>(&OldU);
-    Constant *NewC = OldC;
-    // Recursively fold the ConstantExpr's operands. If we have already folded
-    // a ConstantExpr, we don't have to process it again.
-    if (isa<ConstantVector>(OldC) || isa<ConstantExpr>(OldC)) {
-      auto It = FoldedOps.find(OldC);
-      if (It == FoldedOps.end()) {
-        NewC = ConstantFoldConstantImpl(OldC, DL, TLI, FoldedOps);
-        FoldedOps.insert({OldC, NewC});
+  // "Recursively" iterate over all users of the constant. Try to fold constant
+  // if all its operand were processed before.
+  while (!Worklist.empty()) {
+    Constant *CurrentC = Worklist.back();
+    if (FoldedOps.count(CurrentC)) {
+      Worklist.pop_back();
+      continue;
+    }
+
+    if (!isa<ConstantVector>(CurrentC) && !isa<ConstantExpr>(CurrentC)) {
+      Worklist.pop_back();
+      FoldedOps.try_emplace(CurrentC, CurrentC);
+      continue;
+    }
+
+    SmallVector<Constant *, 8> Ops;
+    for (const Use &U : CurrentC->operands()) {
+      Constant *OldC = cast<Constant>(&U);
+      Constant *NewC = OldC;
+      if (isa<ConstantVector>(OldC) || isa<ConstantExpr>(OldC)) {
+        auto It = FoldedOps.find(OldC);
+        if (It == FoldedOps.end()) {
+          NewC = nullptr;
+          Worklist.push_back(OldC);
+        } else {
+          NewC = It->second;
+        }
+      }
+      if (NewC)
+        Ops.push_back(NewC);
+    }
+
+    // If all operands of the constant were processed, try to fold them
+    if (Ops.size() == CurrentC->getNumOperands()) {
+      assert(Worklist.back() == CurrentC &&
+             "Some operand of the Constant was added to the Worklist.");
+      Worklist.pop_back();
+
+      if (auto *CE = dyn_cast<ConstantExpr>(CurrentC)) {
+        if (Constant *Res =
+                ConstantFoldInstOperandsImpl(CE, CE->getOpcode(), Ops, DL, TLI))
+          FoldedOps.try_emplace(CurrentC, Res);
+        else
+          FoldedOps.try_emplace(CurrentC, CurrentC);
       } else {
-        NewC = It->second;
+        FoldedOps.try_emplace(CurrentC, ConstantVector::get(Ops));
       }
     }
-    Ops.push_back(NewC);
   }
-
-  if (auto *CE = dyn_cast<ConstantExpr>(C)) {
-    if (Constant *Res =
-            ConstantFoldInstOperandsImpl(CE, CE->getOpcode(), Ops, DL, TLI))
-      return Res;
-    return const_cast<Constant *>(C);
-  }
-
-  assert(isa<ConstantVector>(C));
-  return ConstantVector::get(Ops);
+  return FoldedOps.find(C)->second;
 }
 
 } // end anonymous namespace
