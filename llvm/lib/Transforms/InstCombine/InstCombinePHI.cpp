@@ -1448,8 +1448,14 @@ Instruction *InstCombinerImpl::visitPHINode(PHINode &PN) {
   // I.e. if this PHI has a use that is another PHI, and that PHI uses the first
   // phi, and there are no other uses outside of this cycle, then break it.
   SmallPtrSet<Instruction*, 16> PotentiallyDeadInstrs;
-  if (isDeadPHICycle(&PN, PotentiallyDeadInstrs))
-    return replaceInstUsesWith(PN, PoisonValue::get(PN.getType()));
+  if (isDeadPHICycle(&PN, PotentiallyDeadInstrs)) {
+    for (Instruction *I : PotentiallyDeadInstrs) {
+      if (!I->use_empty())
+        replaceInstUsesWith(*I, PoisonValue::get(I->getType()));
+      eraseInstFromFunction(*I);
+    }
+    return nullptr;
+  }
 
   if (PN.hasOneUse()) {
     if (foldIntegerTypedPHI(PN))
