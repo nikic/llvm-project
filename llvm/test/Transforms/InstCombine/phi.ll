@@ -159,6 +159,9 @@ define i32 @test_dead_cycle_two_insts(i32 %A, i1 %cond) {
 ; CHECK-NEXT:  BB0:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       Loop:
+; CHECK-NEXT:    [[B:%.*]] = phi i32 [ [[A:%.*]], [[BB0:%.*]] ], [ [[D:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[C:%.*]] = add i32 [[B]], 123
+; CHECK-NEXT:    [[D]] = lshr i32 [[C]], 1
 ; CHECK-NEXT:    br i1 [[COND:%.*]], label [[LOOP]], label [[EXIT:%.*]]
 ; CHECK:       Exit:
 ; CHECK-NEXT:    ret i32 0
