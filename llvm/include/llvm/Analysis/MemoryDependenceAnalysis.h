@@ -19,6 +19,7 @@
 #include "llvm/ADT/PointerSumType.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/MemoryLocation.h"
+#include "llvm/Analysis/PHITransAddr.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/PredIteratorCache.h"
 #include "llvm/IR/ValueHandle.h"
@@ -31,7 +32,6 @@ class AAResults;
 class AssumptionCache;
 class BatchAAResults;
 class DominatorTree;
-class PHITransAddr;
 
 /// A memory dependence query can return one of three different answers.
 class MemDepResult {
@@ -230,10 +230,11 @@ public:
 /// (potentially phi translated) address that was live in the block.
 class NonLocalDepResult {
   NonLocalDepEntry Entry;
-  Value *Address;
+  SelectAddr Address;
 
 public:
-  NonLocalDepResult(BasicBlock *bb, MemDepResult result, Value *address)
+  NonLocalDepResult(BasicBlock *bb, MemDepResult result,
+                    const SelectAddr &address)
       : Entry(bb, result), Address(address) {}
 
   // BB is the sort key, it can't be changed.
@@ -254,7 +255,7 @@ public:
   /// a cached result and that address was deleted.
   ///
   /// The address is always null for a non-local 'call' dependence.
-  Value *getAddress() const { return Address; }
+  SelectAddr getAddress() const { return Address; }
 };
 
 /// Provides a lazy, caching interface for making common memory aliasing

@@ -16,7 +16,6 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
@@ -142,7 +141,8 @@ static void RemoveInstInputs(Value *V,
 
 Value *PHITransAddr::PHITranslateSubExpr(Value *V, BasicBlock *CurBB,
                                          BasicBlock *PredBB,
-                                         const DominatorTree *DT) {
+                                         const DominatorTree *DT,
+                                         SelectInst *Sel, bool Cond) {
   // If this is a non-instruction value, it can't require PHI translation.
   Instruction *Inst = dyn_cast<Instruction>(V);
   if (!Inst) return V;
@@ -165,8 +165,12 @@ Value *PHITransAddr::PHITranslateSubExpr(Value *V, BasicBlock *CurBB,
     InstInputs.erase(find(InstInputs, Inst));
 
     // If this is a PHI, go ahead and translate it.
-    if (PHINode *PN = dyn_cast<PHINode>(Inst))
-      return AddAsInput(PN->getIncomingValueForBlock(PredBB));
+    if (PHINode *PN = dyn_cast<PHINode>(Inst)) {
+      auto *V = PN->getIncomingValueForBlock(PredBB);
+      if (Sel && V == Sel)
+        return AddAsInput(Cond ? Sel->getTrueValue() : Sel->getFalseValue());
+      return AddAsInput(V);
+    }
 
     // If this is a non-phi value, and it is analyzable, we can incorporate it
     // into the expression by making all instruction operands be inputs.
@@ -186,7 +190,8 @@ Value *PHITransAddr::PHITranslateSubExpr(Value *V, BasicBlock *CurBB,
 
   if (CastInst *Cast = dyn_cast<CastInst>(Inst)) {
     if (!isSafeToSpeculativelyExecute(Cast)) return nullptr;
-    Value *PHIIn = PHITranslateSubExpr(Cast->getOperand(0), CurBB, PredBB, DT);
+    Value *PHIIn =
+        PHITranslateSubExpr(Cast->getOperand(0), CurBB, PredBB, DT, Sel, Cond);
     if (!PHIIn) return nullptr;
     if (PHIIn == Cast->getOperand(0))
       return Cast;
@@ -215,7 +220,8 @@ Value *PHITransAddr::PHITranslateSubExpr(Value *V, BasicBlock *CurBB,
     SmallVector<Value*, 8> GEPOps;
     bool AnyChanged = false;
     for (unsigned i = 0, e = GEP->getNumOperands(); i != e; ++i) {
-      Value *GEPOp = PHITranslateSubExpr(GEP->getOperand(i), CurBB, PredBB, DT);
+      Value *GEPOp =
+          PHITranslateSubExpr(GEP->getOperand(i), CurBB, PredBB, DT, Sel, Cond);
       if (!GEPOp) return nullptr;
 
       AnyChanged |= GEPOp != GEP->getOperand(i);
@@ -259,7 +265,8 @@ Value *PHITransAddr::PHITranslateSubExpr(Value *V, BasicBlock *CurBB,
     bool isNSW = cast<BinaryOperator>(Inst)->hasNoSignedWrap();
     bool isNUW = cast<BinaryOperator>(Inst)->hasNoUnsignedWrap();
 
-    Value *LHS = PHITranslateSubExpr(Inst->getOperand(0), CurBB, PredBB, DT);
+    Value *LHS =
+        PHITranslateSubExpr(Inst->getOperand(0), CurBB, PredBB, DT, Sel, Cond);
     if (!LHS) return nullptr;
 
     // If the PHI translated LHS is an add of a constant, fold the immediates.
@@ -306,7 +313,6 @@ Value *PHITransAddr::PHITranslateSubExpr(Value *V, BasicBlock *CurBB,
   return nullptr;
 }
 
-
 /// PHITranslateValue - PHI translate the current address up the CFG from
 /// CurBB to Pred, updating our state to reflect any needed changes.  If
 /// 'MustDominate' is true, the translated value must dominate
@@ -329,6 +335,17 @@ bool PHITransAddr::PHITranslateValue(BasicBlock *CurBB, BasicBlock *PredBB,
         Addr = nullptr;
 
   return Addr == nullptr;
+}
+
+SelectAddr::SelectAddrs PHITransAddr::SelTranslateValue(BasicBlock *CurBB,
+                                                        BasicBlock *PredBB,
+                                                        const DominatorTree *DT,
+                                                        SelectInst *Sel) {
+  Value *TrueAddr = PHITransAddr(*this).PHITranslateSubExpr(Addr, CurBB, PredBB,
+                                                            DT, Sel, true);
+  Value *FalseAddr = PHITransAddr(*this).PHITranslateSubExpr(
+      Addr, CurBB, PredBB, DT, Sel, false);
+  return {TrueAddr, FalseAddr};
 }
 
 /// PHITranslateWithInsertion - PHI translate this value into the specified

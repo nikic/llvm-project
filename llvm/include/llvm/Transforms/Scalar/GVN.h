@@ -52,6 +52,7 @@ class MemorySSAUpdater;
 class NonLocalDepResult;
 class OptimizationRemarkEmitter;
 class PHINode;
+class SelectAddr;
 class TargetLibraryInfo;
 class Value;
 /// A private "module" namespace for types and utilities used by GVN. These
@@ -320,7 +321,8 @@ private:
   /// Given a local dependency (Def or Clobber) determine if a value is
   /// available for the load.
   std::optional<gvn::AvailableValue>
-  AnalyzeLoadAvailability(LoadInst *Load, MemDepResult DepInfo, Value *Address);
+  AnalyzeLoadAvailability(LoadInst *Load, MemDepResult DepInfo,
+                          const SelectAddr &Addr);
 
   /// Given a list of non-local dependencies, determine if a value is
   /// available for the load in each specified block.  If it is, add it to

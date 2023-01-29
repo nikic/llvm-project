@@ -23,7 +23,6 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/PHITransAddr.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
@@ -1346,8 +1345,31 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
       // predecessor, then we have to assume that the pointer is clobbered in
       // that predecessor.  We can still do PRE of the load, which would insert
       // a computation of the pointer in this predecessor.
-      if (!PredPtrVal)
+      if (!PredPtrVal) {
+        // If we have translation failure, but there is a select input in
+        // address, try to translate both sides of it.
+        if (auto *SI = PredPointer.getSelectInputInBB(Pred)) {
+          auto [TrueAddr, FalseAddr] =
+              PHITransAddr(Pointer).SelTranslateValue(BB, Pred, &DT, SI);
+          if (TrueAddr && FalseAddr) {
+            // Check that there are no modifying memory operations between
+            // select and Pred terminator.
+            if (!AA.canInstructionRangeModRef(*SI, Pred->back(),
+                                              Loc.getWithNewPtr(TrueAddr),
+                                              ModRefInfo::Mod) &&
+                !AA.canInstructionRangeModRef(*SI, Pred->back(),
+                                              Loc.getWithNewPtr(FalseAddr),
+                                              ModRefInfo::Mod)) {
+              // Save Def dependency from SI instruction.
+              Result.push_back(NonLocalDepResult(
+                  Pred, MemDepResult::getDef(SI),
+                  SelectAddr::SelectAddrs{TrueAddr, FalseAddr}));
+              continue;
+            }
+          }
+        }
         CanTranslate = false;
+      }
 
       // FIXME: it is entirely possible that PHI translating will end up with
       // the same value.  Consider PHI translating something like:

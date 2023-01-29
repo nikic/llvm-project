@@ -731,12 +731,41 @@ exit:
 define i32 @test_pointer_phi_select_single_block_store(ptr %a, ptr %b)  {
 ; CHECK-LABEL: @test_pointer_phi_select_single_block_store(
 ; CHECK-NEXT:  entry:
+<<<<<<<
 ; CHECK-NEXT:    [[L_1:%.*]] = load i32, ptr [[A:%.*]], align 4
 ; CHECK-NEXT:    [[L_2:%.*]] = load i32, ptr [[B:%.*]], align 4
 ; CHECK-NEXT:    [[CMP_I_I_I:%.*]] = icmp ult i32 [[L_1]], [[L_2]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = select i1 [[CMP_I_I_I]], i32 [[L_1]], i32 [[L_2]]
 ; CHECK-NEXT:    [[MIN_SELECT:%.*]] = select i1 [[CMP_I_I_I]], ptr [[A]], ptr [[B]]
 ; CHECK-NEXT:    ret i32 [[TMP0]]
+=======
+; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[I:%.*]], [[N:%.*]]
+; CHECK-NEXT:    br i1 [[CMP]], label [[LAND_LHS_TRUE:%.*]], label [[ENTRY_IF_END_CRIT_EDGE:%.*]]
+; CHECK:       entry.if.end_crit_edge:
+; CHECK-NEXT:    [[IDXPROM5_PHI_TRANS_INSERT:%.*]] = sext i32 [[I]] to i64
+; CHECK-NEXT:    [[ARRAYIDX6_PHI_TRANS_INSERT:%.*]] = getelementptr inbounds i32, ptr [[A:%.*]], i64 [[IDXPROM5_PHI_TRANS_INSERT]]
+; CHECK-NEXT:    [[DOTPRE:%.*]] = load i32, ptr [[ARRAYIDX6_PHI_TRANS_INSERT]], align 4
+; CHECK-NEXT:    br label [[IF_END:%.*]]
+; CHECK:       land.lhs.true:
+; CHECK-NEXT:    [[IDXPROM:%.*]] = sext i32 [[I]] to i64
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A]], i64 [[IDXPROM]]
+; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
+; CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 [[I]], 1
+; CHECK-NEXT:    [[IDXPROM1:%.*]] = sext i32 [[ADD]] to i64
+; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds i32, ptr [[A]], i64 [[IDXPROM1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[ARRAYIDX2]], align 4
+; CHECK-NEXT:    [[CMP3:%.*]] = icmp slt i32 [[TMP0]], [[TMP1]]
+; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[CMP3]], i32 [[TMP1]], i32 [[TMP0]]
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[CMP3]], i32 [[ADD]], i32 [[I]]
+; CHECK-NEXT:    [[DOTPRE1:%.*]] = sext i32 [[SPEC_SELECT]] to i64
+; CHECK-NEXT:    br label [[IF_END]]
+; CHECK:       if.end:
+; CHECK-NEXT:    [[IDXPROM5_PRE_PHI:%.*]] = phi i64 [ [[IDXPROM5_PHI_TRANS_INSERT]], [[ENTRY_IF_END_CRIT_EDGE]] ], [ [[DOTPRE1]], [[LAND_LHS_TRUE]] ]
+; CHECK-NEXT:    [[TMP3:%.*]] = phi i32 [ [[DOTPRE]], [[ENTRY_IF_END_CRIT_EDGE]] ], [ [[TMP2]], [[LAND_LHS_TRUE]] ]
+; CHECK-NEXT:    [[I_ADDR_0:%.*]] = phi i32 [ [[I]], [[ENTRY_IF_END_CRIT_EDGE]] ], [ [[SPEC_SELECT]], [[LAND_LHS_TRUE]] ]
+; CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds i32, ptr [[A]], i64 [[IDXPROM5_PRE_PHI]]
+; CHECK-NEXT:    ret i32 [[TMP3]]
+>>>>>>>
 ;
 entry:
   %l.1 = load i32, ptr %a, align 4
@@ -826,7 +855,29 @@ entry:
   %l.2 = load i32, ptr %b, align 4
   %cmp.i.i.i = icmp ult i32 %l.1, %l.2
   %min.select  = select i1 %cmp.i.i.i, ptr %a, ptr %b
+<<<<<<<
   %res.0 = load i32, ptr %min.select, align 4
   store i32 99, ptr %c
   ret i32 %res.0
 }
+=======
+; CHECK-NEXT:    [[CMP:%.*]] = icmp sgt i32 [[N:%.*]], 1
+; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_COND_CLEANUP:%.*]]
+; CHECK:       for.body.preheader:
+; CHECK-NEXT:    [[DOTPRE:%.*]] = load i32, ptr [[A:%.*]], align 4
+; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
+; CHECK:       for.body:
+; CHECK-NEXT:    [[TMP0:%.*]] = phi i32 [ [[TMP2:%.*]], [[FOR_BODY]] ], [ [[DOTPRE]], [[FOR_BODY_PREHEADER]] ]
+; CHECK-NEXT:    [[IDX:%.*]] = phi i32 [ [[IDX_NEXT:%.*]], [[FOR_BODY]] ], [ 1, [[FOR_BODY_PREHEADER]] ]
+; CHECK-NEXT:    [[RES:%.*]] = phi i32 [ [[SPEC_SELECT:%.*]], [[FOR_BODY]] ], [ 0, [[FOR_BODY_PREHEADER]] ]
+; CHECK-NEXT:    [[IDXPROM:%.*]] = sext i32 [[IDX]] to i64
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A]], i64 [[IDXPROM]]
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
+; CHECK-NEXT:    [[IDXPROM1:%.*]] = sext i32 [[RES]] to i64
+; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds i32, ptr [[A]], i64 [[IDXPROM1]]
+; CHECK-NEXT:    [[CMP1:%.*]] = icmp slt i32 [[TMP1]], [[TMP0]]
+; CHECK-NEXT:    [[TMP2]] = select i1 [[CMP1]], i32 [[TMP1]], i32 [[TMP0]]
+; CHECK-NEXT:    [[SPEC_SELECT]] = select i1 [[CMP1]], i32 [[IDX]], i32 [[RES]]
+; CHECK-NEXT:    [[IDX_NEXT]] = add nsw i32 [[IDX]], 1
+; CHECK-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i32 [[IDX_NEXT]], [[N]]
+>>>>>>>

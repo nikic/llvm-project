@@ -1156,7 +1156,7 @@ static Value *findDominatingValue(const MemoryLocation &Loc, Type *LoadTy,
 
 std::optional<AvailableValue>
 GVNPass::AnalyzeLoadAvailability(LoadInst *Load, MemDepResult DepInfo,
-                                 Value *Address) {
+                                 const SelectAddr &Addr) {
   assert(Load->isUnordered() && "rules below are incorrect for ordered access");
   assert(DepInfo.isLocal() && "expected a local dependence");
 
@@ -1164,6 +1164,7 @@ GVNPass::AnalyzeLoadAvailability(LoadInst *Load, MemDepResult DepInfo,
 
   const DataLayout &DL = Load->getModule()->getDataLayout();
   if (DepInfo.isClobber()) {
+    Value *Address = Addr.getAddr();
     // If the dependence is to a store that writes to a superset of the bits
     // read by the load, we can extract the bits we need for the load from the
     // stored value.
@@ -1272,16 +1273,18 @@ GVNPass::AnalyzeLoadAvailability(LoadInst *Load, MemDepResult DepInfo,
   // between load values. There must be no instructions between the found
   // loads and DepInst that may clobber the loads.
   if (auto *Sel = dyn_cast<SelectInst>(DepInst)) {
-    assert(Sel->getType() == Load->getPointerOperandType());
+    auto [TrueAddr, FalseAddr] = Addr.getSelectAddrs();
+    assert(TrueAddr && TrueAddr->getType() == Load->getPointerOperandType() &&
+           FalseAddr && FalseAddr->getType() == Load->getPointerOperandType());
     auto Loc = MemoryLocation::get(Load);
     Value *V1 =
-        findDominatingValue(Loc.getWithNewPtr(Sel->getTrueValue()),
-                            Load->getType(), DepInst, getAliasAnalysis());
+        findDominatingValue(Loc.getWithNewPtr(TrueAddr), Load->getType(),
+                            DepInst, getAliasAnalysis());
     if (!V1)
       return std::nullopt;
     Value *V2 =
-        findDominatingValue(Loc.getWithNewPtr(Sel->getFalseValue()),
-                            Load->getType(), DepInst, getAliasAnalysis());
+        findDominatingValue(Loc.getWithNewPtr(FalseAddr), Load->getType(),
+                            DepInst, getAliasAnalysis());
     if (!V2)
       return std::nullopt;
     return AvailableValue::getSelect(Sel, V1, V2);

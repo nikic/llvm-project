@@ -15,12 +15,35 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
+#include <variant>
 
 namespace llvm {
-  class AssumptionCache;
-  class DominatorTree;
-  class DataLayout;
-  class TargetLibraryInfo;
+class AssumptionCache;
+class DominatorTree;
+class DataLayout;
+class TargetLibraryInfo;
+
+// SelectAddr - storage of normal Value address or pair of addresses for true
+// and false variant of select dependency.
+class SelectAddr {
+public:
+  using SelectAddrs = std::pair<Value *, Value *>;
+  SelectAddr(Value *V) : Addr(V){};
+  SelectAddr(const SelectAddrs &Addrs) : Addr(Addrs){};
+  Value *getAddr() const { return std::get<Value *>(Addr); }
+  SelectAddrs getSelectAddrs() const {
+    if (std::holds_alternative<SelectAddrs>(Addr))
+      return std::get<SelectAddrs>(Addr);
+    Value *V = std::get<Value *>(Addr);
+    assert(isa<SelectInst>(V));
+    auto *SI = cast<SelectInst>(V);
+    return {SI->getTrueValue(), SI->getFalseValue()};
+  }
+
+private:
+  std::variant<Value *, SelectAddrs> Addr;
+};
 
 /// PHITransAddr - An address value which tracks and handles phi translation.
 /// As we walk "up" the CFG through predecessors, we need to ensure that the
@@ -58,6 +81,15 @@ public:
 
   Value *getAddr() const { return Addr; }
 
+  // If translated address has Select input in BB, return it (otherwise null).
+  SelectInst *getSelectInputInBB(BasicBlock *BB) const {
+    for (auto *I : InstInputs)
+      if (I->getParent() == BB)
+        if (auto *SI = dyn_cast<SelectInst>(I))
+          return SI;
+    return nullptr;
+  }
+
   /// NeedsPHITranslationFromBlock - Return true if moving from the specified
   /// BasicBlock to its predecessors requires PHI translation.
   bool NeedsPHITranslationFromBlock(BasicBlock *BB) const {
@@ -81,6 +113,14 @@ public:
   bool PHITranslateValue(BasicBlock *CurBB, BasicBlock *PredBB,
                          const DominatorTree *DT, bool MustDominate);
 
+  // SelTranslateValue - PHI translate the current address from CurBB to PredBB,
+  // and if PredBB has Sel dependency instruction, translate both cases of this
+  // select.
+  SelectAddr::SelectAddrs SelTranslateValue(BasicBlock *CurBB,
+                                            BasicBlock *PredBB,
+                                            const DominatorTree *DT,
+                                            SelectInst *Sel);
+
   /// PHITranslateWithInsertion - PHI translate this value into the specified
   /// predecessor block, inserting a computation of the value if it is
   /// unavailable.
@@ -101,7 +141,8 @@ public:
 
 private:
   Value *PHITranslateSubExpr(Value *V, BasicBlock *CurBB, BasicBlock *PredBB,
-                             const DominatorTree *DT);
+                             const DominatorTree *DT, SelectInst *Sel = nullptr,
+                             bool Cond = false);
 
   /// InsertPHITranslatedSubExpr - Insert a computation of the PHI translated
   /// version of 'V' for the edge PredBB->CurBB into the end of the PredBB
