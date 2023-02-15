@@ -2139,10 +2139,6 @@ static Instruction *canonicalizeLogicFirst(BinaryOperator &I,
 Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
   Type *Ty = I.getType();
 
-  if (Value *V = simplifyAndInst(I.getOperand(0), I.getOperand(1),
-                                 SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (SimplifyAssociativeOrCommutative(I))
     return &I;
 
@@ -3145,10 +3141,6 @@ Value *InstCombinerImpl::foldAndOrOfICmps(ICmpInst *LHS, ICmpInst *RHS,
 // here. We should standardize that construct where it is needed or choose some
 // other way to ensure that commutated variants of patterns are not missed.
 Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
-  if (Value *V = simplifyOrInst(I.getOperand(0), I.getOperand(1),
-                                SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (SimplifyAssociativeOrCommutative(I))
     return &I;
 
@@ -4247,10 +4239,6 @@ Instruction *InstCombinerImpl::foldNot(BinaryOperator &I) {
 // here. We should standardize that construct where it is needed or choose some
 // other way to ensure that commutated variants of patterns are not missed.
 Instruction *InstCombinerImpl::visitXor(BinaryOperator &I) {
-  if (Value *V = simplifyXorInst(I.getOperand(0), I.getOperand(1),
-                                 SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (SimplifyAssociativeOrCommutative(I))
     return &I;
 

@@ -2282,9 +2282,6 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   Type *GEPType = GEP.getType();
   Type *GEPEltType = GEP.getSourceElementType();
   bool IsGEPSrcEleScalable = isa<ScalableVectorType>(GEPEltType);
-  if (Value *V = simplifyGEPInst(GEPEltType, PtrOp, Indices, GEP.isInBounds(),
-                                 SQ.getWithInstruction(&GEP)))
-    return replaceInstUsesWith(GEP, V);
 
   // For vector geps, use the generic demanded vector support.
   // Skip if GEP return type is scalable. The number of elements is unknown at
@@ -3352,10 +3349,6 @@ Instruction *InstCombinerImpl::visitExtractValueInst(ExtractValueInst &EV) {
   if (!EV.hasIndices())
     return replaceInstUsesWith(EV, Agg);
 
-  if (Value *V = simplifyExtractValueInst(Agg, EV.getIndices(),
-                                          SQ.getWithInstruction(&EV)))
-    return replaceInstUsesWith(EV, V);
-
   if (InsertValueInst *IV = dyn_cast<InsertValueInst>(Agg)) {
     // We're extracting from an insertvalue instruction, compare the indices
     const unsigned *exti, *exte, *insi, *inse;
@@ -3968,9 +3961,6 @@ bool InstCombinerImpl::freezeOtherUses(FreezeInst &FI) {
 Instruction *InstCombinerImpl::visitFreeze(FreezeInst &I) {
   Value *Op0 = I.getOperand(0);
 
-  if (Value *V = simplifyFreezeInst(Op0, SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   // freeze (phi const, x) --> phi const, (freeze x)
   if (auto *PN = dyn_cast<PHINode>(Op0)) {
     if (Instruction *NV = foldOpIntoPhi(I, PN))
@@ -4227,15 +4217,13 @@ bool InstCombinerImpl::run() {
     if (!DebugCounter::shouldExecute(VisitCounter))
       continue;
 
-    // Instruction isn't dead, see if we can constant propagate it.
-    if (!I->use_empty() &&
-        (I->getNumOperands() == 0 || isa<Constant>(I->getOperand(0)))) {
-      if (Constant *C = ConstantFoldInstruction(I, DL, &TLI)) {
-        LLVM_DEBUG(dbgs() << "IC: ConstFold to: " << *C << " from: " << *I
-                          << '\n');
+    // Try to simplify the instruction.
+    if (!I->use_empty()) {
+      if (Value *V = simplifyInstruction(I, SQ.getWithInstruction(I))) {
+        LLVM_DEBUG(dbgs() << "IC: Simplifying " << *I << " to " << *V << '\n');
 
         // Add operands to the worklist.
-        replaceInstUsesWith(*I, C);
+        replaceInstUsesWith(*I, V);
         ++NumConstProp;
         if (isInstructionTriviallyDead(I, &TLI))
           eraseInstFromFunction(*I);

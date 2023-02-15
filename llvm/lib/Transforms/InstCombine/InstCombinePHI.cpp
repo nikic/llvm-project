@@ -1378,9 +1378,6 @@ static Value *simplifyUsingControlFlow(InstCombiner &Self, PHINode &PN,
 // PHINode simplification
 //
 Instruction *InstCombinerImpl::visitPHINode(PHINode &PN) {
-  if (Value *V = simplifyInstruction(&PN, SQ.getWithInstruction(&PN)))
-    return replaceInstUsesWith(PN, V);
-
   if (Instruction *Result = foldPHIArgZextsIntoPHI(PN))
     return Result;
 

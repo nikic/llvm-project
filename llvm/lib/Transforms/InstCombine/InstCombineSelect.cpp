@@ -3102,10 +3102,6 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
   Value *FalseVal = SI.getFalseValue();
   Type *SelType = SI.getType();
 
-  if (Value *V = simplifySelectInst(CondVal, TrueVal, FalseVal,
-                                    SQ.getWithInstruction(&SI)))
-    return replaceInstUsesWith(SI, V);
-
   if (Instruction *I = canonicalizeSelectToShuffle(SI))
     return I;
 

@@ -927,10 +927,6 @@ Instruction *InstCombinerImpl::foldLShrOverflowBit(BinaryOperator &I) {
 Instruction *InstCombinerImpl::visitShl(BinaryOperator &I) {
   const SimplifyQuery Q = SQ.getWithInstruction(&I);
 
-  if (Value *V = simplifyShlInst(I.getOperand(0), I.getOperand(1),
-                                 I.hasNoSignedWrap(), I.hasNoUnsignedWrap(), Q))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
@@ -1164,10 +1160,6 @@ Instruction *InstCombinerImpl::visitShl(BinaryOperator &I) {
 }
 
 Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
-  if (Value *V = simplifyLShrInst(I.getOperand(0), I.getOperand(1), I.isExact(),
-                                  SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
@@ -1494,10 +1486,6 @@ InstCombinerImpl::foldVariableSignZeroExtensionOfVariableHighBitExtract(
 }
 
 Instruction *InstCombinerImpl::visitAShr(BinaryOperator &I) {
-  if (Value *V = simplifyAShrInst(I.getOperand(0), I.getOperand(1), I.isExact(),
-                                  SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldVectorBinop(I))
     return X;
 

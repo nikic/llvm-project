@@ -395,10 +395,6 @@ ConstantInt *getPreferredVectorIndex(ConstantInt *IndexC) {
 Instruction *InstCombinerImpl::visitExtractElementInst(ExtractElementInst &EI) {
   Value *SrcVec = EI.getVectorOperand();
   Value *Index = EI.getIndexOperand();
-  if (Value *V = simplifyExtractElementInst(SrcVec, Index,
-                                            SQ.getWithInstruction(&EI)))
-    return replaceInstUsesWith(EI, V);
-
   // extractelt (select %x, %vec1, %vec2), %const ->
   // select %x, %vec1[%const], %vec2[%const]
   // TODO: Support constant folding of multiple select operands:
@@ -1129,11 +1125,6 @@ Instruction *InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse(
 /// It should be transformed to:
 ///  %0 = insertvalue { i8, i32 } undef, i8 %y, 0
 Instruction *InstCombinerImpl::visitInsertValueInst(InsertValueInst &I) {
-  if (Value *V = simplifyInsertValueInst(
-          I.getAggregateOperand(), I.getInsertedValueOperand(), I.getIndices(),
-          SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   bool IsRedundant = false;
   ArrayRef<unsigned int> FirstIndices = I.getIndices();
 
@@ -1589,10 +1580,6 @@ Instruction *InstCombinerImpl::visitInsertElementInst(InsertElementInst &IE) {
   Value *VecOp    = IE.getOperand(0);
   Value *ScalarOp = IE.getOperand(1);
   Value *IdxOp    = IE.getOperand(2);
-
-  if (auto *V = simplifyInsertElementInst(
-          VecOp, ScalarOp, IdxOp, SQ.getWithInstruction(&IE)))
-    return replaceInstUsesWith(IE, V);
 
   // Canonicalize type of constant indices to i64 to simplify CSE
   if (auto *IndexC = dyn_cast<ConstantInt>(IdxOp)) {
@@ -2746,10 +2733,6 @@ Instruction *InstCombinerImpl::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
   Value *LHS = SVI.getOperand(0);
   Value *RHS = SVI.getOperand(1);
   SimplifyQuery ShufQuery = SQ.getWithInstruction(&SVI);
-  if (auto *V = simplifyShuffleVectorInst(LHS, RHS, SVI.getShuffleMask(),
-                                          SVI.getType(), ShufQuery))
-    return replaceInstUsesWith(SVI, V);
-
   if (Instruction *I = simplifyBinOpSplats(SVI))
     return I;
 

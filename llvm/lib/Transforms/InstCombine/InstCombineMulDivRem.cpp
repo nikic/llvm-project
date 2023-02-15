@@ -187,10 +187,6 @@ static Value *foldMulShl1(BinaryOperator &Mul, bool CommuteOperands,
 
 Instruction *InstCombinerImpl::visitMul(BinaryOperator &I) {
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
-  if (Value *V =
-          simplifyMulInst(Op0, Op1, I.hasNoSignedWrap(), I.hasNoUnsignedWrap(),
-                          SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
 
   if (SimplifyAssociativeOrCommutative(I))
     return &I;
@@ -519,11 +515,6 @@ Instruction *InstCombinerImpl::foldFPSignBitOps(BinaryOperator &I) {
 }
 
 Instruction *InstCombinerImpl::visitFMul(BinaryOperator &I) {
-  if (Value *V = simplifyFMulInst(I.getOperand(0), I.getOperand(1),
-                                  I.getFastMathFlags(),
-                                  SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (SimplifyAssociativeOrCommutative(I))
     return &I;
 
@@ -1227,10 +1218,6 @@ static Instruction *narrowUDivURem(BinaryOperator &I,
 }
 
 Instruction *InstCombinerImpl::visitUDiv(BinaryOperator &I) {
-  if (Value *V = simplifyUDivInst(I.getOperand(0), I.getOperand(1), I.isExact(),
-                                  SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
@@ -1307,10 +1294,6 @@ Instruction *InstCombinerImpl::visitUDiv(BinaryOperator &I) {
 }
 
 Instruction *InstCombinerImpl::visitSDiv(BinaryOperator &I) {
-  if (Value *V = simplifySDivInst(I.getOperand(0), I.getOperand(1), I.isExact(),
-                                  SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
@@ -1564,11 +1547,6 @@ static Instruction *foldFDivPowDivisor(BinaryOperator &I,
 Instruction *InstCombinerImpl::visitFDiv(BinaryOperator &I) {
   Module *M = I.getModule();
 
-  if (Value *V = simplifyFDivInst(I.getOperand(0), I.getOperand(1),
-                                  I.getFastMathFlags(),
-                                  SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
@@ -1737,10 +1715,6 @@ Instruction *InstCombinerImpl::commonIRemTransforms(BinaryOperator &I) {
 }
 
 Instruction *InstCombinerImpl::visitURem(BinaryOperator &I) {
-  if (Value *V = simplifyURemInst(I.getOperand(0), I.getOperand(1),
-                                  SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
@@ -1790,10 +1764,6 @@ Instruction *InstCombinerImpl::visitURem(BinaryOperator &I) {
 }
 
 Instruction *InstCombinerImpl::visitSRem(BinaryOperator &I) {
-  if (Value *V = simplifySRemInst(I.getOperand(0), I.getOperand(1),
-                                  SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
@@ -1862,11 +1832,6 @@ Instruction *InstCombinerImpl::visitSRem(BinaryOperator &I) {
 }
 
 Instruction *InstCombinerImpl::visitFRem(BinaryOperator &I) {
-  if (Value *V = simplifyFRemInst(I.getOperand(0), I.getOperand(1),
-                                  I.getFastMathFlags(),
-                                  SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldVectorBinop(I))
     return X;
 

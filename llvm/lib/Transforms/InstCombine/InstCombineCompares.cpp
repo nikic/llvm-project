@@ -6353,9 +6353,6 @@ Instruction *InstCombinerImpl::visitICmpInst(ICmpInst &I) {
     Changed = true;
   }
 
-  if (Value *V = simplifyICmpInst(I.getPredicate(), Op0, Op1, Q))
-    return replaceInstUsesWith(I, V);
-
   // Comparing -val or val with non-zero is the same as just comparing val
   // ie, abs(val) != 0 -> val != 0
   if (I.getPredicate() == ICmpInst::ICMP_NE && match(Op1, m_Zero())) {
@@ -7014,9 +7011,6 @@ Instruction *InstCombinerImpl::visitFCmpInst(FCmpInst &I) {
 
   const CmpInst::Predicate Pred = I.getPredicate();
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
-  if (Value *V = simplifyFCmpInst(Pred, Op0, Op1, I.getFastMathFlags(),
-                                  SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
 
   // Simplify 'fcmp pred X, X'
   Type *OpType = Op0->getType();

@@ -1244,12 +1244,6 @@ foldShuffledIntrinsicOperands(IntrinsicInst *II,
 /// instructions. For normal calls, it allows visitCallBase to do the heavy
 /// lifting.
 Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
-  // Don't try to simplify calls without uses. It will not do anything useful,
-  // but will result in the following folds being skipped.
-  if (!CI.use_empty())
-    if (Value *V = simplifyCall(&CI, SQ.getWithInstruction(&CI)))
-      return replaceInstUsesWith(CI, V);
-
   if (Value *FreedOp = getFreedOperand(&CI, &TLI))
     return visitFree(CI, FreedOp);
 

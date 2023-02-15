@@ -1346,11 +1346,6 @@ static Instruction *foldBoxMultiply(BinaryOperator &I) {
 }
 
 Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
-  if (Value *V = simplifyAddInst(I.getOperand(0), I.getOperand(1),
-                                 I.hasNoSignedWrap(), I.hasNoUnsignedWrap(),
-                                 SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (SimplifyAssociativeOrCommutative(I))
     return &I;
 
@@ -1651,11 +1646,6 @@ static Instruction *factorizeFAddFSub(BinaryOperator &I,
 }
 
 Instruction *InstCombinerImpl::visitFAdd(BinaryOperator &I) {
-  if (Value *V = simplifyFAddInst(I.getOperand(0), I.getOperand(1),
-                                  I.getFastMathFlags(),
-                                  SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (SimplifyAssociativeOrCommutative(I))
     return &I;
 
@@ -1925,11 +1915,6 @@ static Instruction *foldSubOfMinMax(BinaryOperator &I,
 }
 
 Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
-  if (Value *V = simplifySubInst(I.getOperand(0), I.getOperand(1),
-                                 I.hasNoSignedWrap(), I.hasNoUnsignedWrap(),
-                                 SQ.getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
@@ -2465,10 +2450,6 @@ static Instruction *hoistFNegAboveFMulFDiv(Instruction &I,
 Instruction *InstCombinerImpl::visitFNeg(UnaryOperator &I) {
   Value *Op = I.getOperand(0);
 
-  if (Value *V = simplifyFNegInst(Op, I.getFastMathFlags(),
-                                  getSimplifyQuery().getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldFNegIntoConstant(I, DL))
     return X;
 
@@ -2539,11 +2520,6 @@ Instruction *InstCombinerImpl::visitFNeg(UnaryOperator &I) {
 }
 
 Instruction *InstCombinerImpl::visitFSub(BinaryOperator &I) {
-  if (Value *V = simplifyFSubInst(I.getOperand(0), I.getOperand(1),
-                                  I.getFastMathFlags(),
-                                  getSimplifyQuery().getWithInstruction(&I)))
-    return replaceInstUsesWith(I, V);
-
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
