@@ -79,6 +79,7 @@ public:
   BasicBlock(const BasicBlock &) = delete;
   BasicBlock &operator=(const BasicBlock &) = delete;
   ~BasicBlock();
+  void operator delete(void *);
 
   /// Get the context in which this basic block lives.
   LLVMContext &getContext() const;
@@ -96,6 +97,9 @@ public:
                                                       BasicBlock::iterator It);
   friend class llvm::SymbolTableListTraits<llvm::Instruction>;
   friend class llvm::ilist_node_with_parent<llvm::Instruction, llvm::BasicBlock>;
+  friend class ChkpntInstrUtils;
+  friend class SpliceBB;
+  friend class ClearInstList;  // For checkpointing.
 
   /// Creates a new BasicBlock.
   ///

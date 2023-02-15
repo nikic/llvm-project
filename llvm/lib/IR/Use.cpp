@@ -15,6 +15,10 @@ void Use::swap(Use &RHS) {
   if (Val == RHS.Val)
     return;
 
+  CheckpointEngine &Chkpnt = getUser()->getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.swapUse(this, &RHS);
+
   std::swap(Val, RHS.Val);
   std::swap(Next, RHS.Next);
   std::swap(Prev, RHS.Prev);

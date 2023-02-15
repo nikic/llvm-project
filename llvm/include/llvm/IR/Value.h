@@ -17,6 +17,8 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/IR/CheckpointEngine.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Use.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/CBindingWrapping.h"
@@ -263,6 +265,7 @@ public:
   void setValueName(ValueName *VN);
 
 private:
+  friend class DestroyName; // Needs to call destroyValueName().
   void destroyValueName();
   enum class ReplaceMetadataUses { No, Yes };
   void doRAUW(Value *New, ReplaceMetadataUses);
@@ -542,8 +545,12 @@ public:
 
   /// Clear the optional flags contained in this value.
   void clearSubclassOptionalData() {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData = 0;
   }
+  friend class SetSubclassOptionalData;  // For checkpoint.
 
   /// Check the optional flags for equality.
   bool hasSameSubclassOptionalData(const Value *V) const {
@@ -557,6 +564,12 @@ public:
   bool isUsedByMetadata() const { return IsUsedByMD; }
 
 protected:
+  /// Checkpoint needs access to the protected functions.
+  friend class SetMetadata;
+  friend class AddMetadata;
+  friend class EraseMetadata;
+  friend class ClearMetadata;
+
   /// Get the current metadata attachments for the given kind, if any.
   ///
   /// These functions require that the value have at most a single attachment
@@ -847,7 +860,13 @@ private:
 
 protected:
   unsigned short getSubclassDataFromValue() const { return SubclassData; }
-  void setValueSubclassData(unsigned short D) { SubclassData = D; }
+  friend class SetSubclassData;  // For checkpoint.
+  void setValueSubclassData(unsigned short D) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassData(this, SubclassData);
+    SubclassData = D;
+  }
 };
 
 struct ValueDeleter { void operator()(Value *V) { V->deleteValue(); } };
@@ -863,6 +882,12 @@ inline raw_ostream &operator<<(raw_ostream &OS, const Value &V) {
 }
 
 void Use::set(Value *V) {
+  // User.h is not included, so we need to use a Value instead.
+  Value *UV = (Value *)getUser();
+  CheckpointEngine &ChkpntEngine = UV->getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+    ChkpntEngine.setOperand(getUser(), getOperandNo());
+
   if (Val) removeFromList();
   Val = V;
   if (V) V->addUse(*this);

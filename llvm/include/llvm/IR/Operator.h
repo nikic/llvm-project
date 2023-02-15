@@ -15,6 +15,7 @@
 #define LLVM_IR_OPERATOR_H
 
 #include "llvm/ADT/MapVector.h"
+#include "llvm/IR/CheckpointEngine.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/FMF.h"
 #include "llvm/IR/Instruction.h"
@@ -85,10 +86,16 @@ private:
   friend class ConstantExpr;
 
   void setHasNoUnsignedWrap(bool B) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData =
       (SubclassOptionalData & ~NoUnsignedWrap) | (B * NoUnsignedWrap);
   }
   void setHasNoSignedWrap(bool B) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData =
       (SubclassOptionalData & ~NoSignedWrap) | (B * NoSignedWrap);
   }
@@ -137,6 +144,9 @@ private:
   friend class ConstantExpr;
 
   void setIsExact(bool B) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData = (SubclassOptionalData & ~IsExact) | (B * IsExact);
   }
 
@@ -183,42 +193,63 @@ private:
   }
 
   void setHasAllowReassoc(bool B) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData =
     (SubclassOptionalData & ~FastMathFlags::AllowReassoc) |
     (B * FastMathFlags::AllowReassoc);
   }
 
   void setHasNoNaNs(bool B) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData =
       (SubclassOptionalData & ~FastMathFlags::NoNaNs) |
       (B * FastMathFlags::NoNaNs);
   }
 
   void setHasNoInfs(bool B) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData =
       (SubclassOptionalData & ~FastMathFlags::NoInfs) |
       (B * FastMathFlags::NoInfs);
   }
 
   void setHasNoSignedZeros(bool B) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData =
       (SubclassOptionalData & ~FastMathFlags::NoSignedZeros) |
       (B * FastMathFlags::NoSignedZeros);
   }
 
   void setHasAllowReciprocal(bool B) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData =
       (SubclassOptionalData & ~FastMathFlags::AllowReciprocal) |
       (B * FastMathFlags::AllowReciprocal);
   }
 
   void setHasAllowContract(bool B) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData =
         (SubclassOptionalData & ~FastMathFlags::AllowContract) |
         (B * FastMathFlags::AllowContract);
   }
 
   void setHasApproxFunc(bool B) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData =
         (SubclassOptionalData & ~FastMathFlags::ApproxFunc) |
         (B * FastMathFlags::ApproxFunc);
@@ -227,12 +258,18 @@ private:
   /// Convenience function for setting multiple fast-math flags.
   /// FMF is a mask of the bits to set.
   void setFastMathFlags(FastMathFlags FMF) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData |= FMF.Flags;
   }
 
   /// Convenience function for copying all fast-math flags.
   /// All values in FMF are transferred to this operator.
   void copyFastMathFlags(FastMathFlags FMF) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData = FMF.Flags;
   }
 
@@ -386,6 +423,9 @@ class GEPOperator
   };
 
   void setIsInBounds(bool B) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setSubclassOptionalData(this, SubclassOptionalData);
     SubclassOptionalData =
       (SubclassOptionalData & ~IsInBounds) | (B * IsInBounds);
   }

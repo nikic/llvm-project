@@ -12,6 +12,7 @@
 
 #include "llvm/IR/Instruction.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/IR/CheckpointEngine.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -76,10 +77,26 @@ const Function *Instruction::getFunction() const {
 }
 
 void Instruction::removeFromParent() {
+  CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+    ChkpntEngine.removeInstr(this);
   getParent()->getInstList().remove(getIterator());
 }
 
 iplist<Instruction>::iterator Instruction::eraseFromParent() {
+  CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(ChkpntEngine.isActive())) {
+    ChkpntEngine.removeInstr(this);
+    // In order to preserve the pointer value of erased instructions we are
+    // disconnecting the temporarily and re-inserting them if the checkpoint
+    // needs to be restored.
+    auto NextIt = std::next(getIterator());
+    dropAllReferences();
+    // This is same as removeFromParent()
+    getParent()->InstList.remove(getIterator());
+    deleteValue();
+    return NextIt;
+  }
   return getParent()->getInstList().erase(getIterator());
 }
 
@@ -100,7 +117,11 @@ BasicBlock::iterator Instruction::insertInto(BasicBlock *ParentBB,
   assert(getParent() == nullptr && "Expected detached instruction");
   assert((It == ParentBB->end() || It->getParent() == ParentBB) &&
          "It not in ParentBB");
-  return ParentBB->getInstList().insert(It, this);
+  auto RetIt = ParentBB->getInstList().insert(It, this);
+  CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+    ChkpntEngine.insertInstr(this);
+  return RetIt;
 }
 
 /// Unlink this instruction from its current basic block and insert it into the

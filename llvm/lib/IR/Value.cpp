@@ -14,6 +14,7 @@
 #include "LLVMContextImpl.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/IR/CheckpointEngine.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -70,9 +71,14 @@ Value::Value(Type *ty, unsigned scid)
            "Cannot create non-first-class values except for constants!");
   static_assert(sizeof(Value) == 2 * sizeof(void *) + 2 * sizeof(unsigned),
                 "Value too big");
+
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.createValue(this);
 }
 
 Value::~Value() {
+  auto &Chkpnt = getContext().getChkpntEngine();
   // Notify all ValueHandles (if present) that this value is going away.
   if (HasValueHandle)
     ValueHandleBase::ValueIsDeleted(this);
@@ -103,10 +109,19 @@ Value::~Value() {
 
   // If this value is named, destroy the name.  This should not be in a symtab
   // at this point.
-  destroyValueName();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.destroyName(this);
+  else
+    destroyValueName();
 }
 
 void Value::deleteValue() {
+  CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(ChkpntEngine.isActive())) {
+    ChkpntEngine.deleteValue(this);
+    return;
+  }
+
   switch (getValueID()) {
 #define HANDLE_VALUE(Name)                                                     \
   case Value::Name##Val:                                                       \
@@ -373,6 +388,9 @@ void Value::setNameImpl(const Twine &NewName) {
 }
 
 void Value::setName(const Twine &NewName) {
+  CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+    ChkpntEngine.setName(this);
   setNameImpl(NewName);
   if (Function *F = dyn_cast<Function>(this))
     F->recalculateIntrinsicID();
@@ -380,6 +398,10 @@ void Value::setName(const Twine &NewName) {
 
 void Value::takeName(Value *V) {
   assert(V != this && "Illegal call to this->takeName(this)!");
+  CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+    ChkpntEngine.takeName(this, V);
+
   ValueSymbolTable *ST = nullptr;
   // If this value has a name, drop it.
   if (hasName()) {

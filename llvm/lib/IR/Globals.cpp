@@ -40,6 +40,10 @@ static_assert(sizeof(GlobalObject) == sizeof(GlobalValue) + sizeof(void *),
               "unexpected GlobalObject size growth");
 
 void GlobalVariableAttributeSet::setAttributes(AttributeSet NewAttrs) {
+  GlobalVariable *GV = (GlobalVariable *)this;
+  auto &Chkpnt = GV->getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.setGlobalVariableAttributes(GV);
   Attrs = NewAttrs;
 }
 
@@ -200,6 +204,10 @@ const Comdat *GlobalValue::getComdat() const {
 }
 
 void GlobalObject::setComdat(Comdat *C) {
+  auto &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.setComdat(this);
+
   if (ObjComdat)
     ObjComdat->removeUser(this);
   ObjComdat = C;
@@ -226,7 +234,7 @@ void GlobalValue::setPartition(StringRef S) {
 
   // Update the HasPartition field. Setting the partition to the empty string
   // means this global no longer has a partition.
-  setHasPartitionBF(!S.empty());
+  setHasPartitionBF(!S.empty(), this);
 }
 
 using SanitizerMetadata = GlobalValue::SanitizerMetadata;
@@ -238,14 +246,14 @@ const SanitizerMetadata &GlobalValue::getSanitizerMetadata() const {
 
 void GlobalValue::setSanitizerMetadata(SanitizerMetadata Meta) {
   getContext().pImpl->GlobalValueSanitizerMetadata[this] = Meta;
-  setHasSanitizerMetadataBF(true);
+  setHasSanitizerMetadataBF(true, this);
 }
 
 void GlobalValue::removeSanitizerMetadata() {
   DenseMap<const GlobalValue *, SanitizerMetadata> &MetadataMap =
       getContext().pImpl->GlobalValueSanitizerMetadata;
   MetadataMap.erase(this);
-  setHasSanitizerMetadataBF(false);
+  setHasSanitizerMetadataBF(false, this);
 }
 
 StringRef GlobalObject::getSectionImpl() const {
@@ -474,6 +482,10 @@ void GlobalVariable::eraseFromParent() {
 }
 
 void GlobalVariable::setInitializer(Constant *InitVal) {
+  auto &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.setGlobalVariableInitializer(this);
+
   if (!InitVal) {
     if (hasInitializer()) {
       // Note, the num operands is used to compute the offset of the operand, so

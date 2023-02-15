@@ -20,6 +20,8 @@
 
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/IR/CheckpointEngine.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Use.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/Casting.h"
@@ -173,8 +175,10 @@ public:
 
   void setOperand(unsigned i, Value *Val) {
     assert(i < NumUserOperands && "setOperand() out of range!");
-    assert((!isa<Constant>((const Value*)this) ||
-            isa<GlobalValue>((const Value*)this)) &&
+    assert((!isa<Constant>((const Value *)this) ||
+            isa<GlobalValue>((const Value *)this) ||
+            // Allow setOperand during Checkpoint rollback.
+            getContext().getChkpntEngine().inRollback()) &&
            "Cannot mutate a constant with setOperand!");
     getOperandList()[i] = Val;
   }
@@ -206,15 +210,22 @@ public:
   /// 1 operand before delete.
   void setGlobalVariableNumOperands(unsigned NumOps) {
     assert(NumOps <= 1 && "GlobalVariable can only have 0 or 1 operands");
+    CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+      ChkpntEngine.setNumUserOperands(this, NumUserOperands);
     NumUserOperands = NumOps;
   }
 
+  friend class SetNumUserOperands; // For checkpoint.
   /// Subclasses with hung off uses need to manage the operand count
   /// themselves.  In these instances, the operand count isn't used to find the
   /// OperandList, so there's no issue in having the operand count change.
   void setNumHungOffUseOperands(unsigned NumOps) {
     assert(HasHungOffUses && "Must have hung off uses to use this method");
     assert(NumOps < (1u << NumUserOperandsBits) && "Too many operands");
+    CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+      ChkpntEngine.setNumUserOperands(this, NumUserOperands);
     NumUserOperands = NumOps;
   }
 

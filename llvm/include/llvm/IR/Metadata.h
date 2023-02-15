@@ -60,6 +60,7 @@ const uint64_t NOMORE_ICP_MAGICNUM = -1;
 /// This is a root class for typeless data in the IR.
 class Metadata {
   friend class ReplaceableMetadataImpl;
+  friend class DeleteMetadata; // For checkpoint.
 
   /// RTTI.
   const unsigned char SubclassID;
@@ -89,6 +90,7 @@ protected:
 
   ~Metadata() = default;
 
+  friend class RAUWMetadata; // For checkpoint.
   /// Default handling of a changed operand, which asserts.
   ///
   /// If subclasses pass themselves in as owners to a tracking node reference,
@@ -96,6 +98,7 @@ protected:
   void handleChangedOperand(void *, Metadata *) {
     llvm_unreachable("Unimplemented in Metadata subclass");
   }
+  friend class MetadataChangeOperand; // For checkpoint
 
 public:
   unsigned getMetadataID() const { return SubclassID; }
@@ -196,6 +199,8 @@ public:
   }
 
 private:
+  friend class ChangeMetadata; // For checkpoint.
+  friend class RAUWMetadata;   // For checkpoint.
   void handleChangedMetadata(Metadata *MD);
   void track();
   void untrack();
@@ -279,6 +284,7 @@ private:
 /// and \a TempMDNode).
 class ReplaceableMetadataImpl {
   friend class MetadataTracking;
+  friend class RAUWMetadata; // For Checkpoint.
 
 public:
   using OwnerTy = MetadataTracking::OwnerTy;
@@ -287,6 +293,8 @@ private:
   LLVMContext &Context;
   uint64_t NextIndex = 0;
   SmallDenseMap<void *, std::pair<OwnerTy, uint64_t>, 4> UseMap;
+  friend class MetadataUpdateUseMap;   // For checkpoint
+  friend class MetadataChangeOperand;  // For checkpoint
 
 public:
   ReplaceableMetadataImpl(LLVMContext &Context) : Context(Context) {}
@@ -344,6 +352,7 @@ private:
 class ValueAsMetadata : public Metadata, ReplaceableMetadataImpl {
   friend class ReplaceableMetadataImpl;
   friend class LLVMContextImpl;
+  friend class RAUWMetadata;  // For checkpoint.
 
   Value *V;
 
@@ -390,7 +399,7 @@ public:
   }
 
   static void handleDeletion(Value *V);
-  static void handleRAUW(Value *From, Value *To);
+  static void handleRAUW(Value *From, Value *To, bool DontDelete = false);
 
 protected:
   /// Handle collisions after \a Value::replaceAllUsesWith().
@@ -1209,6 +1218,7 @@ private:
   MDNode *replaceWithDistinctImpl();
 
 protected:
+  friend class RAUWMetadata;
   /// Set an operand.
   ///
   /// Sets the operand directly, without worrying about uniquing.
@@ -1235,6 +1245,7 @@ protected:
 
 private:
   void handleChangedOperand(void *Ref, Metadata *New);
+  friend class MetadataChangeOperand; // For checkpoint
 
   /// Drop RAUW support, if any.
   void dropReplaceableUses();

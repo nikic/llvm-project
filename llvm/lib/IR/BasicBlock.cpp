@@ -15,6 +15,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/CheckpointEngine.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -90,7 +91,20 @@ BasicBlock::~BasicBlock() {
 
   assert(getParent() == nullptr && "BasicBlock still linked into the program!");
   dropAllReferences();
+
+  auto &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.clearInstList(this);
   InstList.clear();
+}
+
+void BasicBlock::operator delete(void *Ptr) {
+  auto *BB = static_cast<BasicBlock *>(Ptr);
+  auto &Chkpnt = BB->getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.deleteValue(BB);
+  else
+    free(BB);
 }
 
 void BasicBlock::setParent(Function *parent) {
@@ -126,19 +140,37 @@ BasicBlock::sizeWithoutDebug() const {
 }
 
 void BasicBlock::removeFromParent() {
+  auto &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.removeBB(this);
   getParent()->getBasicBlockList().remove(getIterator());
 }
 
 iplist<BasicBlock>::iterator BasicBlock::eraseFromParent() {
+  auto &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+    Chkpnt.removeBB(this);
+    auto NextBBIt = std::next(getIterator());
+    getParent()->getBasicBlockList().remove(getIterator());
+    dropAllReferences();
+    deleteValue();
+    return NextBBIt;
+  }
   return getParent()->getBasicBlockList().erase(getIterator());
 }
 
 void BasicBlock::moveBefore(BasicBlock *MovePos) {
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.moveBB(this);
   MovePos->getParent()->splice(MovePos->getIterator(), getParent(),
                                getIterator());
 }
 
 void BasicBlock::moveAfter(BasicBlock *MovePos) {
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.moveBB(this);
   MovePos->getParent()->splice(++MovePos->getIterator(), getParent(),
                                getIterator());
 }
@@ -476,11 +508,34 @@ void BasicBlock::splice(BasicBlock::iterator ToIt, BasicBlock *FromBB,
   for (auto It = FromBeginIt; It != FromEndIt; ++It)
     assert(It != FromBBEnd && "FromBeginIt not before FromEndIt!");
 #endif // EXPENSIVE_CHECKS
-  getInstList().splice(ToIt, FromBB->getInstList(), FromBeginIt, FromEndIt);
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  bool ChkpntActive = Chkpnt.isActive();
+  // Collect the first and last instructions before the move.
+  Instruction *FirstI;
+  Instruction *LastI;
+  Value *OrigPosition;
+  if (LLVM_UNLIKELY(ChkpntActive)) {
+    assert(FromBeginIt != FromBB->end() && "Bad iterator");
+    FirstI = &*FromBeginIt;
+    LastI = FromEndIt != FromBeginIt ? &*std::prev(FromEndIt) : nullptr;
+    OrigPosition = CheckpointEngine::getPrevInstrOrParent(FirstI);
+  }
+
+  InstList.splice(ToIt, FromBB->InstList, FromBeginIt, FromEndIt);
+
+  if (LLVM_UNLIKELY(ChkpntActive))
+    Chkpnt.spliceBB(OrigPosition, FirstI, LastI);
 }
 
 BasicBlock::iterator BasicBlock::erase(BasicBlock::iterator FromIt,
                                        BasicBlock::iterator ToIt) {
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+    // Just detach them, we will delete them after the changes are accepted.
+    for (Instruction &I : make_early_inc_range(make_range(FromIt, ToIt)))
+      I.removeFromParent();
+    return ToIt;
+  }
   return InstList.erase(FromIt, ToIt);
 }
 

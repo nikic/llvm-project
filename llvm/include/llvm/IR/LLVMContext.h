@@ -15,6 +15,7 @@
 #define LLVM_IR_LLVMCONTEXT_H
 
 #include "llvm-c/Types.h"
+#include "llvm/IR/Checkpoint.h"
 #include "llvm/IR/DiagnosticHandler.h"
 #include "llvm/Support/CBindingWrapping.h"
 #include <cstdint>
@@ -36,6 +37,10 @@ template <typename T> class StringMapEntry;
 class StringRef;
 class Twine;
 class LLVMRemarkStreamer;
+class CheckpointEngine;
+class Use;
+class GlobalValue;
+class Constant;
 
 namespace remarks {
 class RemarkStreamer;
@@ -320,6 +325,9 @@ public:
   /// Whether typed pointers are supported. If false, all pointers are opaque.
   bool supportsTypedPointers() const;
 
+  /// \Returns the handle for IR checkpointing.
+  Checkpoint getCheckpoint(bool RunVerifier = false);
+
 private:
   // Module needs access to the add/removeModule methods.
   friend class Module;
@@ -330,6 +338,50 @@ private:
 
   /// removeModule - Unregister a module from this context.
   void removeModule(Module*);
+
+  // IR classes/functions that take update checkpoint info need to be friends.
+  friend class BasicBlock;
+  friend class Instruction;
+  friend class Value;
+  friend class User;
+  friend class PHINode; // PHINode::setIncomingBlock()
+  friend class Value;   // Value::setValueSubclassData()
+  friend class FnAttributeList;
+  friend class GlobalVariableAttributeSet;
+  friend class CallBaseAttributeList;
+  friend class Function;
+  friend class ValueHandleBase;
+  friend class CheckpointSavePass;
+  friend class CheckpointAcceptPass;
+  friend class CheckpointRollbackPass;
+  friend class GEPOperator;
+  friend class OverflowingBinaryOperator;
+  friend class PossiblyExactOperator;
+  friend class FPMathOperator;
+  friend class Use;
+  friend class ShuffleVectorInst;
+  friend class GlobalValue;
+  friend class MetadataAsValue;
+  friend class ValueAsMetadata;
+  friend class MDNode;
+  friend class GVBitfields;
+  friend class GlobalVariable;
+  friend class GlobalAlias;
+  friend class GlobalIFunc;
+  friend class GlobalObject;
+  friend class ConstantArray;
+  friend class ConstantStruct;
+  friend class ConstantVector;
+  friend class ConstantExpr;
+  friend class DSOLocalEquivalent;
+  template <typename T> friend class ConstantUniqueMap;
+  friend class Constant;
+  friend class NoCFIValue;
+  friend class BlockAddress;
+  friend class ReplaceableMetadataImpl;
+  /// \Returns the internal checkpointing object. To be used by the IR member
+  /// functions, not by the user.
+  CheckpointEngine &getChkpntEngine();
 };
 
 // Create wrappers for C Binding types (see CBindingWrapping.h).

@@ -24,6 +24,7 @@
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/CheckpointEngine.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InstrTypes.h"
@@ -2831,6 +2832,10 @@ public:
   }
 
   void setIncomingBlock(unsigned i, BasicBlock *BB) {
+    assert(BB && "PHI node got a null basic block!");
+    CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+      ChkpntEngine.setIncomingBlocks(this, i);
     const_cast<block_iterator>(block_begin())[i] = BB;
   }
 
@@ -2838,6 +2843,11 @@ public:
   /// of this PHINode, starting at \p ToIdx.
   void copyIncomingBlocks(iterator_range<const_block_iterator> BBRange,
                           uint32_t ToIdx = 0) {
+    CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(ChkpntEngine.isActive())) {
+      uint32_t NumBlocks = BBRange.end() - BBRange.begin();
+      ChkpntEngine.setIncomingBlocks(this, ToIdx, NumBlocks);
+    }
     copy(BBRange, const_cast<block_iterator>(block_begin()) + ToIdx);
   }
 

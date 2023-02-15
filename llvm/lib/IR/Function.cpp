@@ -309,6 +309,10 @@ Attribute Argument::getAttribute(Attribute::AttrKind Kind) const {
 }
 
 void FnAttributeList::setAttributes(AttributeList NewAttrs) {
+  Function *F = (Function *)this;
+  auto &Chkpnt = F->getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.setFnAttributes(F);
   Attrs = NewAttrs;
 }
 
@@ -360,10 +364,20 @@ Function *Function::createWithDefaultAttr(FunctionType *Ty,
 }
 
 void Function::removeFromParent() {
+  auto &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.removeFn(this);
   getParent()->getFunctionList().remove(getIterator());
 }
 
 void Function::eraseFromParent() {
+  auto &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+    removeFromParent();
+    dropAllReferences();
+    deleteValue();
+    return;
+  }
   getParent()->getFunctionList().erase(getIterator());
 }
 
@@ -376,11 +390,37 @@ void Function::splice(Function::iterator ToIt, Function *FromF,
   for (auto It = FromBeginIt; It != FromEndIt; ++It)
     assert(It != FromFEnd && "FromBeginIt not before FromEndIt!");
 #endif // EXPENSIVE_CHECKS
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  bool ChkpntActive = Chkpnt.isActive();
+  // Collect the first and last BBs before the move.
+  BasicBlock *FirstBB;
+  BasicBlock *LastBB;
+  Value *OrigPosition;
+  if (LLVM_UNLIKELY(ChkpntActive)) {
+    assert(FromBeginIt != FromF->end() && "Bad iterator");
+    FirstBB = &*FromBeginIt;
+    LastBB = FromEndIt != FromBeginIt ? &*std::prev(FromEndIt) : nullptr;
+    OrigPosition = CheckpointEngine::getPrevBBOrParent(FirstBB);
+  }
+
   BasicBlocks.splice(ToIt, FromF->BasicBlocks, FromBeginIt, FromEndIt);
+
+  if (LLVM_UNLIKELY(ChkpntActive))
+    Chkpnt.spliceFn(OrigPosition, FirstBB, LastBB);
 }
 
 Function::iterator Function::erase(Function::iterator FromIt,
                                    Function::iterator ToIt) {
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+    for (BasicBlock &BB : llvm::make_early_inc_range(make_range(FromIt, ToIt))) {
+      Chkpnt.removeBB(&BB);
+      // Same as removeFromParent().
+      BasicBlocks.remove(BB.getIterator());
+      BB.deleteValue();
+    }
+    return ToIt;
+  }
   return BasicBlocks.erase(FromIt, ToIt);
 }
 
@@ -417,7 +457,7 @@ Function::Function(FunctionType *Ty, LinkageTypes Linkage, unsigned AddrSpace,
   if (ParentModule)
     ParentModule->getFunctionList().push_back(this);
 
-  setHasLLVMReservedNameBF(getName().startswith("llvm."));
+  setHasLLVMReservedNameBF(getName().startswith("llvm."), this);
   // Ensure intrinsics have the right parameter attributes.
   // Note, the IntID field will have been set in Value::setName if this function
   // name is a valid intrinsic ID.
@@ -441,6 +481,14 @@ void Function::BuildLazyArguments() const {
   auto *FT = getFunctionType();
   if (NumArgs > 0) {
     Arguments = std::allocator<Argument>().allocate(NumArgs);
+
+    // The memory allocated for the arguments is not owned by the argument
+    // objects, which is assumed by the design of the `CreateValue` checkpoint
+    // tracking objects. We disable checkpointing temporarily  to avoid a
+    // double-free error.
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    auto ChkpntDisableGuard = Chkpnt.disable();
+
     for (unsigned i = 0, e = NumArgs; i != e; ++i) {
       Type *ArgTy = FT->getParamType(i);
       assert(!ArgTy->isVoidTy() && "Cannot have void typed arguments!");
@@ -882,11 +930,11 @@ Intrinsic::ID Function::lookupIntrinsicID(StringRef Name) {
 void Function::recalculateIntrinsicID() {
   StringRef Name = getName();
   if (!Name.startswith("llvm.")) {
-    setHasLLVMReservedNameBF(false);
+    setHasLLVMReservedNameBF(false, this);
     IntID = Intrinsic::not_intrinsic;
     return;
   }
-  setHasLLVMReservedNameBF(true);
+  setHasLLVMReservedNameBF(true, this);
   IntID = lookupIntrinsicID(Name);
 }
 

@@ -456,6 +456,20 @@ Constant *Constant::getAggregateElement(Constant *Elt) const {
 }
 
 void Constant::destroyConstant() {
+  // Constants creation/deletion is tricky, so for now don't allow deletion.
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+    Chkpnt.destroyConstant(this);
+    for (User *U : users()) {
+      if (auto *CU = dyn_cast<Constant>(U)) {
+        CU->dropAllReferences();
+        Chkpnt.destroyConstant(CU);
+      }
+    }
+    dropAllReferences();
+    return;
+  }
+
   /// First call destroyConstantImpl on the subclass.  This gives the subclass
   /// a chance to remove the constant from any maps/pools it's contained in.
   switch (getValueID()) {
@@ -1781,6 +1795,10 @@ BlockAddress *BlockAddress::get(Function *F, BasicBlock *BB) {
   if (!BA)
     BA = new BlockAddress(F, BB);
 
+  CheckpointEngine &Chkpnt = F->getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.addToConstantMap(std::make_pair(F, BB), BA,
+                            &F->getContext().pImpl->BlockAddresses);
   assert(BA->getFunction() == F && "Basic block moved between functions");
   return BA;
 }
@@ -1807,8 +1825,13 @@ BlockAddress *BlockAddress::lookup(const BasicBlock *BB) {
 
 /// Remove the constant from the constant table.
 void BlockAddress::destroyConstantImpl() {
-  getFunction()->getType()->getContext().pImpl
-    ->BlockAddresses.erase(std::make_pair(getFunction(), getBasicBlock()));
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.removeFromConstantMap(std::make_pair(getFunction(), getBasicBlock()),
+                                 &getContext().pImpl->BlockAddresses);
+
+  getFunction()->getType()->getContext().pImpl->BlockAddresses.erase(
+      std::make_pair(getFunction(), getBasicBlock()));
   getBasicBlock()->AdjustBlockAddressRefCount(-1);
 }
 
@@ -1836,6 +1859,13 @@ Value *BlockAddress::handleOperandChangeImpl(Value *From, Value *To) {
 
   // Remove the old entry, this can't cause the map to rehash (just a
   // tombstone will get added).
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+    Chkpnt.removeFromConstantMap(std::make_pair(getFunction(), getBasicBlock()),
+                                 &getContext().pImpl->BlockAddresses);
+    Chkpnt.addToConstantMap(std::make_pair(NewF, NewBB), this,
+                                 &getContext().pImpl->BlockAddresses);
+  }
   getContext().pImpl->BlockAddresses.erase(std::make_pair(getFunction(),
                                                           getBasicBlock()));
   NewBA = this;
@@ -1853,6 +1883,11 @@ DSOLocalEquivalent *DSOLocalEquivalent::get(GlobalValue *GV) {
   if (!Equiv)
     Equiv = new DSOLocalEquivalent(GV);
 
+  CheckpointEngine &Chkpnt = GV->getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.addToConstantMap(GV, Equiv,
+                            &GV->getContext().pImpl->DSOLocalEquivalents);
+
   assert(Equiv->getGlobalValue() == GV &&
          "DSOLocalFunction does not match the expected global value");
   return Equiv;
@@ -1866,6 +1901,12 @@ DSOLocalEquivalent::DSOLocalEquivalent(GlobalValue *GV)
 /// Remove the constant from the constant table.
 void DSOLocalEquivalent::destroyConstantImpl() {
   const GlobalValue *GV = getGlobalValue();
+
+  CheckpointEngine &Chkpnt = GV->getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.removeFromConstantMap(GV,
+                                 &GV->getContext().pImpl->DSOLocalEquivalents);
+
   GV->getContext().pImpl->DSOLocalEquivalents.erase(GV);
 }
 
@@ -1894,8 +1935,16 @@ Value *DSOLocalEquivalent::handleOperandChangeImpl(Value *From, Value *To) {
     return llvm::ConstantExpr::getBitCast(NewEquiv, getType());
 
   // Replace this with the new one.
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+    Chkpnt.removeFromConstantMap(getGlobalValue(),
+                                 &getContext().pImpl->DSOLocalEquivalents);
+    Chkpnt.addToConstantMap(Func, this,
+                            &getContext().pImpl->DSOLocalEquivalents);
+  }
   getContext().pImpl->DSOLocalEquivalents.erase(getGlobalValue());
   NewEquiv = this;
+
   setOperand(0, Func);
 
   if (Func->getType() != getType()) {
@@ -1908,8 +1957,13 @@ Value *DSOLocalEquivalent::handleOperandChangeImpl(Value *From, Value *To) {
 
 NoCFIValue *NoCFIValue::get(GlobalValue *GV) {
   NoCFIValue *&NC = GV->getContext().pImpl->NoCFIValues[GV];
-  if (!NC)
+  if (!NC) {
     NC = new NoCFIValue(GV);
+
+    CheckpointEngine &Chkpnt = GV->getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.addToConstantMap(GV, NC, &GV->getContext().pImpl->NoCFIValues);
+  }
 
   assert(NC->getGlobalValue() == GV &&
          "NoCFIValue does not match the expected global value");
@@ -1924,6 +1978,12 @@ NoCFIValue::NoCFIValue(GlobalValue *GV)
 /// Remove the constant from the constant table.
 void NoCFIValue::destroyConstantImpl() {
   const GlobalValue *GV = getGlobalValue();
+
+  CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.removeFromConstantMap<DenseMap<const GlobalValue *, NoCFIValue *>>(
+        GV, &GV->getContext().pImpl->NoCFIValues);
+
   GV->getContext().pImpl->NoCFIValues.erase(GV);
 }
 
@@ -1936,6 +1996,10 @@ Value *NoCFIValue::handleOperandChangeImpl(Value *From, Value *To) {
   NoCFIValue *&NewNC = getContext().pImpl->NoCFIValues[GV];
   if (NewNC)
     return llvm::ConstantExpr::getBitCast(NewNC, getType());
+
+  CheckpointEngine &Chkpnt = GV->getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.removeFromConstantMap(getGlobalValue(), &getContext().pImpl->NoCFIValues);
 
   getContext().pImpl->NoCFIValues.erase(getGlobalValue());
   NewNC = this;

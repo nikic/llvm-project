@@ -87,6 +87,12 @@ public:
   void operator delete(void *ptr){
     assert(ptr != nullptr && "must not be nullptr");
     User *Obj = static_cast<User *>(ptr);
+
+    CheckpointEngine &Chkpnt = Obj->getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+      Chkpnt.deleteGlobalVariable(static_cast<GlobalVariable *>(ptr));
+      return;
+    }
     // Number of operands can be set to 0 after construction and initialization. Make sure
     // that number of operands is reset to 1, as this is needed in User::operator delete
     Obj->setGlobalVariableNumOperands(1);
@@ -160,12 +166,20 @@ public:
   /// leads to undefined behavior.
   ///
   bool isConstant() const { return isConstantGlobal; }
-  void setConstant(bool Val) { isConstantGlobal = Val; }
+  void setConstant(bool Val) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setGlobalVariableBits(this);
+    isConstantGlobal = Val;
+  }
 
   bool isExternallyInitialized() const {
     return isExternallyInitializedConstant;
   }
   void setExternallyInitialized(bool Val) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setGlobalVariableBits(this);
     isExternallyInitializedConstant = Val;
   }
 

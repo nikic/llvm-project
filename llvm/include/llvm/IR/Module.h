@@ -543,9 +543,26 @@ public:
   llvm::Error materializeMetadata();
 
   /// Detach global variable \p GV from the list but don't delete it.
-  void removeGlobalVariable(GlobalVariable *GV) { GlobalList.remove(GV); }
+  void removeGlobalVariable(GlobalVariable *GV) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.removeGlobalVariable(GV);
+    GlobalList.remove(GV);
+  }
   /// Remove global variable \p GV from the list and delete it.
-  void eraseGlobalVariable(GlobalVariable *GV) { GlobalList.erase(GV); }
+  void eraseGlobalVariable(GlobalVariable *GV) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+      Chkpnt.removeGlobalVariable(GV);
+      // This is equivalent to removeFromParent()
+      GV->getParent()->getGlobalList().remove(GV);
+      // Mark it for deletion. This also dropsAllReferences() and clears
+      // Metadata.
+      delete GV;
+      return;
+    }
+    GlobalList.erase(GV);
+  }
   /// Insert global variable \p GV at the end of the global variable list and
   /// take ownership.
   void insertGlobalVariable(GlobalVariable *GV) {
@@ -573,6 +590,7 @@ private:
     return &Module::GlobalList;
   }
   friend class llvm::SymbolTableListTraits<llvm::GlobalVariable>;
+  friend class RemoveGlobalVariable;  // For checkpoint
 
 public:
   /// Get the Module's list of functions (constant).
@@ -584,29 +602,94 @@ public:
   }
 
   /// Detach \p Alias from the list but don't delete it.
-  void removeAlias(GlobalAlias *Alias) { AliasList.remove(Alias); }
+  void removeAlias(GlobalAlias *Alias) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.removeGlobalAlias(Alias);
+    AliasList.remove(Alias);
+  }
   /// Remove \p Alias from the list and delete it.
-  void eraseAlias(GlobalAlias *Alias) { AliasList.erase(Alias); }
+  void eraseAlias(GlobalAlias *Alias) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+      Chkpnt.removeGlobalAlias(Alias);
+      // This is equivalent to removeFromParent()
+      AliasList.remove(Alias);
+      Alias->dropAllReferences();
+      // Mark it for deletion. This also clears Metadata.
+      delete Alias;
+      return;
+    }
+    AliasList.erase(Alias);
+  }
   /// Insert \p Alias at the end of the alias list and take ownership.
-  void insertAlias(GlobalAlias *Alias) { AliasList.insert(AliasList.end(), Alias); }
+  void insertAlias(GlobalAlias *Alias) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.insertGlobalAlias(Alias);
+    AliasList.insert(AliasList.end(), Alias);
+  }
   // Use alias_size() to get the size of AliasList.
   // Use aliases() to get a range of all Alias objects in AliasList.
 
   /// Detach \p IFunc from the list but don't delete it.
-  void removeIFunc(GlobalIFunc *IFunc) { IFuncList.remove(IFunc); }
+  void removeIFunc(GlobalIFunc *IFunc) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.removeGlobalIFunc(IFunc);
+    IFuncList.remove(IFunc);
+  }
   /// Remove \p IFunc from the list and delete it.
-  void eraseIFunc(GlobalIFunc *IFunc) { IFuncList.erase(IFunc); }
+  void eraseIFunc(GlobalIFunc *IFunc) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+      Chkpnt.removeGlobalIFunc(IFunc);
+      // This is equivalent to removeFromParent()
+      IFuncList.remove(IFunc);
+      IFunc->dropAllReferences();
+      // Mark it for deletion. This also clears Metadata.
+      delete IFunc;
+      return;
+    }
+    IFuncList.erase(IFunc);
+  }
   /// Insert \p IFunc at the end of the alias list and take ownership.
-  void insertIFunc(GlobalIFunc *IFunc) { IFuncList.push_back(IFunc); }
+  void insertIFunc(GlobalIFunc *IFunc) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.insertGlobalIFunc(IFunc);
+    IFuncList.push_back(IFunc);
+  }
   // Use ifunc_size() to get the number of functions in IFuncList.
   // Use ifuncs() to get the range of all IFuncs.
 
+
   /// Detach \p MDNode from the list but don't delete it.
-  void removeNamedMDNode(NamedMDNode *MDNode) { NamedMDList.remove(MDNode); }
+  void removeNamedMDNode(NamedMDNode *MDNode) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.removeNamedMDNode(MDNode);
+    NamedMDList.remove(MDNode);
+  }
   /// Remove \p MDNode from the list and delete it.
-  void eraseNamedMDNode(NamedMDNode *MDNode) { NamedMDList.erase(MDNode); }
+  void eraseNamedMDNode(NamedMDNode *MDNode) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+      Chkpnt.removeNamedMDNode(MDNode);
+      // This is equivalent to removeFromParent()
+      NamedMDList.remove(MDNode);
+      MDNode->dropAllReferences();
+      // Mark it for deletion.
+      Chkpnt.deleteNamedMDNode(MDNode);
+      return;
+    }
+    NamedMDList.erase(MDNode);
+  }
   /// Insert \p MDNode at the end of the alias list and take ownership.
   void insertNamedMDNode(NamedMDNode *MDNode) {
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.insertNamedMDNode(MDNode);
     NamedMDList.push_back(MDNode);
   }
   // Use named_metadata_size() to get the size of the named meatadata list.
@@ -622,6 +705,7 @@ private: // Please use functions like insertAlias(), removeAlias() etc.
     return &Module::AliasList;
   }
   friend class llvm::SymbolTableListTraits<llvm::GlobalAlias>;
+  friend class RemoveGlobalAlias;  // For checkpoint
 
   /// Get the Module's list of ifuncs (constant).
   const IFuncListType    &getIFuncList() const        { return IFuncList; }
@@ -632,6 +716,7 @@ private: // Please use functions like insertAlias(), removeAlias() etc.
     return &Module::IFuncList;
   }
   friend class llvm::SymbolTableListTraits<llvm::GlobalIFunc>;
+  friend class RemoveGlobalIFunc; // For checkpoint
 
   /// Get the Module's list of named metadata (constant).
   const NamedMDListType  &getNamedMDList() const      { return NamedMDList; }
@@ -641,6 +726,8 @@ private: // Please use functions like insertAlias(), removeAlias() etc.
   static NamedMDListType Module::*getSublistAccess(NamedMDNode*) {
     return &Module::NamedMDList;
   }
+  friend class RemoveNamedMDNode;  // For checkpoint
+  friend class InsertNamedMDNode;  // For checkpoint
 
 public:
   /// Get the symbol table of global variable and function identifiers

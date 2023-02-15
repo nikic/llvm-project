@@ -100,31 +100,70 @@ public:
               unsigned HasLLVMReservedName, unsigned IsDSOLocal,
               unsigned HasPartition, unsigned HasSanitizerMetadata,
               unsigned SubClassData)
+
       : Visibility(Visibility), UnnamedAddrVal(UnnamedAddrVal),
         DllStorageClass(DllStorageClass), ThreadLocal(ThreadLocal),
         HasLLVMReservedName(HasLLVMReservedName), IsDSOLocal(IsDSOLocal),
         HasPartition(HasPartition), HasSanitizerMetadata(HasSanitizerMetadata),
         SubClassData(SubClassData) {}
-  void setLinkageBF(unsigned New) { Linkage = New; }
+  uint32_t getAsInt() const { return *(const uint32_t *)this; }
+  void setFromInt(uint32_t Content) { *(uint32_t *)this = Content; }
+  void setLinkageBF(unsigned New, GlobalValue *GV) {
+    checkpointBitfields(GV);
+    Linkage = New;
+  }
   unsigned getLinkageBF() const { return Linkage; }
-  void setVisibilityBF(unsigned New) { Visibility = New; }
+  void setVisibilityBF(unsigned New, GlobalValue *GV) {
+    checkpointBitfields(GV);
+    Visibility = New;
+  }
   unsigned getVisibilityBF() const { return Visibility; }
-  void setUnnamedAddrValBF(unsigned New) { UnnamedAddrVal = New; }
+  void setUnnamedAddrValBF(unsigned New, GlobalValue *GV) {
+    checkpointBitfields(GV);
+    UnnamedAddrVal = New;
+  }
   unsigned getUnnamedAddrValBF() const { return UnnamedAddrVal; }
-  void setDllStorageClassBF(unsigned New) { DllStorageClass = New; }
+  void setDllStorageClassBF(unsigned New, GlobalValue *GV) {
+    checkpointBitfields(GV);
+    DllStorageClass = New;
+  }
   unsigned getDllStorageClassBF() const { return DllStorageClass; }
-  void setThreadLocalBF(unsigned New) { ThreadLocal = New; }
+  void setThreadLocalBF(unsigned New, GlobalValue *GV) {
+    checkpointBitfields(GV);
+    ThreadLocal = New;
+  }
   unsigned getThreadLocalBF() const { return ThreadLocal; }
-  void setHasLLVMReservedNameBF(bool New) { HasLLVMReservedName = New; }
+  void setHasLLVMReservedNameBF(bool New, GlobalValue *GV) {
+    checkpointBitfields(GV);
+    HasLLVMReservedName = New;
+  }
   bool getHasLLVMReservedNameBF() const { return HasLLVMReservedName; }
-  void setIsDSOLocalBF(bool New) { IsDSOLocal = New; }
+  void setIsDSOLocalBF(bool New, GlobalValue *GV) {
+    checkpointBitfields(GV);
+    IsDSOLocal = New;
+  }
   bool getIsDSOLocalBF() const { return IsDSOLocal; }
-  void setHasPartitionBF(bool New) { HasPartition = New; }
+  void setHasPartitionBF(bool New, GlobalValue *GV) {
+    checkpointBitfields(GV);
+    HasPartition = New;
+  }
   bool getHasPartitionBF() const { return HasPartition; }
-  void setHasSanitizerMetadataBF(unsigned New) { HasSanitizerMetadata = New; }
+  void setHasSanitizerMetadataBF(unsigned New, GlobalValue *GV) {
+    checkpointBitfields(GV);
+    HasSanitizerMetadata = New;
+  }
   unsigned getHasSanitizerMetadataBF() const { return HasSanitizerMetadata; }
-  void setSubClassDataBF(unsigned New) { SubClassData = New; }
+  void setSubClassDataBF(unsigned New, GlobalValue *GV) {
+    checkpointBitfields(GV);
+    SubClassData = New;
+  }
   unsigned getSubClassDataBF() const { return SubClassData; }
+
+  void checkpointBitfields(GlobalValue *GV) {
+    CheckpointEngine &Chkpnt = ((Value *)GV)->getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setGlobalValueBitfield(GV);
+  }
 };
 
 class GlobalValue : public Constant, public GVBitfields {
@@ -217,9 +256,15 @@ protected:
   unsigned getGlobalValueSubClassData() const {
     return getSubClassDataBF();
   }
+
+  friend class SetGlobalValueSubClassData;  // For Checkpoint
+
   void setGlobalValueSubClassData(unsigned V) {
     assert(V < (1 << GlobalValueSubClassDataBits) && "It will not fit");
-    setSubClassDataBF(V);
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.setGlobalValueSubClassData(this, getSubClassDataBF());
+    setSubClassDataBF(V, this);
   }
 
   Module *Parent = nullptr; // The containing module.
@@ -270,7 +315,9 @@ public:
   UnnamedAddr getUnnamedAddr() const {
     return UnnamedAddr(getUnnamedAddrValBF());
   }
-  void setUnnamedAddr(UnnamedAddr Val) { setUnnamedAddrValBF(unsigned(Val)); }
+  void setUnnamedAddr(UnnamedAddr Val) {
+    setUnnamedAddrValBF(unsigned(Val), this);
+  }
 
   static UnnamedAddr getMinUnnamedAddr(UnnamedAddr A, UnnamedAddr B) {
     if (A == UnnamedAddr::None || B == UnnamedAddr::None)
@@ -302,7 +349,7 @@ public:
   void setVisibility(VisibilityTypes V) {
     assert((!hasLocalLinkage() || V == DefaultVisibility) &&
            "local linkage requires default visibility");
-    setVisibilityBF(V);
+    setVisibilityBF(V, this);
     if (isImplicitDSOLocal())
       setDSOLocal(true);
   }
@@ -314,7 +361,7 @@ public:
   }
   void setThreadLocalMode(ThreadLocalMode Val) {
     assert(Val == NotThreadLocal || getValueID() != Value::FunctionVal);
-    setThreadLocalBF(Val);
+    setThreadLocalBF(Val, this);
   }
   ThreadLocalMode getThreadLocalMode() const {
     return static_cast<ThreadLocalMode>(getThreadLocalBF());
@@ -332,7 +379,7 @@ public:
   void setDLLStorageClass(DLLStorageClassTypes C) {
     assert((!hasLocalLinkage() || C == DefaultStorageClass) &&
            "local linkage requires DefaultStorageClass");
-    setDllStorageClassBF(C);
+    setDllStorageClassBF(C, this);
   }
 
   bool hasSection() const { return !getSection().empty(); }
@@ -348,7 +395,7 @@ public:
            (!hasDefaultVisibility() && !hasExternalWeakLinkage());
   }
 
-  void setDSOLocal(bool Local) { setIsDSOLocalBF(Local); }
+  void setDSOLocal(bool Local) { setIsDSOLocalBF(Local, this); }
 
   bool isDSOLocal() const {
     return getIsDSOLocalBF();
@@ -583,10 +630,10 @@ public:
 
   void setLinkage(LinkageTypes LT) {
     if (isLocalLinkage(LT)) {
-      setVisibilityBF(DefaultVisibility);
-      setDllStorageClassBF(DefaultStorageClass);
+      setVisibilityBF(DefaultVisibility, this);
+      setDllStorageClassBF(DefaultStorageClass, this);
     }
-    setLinkageBF(LT);
+    setLinkageBF(LT, this);
     if (isImplicitDSOLocal())
       setDSOLocal(true);
   }

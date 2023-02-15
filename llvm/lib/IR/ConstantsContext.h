@@ -604,6 +604,8 @@ public:
 
 private:
   MapTy Map;
+  template <typename T1, typename T2>
+  friend class RemoveFromConstantUniqueMap;
 
 public:
   typename MapTy::iterator begin() { return Map.begin(); }
@@ -620,6 +622,10 @@ private:
 
     assert(Result->getType() == Ty && "Type specified is not correct!");
     Map.insert_as(Result, HashKey);
+
+    CheckpointEngine &Chkpnt = Ty->getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.addToConstantUniqueMap(Result, HashKey, this);
 
     return Result;
   }
@@ -648,6 +654,12 @@ public:
     typename MapTy::iterator I = Map.find(CP);
     assert(I != Map.end() && "Constant not found in constant table!");
     assert(*I == CP && "Didn't find correct element?");
+
+    CheckpointEngine &Chkpnt = CP->getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+      Chkpnt.removeFromConstantUniqueMap(CP, this);
+    }
+
     Map.erase(I);
   }
 
@@ -676,6 +688,11 @@ public:
           CP->setOperand(I, To);
     }
     Map.insert_as(CP, Lookup);
+
+    CheckpointEngine &Chkpnt = CP->getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.addToConstantUniqueMap(CP, Lookup, this);
+
     return nullptr;
   }
 

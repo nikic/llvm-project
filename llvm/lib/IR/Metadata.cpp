@@ -27,6 +27,7 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CheckpointEngine.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
@@ -128,7 +129,12 @@ void MetadataAsValue::handleChangedMetadata(Metadata *MD) {
   auto *&Entry = Store[MD];
   if (Entry) {
     replaceAllUsesWith(Entry);
-    delete this;
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    bool ChkpntActive = Chkpnt.isActive();
+    if (LLVM_UNLIKELY(ChkpntActive))
+      Chkpnt.deleteObj(this);
+    else
+      delete this;
     return;
   }
 
@@ -291,6 +297,11 @@ void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
 
     OwnerTy Owner = Pair.second.first;
     if (!Owner) {
+      CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+      bool ChkpntActive = Chkpnt.isActive();
+      if (LLVM_UNLIKELY(ChkpntActive))
+        Chkpnt.metadataUpdateUseMap(this, static_cast<Metadata **>(Pair.first),
+                                    Pair.second.second);
       // Update unowned tracking references directly.
       Metadata *&Ref = *static_cast<Metadata **>(Pair.first);
       Ref = MD;
@@ -302,12 +313,22 @@ void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
 
     // Check for MetadataAsValue.
     if (Owner.is<MetadataAsValue *>()) {
+      CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+      bool ChkpntActive = ChkpntEngine.isActive();
+      if (LLVM_UNLIKELY(ChkpntActive)) {
+        auto *MAV = Owner.get<MetadataAsValue *>();
+        ChkpntEngine.changeMetadata(MAV, MAV->MD);
+      }
       Owner.get<MetadataAsValue *>()->handleChangedMetadata(MD);
       continue;
     }
 
     // There's a Metadata owner -- dispatch.
     Metadata *OwnerMD = Owner.get<Metadata *>();
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    bool ChkpntActive = Chkpnt.isActive();
+    if (LLVM_UNLIKELY(ChkpntActive))
+      Chkpnt.metadataChangeOperand(OwnerMD, static_cast<Metadata **>(Pair.first));
     switch (OwnerMD->getMetadataID()) {
 #define HANDLE_METADATA_LEAF(CLASS)                                            \
   case Metadata::CLASS##Kind:                                                  \
@@ -432,11 +453,16 @@ void ValueAsMetadata::handleDeletion(Value *V) {
   delete MD;
 }
 
-void ValueAsMetadata::handleRAUW(Value *From, Value *To) {
+void ValueAsMetadata::handleRAUW(Value *From, Value *To, bool DontDelete) {
   assert(From && "Expected valid value");
   assert(To && "Expected valid value");
   assert(From != To && "Expected changed value");
   assert(From->getType() == To->getType() && "Unexpected type change");
+
+  CheckpointEngine &Chkpnt = From->getContext().getChkpntEngine();
+  bool ChkpntActive = Chkpnt.isActive();
+  if (LLVM_UNLIKELY(ChkpntActive))
+    Chkpnt.handleRAUWMetadata(From, To);
 
   LLVMContext &Context = From->getType()->getContext();
   auto &Store = Context.pImpl->ValuesAsMetadata;
@@ -458,20 +484,29 @@ void ValueAsMetadata::handleRAUW(Value *From, Value *To) {
     if (auto *C = dyn_cast<Constant>(To)) {
       // Local became a constant.
       MD->replaceAllUsesWith(ConstantAsMetadata::get(C));
-      delete MD;
+      if (LLVM_UNLIKELY(ChkpntActive))
+        Chkpnt.deleteMetadata(MD);
+      else if (!DontDelete)
+        delete MD;
       return;
     }
     if (getLocalFunctionMetadata(From) && getLocalFunctionMetadata(To) &&
         getLocalFunctionMetadata(From) != getLocalFunctionMetadata(To)) {
       // DISubprogram changed.
       MD->replaceAllUsesWith(nullptr);
-      delete MD;
+      if (LLVM_UNLIKELY(ChkpntActive))
+        Chkpnt.deleteMetadata(MD);
+      else if (!DontDelete)
+        delete MD;
       return;
     }
   } else if (!isa<Constant>(To)) {
     // Changed to function-local value.
     MD->replaceAllUsesWith(nullptr);
-    delete MD;
+    if (LLVM_UNLIKELY(ChkpntActive))
+      Chkpnt.deleteMetadata(MD);
+    else if (!DontDelete)
+      delete MD;
     return;
   }
 
@@ -479,7 +514,10 @@ void ValueAsMetadata::handleRAUW(Value *From, Value *To) {
   if (Entry) {
     // The target already exists.
     MD->replaceAllUsesWith(Entry);
-    delete MD;
+    if (LLVM_UNLIKELY(ChkpntActive))
+      Chkpnt.deleteMetadata(MD);
+    else
+      delete MD;
     return;
   }
 
@@ -1325,6 +1363,10 @@ void Value::getAllMetadata(
 void Value::setMetadata(unsigned KindID, MDNode *Node) {
   assert(isa<Instruction>(this) || isa<GlobalObject>(this));
 
+  CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+    ChkpntEngine.setMetadata(this, KindID);
+
   // Handle the case when we're adding/updating metadata on a value.
   if (Node) {
     auto &Info = getContext().pImpl->ValueMetadata[this];
@@ -1361,6 +1403,10 @@ void Value::addMetadata(unsigned KindID, MDNode &MD) {
   if (!HasMetadata)
     HasMetadata = true;
   getContext().pImpl->ValueMetadata[this].insert(KindID, MD);
+
+  CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+    ChkpntEngine.addMetadata(this, KindID);
 }
 
 void Value::addMetadata(StringRef Kind, MDNode &MD) {
@@ -1373,9 +1419,15 @@ bool Value::eraseMetadata(unsigned KindID) {
     return false;
 
   auto &Store = getContext().pImpl->ValueMetadata[this];
+
+  CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+    ChkpntEngine.eraseMetadata(this, KindID);
+
   bool Changed = Store.erase(KindID);
   if (Store.empty())
     clearMetadata();
+
   return Changed;
 }
 
@@ -1384,6 +1436,11 @@ void Value::clearMetadata() {
     return;
   assert(getContext().pImpl->ValueMetadata.count(this) &&
          "bit out of sync with hash table");
+
+  CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+    ChkpntEngine.clearMetadata(this);
+
   getContext().pImpl->ValueMetadata.erase(this);
   HasMetadata = false;
 }
@@ -1411,9 +1468,16 @@ void Instruction::dropUnknownNonDebugMetadata(ArrayRef<unsigned> KnownIDs) {
   auto &MetadataStore = getContext().pImpl->ValueMetadata;
   auto &Info = MetadataStore[this];
   assert(!Info.empty() && "bit out of sync with hash table");
-  Info.remove_if([&KnownSet](const MDAttachments::Attachment &I) {
-    return !KnownSet.count(I.MDKind);
-  });
+
+  CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+
+  Info.remove_if(
+      [&KnownSet, &ChkpntEngine, this](const MDAttachments::Attachment &I) {
+        bool Remove = !KnownSet.count(I.MDKind);
+        if (LLVM_UNLIKELY(Remove && ChkpntEngine.isActive()))
+          ChkpntEngine.eraseMetadata(this, I.MDKind);
+        return Remove;
+      });
 
   if (Info.empty()) {
     // Drop our entry at the store.

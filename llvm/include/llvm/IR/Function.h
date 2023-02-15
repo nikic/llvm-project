@@ -26,6 +26,7 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallingConv.h"
+#include "llvm/IR/CheckpointEngine.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalObject.h"
 #include "llvm/IR/GlobalValue.h"
@@ -686,7 +687,11 @@ public:
   /// Insert \p BB in the basic block list at \p Position. \Returns an iterator
   /// to the newly inserted BB.
   Function::iterator insert(Function::iterator Position, BasicBlock *BB) {
-    return BasicBlocks.insert(Position, BB);
+    auto RetIt =  BasicBlocks.insert(Position, BB);
+    CheckpointEngine &Chkpnt = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive()))
+      Chkpnt.insertBB(BB);
+    return RetIt;
   }
 
   /// Transfer all blocks from \p FromF to this function at \p ToIt.
@@ -723,6 +728,7 @@ private:
   friend class InstIterator;
   friend class llvm::SymbolTableListTraits<llvm::BasicBlock>;
   friend class llvm::ilist_node_with_parent<llvm::BasicBlock, llvm::Function>;
+  friend class SpliceFn;  // For Checkpoint
 
   /// Get the underlying elements of the Function... the basic block list is
   /// empty for external functions.

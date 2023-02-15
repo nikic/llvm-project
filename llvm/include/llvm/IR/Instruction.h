@@ -18,6 +18,7 @@
 #include "llvm/ADT/Bitfields.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/ilist_node.h"
+#include "llvm/IR/CheckpointEngine.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/SymbolTableListTraits.h"
 #include "llvm/IR/User.h"
@@ -352,7 +353,12 @@ public:
   bool extractProfTotalWeight(uint64_t &TotalVal) const;
 
   /// Set the debug location information for this instruction.
-  void setDebugLoc(DebugLoc Loc) { DbgLoc = std::move(Loc); }
+  void setDebugLoc(DebugLoc Loc) {
+    CheckpointEngine &ChkpntEngine = getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(ChkpntEngine.isActive()))
+      ChkpntEngine.setDebugLoc(this);
+    DbgLoc = std::move(Loc);
+  }
 
   /// Return the debug location for this node as a DebugLoc.
   const DebugLoc &getDebugLoc() const { return DbgLoc; }

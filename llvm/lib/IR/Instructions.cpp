@@ -264,6 +264,10 @@ void LandingPadInst::addClause(Constant *Val) {
 //===----------------------------------------------------------------------===//
 
 void CallBaseAttributeList::setAttributes(AttributeList NewAttrs) {
+  CallBase *C = (CallBase *)this;
+  auto &Chkpnt = C->getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.setCallBaseAttributes(C);
   Attrs = NewAttrs;
 }
 
@@ -2261,12 +2265,18 @@ void ShuffleVectorInst::getShuffleMask(const Constant *Mask,
 }
 
 void ShuffleVectorInst::setShuffleMask(ArrayRef<int> Mask) {
+  auto &Chkpnt = getContext().getChkpntEngine();
+  if (LLVM_UNLIKELY(Chkpnt.isActive()))
+    Chkpnt.setShuffleMask(this);
+
   ShuffleMask.assign(Mask.begin(), Mask.end());
   ShuffleMaskForBitcode = convertShuffleMaskForBitcode(Mask, getType());
 }
 
 Constant *ShuffleVectorInst::convertShuffleMaskForBitcode(ArrayRef<int> Mask,
                                                           Type *ResultTy) {
+  if (Mask.empty())
+    return nullptr;
   Type *Int32Ty = Type::getInt32Ty(ResultTy->getContext());
   if (isa<ScalableVectorType>(ResultTy)) {
     assert(all_equal(Mask) && "Unexpected shuffle");

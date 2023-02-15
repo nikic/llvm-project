@@ -49,7 +49,15 @@ public:
 
   // allocate space for exactly one operand
   void *operator new(size_t S) { return User::operator new(S, 1); }
-  void operator delete(void *Ptr) { User::operator delete(Ptr); }
+  void operator delete(void *Ptr) {
+    auto *GIF = (GlobalIFunc *)Ptr;
+    CheckpointEngine &Chkpnt = GIF->getContext().getChkpntEngine();
+    if (LLVM_UNLIKELY(Chkpnt.isActive())) {
+      Chkpnt.deleteGlobalIFunc(GIF);
+      return;
+    }
+    User::operator delete(Ptr);
+  }
 
   /// Provide fast operand accessors
   DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Constant);

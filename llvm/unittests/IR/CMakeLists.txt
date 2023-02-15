@@ -13,6 +13,7 @@ add_llvm_unittest(IRTests
   AsmWriterTest.cpp
   AttributesTest.cpp
   BasicBlockTest.cpp
+  CheckpointTest.cpp
   CFGBuilder.cpp
   ConstantRangeTest.cpp
   ConstantsTest.cpp

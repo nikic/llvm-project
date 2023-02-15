@@ -28,6 +28,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/BinaryFormat/Dwarf.h"
+#include "llvm/IR/CheckpointEngine.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -1628,6 +1629,12 @@ public:
   // types.
   bool getOpaquePointers();
   void setOpaquePointers(bool OP);
+
+  /// The main checkpointing object. IR member functions that are modifying the
+  /// IR update this object.
+  /// This cannot be used directly by the user.
+  /// Use a handle provided by getCheckpoint().
+  CheckpointEngine ChkpntEngine;
 
 private:
   std::optional<bool> OpaquePointers;

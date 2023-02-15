@@ -17,6 +17,7 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/IR/Checkpoint.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/LLVMRemarkStreamer.h"
@@ -375,3 +376,9 @@ void LLVMContext::setOpaquePointers(bool Enable) const {
 bool LLVMContext::supportsTypedPointers() const {
   return !pImpl->getOpaquePointers();
 }
+
+Checkpoint LLVMContext::getCheckpoint(bool RunVerifier) {
+  return Checkpoint(pImpl->ChkpntEngine, RunVerifier);
+}
+
+CheckpointEngine &LLVMContext::getChkpntEngine() { return pImpl->ChkpntEngine; }
