@@ -39,6 +39,10 @@ static_assert(sizeof(GlobalValue) ==
 static_assert(sizeof(GlobalObject) == sizeof(GlobalValue) + sizeof(void *),
               "unexpected GlobalObject size growth");
 
+void GlobalVariableAttributeSet::setAttributes(AttributeSet NewAttrs) {
+  Attrs = NewAttrs;
+}
+
 bool GlobalValue::isMaterializable() const {
   if (const Function *F = dyn_cast<Function>(this))
     return F->isMaterializable();
@@ -222,7 +226,7 @@ void GlobalValue::setPartition(StringRef S) {
 
   // Update the HasPartition field. Setting the partition to the empty string
   // means this global no longer has a partition.
-  HasPartition = !S.empty();
+  setHasPartitionBF(!S.empty());
 }
 
 using SanitizerMetadata = GlobalValue::SanitizerMetadata;
@@ -234,14 +238,14 @@ const SanitizerMetadata &GlobalValue::getSanitizerMetadata() const {
 
 void GlobalValue::setSanitizerMetadata(SanitizerMetadata Meta) {
   getContext().pImpl->GlobalValueSanitizerMetadata[this] = Meta;
-  HasSanitizerMetadata = true;
+  setHasSanitizerMetadataBF(true);
 }
 
 void GlobalValue::removeSanitizerMetadata() {
   DenseMap<const GlobalValue *, SanitizerMetadata> &MetadataMap =
       getContext().pImpl->GlobalValueSanitizerMetadata;
   MetadataMap.erase(this);
-  HasSanitizerMetadata = false;
+  setHasSanitizerMetadataBF(false);
 }
 
 StringRef GlobalObject::getSectionImpl() const {

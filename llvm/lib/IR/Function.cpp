@@ -308,6 +308,10 @@ Attribute Argument::getAttribute(Attribute::AttrKind Kind) const {
   return getParent()->getParamAttribute(getArgNo(), Kind);
 }
 
+void FnAttributeList::setAttributes(AttributeList NewAttrs) {
+  Attrs = NewAttrs;
+}
+
 //===----------------------------------------------------------------------===//
 // Helper Methods in Function
 //===----------------------------------------------------------------------===//
@@ -413,7 +417,7 @@ Function::Function(FunctionType *Ty, LinkageTypes Linkage, unsigned AddrSpace,
   if (ParentModule)
     ParentModule->getFunctionList().push_back(this);
 
-  HasLLVMReservedName = getName().startswith("llvm.");
+  setHasLLVMReservedNameBF(getName().startswith("llvm."));
   // Ensure intrinsics have the right parameter attributes.
   // Note, the IntID field will have been set in Value::setName if this function
   // name is a valid intrinsic ID.
@@ -544,131 +548,133 @@ void Function::dropAllReferences() {
 }
 
 void Function::addAttributeAtIndex(unsigned i, Attribute Attr) {
-  AttributeSets = AttributeSets.addAttributeAtIndex(getContext(), i, Attr);
+  setAttributes(getAttributes().addAttributeAtIndex(getContext(), i, Attr));
 }
 
 void Function::addFnAttr(Attribute::AttrKind Kind) {
-  AttributeSets = AttributeSets.addFnAttribute(getContext(), Kind);
+  setAttributes(getAttributes().addFnAttribute(getContext(), Kind));
 }
 
 void Function::addFnAttr(StringRef Kind, StringRef Val) {
-  AttributeSets = AttributeSets.addFnAttribute(getContext(), Kind, Val);
+  setAttributes(getAttributes().addFnAttribute(getContext(), Kind, Val));
 }
 
 void Function::addFnAttr(Attribute Attr) {
-  AttributeSets = AttributeSets.addFnAttribute(getContext(), Attr);
+  setAttributes(getAttributes().addFnAttribute(getContext(), Attr));
 }
 
 void Function::addFnAttrs(const AttrBuilder &Attrs) {
-  AttributeSets = AttributeSets.addFnAttributes(getContext(), Attrs);
+  setAttributes(getAttributes().addFnAttributes(getContext(), Attrs));
 }
 
 void Function::addRetAttr(Attribute::AttrKind Kind) {
-  AttributeSets = AttributeSets.addRetAttribute(getContext(), Kind);
+  setAttributes(getAttributes().addRetAttribute(getContext(), Kind));
 }
 
 void Function::addRetAttr(Attribute Attr) {
-  AttributeSets = AttributeSets.addRetAttribute(getContext(), Attr);
+  setAttributes(getAttributes().addRetAttribute(getContext(), Attr));
 }
 
 void Function::addRetAttrs(const AttrBuilder &Attrs) {
-  AttributeSets = AttributeSets.addRetAttributes(getContext(), Attrs);
+  setAttributes(getAttributes().addRetAttributes(getContext(), Attrs));
 }
 
 void Function::addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
-  AttributeSets = AttributeSets.addParamAttribute(getContext(), ArgNo, Kind);
+  setAttributes(getAttributes().addParamAttribute(getContext(), ArgNo, Kind));
 }
 
 void Function::addParamAttr(unsigned ArgNo, Attribute Attr) {
-  AttributeSets = AttributeSets.addParamAttribute(getContext(), ArgNo, Attr);
+  setAttributes(getAttributes().addParamAttribute(getContext(), ArgNo, Attr));
 }
 
 void Function::addParamAttrs(unsigned ArgNo, const AttrBuilder &Attrs) {
-  AttributeSets = AttributeSets.addParamAttributes(getContext(), ArgNo, Attrs);
+  setAttributes(getAttributes().addParamAttributes(getContext(), ArgNo, Attrs));
 }
 
 void Function::removeAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) {
-  AttributeSets = AttributeSets.removeAttributeAtIndex(getContext(), i, Kind);
+  setAttributes(getAttributes().removeAttributeAtIndex(getContext(), i, Kind));
 }
 
 void Function::removeAttributeAtIndex(unsigned i, StringRef Kind) {
-  AttributeSets = AttributeSets.removeAttributeAtIndex(getContext(), i, Kind);
+  setAttributes(getAttributes().removeAttributeAtIndex(getContext(), i, Kind));
 }
 
 void Function::removeFnAttr(Attribute::AttrKind Kind) {
-  AttributeSets = AttributeSets.removeFnAttribute(getContext(), Kind);
+  setAttributes(getAttributes().removeFnAttribute(getContext(), Kind));
 }
 
 void Function::removeFnAttr(StringRef Kind) {
-  AttributeSets = AttributeSets.removeFnAttribute(getContext(), Kind);
+  setAttributes(getAttributes().removeFnAttribute(getContext(), Kind));
 }
 
 void Function::removeFnAttrs(const AttributeMask &AM) {
-  AttributeSets = AttributeSets.removeFnAttributes(getContext(), AM);
+  setAttributes(getAttributes().removeFnAttributes(getContext(), AM));
 }
 
 void Function::removeRetAttr(Attribute::AttrKind Kind) {
-  AttributeSets = AttributeSets.removeRetAttribute(getContext(), Kind);
+  setAttributes(getAttributes().removeRetAttribute(getContext(), Kind));
 }
 
 void Function::removeRetAttr(StringRef Kind) {
-  AttributeSets = AttributeSets.removeRetAttribute(getContext(), Kind);
+  setAttributes(getAttributes().removeRetAttribute(getContext(), Kind));
 }
 
 void Function::removeRetAttrs(const AttributeMask &Attrs) {
-  AttributeSets = AttributeSets.removeRetAttributes(getContext(), Attrs);
+  setAttributes(getAttributes().removeRetAttributes(getContext(), Attrs));
 }
 
 void Function::removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
-  AttributeSets = AttributeSets.removeParamAttribute(getContext(), ArgNo, Kind);
+  setAttributes(
+      getAttributes().removeParamAttribute(getContext(), ArgNo, Kind));
 }
 
 void Function::removeParamAttr(unsigned ArgNo, StringRef Kind) {
-  AttributeSets = AttributeSets.removeParamAttribute(getContext(), ArgNo, Kind);
+  setAttributes(
+      getAttributes().removeParamAttribute(getContext(), ArgNo, Kind));
 }
 
 void Function::removeParamAttrs(unsigned ArgNo, const AttributeMask &Attrs) {
-  AttributeSets =
-      AttributeSets.removeParamAttributes(getContext(), ArgNo, Attrs);
+  setAttributes(
+      getAttributes().removeParamAttributes(getContext(), ArgNo, Attrs));
 }
 
 void Function::addDereferenceableParamAttr(unsigned ArgNo, uint64_t Bytes) {
-  AttributeSets =
-      AttributeSets.addDereferenceableParamAttr(getContext(), ArgNo, Bytes);
+  setAttributes(
+      getAttributes().addDereferenceableParamAttr(getContext(), ArgNo, Bytes));
 }
 
 bool Function::hasFnAttribute(Attribute::AttrKind Kind) const {
-  return AttributeSets.hasFnAttr(Kind);
+  return getAttributes().hasFnAttr(Kind);
 }
 
 bool Function::hasFnAttribute(StringRef Kind) const {
-  return AttributeSets.hasFnAttr(Kind);
+  return getAttributes().hasFnAttr(Kind);
 }
 
 bool Function::hasRetAttribute(Attribute::AttrKind Kind) const {
-  return AttributeSets.hasRetAttr(Kind);
+  return getAttributes().hasRetAttr(Kind);
 }
 
 bool Function::hasParamAttribute(unsigned ArgNo,
                                  Attribute::AttrKind Kind) const {
-  return AttributeSets.hasParamAttr(ArgNo, Kind);
+  return getAttributes().hasParamAttr(ArgNo, Kind);
 }
 
 Attribute Function::getAttributeAtIndex(unsigned i,
                                         Attribute::AttrKind Kind) const {
-  return AttributeSets.getAttributeAtIndex(i, Kind);
+  return getAttributes().getAttributeAtIndex(i, Kind);
 }
 
 Attribute Function::getAttributeAtIndex(unsigned i, StringRef Kind) const {
-  return AttributeSets.getAttributeAtIndex(i, Kind);
+  return getAttributes().getAttributeAtIndex(i, Kind);
 }
 
 Attribute Function::getFnAttribute(Attribute::AttrKind Kind) const {
-  return AttributeSets.getFnAttr(Kind);
+  return getAttributes().getFnAttr(Kind);
 }
 
 Attribute Function::getFnAttribute(StringRef Kind) const {
-  return AttributeSets.getFnAttr(Kind);
+  return getAttributes().getFnAttr(Kind);
 }
 
 uint64_t Function::getFnAttributeAsParsedInteger(StringRef Name,
@@ -687,13 +693,13 @@ uint64_t Function::getFnAttributeAsParsedInteger(StringRef Name,
 /// gets the specified attribute from the list of attributes.
 Attribute Function::getParamAttribute(unsigned ArgNo,
                                       Attribute::AttrKind Kind) const {
-  return AttributeSets.getParamAttr(ArgNo, Kind);
+  return getAttributes().getParamAttr(ArgNo, Kind);
 }
 
 void Function::addDereferenceableOrNullParamAttr(unsigned ArgNo,
                                                  uint64_t Bytes) {
-  AttributeSets = AttributeSets.addDereferenceableOrNullParamAttr(getContext(),
-                                                                  ArgNo, Bytes);
+  setAttributes(getAttributes().addDereferenceableOrNullParamAttr(
+      getContext(), ArgNo, Bytes));
 }
 
 DenormalMode Function::getDenormalMode(const fltSemantics &FPType) const {
@@ -876,11 +882,11 @@ Intrinsic::ID Function::lookupIntrinsicID(StringRef Name) {
 void Function::recalculateIntrinsicID() {
   StringRef Name = getName();
   if (!Name.startswith("llvm.")) {
-    HasLLVMReservedName = false;
+    setHasLLVMReservedNameBF(false);
     IntID = Intrinsic::not_intrinsic;
     return;
   }
-  HasLLVMReservedName = true;
+  setHasLLVMReservedNameBF(true);
   IntID = lookupIntrinsicID(Name);
 }
 

@@ -263,6 +263,10 @@ void LandingPadInst::addClause(Constant *Val) {
 //                        CallBase Implementation
 //===----------------------------------------------------------------------===//
 
+void CallBaseAttributeList::setAttributes(AttributeList NewAttrs) {
+  Attrs = NewAttrs;
+}
+
 CallBase *CallBase::Create(CallBase *CB, ArrayRef<OperandBundleDef> Bundles,
                            Instruction *InsertPt) {
   switch (CB->getOpcode()) {
@@ -339,7 +343,7 @@ bool CallBase::isReturnNonNull() const {
 Value *CallBase::getArgOperandWithAttribute(Attribute::AttrKind Kind) const {
   unsigned Index;
 
-  if (Attrs.hasAttrSomewhere(Kind, &Index))
+  if (getAttributes().hasAttrSomewhere(Kind, &Index))
     return getArgOperand(Index - AttributeList::FirstArgIndex);
   if (const Function *F = getCalledFunction())
     if (F->getAttributes().hasAttrSomewhere(Kind, &Index))
@@ -352,7 +356,7 @@ Value *CallBase::getArgOperandWithAttribute(Attribute::AttrKind Kind) const {
 bool CallBase::paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
   assert(ArgNo < arg_size() && "Param index out of bounds!");
 
-  if (Attrs.hasParamAttr(ArgNo, Kind))
+  if (getAttributes().hasParamAttr(ArgNo, Kind))
     return true;
 
   const Function *F = getCalledFunction();
@@ -675,7 +679,7 @@ CallInst::CallInst(FunctionType *Ty, Value *Func, const Twine &Name,
 }
 
 CallInst::CallInst(const CallInst &CI)
-    : CallBase(CI.Attrs, CI.FTy, CI.getType(), Instruction::Call,
+    : CallBase(CI.getAttributes(), CI.FTy, CI.getType(), Instruction::Call,
                OperandTraits<CallBase>::op_end(this) - CI.getNumOperands(),
                CI.getNumOperands()) {
   setTailCallKind(CI.getTailCallKind());
@@ -998,7 +1002,7 @@ void InvokeInst::init(FunctionType *FTy, Value *Fn, BasicBlock *IfNormal,
 }
 
 InvokeInst::InvokeInst(const InvokeInst &II)
-    : CallBase(II.Attrs, II.FTy, II.getType(), Instruction::Invoke,
+    : CallBase(II.getAttributes(), II.FTy, II.getType(), Instruction::Invoke,
                OperandTraits<CallBase>::op_end(this) - II.getNumOperands(),
                II.getNumOperands()) {
   setCallingConv(II.getCallingConv());
@@ -1070,7 +1074,7 @@ void CallBrInst::init(FunctionType *FTy, Value *Fn, BasicBlock *Fallthrough,
 }
 
 CallBrInst::CallBrInst(const CallBrInst &CBI)
-    : CallBase(CBI.Attrs, CBI.FTy, CBI.getType(), Instruction::CallBr,
+    : CallBase(CBI.getAttributes(), CBI.FTy, CBI.getType(), Instruction::CallBr,
                OperandTraits<CallBase>::op_end(this) - CBI.getNumOperands(),
                CBI.getNumOperands()) {
   setCallingConv(CBI.getCallingConv());

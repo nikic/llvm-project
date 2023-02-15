@@ -56,8 +56,21 @@ class User;
 class BranchProbabilityInfo;
 class BlockFrequencyInfo;
 
+/// Helper class that forces all accesses to the function parameter attributes
+/// go through a set/get interface.
+class FnAttributeList {
+  /// Parameter attributes.
+  AttributeList Attrs;
+
+public:
+  void setAttributes(AttributeList NewAttrs);
+  const AttributeList &getAttributes() const { return Attrs; }
+};
+
 class LLVM_EXTERNAL_VISIBILITY Function : public GlobalObject,
-                                          public ilist_node<Function> {
+                                          public ilist_node<Function>,
+                                          public FnAttributeList {
+  friend class AttributeListSetGet;
 public:
   using BasicBlockListType = SymbolTableList<BasicBlock>;
 
@@ -75,7 +88,6 @@ private:
   size_t NumArgs;
   std::unique_ptr<ValueSymbolTable>
       SymTab;                             ///< Symbol table of args/instructions
-  AttributeList AttributeSets;            ///< Parameter attributes
 
   /*
    * Value::SubclassData
@@ -206,7 +218,7 @@ public:
   /// isIntrinsic - Returns true if the function's name starts with "llvm.".
   /// It's possible for this function to return true while getIntrinsicID()
   /// returns Intrinsic::not_intrinsic!
-  bool isIntrinsic() const { return HasLLVMReservedName; }
+  bool isIntrinsic() const { return getHasLLVMReservedNameBF(); }
 
   /// isTargetIntrinsic - Returns true if IID is an intrinsic specific to a
   /// certain target. If it is a generic intrinsic false is returned.
@@ -308,12 +320,6 @@ public:
   const std::string &getGC() const;
   void setGC(std::string Str);
   void clearGC();
-
-  /// Return the attribute list for this Function.
-  AttributeList getAttributes() const { return AttributeSets; }
-
-  /// Set the attribute list for this Function.
-  void setAttributes(AttributeList Attrs) { AttributeSets = Attrs; }
 
   // TODO: remove non-AtIndex versions of these methods.
   /// adds the attribute to the list of attributes.
@@ -423,7 +429,7 @@ public:
 
   /// Return the stack alignment for the function.
   MaybeAlign getFnStackAlign() const {
-    return AttributeSets.getFnStackAlignment();
+    return getAttributes().getFnStackAlignment();
   }
 
   /// Returns true if the function has ssp, sspstrong, or sspreq fn attrs.
@@ -438,49 +444,49 @@ public:
   void addDereferenceableOrNullParamAttr(unsigned ArgNo, uint64_t Bytes);
 
   MaybeAlign getParamAlign(unsigned ArgNo) const {
-    return AttributeSets.getParamAlignment(ArgNo);
+    return getAttributes().getParamAlignment(ArgNo);
   }
 
   MaybeAlign getParamStackAlign(unsigned ArgNo) const {
-    return AttributeSets.getParamStackAlignment(ArgNo);
+    return getAttributes().getParamStackAlignment(ArgNo);
   }
 
   /// Extract the byval type for a parameter.
   Type *getParamByValType(unsigned ArgNo) const {
-    return AttributeSets.getParamByValType(ArgNo);
+    return getAttributes().getParamByValType(ArgNo);
   }
 
   /// Extract the sret type for a parameter.
   Type *getParamStructRetType(unsigned ArgNo) const {
-    return AttributeSets.getParamStructRetType(ArgNo);
+    return getAttributes().getParamStructRetType(ArgNo);
   }
 
   /// Extract the inalloca type for a parameter.
   Type *getParamInAllocaType(unsigned ArgNo) const {
-    return AttributeSets.getParamInAllocaType(ArgNo);
+    return getAttributes().getParamInAllocaType(ArgNo);
   }
 
   /// Extract the byref type for a parameter.
   Type *getParamByRefType(unsigned ArgNo) const {
-    return AttributeSets.getParamByRefType(ArgNo);
+    return getAttributes().getParamByRefType(ArgNo);
   }
 
   /// Extract the preallocated type for a parameter.
   Type *getParamPreallocatedType(unsigned ArgNo) const {
-    return AttributeSets.getParamPreallocatedType(ArgNo);
+    return getAttributes().getParamPreallocatedType(ArgNo);
   }
 
   /// Extract the number of dereferenceable bytes for a parameter.
   /// @param ArgNo Index of an argument, with 0 being the first function arg.
   uint64_t getParamDereferenceableBytes(unsigned ArgNo) const {
-    return AttributeSets.getParamDereferenceableBytes(ArgNo);
+    return getAttributes().getParamDereferenceableBytes(ArgNo);
   }
 
   /// Extract the number of dereferenceable_or_null bytes for a
   /// parameter.
   /// @param ArgNo AttributeList ArgNo, referring to an argument.
   uint64_t getParamDereferenceableOrNullBytes(unsigned ArgNo) const {
-    return AttributeSets.getParamDereferenceableOrNullBytes(ArgNo);
+    return getAttributes().getParamDereferenceableOrNullBytes(ArgNo);
   }
 
   /// Determine if the function is presplit coroutine.
@@ -604,7 +610,7 @@ public:
 
   /// Get what kind of unwind table entry to generate for this function.
   UWTableKind getUWTableKind() const {
-    return AttributeSets.getUWTableKind();
+    return getAttributes().getUWTableKind();
   }
 
   /// True if the ABI mandates (or the user requested) that this
@@ -623,14 +629,14 @@ public:
   /// Determine if the function returns a structure through first
   /// or second pointer argument.
   bool hasStructRetAttr() const {
-    return AttributeSets.hasParamAttr(0, Attribute::StructRet) ||
-           AttributeSets.hasParamAttr(1, Attribute::StructRet);
+    return getAttributes().hasParamAttr(0, Attribute::StructRet) ||
+           getAttributes().hasParamAttr(1, Attribute::StructRet);
   }
 
   /// Determine if the parameter or return value is marked with NoAlias
   /// attribute.
   bool returnDoesNotAlias() const {
-    return AttributeSets.hasRetAttr(Attribute::NoAlias);
+    return getAttributes().hasRetAttr(Attribute::NoAlias);
   }
   void setReturnDoesNotAlias() { addRetAttr(Attribute::NoAlias); }
 

@@ -1167,6 +1167,19 @@ using ConstOperandBundleDef = OperandBundleDefT<const Value *>;
 //                               CallBase Class
 //===----------------------------------------------------------------------===//
 
+/// Helper class for CallBase that allows accesses to the attributes only
+/// through setter/getter functions.
+class CallBaseAttributeList {
+  /// Parameter attributes for callable.
+  AttributeList Attrs;
+
+public:
+  CallBaseAttributeList() = default;
+  CallBaseAttributeList(const AttributeList &Attrs) : Attrs(Attrs) {}
+  void setAttributes(AttributeList NewAttrs);
+  AttributeList getAttributes() const { return Attrs; }
+};
+
 /// Base class for all callable instructions (InvokeInst and CallInst)
 /// Holds everything related to calling a function.
 ///
@@ -1181,7 +1194,7 @@ using ConstOperandBundleDef = OperandBundleDefT<const Value *>;
 /// start of the arguments without knowing how many other operands a particular
 /// subclass requires. Note that accessing the end of the argument list isn't
 /// as cheap as most other operations on the base class.
-class CallBase : public Instruction {
+class CallBase : public Instruction, public CallBaseAttributeList {
 protected:
   // The first two bits are reserved by CallInst for fast retrieval,
   using CallInstReservedField = Bitfield::Element<unsigned, 0, 2>;
@@ -1195,12 +1208,12 @@ protected:
   /// The last operand is the called operand.
   static constexpr int CalledOperandOpEndIdx = -1;
 
-  AttributeList Attrs; ///< parameter attributes for callable
   FunctionType *FTy;
 
   template <class... ArgsTy>
-  CallBase(AttributeList const &A, FunctionType *FT, ArgsTy &&... Args)
-      : Instruction(std::forward<ArgsTy>(Args)...), Attrs(A), FTy(FT) {}
+  CallBase(AttributeList const &A, FunctionType *FT, ArgsTy &&...Args)
+      : Instruction(std::forward<ArgsTy>(Args)...), CallBaseAttributeList(A),
+        FTy(FT) {}
 
   using Instruction::Instruction;
 
@@ -1479,14 +1492,6 @@ public:
   /// looking through to the attributes on the called function when necessary).
   ///@{
 
-  /// Return the parameter attributes for this call.
-  ///
-  AttributeList getAttributes() const { return Attrs; }
-
-  /// Set the parameter attributes for this call.
-  ///
-  void setAttributes(AttributeList A) { Attrs = A; }
-
   /// Determine whether this call has the given attribute. If it does not
   /// then determine if the called function has the attribute, but only if
   /// the attribute is allowed for the call.
@@ -1504,101 +1509,110 @@ public:
   // TODO: remove non-AtIndex versions of these methods.
   /// adds the attribute to the list of attributes.
   void addAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) {
-    Attrs = Attrs.addAttributeAtIndex(getContext(), i, Kind);
+    setAttributes(getAttributes().addAttributeAtIndex(getContext(), i, Kind));
   }
 
   /// adds the attribute to the list of attributes.
   void addAttributeAtIndex(unsigned i, Attribute Attr) {
-    Attrs = Attrs.addAttributeAtIndex(getContext(), i, Attr);
+    setAttributes(getAttributes().addAttributeAtIndex(getContext(), i, Attr));
   }
 
   /// Adds the attribute to the function.
   void addFnAttr(Attribute::AttrKind Kind) {
-    Attrs = Attrs.addFnAttribute(getContext(), Kind);
+    setAttributes(getAttributes().addFnAttribute(getContext(), Kind));
   }
 
   /// Adds the attribute to the function.
   void addFnAttr(Attribute Attr) {
-    Attrs = Attrs.addFnAttribute(getContext(), Attr);
+    setAttributes(getAttributes().addFnAttribute(getContext(), Attr));
   }
 
   /// Adds the attribute to the return value.
   void addRetAttr(Attribute::AttrKind Kind) {
-    Attrs = Attrs.addRetAttribute(getContext(), Kind);
+    setAttributes(getAttributes().addRetAttribute(getContext(), Kind));
   }
 
   /// Adds the attribute to the return value.
   void addRetAttr(Attribute Attr) {
-    Attrs = Attrs.addRetAttribute(getContext(), Attr);
+    setAttributes(getAttributes().addRetAttribute(getContext(), Attr));
   }
 
   /// Adds the attribute to the indicated argument
   void addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
     assert(ArgNo < arg_size() && "Out of bounds");
-    Attrs = Attrs.addParamAttribute(getContext(), ArgNo, Kind);
+    setAttributes(getAttributes().addParamAttribute(getContext(), ArgNo, Kind));
   }
 
   /// Adds the attribute to the indicated argument
   void addParamAttr(unsigned ArgNo, Attribute Attr) {
     assert(ArgNo < arg_size() && "Out of bounds");
-    Attrs = Attrs.addParamAttribute(getContext(), ArgNo, Attr);
+    setAttributes(getAttributes().addParamAttribute(getContext(), ArgNo, Attr));
   }
 
   /// removes the attribute from the list of attributes.
   void removeAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) {
-    Attrs = Attrs.removeAttributeAtIndex(getContext(), i, Kind);
+    setAttributes(
+        getAttributes().removeAttributeAtIndex(getContext(), i, Kind));
   }
 
   /// removes the attribute from the list of attributes.
   void removeAttributeAtIndex(unsigned i, StringRef Kind) {
-    Attrs = Attrs.removeAttributeAtIndex(getContext(), i, Kind);
+    setAttributes(
+        getAttributes().removeAttributeAtIndex(getContext(), i, Kind));
   }
 
   /// Removes the attributes from the function
   void removeFnAttrs(const AttributeMask &AttrsToRemove) {
-    Attrs = Attrs.removeFnAttributes(getContext(), AttrsToRemove);
+    setAttributes(
+        getAttributes().removeFnAttributes(getContext(), AttrsToRemove));
   }
 
   /// Removes the attribute from the function
   void removeFnAttr(Attribute::AttrKind Kind) {
-    Attrs = Attrs.removeFnAttribute(getContext(), Kind);
+    setAttributes(getAttributes().removeFnAttribute(getContext(), Kind));
   }
 
   /// Removes the attribute from the return value
   void removeRetAttr(Attribute::AttrKind Kind) {
-    Attrs = Attrs.removeRetAttribute(getContext(), Kind);
+    setAttributes(getAttributes().removeRetAttribute(getContext(), Kind));
   }
 
   /// Removes the attributes from the return value
   void removeRetAttrs(const AttributeMask &AttrsToRemove) {
-    Attrs = Attrs.removeRetAttributes(getContext(), AttrsToRemove);
+    setAttributes(
+        getAttributes().removeRetAttributes(getContext(), AttrsToRemove));
   }
 
   /// Removes the attribute from the given argument
   void removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
     assert(ArgNo < arg_size() && "Out of bounds");
-    Attrs = Attrs.removeParamAttribute(getContext(), ArgNo, Kind);
+    setAttributes(
+        getAttributes().removeParamAttribute(getContext(), ArgNo, Kind));
   }
 
   /// Removes the attribute from the given argument
   void removeParamAttr(unsigned ArgNo, StringRef Kind) {
     assert(ArgNo < arg_size() && "Out of bounds");
-    Attrs = Attrs.removeParamAttribute(getContext(), ArgNo, Kind);
+    setAttributes(
+        getAttributes().removeParamAttribute(getContext(), ArgNo, Kind));
   }
 
   /// Removes the attributes from the given argument
   void removeParamAttrs(unsigned ArgNo, const AttributeMask &AttrsToRemove) {
-    Attrs = Attrs.removeParamAttributes(getContext(), ArgNo, AttrsToRemove);
+    setAttributes(getAttributes().removeParamAttributes(getContext(), ArgNo,
+                                                        AttrsToRemove));
   }
 
   /// adds the dereferenceable attribute to the list of attributes.
   void addDereferenceableParamAttr(unsigned i, uint64_t Bytes) {
-    Attrs = Attrs.addDereferenceableParamAttr(getContext(), i, Bytes);
+    setAttributes(
+        getAttributes().addDereferenceableParamAttr(getContext(), i, Bytes));
   }
 
   /// adds the dereferenceable attribute to the list of attributes.
   void addDereferenceableRetAttr(uint64_t Bytes) {
-    Attrs = Attrs.addDereferenceableRetAttr(getContext(), Bytes);
+    setAttributes(
+        getAttributes().addDereferenceableRetAttr(getContext(), Bytes));
   }
 
   /// Determine whether the return value has the given attribute.
@@ -1741,7 +1755,7 @@ public:
 
   /// Extract the alignment of the return value.
   MaybeAlign getRetAlign() const {
-    if (auto Align = Attrs.getRetAlignment())
+    if (auto Align = getAttributes().getRetAlignment())
       return Align;
     if (const Function *F = getCalledFunction())
       return F->getAttributes().getRetAlignment();
@@ -1750,16 +1764,16 @@ public:
 
   /// Extract the alignment for a call or parameter (0=unknown).
   MaybeAlign getParamAlign(unsigned ArgNo) const {
-    return Attrs.getParamAlignment(ArgNo);
+    return getAttributes().getParamAlignment(ArgNo);
   }
 
   MaybeAlign getParamStackAlign(unsigned ArgNo) const {
-    return Attrs.getParamStackAlignment(ArgNo);
+    return getAttributes().getParamStackAlignment(ArgNo);
   }
 
   /// Extract the byval type for a call or parameter.
   Type *getParamByValType(unsigned ArgNo) const {
-    if (auto *Ty = Attrs.getParamByValType(ArgNo))
+    if (auto *Ty = getAttributes().getParamByValType(ArgNo))
       return Ty;
     if (const Function *F = getCalledFunction())
       return F->getAttributes().getParamByValType(ArgNo);
@@ -1768,7 +1782,7 @@ public:
 
   /// Extract the preallocated type for a call or parameter.
   Type *getParamPreallocatedType(unsigned ArgNo) const {
-    if (auto *Ty = Attrs.getParamPreallocatedType(ArgNo))
+    if (auto *Ty = getAttributes().getParamPreallocatedType(ArgNo))
       return Ty;
     if (const Function *F = getCalledFunction())
       return F->getAttributes().getParamPreallocatedType(ArgNo);
@@ -1777,7 +1791,7 @@ public:
 
   /// Extract the inalloca type for a call or parameter.
   Type *getParamInAllocaType(unsigned ArgNo) const {
-    if (auto *Ty = Attrs.getParamInAllocaType(ArgNo))
+    if (auto *Ty = getAttributes().getParamInAllocaType(ArgNo))
       return Ty;
     if (const Function *F = getCalledFunction())
       return F->getAttributes().getParamInAllocaType(ArgNo);
@@ -1786,7 +1800,7 @@ public:
 
   /// Extract the sret type for a call or parameter.
   Type *getParamStructRetType(unsigned ArgNo) const {
-    if (auto *Ty = Attrs.getParamStructRetType(ArgNo))
+    if (auto *Ty = getAttributes().getParamStructRetType(ArgNo))
       return Ty;
     if (const Function *F = getCalledFunction())
       return F->getAttributes().getParamStructRetType(ArgNo);
@@ -1797,13 +1811,13 @@ public:
   /// Note that elementtype() can only be applied to call arguments, not
   /// function declaration parameters.
   Type *getParamElementType(unsigned ArgNo) const {
-    return Attrs.getParamElementType(ArgNo);
+    return getAttributes().getParamElementType(ArgNo);
   }
 
   /// Extract the number of dereferenceable bytes for a call or
   /// parameter (0=unknown).
   uint64_t getRetDereferenceableBytes() const {
-    uint64_t Bytes = Attrs.getRetDereferenceableBytes();
+    uint64_t Bytes = getAttributes().getRetDereferenceableBytes();
     if (const Function *F = getCalledFunction())
       Bytes = std::max(Bytes, F->getAttributes().getRetDereferenceableBytes());
     return Bytes;
@@ -1812,13 +1826,13 @@ public:
   /// Extract the number of dereferenceable bytes for a call or
   /// parameter (0=unknown).
   uint64_t getParamDereferenceableBytes(unsigned i) const {
-    return Attrs.getParamDereferenceableBytes(i);
+    return getAttributes().getParamDereferenceableBytes(i);
   }
 
   /// Extract the number of dereferenceable_or_null bytes for a call
   /// (0=unknown).
   uint64_t getRetDereferenceableOrNullBytes() const {
-    uint64_t Bytes = Attrs.getRetDereferenceableOrNullBytes();
+    uint64_t Bytes = getAttributes().getRetDereferenceableOrNullBytes();
     if (const Function *F = getCalledFunction()) {
       Bytes = std::max(Bytes,
                        F->getAttributes().getRetDereferenceableOrNullBytes());
@@ -1830,7 +1844,7 @@ public:
   /// Extract the number of dereferenceable_or_null bytes for a
   /// parameter (0=unknown).
   uint64_t getParamDereferenceableOrNullBytes(unsigned i) const {
-    return Attrs.getParamDereferenceableOrNullBytes(i);
+    return getAttributes().getParamDereferenceableOrNullBytes(i);
   }
 
   /// Return true if the return value is known to be not null.
@@ -1840,7 +1854,7 @@ public:
 
   /// Determine if the return value is marked with NoAlias attribute.
   bool returnDoesNotAlias() const {
-    return Attrs.hasRetAttr(Attribute::NoAlias);
+    return getAttributes().hasRetAttr(Attribute::NoAlias);
   }
 
   /// If one of the arguments has the 'returned' attribute, returns its
@@ -1933,7 +1947,7 @@ public:
 
   /// Determine if any call argument is an aggregate passed by value.
   bool hasByValArgument() const {
-    return Attrs.hasAttrSomewhere(Attribute::ByVal);
+    return getAttributes().hasAttrSomewhere(Attribute::ByVal);
   }
 
   ///@{
@@ -2272,7 +2286,7 @@ private:
   bool hasFnAttrOnCalledFunction(StringRef Kind) const;
 
   template <typename AttrKind> bool hasFnAttrImpl(AttrKind Kind) const {
-    if (Attrs.hasFnAttr(Kind))
+    if (getAttributes().hasFnAttr(Kind))
       return true;
 
     return hasFnAttrOnCalledFunction(Kind);
@@ -2282,7 +2296,7 @@ private:
   /// Determine whether the return value has the given attribute. Supports
   /// Attribute::AttrKind and StringRef as \p AttrKind types.
   template <typename AttrKind> bool hasRetAttrImpl(AttrKind Kind) const {
-    if (Attrs.hasRetAttr(Kind))
+    if (getAttributes().hasRetAttr(Kind))
       return true;
 
     // Look at the callee, if available.

@@ -41,7 +41,93 @@ namespace Intrinsic {
 typedef unsigned ID;
 } // end namespace Intrinsic
 
-class GlobalValue : public Constant {
+/// A Helper class that contains the bitfields of GlobalValue.
+/// This helps pipe accesses through getters/setters.
+class GVBitfields {
+public:
+  static const unsigned GlobalValueSubClassDataBits = 15;
+
+private:
+  // All bitfields use unsigned as the underlying type so that MSVC will pack
+  // them.
+  unsigned Linkage : 4;       // The linkage of this global
+  unsigned Visibility : 2;    // The visibility style of this global
+  unsigned UnnamedAddrVal : 2; // This value's address is not significant
+  unsigned DllStorageClass : 2; // DLL storage class
+
+  unsigned ThreadLocal : 3; // Is this symbol "Thread Local", if so, what is
+                            // the desired model?
+
+  /// True if the function's name starts with "llvm.".  This corresponds to the
+  /// value of Function::isIntrinsic(), which may be true even if
+  /// Function::intrinsicID() returns Intrinsic::not_intrinsic.
+  unsigned HasLLVMReservedName : 1;
+
+  /// If true then there is a definition within the same linkage unit and that
+  /// definition cannot be runtime preempted.
+  unsigned IsDSOLocal : 1;
+
+  /// True if this symbol has a partition name assigned (see
+  /// https://lld.llvm.org/Partitions.html).
+  unsigned HasPartition : 1;
+
+  /// True if this symbol has sanitizer metadata available. Should only happen
+  /// if sanitizers were enabled when building the translation unit which
+  /// contains this GV.
+  unsigned HasSanitizerMetadata : 1;
+
+  // Give subclasses access to what otherwise would be wasted padding.
+  // (15 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1 + 1) == 32.
+  unsigned SubClassData : GlobalValueSubClassDataBits;
+
+protected:
+  // NOTE: This would normally belong to the GlobalValue class, but got moved
+  // here to save bytes due to bit-packing.
+  /// The intrinsic ID for this subclass (which must be a Function).
+  ///
+  /// This member is defined by this class, but not used for anything.
+  /// Subclasses can use it to store their intrinsic ID, if they have one.
+  ///
+  /// This is stored here to save space in Function on 64-bit hosts.
+  Intrinsic::ID IntID = (Intrinsic::ID)0U;
+
+public:
+  // Note: We don't initialize Linkage on purpose. Please use
+  // GlobalValue::setLinkage() because that will also iniitialize correctly
+  // other related variables.
+  GVBitfields(unsigned Visibility, unsigned UnnamedAddrVal,
+              unsigned DllStorageClass, unsigned ThreadLocal,
+              unsigned HasLLVMReservedName, unsigned IsDSOLocal,
+              unsigned HasPartition, unsigned HasSanitizerMetadata,
+              unsigned SubClassData)
+      : Visibility(Visibility), UnnamedAddrVal(UnnamedAddrVal),
+        DllStorageClass(DllStorageClass), ThreadLocal(ThreadLocal),
+        HasLLVMReservedName(HasLLVMReservedName), IsDSOLocal(IsDSOLocal),
+        HasPartition(HasPartition), HasSanitizerMetadata(HasSanitizerMetadata),
+        SubClassData(SubClassData) {}
+  void setLinkageBF(unsigned New) { Linkage = New; }
+  unsigned getLinkageBF() const { return Linkage; }
+  void setVisibilityBF(unsigned New) { Visibility = New; }
+  unsigned getVisibilityBF() const { return Visibility; }
+  void setUnnamedAddrValBF(unsigned New) { UnnamedAddrVal = New; }
+  unsigned getUnnamedAddrValBF() const { return UnnamedAddrVal; }
+  void setDllStorageClassBF(unsigned New) { DllStorageClass = New; }
+  unsigned getDllStorageClassBF() const { return DllStorageClass; }
+  void setThreadLocalBF(unsigned New) { ThreadLocal = New; }
+  unsigned getThreadLocalBF() const { return ThreadLocal; }
+  void setHasLLVMReservedNameBF(bool New) { HasLLVMReservedName = New; }
+  bool getHasLLVMReservedNameBF() const { return HasLLVMReservedName; }
+  void setIsDSOLocalBF(bool New) { IsDSOLocal = New; }
+  bool getIsDSOLocalBF() const { return IsDSOLocal; }
+  void setHasPartitionBF(bool New) { HasPartition = New; }
+  bool getHasPartitionBF() const { return HasPartition; }
+  void setHasSanitizerMetadataBF(unsigned New) { HasSanitizerMetadata = New; }
+  unsigned getHasSanitizerMetadataBF() const { return HasSanitizerMetadata; }
+  void setSubClassDataBF(unsigned New) { SubClassData = New; }
+  unsigned getSubClassDataBF() const { return SubClassData; }
+};
+
+class GlobalValue : public Constant, public GVBitfields {
 public:
   /// An enumeration for the kinds of linkage for global values.
   enum LinkageTypes {
@@ -76,52 +162,20 @@ protected:
   GlobalValue(Type *Ty, ValueTy VTy, Use *Ops, unsigned NumOps,
               LinkageTypes Linkage, const Twine &Name, unsigned AddressSpace)
       : Constant(PointerType::get(Ty, AddressSpace), VTy, Ops, NumOps),
-        ValueType(Ty), Visibility(DefaultVisibility),
-        UnnamedAddrVal(unsigned(UnnamedAddr::None)),
-        DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
-        HasLLVMReservedName(false), IsDSOLocal(false), HasPartition(false),
-        HasSanitizerMetadata(false) {
+        GVBitfields(DefaultVisibility, unsigned(UnnamedAddr::None),
+                    DefaultStorageClass, NotThreadLocal,
+                    /*HasLLVMReservedName=*/false, /*IsDSOLocal=*/false,
+                    /*HasPartition=*/false,
+                    /*HasSanitizerMetadata=*/false, /*SubClassData=*/0),
+        ValueType(Ty) {
+    // This also sets other attributes in the bitfield
     setLinkage(Linkage);
     setName(Name);
   }
 
   Type *ValueType;
 
-  static const unsigned GlobalValueSubClassDataBits = 15;
-
-  // All bitfields use unsigned as the underlying type so that MSVC will pack
-  // them.
-  unsigned Linkage : 4;       // The linkage of this global
-  unsigned Visibility : 2;    // The visibility style of this global
-  unsigned UnnamedAddrVal : 2; // This value's address is not significant
-  unsigned DllStorageClass : 2; // DLL storage class
-
-  unsigned ThreadLocal : 3; // Is this symbol "Thread Local", if so, what is
-                            // the desired model?
-
-  /// True if the function's name starts with "llvm.".  This corresponds to the
-  /// value of Function::isIntrinsic(), which may be true even if
-  /// Function::intrinsicID() returns Intrinsic::not_intrinsic.
-  unsigned HasLLVMReservedName : 1;
-
-  /// If true then there is a definition within the same linkage unit and that
-  /// definition cannot be runtime preempted.
-  unsigned IsDSOLocal : 1;
-
-  /// True if this symbol has a partition name assigned (see
-  /// https://lld.llvm.org/Partitions.html).
-  unsigned HasPartition : 1;
-
-  /// True if this symbol has sanitizer metadata available. Should only happen
-  /// if sanitizers were enabled when building the translation unit which
-  /// contains this GV.
-  unsigned HasSanitizerMetadata : 1;
-
 private:
-  // Give subclasses access to what otherwise would be wasted padding.
-  // (15 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1 + 1) == 32.
-  unsigned SubClassData : GlobalValueSubClassDataBits;
-
   friend class Constant;
 
   void destroyConstantImpl();
@@ -160,20 +214,12 @@ private:
   bool isNobuiltinFnDef() const;
 
 protected:
-  /// The intrinsic ID for this subclass (which must be a Function).
-  ///
-  /// This member is defined by this class, but not used for anything.
-  /// Subclasses can use it to store their intrinsic ID, if they have one.
-  ///
-  /// This is stored here to save space in Function on 64-bit hosts.
-  Intrinsic::ID IntID = (Intrinsic::ID)0U;
-
   unsigned getGlobalValueSubClassData() const {
-    return SubClassData;
+    return getSubClassDataBF();
   }
   void setGlobalValueSubClassData(unsigned V) {
     assert(V < (1 << GlobalValueSubClassDataBits) && "It will not fit");
-    SubClassData = V;
+    setSubClassDataBF(V);
   }
 
   Module *Parent = nullptr; // The containing module.
@@ -222,9 +268,9 @@ public:
   }
 
   UnnamedAddr getUnnamedAddr() const {
-    return UnnamedAddr(UnnamedAddrVal);
+    return UnnamedAddr(getUnnamedAddrValBF());
   }
-  void setUnnamedAddr(UnnamedAddr Val) { UnnamedAddrVal = unsigned(Val); }
+  void setUnnamedAddr(UnnamedAddr Val) { setUnnamedAddrValBF(unsigned(Val)); }
 
   static UnnamedAddr getMinUnnamedAddr(UnnamedAddr A, UnnamedAddr B) {
     if (A == UnnamedAddr::None || B == UnnamedAddr::None)
@@ -241,16 +287,22 @@ public:
                            static_cast<const GlobalValue *>(this)->getComdat());
   }
 
-  VisibilityTypes getVisibility() const { return VisibilityTypes(Visibility); }
-  bool hasDefaultVisibility() const { return Visibility == DefaultVisibility; }
-  bool hasHiddenVisibility() const { return Visibility == HiddenVisibility; }
+  VisibilityTypes getVisibility() const {
+    return VisibilityTypes(getVisibilityBF());
+  }
+  bool hasDefaultVisibility() const {
+    return getVisibilityBF() == DefaultVisibility;
+  }
+  bool hasHiddenVisibility() const {
+    return getVisibilityBF() == HiddenVisibility;
+  }
   bool hasProtectedVisibility() const {
-    return Visibility == ProtectedVisibility;
+    return getVisibilityBF() == ProtectedVisibility;
   }
   void setVisibility(VisibilityTypes V) {
     assert((!hasLocalLinkage() || V == DefaultVisibility) &&
            "local linkage requires default visibility");
-    Visibility = V;
+    setVisibilityBF(V);
     if (isImplicitDSOLocal())
       setDSOLocal(true);
   }
@@ -262,25 +314,25 @@ public:
   }
   void setThreadLocalMode(ThreadLocalMode Val) {
     assert(Val == NotThreadLocal || getValueID() != Value::FunctionVal);
-    ThreadLocal = Val;
+    setThreadLocalBF(Val);
   }
   ThreadLocalMode getThreadLocalMode() const {
-    return static_cast<ThreadLocalMode>(ThreadLocal);
+    return static_cast<ThreadLocalMode>(getThreadLocalBF());
   }
 
   DLLStorageClassTypes getDLLStorageClass() const {
-    return DLLStorageClassTypes(DllStorageClass);
+    return DLLStorageClassTypes(getDllStorageClassBF());
   }
   bool hasDLLImportStorageClass() const {
-    return DllStorageClass == DLLImportStorageClass;
+    return getDllStorageClassBF() == DLLImportStorageClass;
   }
   bool hasDLLExportStorageClass() const {
-    return DllStorageClass == DLLExportStorageClass;
+    return getDllStorageClassBF() == DLLExportStorageClass;
   }
   void setDLLStorageClass(DLLStorageClassTypes C) {
     assert((!hasLocalLinkage() || C == DefaultStorageClass) &&
            "local linkage requires DefaultStorageClass");
-    DllStorageClass = C;
+    setDllStorageClassBF(C);
   }
 
   bool hasSection() const { return !getSection().empty(); }
@@ -296,14 +348,14 @@ public:
            (!hasDefaultVisibility() && !hasExternalWeakLinkage());
   }
 
-  void setDSOLocal(bool Local) { IsDSOLocal = Local; }
+  void setDSOLocal(bool Local) { setIsDSOLocalBF(Local); }
 
   bool isDSOLocal() const {
-    return IsDSOLocal;
+    return getIsDSOLocalBF();
   }
 
   bool hasPartition() const {
-    return HasPartition;
+    return getHasPartitionBF();
   }
   StringRef getPartition() const;
   void setPartition(StringRef Part);
@@ -348,7 +400,7 @@ public:
     unsigned IsDynInit : 1;
   };
 
-  bool hasSanitizerMetadata() const { return HasSanitizerMetadata; }
+  bool hasSanitizerMetadata() const { return getHasSanitizerMetadataBF(); }
   const SanitizerMetadata &getSanitizerMetadata() const;
   // Note: Not byref as it's a POD and otherwise it's too easy to call
   // G.setSanitizerMetadata(G2.getSanitizerMetadata()), and the argument becomes
@@ -531,14 +583,14 @@ public:
 
   void setLinkage(LinkageTypes LT) {
     if (isLocalLinkage(LT)) {
-      Visibility = DefaultVisibility;
-      DllStorageClass = DefaultStorageClass;
+      setVisibilityBF(DefaultVisibility);
+      setDllStorageClassBF(DefaultStorageClass);
     }
-    Linkage = LT;
+    setLinkageBF(LT);
     if (isImplicitDSOLocal())
       setDSOLocal(true);
   }
-  LinkageTypes getLinkage() const { return LinkageTypes(Linkage); }
+  LinkageTypes getLinkage() const { return LinkageTypes(getLinkageBF()); }
 
   bool isDiscardableIfUnused() const {
     return isDiscardableIfUnused(getLinkage());

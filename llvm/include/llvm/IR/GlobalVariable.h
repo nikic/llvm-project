@@ -36,10 +36,20 @@ class Module;
 template <typename ValueSubClass> class SymbolTableListTraits;
 class DIGlobalVariableExpression;
 
-class GlobalVariable : public GlobalObject, public ilist_node<GlobalVariable> {
+/// Helper class that forces a set/get interface to access the attribute set.
+class GlobalVariableAttributeSet {
+  AttributeSet Attrs;
+
+public:
+  void setAttributes(AttributeSet NewAttrs);
+  const AttributeSet &getAttributes() const { return Attrs; }
+};
+
+class GlobalVariable : public GlobalObject,
+                       public ilist_node<GlobalVariable>,
+                       public GlobalVariableAttributeSet {
   friend class SymbolTableListTraits<GlobalVariable>;
 
-  AttributeSet Attrs;
   bool isConstantGlobal : 1;                   // Is this a global constant?
   bool isExternallyInitializedConstant : 1;    // Is this a global whose value
                                                // can change from its initial
@@ -185,42 +195,37 @@ public:
 
   /// Add attribute to this global.
   void addAttribute(Attribute::AttrKind Kind) {
-    Attrs = Attrs.addAttribute(getContext(), Kind);
+    setAttributes(getAttributes().addAttribute(getContext(), Kind));
   }
 
   /// Add attribute to this global.
   void addAttribute(StringRef Kind, StringRef Val = StringRef()) {
-    Attrs = Attrs.addAttribute(getContext(), Kind, Val);
+    setAttributes(getAttributes().addAttribute(getContext(), Kind, Val));
   }
 
   /// Return true if the attribute exists.
   bool hasAttribute(Attribute::AttrKind Kind) const {
-    return Attrs.hasAttribute(Kind);
+    return getAttributes().hasAttribute(Kind);
   }
 
   /// Return true if the attribute exists.
   bool hasAttribute(StringRef Kind) const {
-    return Attrs.hasAttribute(Kind);
+    return getAttributes().hasAttribute(Kind);
   }
 
   /// Return true if any attributes exist.
   bool hasAttributes() const {
-    return Attrs.hasAttributes();
+    return getAttributes().hasAttributes();
   }
 
   /// Return the attribute object.
   Attribute getAttribute(Attribute::AttrKind Kind) const {
-    return Attrs.getAttribute(Kind);
+    return getAttributes().getAttribute(Kind);
   }
 
   /// Return the attribute object.
   Attribute getAttribute(StringRef Kind) const {
-    return Attrs.getAttribute(Kind);
-  }
-
-  /// Return the attribute set for this global
-  AttributeSet getAttributes() const {
-    return Attrs;
+    return getAttributes().getAttribute(Kind);
   }
 
   /// Return attribute set as list with index.
@@ -229,13 +234,8 @@ public:
   AttributeList getAttributesAsList(unsigned index) const {
     if (!hasAttributes())
       return AttributeList();
-    std::pair<unsigned, AttributeSet> AS[1] = {{index, Attrs}};
+    std::pair<unsigned, AttributeSet> AS[1] = {{index, getAttributes()}};
     return AttributeList::get(getContext(), AS);
-  }
-
-  /// Set attribute list for this global
-  void setAttributes(AttributeSet A) {
-    Attrs = A;
   }
 
   /// Check if section name is present
