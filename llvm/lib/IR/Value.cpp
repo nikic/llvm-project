@@ -724,6 +724,9 @@ const Value *Value::stripAndAccumulateConstantOffsets(
       if (!AllowNonInbounds && !GEP->isInBounds())
         return V;
 
+      if (!ExternalAnalysis && !GEP->hasAllConstantIndices())
+        return V;
+
       // If one of the values we have visited is an addrspacecast, then
       // the pointer type of this GEP may be different from the type
       // of the Ptr parameter which was passed to this function.  This
