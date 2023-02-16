@@ -159,7 +159,6 @@ const char *DataLayout::getManglingComponent(const Triple &T) {
 }
 
 static const std::pair<AlignTypeEnum, LayoutAlignElem> DefaultAlignments[] = {
-    {INTEGER_ALIGN, {1, Align(1), Align(1)}},    // i1
     {INTEGER_ALIGN, {8, Align(1), Align(1)}},    // i8
     {INTEGER_ALIGN, {16, Align(2), Align(2)}},   // i16
     {INTEGER_ALIGN, {32, Align(4), Align(4)}},   // i32
