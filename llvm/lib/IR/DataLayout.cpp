@@ -557,9 +557,11 @@ bool DataLayout::operator==(const DataLayout &Other) const {
 static SmallVectorImpl<LayoutAlignElem>::const_iterator
 findAlignmentLowerBound(const SmallVectorImpl<LayoutAlignElem> &Alignments,
                         uint32_t BitWidth) {
-  return partition_point(Alignments, [BitWidth](const LayoutAlignElem &E) {
-    return E.TypeBitWidth < BitWidth;
-  });
+  auto End = Alignments.end();
+  for (auto It = Alignments.begin(); It < End; ++It)
+    if (It->TypeBitWidth >= BitWidth)
+      return It;
+  return End;
 }
 
 Error DataLayout::setAlignment(AlignTypeEnum AlignType, Align ABIAlign,
