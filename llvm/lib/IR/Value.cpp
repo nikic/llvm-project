@@ -715,7 +715,7 @@ const Value *Value::stripAndAccumulateConstantOffsets(
 
   // Even though we don't look through PHI nodes, we could be called on an
   // instruction in an unreachable block, which may be on a cycle.
-  SmallPtrSet<const Value *, 4> Visited;
+  SmallPtrSet<const Value *, 8> Visited;
   Visited.insert(this);
   const Value *V = this;
   do {
