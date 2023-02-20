@@ -2693,8 +2693,7 @@ static bool haveNonOverlappingStorage(const Value *V1, const Value *V2) {
   if (isByValArg(V2))
     return isa<AllocaInst>(V1) || isa<GlobalVariable>(V1) || isByValArg(V1);
 
-  return isa<AllocaInst>(V1) &&
-         (isa<AllocaInst>(V2) || isa<GlobalVariable>(V2));
+  return isa<AllocaInst>(V1) && isa<GlobalVariable>(V2);
 }
 
 // A significant optimization not implemented here is assuming that alloca

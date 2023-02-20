@@ -3,7 +3,11 @@
 
 define i1 @bitcast() {
 ; CHECK-LABEL: @bitcast(
-; CHECK-NEXT:    ret i1 false
+; CHECK-NEXT:    [[A:%.*]] = alloca i32, align 4
+; CHECK-NEXT:    [[B:%.*]] = alloca i64, align 8
+; CHECK-NEXT:    [[Y:%.*]] = call ptr @func1(ptr [[B]])
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq ptr [[A]], [[Y]]
+; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %a = alloca i32
   %b = alloca i64
