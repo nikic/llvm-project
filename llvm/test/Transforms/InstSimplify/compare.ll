@@ -16,7 +16,10 @@ define i1 @ptrtoint() {
 
 define i1 @bitcast() {
 ; CHECK-LABEL: @bitcast(
-; CHECK-NEXT:    ret i1 false
+; CHECK-NEXT:    [[A:%.*]] = alloca i32, align 4
+; CHECK-NEXT:    [[B:%.*]] = alloca i64, align 8
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq ptr [[A]], [[B]]
+; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %a = alloca i32
   %b = alloca i64
@@ -2715,7 +2718,10 @@ define i1 @zero_sized_alloca2() {
 
 define i1 @scalar_vectors_are_non_empty() {
 ; CHECK-LABEL: @scalar_vectors_are_non_empty(
-; CHECK-NEXT:    ret i1 true
+; CHECK-NEXT:    [[A:%.*]] = alloca <vscale x 2 x i32>, align 8
+; CHECK-NEXT:    [[B:%.*]] = alloca <vscale x 2 x i32>, align 8
+; CHECK-NEXT:    [[RES:%.*]] = icmp ne ptr [[A]], [[B]]
+; CHECK-NEXT:    ret i1 [[RES]]
 ;
   %a = alloca <vscale x 2 x i32>
   %b = alloca <vscale x 2 x i32>

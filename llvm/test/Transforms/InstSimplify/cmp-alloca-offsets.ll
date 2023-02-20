@@ -78,7 +78,12 @@ define i1 @positive_equal_past_end() {
 
 define i1 @positive_non_equal() {
 ; CHECK-LABEL: @positive_non_equal(
-; CHECK-NEXT:    ret i1 true
+; CHECK-NEXT:    [[A:%.*]] = alloca i8, i32 4, align 1
+; CHECK-NEXT:    [[B:%.*]] = alloca i8, i32 4, align 1
+; CHECK-NEXT:    [[A_OFF:%.*]] = getelementptr i8, ptr [[A]], i64 3
+; CHECK-NEXT:    [[B_OFF:%.*]] = getelementptr i8, ptr [[B]], i64 3
+; CHECK-NEXT:    [[RES:%.*]] = icmp ne ptr [[A_OFF]], [[B_OFF]]
+; CHECK-NEXT:    ret i1 [[RES]]
 ;
   %a = alloca i8, i32 4
   %b = alloca i8, i32 4
