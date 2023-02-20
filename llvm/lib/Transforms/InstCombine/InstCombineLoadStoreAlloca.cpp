@@ -530,6 +530,9 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
     }
   }
 
+  if (foldAllocaCmp(&AI))
+    return nullptr;
+
   // At last, use the generic allocation site handler to aggressively remove
   // unused allocas.
   return visitAllocSite(AI);
