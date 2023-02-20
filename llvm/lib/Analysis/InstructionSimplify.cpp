@@ -3931,6 +3931,11 @@ static Value *simplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
   if (Value *V = simplifyICmpWithDominatingAssume(Pred, LHS, RHS, Q))
     return V;
 
+  std::optional<bool> Checked =
+      isImpliedByDomCondition(Pred, LHS, RHS, Q.CxtI, Q.DL);
+  if (Checked && *Checked == true)
+    return getTrue(ITy);
+
   // Simplify comparisons of related pointers using a powerful, recursive
   // GEP-walk when we have target data available..
   if (LHS->getType()->isPointerTy())

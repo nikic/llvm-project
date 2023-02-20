@@ -399,9 +399,7 @@ define void @doesnt_imply_and(i32 %a, i32 %b, i1 %x) {
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp eq i32 [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[END:%.*]], label [[TAKEN:%.*]]
 ; CHECK:       taken:
-; CHECK-NEXT:    [[CMP2:%.*]] = icmp ne i32 [[A]], [[B]]
-; CHECK-NEXT:    [[OR:%.*]] = and i1 [[CMP2]], [[X:%.*]]
-; CHECK-NEXT:    [[C:%.*]] = select i1 [[OR]], i32 20, i32 0
+; CHECK-NEXT:    [[C:%.*]] = select i1 [[X:%.*]], i32 20, i32 0
 ; CHECK-NEXT:    call void @foo(i32 [[C]])
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
