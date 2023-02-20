@@ -884,6 +884,14 @@ void SimplifyIndvar::simplifyUsers(PHINode *CurrIV, IVVisitor *V) {
   // do for loop header phis that use each other.
   pushIVUsers(CurrIV, L, Simplified, SimpleIVUsers);
 
+  // Annotate binary operators primarily to give more context for analyzes and
+  // transformations with users, which are visited before binary operators. E.g.
+  // for IV comparison invariant making
+  for (auto [UseInst, IVOperand] : SimpleIVUsers)
+    if (BinaryOperator *BO = dyn_cast<BinaryOperator>(UseInst))
+      if (strengthenBinaryOp(BO, IVOperand))
+        pushIVUsers(IVOperand, L, Simplified, SimpleIVUsers);
+
   while (!SimpleIVUsers.empty()) {
     std::pair<Instruction*, Instruction*> UseOper =
       SimpleIVUsers.pop_back_val();

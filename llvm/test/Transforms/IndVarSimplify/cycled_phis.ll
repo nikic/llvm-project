@@ -67,7 +67,7 @@ done:
   ret i32 %iv
 }
 
-; TODO: The 2nd check can be made invariant.
+; The 2nd check can be made invariant.
 ; slt and ult checks are equivalent. When IV is negative, slt check will pass and ult will
 ; fail. Because IV is incrementing, this will fail on 1st iteration or never.
 define i32 @unknown.start(i32 %start, ptr %len.ptr) {
@@ -82,7 +82,7 @@ define i32 @unknown.start(i32 %start, ptr %len.ptr) {
 ; CHECK-NEXT:    [[SIGNED_CMP:%.*]] = icmp slt i32 [[IV]], [[LEN]]
 ; CHECK-NEXT:    br i1 [[SIGNED_CMP]], label [[SIGNED_PASSED:%.*]], label [[FAILED_SIGNED:%.*]]
 ; CHECK:       signed.passed:
-; CHECK-NEXT:    [[UNSIGNED_CMP:%.*]] = icmp ult i32 [[IV]], [[LEN]]
+; CHECK-NEXT:    [[UNSIGNED_CMP:%.*]] = icmp ult i32 [[START]], [[LEN]]
 ; CHECK-NEXT:    br i1 [[UNSIGNED_CMP]], label [[BACKEDGE]], label [[FAILED_UNSIGNED:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i32 [[IV]], 1
@@ -132,7 +132,7 @@ done:
 }
 
 
-; TODO: We should be able to prove that:
+; We should be able to prove that:
 ; - %sibling.iv.next is non-negative;
 ; - therefore, %iv is non-negative;
 ; - therefore, unsigned check can be removed.
@@ -155,11 +155,10 @@ define i32 @start.from.sibling.iv(ptr %len.ptr, ptr %sibling.len.ptr) {
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[SIBLING_IV_NEXT_LCSSA]], [[PREHEADER]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
-; CHECK-NEXT:    [[SIGNED_CMP:%.*]] = icmp slt i32 [[IV]], [[LEN]]
+; CHECK-NEXT:    [[SIGNED_CMP:%.*]] = icmp ult i32 [[IV]], [[LEN]]
 ; CHECK-NEXT:    br i1 [[SIGNED_CMP]], label [[SIGNED_PASSED:%.*]], label [[FAILED_SIGNED:%.*]]
 ; CHECK:       signed.passed:
-; CHECK-NEXT:    [[UNSIGNED_CMP:%.*]] = icmp ult i32 [[IV]], [[LEN]]
-; CHECK-NEXT:    br i1 [[UNSIGNED_CMP]], label [[BACKEDGE]], label [[FAILED_UNSIGNED:%.*]]
+; CHECK-NEXT:    br i1 true, label [[BACKEDGE]], label [[FAILED_UNSIGNED:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i32 [[IV]], 1
 ; CHECK-NEXT:    [[COND:%.*]] = call i1 @cond()
@@ -354,7 +353,7 @@ define i32 @start.from.sibling.iv.wide.cycled.phis(ptr %len.ptr, ptr %sibling.le
 ; CHECK-NEXT:    [[UNSIGNED_CMP:%.*]] = icmp ult i32 [[IV_START]], [[LEN]]
 ; CHECK-NEXT:    br i1 [[UNSIGNED_CMP]], label [[BACKEDGE]], label [[FAILED_UNSIGNED:%.*]]
 ; CHECK:       backedge:
-; CHECK-NEXT:    [[IV_NEXT]] = add nsw i32 [[IV]], 1
+; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i32 [[IV]], 1
 ; CHECK-NEXT:    [[COND:%.*]] = call i1 @cond()
 ; CHECK-NEXT:    br i1 [[COND]], label [[LOOP]], label [[OUTER_LOOP_BACKEDGE]]
 ; CHECK:       outer.loop.backedge:
@@ -472,7 +471,7 @@ define i32 @start.from.sibling.iv.wide.cycled.phis.complex.phis(ptr %len.ptr, pt
 ; CHECK-NEXT:    [[UNSIGNED_CMP:%.*]] = icmp ult i32 [[IV_START]], [[LEN]]
 ; CHECK-NEXT:    br i1 [[UNSIGNED_CMP]], label [[BACKEDGE]], label [[FAILED_UNSIGNED:%.*]]
 ; CHECK:       backedge:
-; CHECK-NEXT:    [[IV_NEXT]] = add nsw i32 [[IV]], 1
+; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i32 [[IV]], 1
 ; CHECK-NEXT:    [[COND:%.*]] = call i1 @cond()
 ; CHECK-NEXT:    br i1 [[COND]], label [[LOOP]], label [[OUTER_LOOP_SELECTION:%.*]]
 ; CHECK:       outer.loop.selection:
