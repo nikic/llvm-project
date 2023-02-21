@@ -108,12 +108,14 @@ define void @test4(i32 %len) {
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i32 [[LEN]], 4
 ; CHECK-NEXT:    br i1 [[CMP]], label [[BB:%.*]], label [[B1:%.*]]
 ; CHECK:       bb:
-; CHECK-NEXT:    br i1 false, label [[B0:%.*]], label [[B1]]
+; CHECK-NEXT:    [[COND:%.*]] = select i1 [[CMP]], i32 [[LEN]], i32 8
+; CHECK-NEXT:    [[CMP11:%.*]] = icmp eq i32 [[COND]], 8
+; CHECK-NEXT:    br i1 [[CMP11]], label [[B0:%.*]], label [[B1]]
 ; CHECK:       b0:
 ; CHECK-NEXT:    call void @foo(i32 [[LEN]])
 ; CHECK-NEXT:    br label [[B1]]
 ; CHECK:       b1:
-; CHECK-NEXT:    [[TMP1:%.*]] = phi i32 [ [[LEN]], [[BB]] ], [ undef, [[B0]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = phi i32 [ [[COND]], [[BB]] ], [ undef, [[B0]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    br label [[RET:%.*]]
 ; CHECK:       ret:
 ; CHECK-NEXT:    call void @foo(i32 [[TMP1]])
@@ -232,7 +234,8 @@ define void @test6(i32 %a, i32 %b) {
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp eq i32 [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[TAKEN:%.*]], label [[END:%.*]]
 ; CHECK:       taken:
-; CHECK-NEXT:    call void @foo(i32 10)
+; CHECK-NEXT:    [[C:%.*]] = select i1 [[CMP1]], i32 10, i32 0
+; CHECK-NEXT:    call void @foo(i32 [[C]])
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
 ; CHECK-NEXT:    ret void
@@ -256,7 +259,8 @@ define void @test7(i32 %a, i32 %b) {
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp eq i32 [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[END:%.*]], label [[TAKEN:%.*]]
 ; CHECK:       taken:
-; CHECK-NEXT:    call void @foo(i32 11)
+; CHECK-NEXT:    [[C:%.*]] = select i1 [[CMP1]], i32 0, i32 11
+; CHECK-NEXT:    call void @foo(i32 [[C]])
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
 ; CHECK-NEXT:    ret void

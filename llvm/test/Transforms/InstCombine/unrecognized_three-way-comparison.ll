@@ -492,7 +492,8 @@ define i32 @compare_against_fortytwo_commutatibility_1(i32 %x) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt i32 [[X]], 42
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[CALLFOO:%.*]], label [[EXIT:%.*]]
 ; CHECK:       callfoo:
-; CHECK-NEXT:    call void @foo(i32 1)
+; CHECK-NEXT:    [[SELECT2:%.*]] = zext i1 [[CMP1]] to i32
+; CHECK-NEXT:    call void @foo(i32 [[SELECT2]])
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret i32 84
@@ -547,7 +548,8 @@ define i32 @compare_against_fortytwo_commutatibility_3(i32 %x) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt i32 [[X]], 42
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[CALLFOO:%.*]], label [[EXIT:%.*]]
 ; CHECK:       callfoo:
-; CHECK-NEXT:    call void @foo(i32 1)
+; CHECK-NEXT:    [[SELECT2:%.*]] = zext i1 [[CMP1]] to i32
+; CHECK-NEXT:    call void @foo(i32 [[SELECT2]])
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret i32 84
@@ -629,7 +631,8 @@ define i32 @compare_against_arbitrary_value_commutativity2(i32 %x, i32 %c) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt i32 [[X]], [[C]]
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[CALLFOO:%.*]], label [[EXIT:%.*]]
 ; CHECK:       callfoo:
-; CHECK-NEXT:    call void @foo(i32 1)
+; CHECK-NEXT:    [[SELECT2:%.*]] = zext i1 [[CMP1]] to i32
+; CHECK-NEXT:    call void @foo(i32 [[SELECT2]])
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret i32 42
@@ -658,7 +661,8 @@ define i32 @compare_against_arbitrary_value_commutativity3(i32 %x, i32 %c) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt i32 [[X]], [[C]]
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[CALLFOO:%.*]], label [[EXIT:%.*]]
 ; CHECK:       callfoo:
-; CHECK-NEXT:    call void @foo(i32 1)
+; CHECK-NEXT:    [[SELECT2:%.*]] = zext i1 [[CMP1]] to i32
+; CHECK-NEXT:    call void @foo(i32 [[SELECT2]])
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret i32 42
