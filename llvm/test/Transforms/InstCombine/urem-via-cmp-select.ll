@@ -106,11 +106,13 @@ define i8 @urem_without_assume(i8 %arg, i8 %arg2) {
 ; TODO: https://alive2.llvm.org/ce/z/eHkgRa
 define i8 @urem_with_dominating_condition(i8 %x, i8 %n) {
 ; CHECK-LABEL: @urem_with_dominating_condition(
-; CHECK-NEXT:    [[COND:%.*]] = icmp ult i8 [[X:%.*]], [[N:%.*]]
+; CHECK-NEXT:    [[X_FR:%.*]] = freeze i8 [[X:%.*]]
+; CHECK-NEXT:    [[COND:%.*]] = icmp ult i8 [[X_FR]], [[N:%.*]]
 ; CHECK-NEXT:    br i1 [[COND]], label [[DOTBB0:%.*]], label [[DOTBB1:%.*]]
 ; CHECK:       .bb0:
-; CHECK-NEXT:    [[ADD:%.*]] = add i8 [[X]], 1
-; CHECK-NEXT:    [[OUT:%.*]] = urem i8 [[ADD]], [[N]]
+; CHECK-NEXT:    [[ADD:%.*]] = add i8 [[X_FR]], 1
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i8 [[ADD]], [[N]]
+; CHECK-NEXT:    [[OUT:%.*]] = select i1 [[TMP1]], i8 0, i8 [[ADD]]
 ; CHECK-NEXT:    ret i8 [[OUT]]
 ; CHECK:       .bb1:
 ; CHECK-NEXT:    ret i8 0
