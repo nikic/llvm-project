@@ -856,6 +856,9 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // Deduce any function attributes now that the code is simplified.
   MainCGPipeline.addPass(PostOrderFunctionAttrsPass());
 
+  MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
+      RequireAnalysisPass<ShouldNotRunFunctionPassesAnalysis, Function>()));
+
   MainCGPipeline.addPass(CoroSplitPass(Level != OptimizationLevel::O0));
 
   MIWP.addLateModulePass(createModuleToFunctionPassAdaptor(
