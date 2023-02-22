@@ -86,10 +86,10 @@ C::C() {} // force emission
 // CHECK32-NEXT: ret ptr %[[rv]]
 
 // CHECK64-LABEL: define linkonce_odr dso_local void @"?foo@C@sret_thunk@@W7EAA?AUAgg@2@U32@@Z"
-// CHECK64:             (ptr noundef %this, ptr noalias sret(%"struct.sret_thunk::Agg") align 4 %agg.result, ptr noundef %x)
+// CHECK64:             (ptr noundef %this, ptr noalias nocapture sret(%"struct.sret_thunk::Agg") align 4 %agg.result, ptr noundef %x)
 // CHECK64:   getelementptr i8, ptr %{{.*}}, i32 -8
 // CHECK64:   call void @"?foo@C@sret_thunk@@UEAA?AUAgg@2@U32@@Z"
-// CHECK64:       (ptr {{[^,]*}} %{{.*}}, ptr sret(%"struct.sret_thunk::Agg") align 4 %agg.result, ptr noundef %x)
+// CHECK64:       (ptr {{[^,]*}} %{{.*}}, ptr nocapture sret(%"struct.sret_thunk::Agg") align 4 %agg.result, ptr noundef %x)
 // CHECK64-NOT: call
 // CHECK64:   ret void
 }

@@ -18,7 +18,7 @@
 // CHECK-LABEL: define {{[^@]+}}@test_svld3_bf16(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[TMP0:%.*]] = tail call <vscale x 8 x i1> @llvm.aarch64.sve.convert.from.svbool.nxv8i1(<vscale x 16 x i1> [[PG:%.*]])
-// CHECK-NEXT:    [[TMP1:%.*]] = tail call { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } @llvm.aarch64.sve.ld3.sret.nxv8bf16(<vscale x 8 x i1> [[TMP0]], ptr [[BASE:%.*]])
+// CHECK-NEXT:    [[TMP1:%.*]] = tail call { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } @llvm.aarch64.sve.ld3.nocapture sret.nxv8bf16(<vscale x 8 x i1> [[TMP0]], ptr [[BASE:%.*]])
 // CHECK-NEXT:    [[TMP2:%.*]] = extractvalue { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } [[TMP1]], 0
 // CHECK-NEXT:    [[TMP3:%.*]] = tail call <vscale x 24 x bfloat> @llvm.vector.insert.nxv24bf16.nxv8bf16(<vscale x 24 x bfloat> poison, <vscale x 8 x bfloat> [[TMP2]], i64 0)
 // CHECK-NEXT:    [[TMP4:%.*]] = extractvalue { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } [[TMP1]], 1
@@ -30,7 +30,7 @@
 // CPP-CHECK-LABEL: define {{[^@]+}}@_Z15test_svld3_bf16u10__SVBool_tPKu6__bf16(
 // CPP-CHECK-NEXT:  entry:
 // CPP-CHECK-NEXT:    [[TMP0:%.*]] = tail call <vscale x 8 x i1> @llvm.aarch64.sve.convert.from.svbool.nxv8i1(<vscale x 16 x i1> [[PG:%.*]])
-// CPP-CHECK-NEXT:    [[TMP1:%.*]] = tail call { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } @llvm.aarch64.sve.ld3.sret.nxv8bf16(<vscale x 8 x i1> [[TMP0]], ptr [[BASE:%.*]])
+// CPP-CHECK-NEXT:    [[TMP1:%.*]] = tail call { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } @llvm.aarch64.sve.ld3.nocapture sret.nxv8bf16(<vscale x 8 x i1> [[TMP0]], ptr [[BASE:%.*]])
 // CPP-CHECK-NEXT:    [[TMP2:%.*]] = extractvalue { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } [[TMP1]], 0
 // CPP-CHECK-NEXT:    [[TMP3:%.*]] = tail call <vscale x 24 x bfloat> @llvm.vector.insert.nxv24bf16.nxv8bf16(<vscale x 24 x bfloat> poison, <vscale x 8 x bfloat> [[TMP2]], i64 0)
 // CPP-CHECK-NEXT:    [[TMP4:%.*]] = extractvalue { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } [[TMP1]], 1
@@ -48,7 +48,7 @@ svbfloat16x3_t test_svld3_bf16(svbool_t pg, const bfloat16_t *base)
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[TMP0:%.*]] = tail call <vscale x 8 x i1> @llvm.aarch64.sve.convert.from.svbool.nxv8i1(<vscale x 16 x i1> [[PG:%.*]])
 // CHECK-NEXT:    [[TMP1:%.*]] = getelementptr <vscale x 8 x bfloat>, ptr [[BASE:%.*]], i64 [[VNUM:%.*]]
-// CHECK-NEXT:    [[TMP2:%.*]] = tail call { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } @llvm.aarch64.sve.ld3.sret.nxv8bf16(<vscale x 8 x i1> [[TMP0]], ptr [[TMP1]])
+// CHECK-NEXT:    [[TMP2:%.*]] = tail call { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } @llvm.aarch64.sve.ld3.nocapture sret.nxv8bf16(<vscale x 8 x i1> [[TMP0]], ptr [[TMP1]])
 // CHECK-NEXT:    [[TMP3:%.*]] = extractvalue { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } [[TMP2]], 0
 // CHECK-NEXT:    [[TMP4:%.*]] = tail call <vscale x 24 x bfloat> @llvm.vector.insert.nxv24bf16.nxv8bf16(<vscale x 24 x bfloat> poison, <vscale x 8 x bfloat> [[TMP3]], i64 0)
 // CHECK-NEXT:    [[TMP5:%.*]] = extractvalue { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } [[TMP2]], 1
@@ -61,7 +61,7 @@ svbfloat16x3_t test_svld3_bf16(svbool_t pg, const bfloat16_t *base)
 // CPP-CHECK-NEXT:  entry:
 // CPP-CHECK-NEXT:    [[TMP0:%.*]] = tail call <vscale x 8 x i1> @llvm.aarch64.sve.convert.from.svbool.nxv8i1(<vscale x 16 x i1> [[PG:%.*]])
 // CPP-CHECK-NEXT:    [[TMP1:%.*]] = getelementptr <vscale x 8 x bfloat>, ptr [[BASE:%.*]], i64 [[VNUM:%.*]]
-// CPP-CHECK-NEXT:    [[TMP2:%.*]] = tail call { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } @llvm.aarch64.sve.ld3.sret.nxv8bf16(<vscale x 8 x i1> [[TMP0]], ptr [[TMP1]])
+// CPP-CHECK-NEXT:    [[TMP2:%.*]] = tail call { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } @llvm.aarch64.sve.ld3.nocapture sret.nxv8bf16(<vscale x 8 x i1> [[TMP0]], ptr [[TMP1]])
 // CPP-CHECK-NEXT:    [[TMP3:%.*]] = extractvalue { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } [[TMP2]], 0
 // CPP-CHECK-NEXT:    [[TMP4:%.*]] = tail call <vscale x 24 x bfloat> @llvm.vector.insert.nxv24bf16.nxv8bf16(<vscale x 24 x bfloat> poison, <vscale x 8 x bfloat> [[TMP3]], i64 0)
 // CPP-CHECK-NEXT:    [[TMP5:%.*]] = extractvalue { <vscale x 8 x bfloat>, <vscale x 8 x bfloat>, <vscale x 8 x bfloat> } [[TMP2]], 1

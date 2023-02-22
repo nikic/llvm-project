@@ -176,24 +176,24 @@ namespace test9 {
   // CHECK: define{{.*}} void @_ZN5test93fooEPNS_1SEPNS_1TE(ptr %0, ptr %1)
   void foo(S*, T*) {}
 
-  // CHECK: define{{.*}} void @_ZN5test91aEiiiiNS_1TEPv(ptr noalias sret([[S:%.*]]) align 8 {{%.*}}, i32 %0, i32 %1, i32 %2, i32 %3, ptr byval([[T:%.*]]) align 8 %4, ptr %5)
+  // CHECK: define{{.*}} void @_ZN5test91aEiiiiNS_1TEPv(ptr noalias nocapture sret([[S:%.*]]) align 8 {{%.*}}, i32 %0, i32 %1, i32 %2, i32 %3, ptr byval([[T:%.*]]) align 8 %4, ptr %5)
   S a(int, int, int, int, T, void*) {
     return S();
   }
 
   // CHECK: define{{.*}} ptr @_ZN5test91bEPNS_1SEiiiiNS_1TEPv(ptr {{%.*}}, i32 %0, i32 %1, i32 %2, i32 %3, ptr byval([[T]]) align 8 %4, ptr %5)
-  S* b(S* sret, int, int, int, int, T, void*) {
-    return sret;
+  S* b(S* nocapture sret, int, int, int, int, T, void*) {
+    return nocapture sret;
   }
 
-  // CHECK: define{{.*}} void @_ZN5test91cEiiiNS_1TEPv(ptr noalias sret([[S]]) align 8 {{%.*}}, i32 %0, i32 %1, i32 %2, ptr {{%.*}}, ptr {{%.*}}, ptr %3)
+  // CHECK: define{{.*}} void @_ZN5test91cEiiiNS_1TEPv(ptr noalias nocapture sret([[S]]) align 8 {{%.*}}, i32 %0, i32 %1, i32 %2, ptr {{%.*}}, ptr {{%.*}}, ptr %3)
   S c(int, int, int, T, void*) {
     return S();
   }
 
   // CHECK: define{{.*}} ptr @_ZN5test91dEPNS_1SEiiiNS_1TEPv(ptr {{%.*}}, i32 %0, i32 %1, i32 %2, ptr {{%.*}}, ptr {{%.*}}, ptr %3)
-  S* d(S* sret, int, int, int, T, void*) {
-    return sret;
+  S* d(S* nocapture sret, int, int, int, T, void*) {
+    return nocapture sret;
   }
 }
 

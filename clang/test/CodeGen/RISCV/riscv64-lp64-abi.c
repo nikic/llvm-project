@@ -21,7 +21,7 @@ int f_scalar_stack_1(int32_t a, __int128_t b, float c, long double d, v32i8 e,
   return g + h;
 }
 
-// CHECK-LABEL: define{{.*}} void @f_scalar_stack_2(ptr noalias sret(%struct.large) align 8 %agg.result, double noundef %a, i128 noundef %b, fp128 noundef %c, ptr noundef %0, i8 noundef zeroext %e, i8 noundef signext %f, i8 noundef zeroext %g)
+// CHECK-LABEL: define{{.*}} void @f_scalar_stack_2(ptr noalias nocapture sret(%struct.large) align 8 %agg.result, double noundef %a, i128 noundef %b, fp128 noundef %c, ptr noundef %0, i8 noundef zeroext %e, i8 noundef signext %f, i8 noundef zeroext %g)
 struct large f_scalar_stack_2(double a, __int128_t b, long double c, v32i8 d,
                               uint8_t e, int8_t f, uint8_t g) {
   return (struct large){a, e, f, g};

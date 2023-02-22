@@ -115,7 +115,7 @@ __attribute__((objc_root_class))
 
 // CHECK-LABEL: define hidden void @"\01-[Root getAggregate]"(
 - (struct my_aggregate_struct)getAggregate __attribute__((objc_direct)) {
-  // CHECK: %struct.my_aggregate_struct* noalias sret(%struct.my_aggregate_struct) align 4 [[RETVAL:%[^,]*]],
+  // CHECK: %struct.my_aggregate_struct* noalias nocapture sret(%struct.my_aggregate_struct) align 4 [[RETVAL:%[^,]*]],
 
   // loading parameters
   // CHECK-LABEL: entry:

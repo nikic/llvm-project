@@ -27,7 +27,7 @@ void f2(void) {
 // CHECK-LABEL: define{{.*}} void @f1()
 void f1() {}
 
-// CHECK: define {{.*}} @f3{{\(\)|\(.*sret.*\)}}
+// CHECK: define {{.*}} @f3{{\(\)|\(.*nocapture sret.*\)}}
 struct foo { int X, Y, Z; } f3(void) {
   while (1) {}
 }

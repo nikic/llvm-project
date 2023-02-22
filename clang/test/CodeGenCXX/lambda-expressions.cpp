@@ -193,8 +193,8 @@ namespace pr28595 {
 // CHECK-NEXT: call noundef i32 @"_ZZ1fvENK3$_0clEii"
 // CHECK-NEXT: ret i32
 
-// CHECK-LABEL: define internal void @"_ZZ1hvEN3$_08__invokeEv"(ptr noalias sret(%struct.A) align 1 %agg.result) {{.*}} {
-// CHECK: call void @"_ZZ1hvENK3$_0clEv"(ptr sret(%struct.A) align 1 %agg.result,
+// CHECK-LABEL: define internal void @"_ZZ1hvEN3$_08__invokeEv"(ptr noalias nocapture sret(%struct.A) align 1 %agg.result) {{.*}} {
+// CHECK: call void @"_ZZ1hvENK3$_0clEv"(ptr nocapture sret(%struct.A) align 1 %agg.result,
 // CHECK-NEXT: ret void
 struct A { ~A(); };
 void h() {

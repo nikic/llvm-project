@@ -70,7 +70,7 @@ Inner sharedAlloca() {
 // CHECK-NEXT:  call void @llvm.dbg.assign(metadata i1 undef, metadata ![[VAR_4]], metadata !DIExpression(), metadata ![[ID_9]], metadata ptr %retval, metadata !DIExpression())
 // CHECK-NEXT:  call void @llvm.dbg.assign(metadata i1 undef, metadata ![[VAR_5]], metadata !DIExpression(), metadata ![[ID_9]], metadata ptr %retval, metadata !DIExpression())
 
-Large sret() {
+Large nocapture sret() {
   Large X = L;
   return X;
 }

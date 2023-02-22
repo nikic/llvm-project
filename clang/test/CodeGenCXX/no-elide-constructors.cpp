@@ -20,7 +20,7 @@ X Test()
   X x;
 
   // Check that the copy constructor for X is called with result variable as
-  // sret argument.
+  // nocapture sret argument.
   // CHECK-CXX98: call void @_ZN1XC1ERKS_(
   // CHECK-CXX11: call void @_ZN1XC1EOS_(
   // CHECK-CXX98-ELIDE-NOT: call void @_ZN1XC1ERKS_(

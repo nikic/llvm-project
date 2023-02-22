@@ -162,7 +162,7 @@ HasNonTrivialCopyConstructor TestNonElidableCopyConstructor() {
   [[clang::musttail]] return (((ReturnsClassByValue())));
 }
 
-// CHECK: musttail call void @_Z19ReturnsClassByValuev(%struct.HasNonTrivialCopyConstructor* sret(%struct.HasNonTrivialCopyConstructor) align 1 %agg.result)
+// CHECK: musttail call void @_Z19ReturnsClassByValuev(%struct.HasNonTrivialCopyConstructor* nocapture sret(%struct.HasNonTrivialCopyConstructor) align 1 %agg.result)
 
 struct HasNonTrivialCopyConstructor2 {
   // Copy constructor works even if it has extra default params.
@@ -191,8 +191,8 @@ LargeWithCopyConstructor TestLargeWithCopyConstructor() {
   [[clang::musttail]] return ReturnsLarge();
 }
 
-// CHECK: define dso_local void @_Z28TestLargeWithCopyConstructorv(%struct.LargeWithCopyConstructor* noalias sret(%struct.LargeWithCopyConstructor) align 1 %agg.result)
-// CHECK: musttail call void @_Z12ReturnsLargev(%struct.LargeWithCopyConstructor* sret(%struct.LargeWithCopyConstructor) align 1 %agg.result)
+// CHECK: define dso_local void @_Z28TestLargeWithCopyConstructorv(%struct.LargeWithCopyConstructor* noalias nocapture sret(%struct.LargeWithCopyConstructor) align 1 %agg.result)
+// CHECK: musttail call void @_Z12ReturnsLargev(%struct.LargeWithCopyConstructor* nocapture sret(%struct.LargeWithCopyConstructor) align 1 %agg.result)
 
 using IntFunctionType = int();
 IntFunctionType *ReturnsIntFunction();

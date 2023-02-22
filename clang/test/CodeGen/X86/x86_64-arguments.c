@@ -47,7 +47,7 @@ void f7(e7 a0) {
 
 // Test merging/passing of upper eightbyte with X87 class.
 //
-// CHECK-LABEL: define{{.*}} void @f8_1(ptr noalias sret(%union.u8) align 16 %agg.result)
+// CHECK-LABEL: define{{.*}} void @f8_1(ptr noalias nocapture sret(%union.u8) align 16 %agg.result)
 // CHECK-LABEL: define{{.*}} void @f8_2(ptr noundef byval(%union.u8) align 16 %a0)
 union u8 {
   long double a;
@@ -63,7 +63,7 @@ struct s9 { int a; int b; int : 0; } f9(void) { while (1) {} }
 struct s10 { int a; int b; int : 0; };
 void f10(struct s10 a0) {}
 
-// CHECK-LABEL: define{{.*}} void @f11(ptr noalias sret(%union.anon) align 16 %agg.result)
+// CHECK-LABEL: define{{.*}} void @f11(ptr noalias nocapture sret(%union.anon) align 16 %agg.result)
 union { long double a; float b; } f11(void) { while (1) {} }
 
 // CHECK-LABEL: define{{.*}} i32 @f12_0()
@@ -72,9 +72,9 @@ struct s12 { int a __attribute__((aligned(16))); };
 struct s12 f12_0(void) { while (1) {} }
 void f12_1(struct s12 a0) {}
 
-// Check that sret parameter is accounted for when checking available integer
+// Check that nocapture sret parameter is accounted for when checking available integer
 // registers.
-// CHECK: define{{.*}} void @f13(ptr noalias sret(%struct.s13_0) align 8 %agg.result, i32 noundef %a, i32 noundef %b, i32 noundef %c, i32 noundef %d, ptr noundef byval({{.*}}) align 8 %e, i32 noundef %f)
+// CHECK: define{{.*}} void @f13(ptr noalias nocapture sret(%struct.s13_0) align 8 %agg.result, i32 noundef %a, i32 noundef %b, i32 noundef %c, i32 noundef %d, ptr noundef byval({{.*}}) align 8 %e, i32 noundef %f)
 
 struct s13_0 { long long f0[3]; };
 struct s13_1 { long long f0[2]; };

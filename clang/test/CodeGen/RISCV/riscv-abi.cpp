@@ -55,7 +55,7 @@ struct child3_int64_s : parent3_float_s {
   int64_t i1;
 };
 
-// ILP32-ILP32F-ILP32D-LABEL: define{{.*}} void @_Z30float_int64_struct_inheritance14child3_int64_s(ptr noalias sret(%struct.child3_int64_s)
+// ILP32-ILP32F-ILP32D-LABEL: define{{.*}} void @_Z30float_int64_struct_inheritance14child3_int64_s(ptr noalias nocapture sret(%struct.child3_int64_s)
 // LP64-LABEL: define{{.*}} [2 x i64] @_Z30float_int64_struct_inheritance14child3_int64_s([2 x i64] %a.coerce)
 // LP64F-LP64D-LABEL: define{{.*}} { float, i64 } @_Z30float_int64_struct_inheritance14child3_int64_s(float %0, i64 %1)
 struct child3_int64_s float_int64_struct_inheritance(struct child3_int64_s a) {
@@ -70,7 +70,7 @@ struct child4_double_s : parent4_double_s {
   double d1;
 };
 
-// ILP32-ILP32F-LABEL: define{{.*}} void @_Z32double_double_struct_inheritance15child4_double_s(ptr noalias sret(%struct.child4_double_s)
+// ILP32-ILP32F-LABEL: define{{.*}} void @_Z32double_double_struct_inheritance15child4_double_s(ptr noalias nocapture sret(%struct.child4_double_s)
 // ILP32D-LABEL: define{{.*}} { double, double } @_Z32double_double_struct_inheritance15child4_double_s(double %0, double %1)
 // LP64-LP64F-LABEL: define{{.*}} [2 x i64] @_Z32double_double_struct_inheritance15child4_double_s([2 x i64] %a.coerce)
 // LP64D-LABEL: define{{.*}} { double, double } @_Z32double_double_struct_inheritance15child4_double_s(double %0, double %1)

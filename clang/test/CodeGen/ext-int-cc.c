@@ -226,104 +226,104 @@ _BitInt(64) ReturnPassing2(void){}
 
 _BitInt(127) ReturnPassing3(void){}
 // LIN64: define{{.*}} { i64, i64 } @ReturnPassing3(
-// WIN64: define dso_local void @ReturnPassing3(ptr noalias sret
-// LIN32: define{{.*}} void @ReturnPassing3(ptr noalias sret
-// WIN32: define dso_local void @ReturnPassing3(ptr noalias sret
-// NACL: define{{.*}} void @ReturnPassing3(ptr noalias sret
+// WIN64: define dso_local void @ReturnPassing3(ptr noalias nocapture sret
+// LIN32: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
+// WIN32: define dso_local void @ReturnPassing3(ptr noalias nocapture sret
+// NACL: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
 // NVPTX/64 makes the intentional choice to put all return values direct, even
 // large structures, so we do the same here.
 // NVPTX64: define{{.*}} i127 @ReturnPassing3(
 // NVPTX: define{{.*}} i127 @ReturnPassing3(
 // SPARCV9: define{{.*}} i127 @ReturnPassing3(
-// SPARC: define{{.*}} void @ReturnPassing3(ptr noalias sret
+// SPARC: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
 // MIPS64: define{{.*}} i127 @ReturnPassing3(
-// MIPS: define{{.*}} void @ReturnPassing3(ptr noalias sret
-// SPIR64: define{{.*}} spir_func void @ReturnPassing3(ptr noalias sret
-// SPIR: define{{.*}} spir_func void @ReturnPassing3(ptr noalias sret
-// HEX: define{{.*}} void @ReturnPassing3(ptr noalias sret
-// LANAI: define{{.*}} void @ReturnPassing3(ptr noalias sret
-// R600: define{{.*}} void @ReturnPassing3(ptr addrspace(5) noalias sret
-// ARC: define{{.*}} void @ReturnPassing3(ptr noalias sret
-// XCORE: define{{.*}} void @ReturnPassing3(ptr noalias sret
+// MIPS: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
+// SPIR64: define{{.*}} spir_func void @ReturnPassing3(ptr noalias nocapture sret
+// SPIR: define{{.*}} spir_func void @ReturnPassing3(ptr noalias nocapture sret
+// HEX: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
+// LANAI: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
+// R600: define{{.*}} void @ReturnPassing3(ptr addrspace(5) noalias nocapture sret
+// ARC: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
+// XCORE: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
 // RISCV64: define{{.*}} i127 @ReturnPassing3(
-// RISCV32: define{{.*}} void @ReturnPassing3(ptr noalias sret
+// RISCV32: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
 // WASM: define{{.*}} i127 @ReturnPassing3(
-// SYSTEMZ: define{{.*}} void @ReturnPassing3(ptr noalias sret
+// SYSTEMZ: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
 // PPC64: define{{.*}} i127 @ReturnPassing3(
-// PPC32: define{{.*}} void @ReturnPassing3(ptr noalias sret
+// PPC32: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
 // AARCH64: define{{.*}} i127 @ReturnPassing3(
 // AARCH64DARWIN: define{{.*}} i127 @ReturnPassing3(
-// ARM: define{{.*}} arm_aapcscc void @ReturnPassing3(ptr noalias sret
+// ARM: define{{.*}} arm_aapcscc void @ReturnPassing3(ptr noalias nocapture sret
 // LA64: define{{.*}} i127 @ReturnPassing3(
-// LA32: define{{.*}} void @ReturnPassing3(ptr noalias sret
+// LA32: define{{.*}} void @ReturnPassing3(ptr noalias nocapture sret
 
 _BitInt(128) ReturnPassing4(void){}
 // LIN64: define{{.*}} { i64, i64 } @ReturnPassing4(
-// WIN64: define dso_local void @ReturnPassing4(ptr noalias sret
-// LIN32: define{{.*}} void @ReturnPassing4(ptr noalias sret
-// WIN32: define dso_local void @ReturnPassing4(ptr noalias sret
-// NACL: define{{.*}} void @ReturnPassing4(ptr noalias sret
+// WIN64: define dso_local void @ReturnPassing4(ptr noalias nocapture sret
+// LIN32: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
+// WIN32: define dso_local void @ReturnPassing4(ptr noalias nocapture sret
+// NACL: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
 // NVPTX64: define{{.*}} i128 @ReturnPassing4(
 // NVPTX: define{{.*}} i128 @ReturnPassing4(
 // SPARCV9: define{{.*}} i128 @ReturnPassing4(
-// SPARC: define{{.*}} void @ReturnPassing4(ptr noalias sret
+// SPARC: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
 // MIPS64: define{{.*}} i128 @ReturnPassing4(
-// MIPS: define{{.*}} void @ReturnPassing4(ptr noalias sret
-// SPIR64: define{{.*}} spir_func void @ReturnPassing4(ptr noalias sret
-// SPIR: define{{.*}} spir_func void @ReturnPassing4(ptr noalias sret
-// HEX: define{{.*}} void @ReturnPassing4(ptr noalias sret
-// LANAI: define{{.*}} void @ReturnPassing4(ptr noalias sret
-// R600: define{{.*}} void @ReturnPassing4(ptr addrspace(5) noalias sret
-// ARC: define{{.*}} void @ReturnPassing4(ptr noalias sret
-// XCORE: define{{.*}} void @ReturnPassing4(ptr noalias sret
+// MIPS: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
+// SPIR64: define{{.*}} spir_func void @ReturnPassing4(ptr noalias nocapture sret
+// SPIR: define{{.*}} spir_func void @ReturnPassing4(ptr noalias nocapture sret
+// HEX: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
+// LANAI: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
+// R600: define{{.*}} void @ReturnPassing4(ptr addrspace(5) noalias nocapture sret
+// ARC: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
+// XCORE: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
 // RISCV64: define{{.*}} i128 @ReturnPassing4(
-// RISCV32: define{{.*}} void @ReturnPassing4(ptr noalias sret
+// RISCV32: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
 // WASM: define{{.*}} i128 @ReturnPassing4(
-// SYSTEMZ: define{{.*}} void @ReturnPassing4(ptr noalias sret
+// SYSTEMZ: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
 // PPC64: define{{.*}} i128 @ReturnPassing4(
-// PPC32: define{{.*}} void @ReturnPassing4(ptr noalias sret
+// PPC32: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
 // AARCH64: define{{.*}} i128 @ReturnPassing4(
 // AARCH64DARWIN: define{{.*}} i128 @ReturnPassing4(
-// ARM: define{{.*}} arm_aapcscc void @ReturnPassing4(ptr noalias sret
+// ARM: define{{.*}} arm_aapcscc void @ReturnPassing4(ptr noalias nocapture sret
 // LA64: define{{.*}} i128 @ReturnPassing4(
-// LA32: define{{.*}} void @ReturnPassing4(ptr noalias sret
+// LA32: define{{.*}} void @ReturnPassing4(ptr noalias nocapture sret
 
 #if __BITINT_MAXWIDTH__ > 128
 _BitInt(129) ReturnPassing5(void){}
-// LIN64: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// WIN64: define dso_local void @ReturnPassing5(ptr noalias sret
-// LIN32: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// WIN32: define dso_local void @ReturnPassing5(ptr noalias sret
-// NACL-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
+// LIN64: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// WIN64: define dso_local void @ReturnPassing5(ptr noalias nocapture sret
+// LIN32: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// WIN32: define dso_local void @ReturnPassing5(ptr noalias nocapture sret
+// NACL-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
 // NVPTX64-NOT: define{{.*}} i129 @ReturnPassing5(
 // NVPTX-NOT: define{{.*}} i129 @ReturnPassing5(
 // SPARCV9-NOT: define{{.*}} i129 @ReturnPassing5(
-// SPARC-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// MIPS64-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// MIPS-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// SPIR64-NOT: define{{.*}} spir_func void @ReturnPassing5(ptr noalias sret
-// SPIR-NOT: define{{.*}} spir_func void @ReturnPassing5(ptr noalias sret
-// HEX-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// LANAI-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// R600-NOT: define{{.*}} void @ReturnPassing5(ptr addrspace(5) noalias sret
-// ARC-NOT: define{{.*}} void @ReturnPassing5(ptr inreg noalias sret
-// XCORE-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// RISCV64-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// RISCV32-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// WASM-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// SYSTEMZ-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// PPC64-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// PPC32-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// AARCH64-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// AARCH64DARWIN-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// ARM-NOT: define{{.*}} arm_aapcscc void @ReturnPassing5(ptr noalias sret
-// LA64-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
-// LA32-NOT: define{{.*}} void @ReturnPassing5(ptr noalias sret
+// SPARC-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// MIPS64-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// MIPS-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// SPIR64-NOT: define{{.*}} spir_func void @ReturnPassing5(ptr noalias nocapture sret
+// SPIR-NOT: define{{.*}} spir_func void @ReturnPassing5(ptr noalias nocapture sret
+// HEX-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// LANAI-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// R600-NOT: define{{.*}} void @ReturnPassing5(ptr addrspace(5) noalias nocapture sret
+// ARC-NOT: define{{.*}} void @ReturnPassing5(ptr inreg noalias nocapture sret
+// XCORE-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// RISCV64-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// RISCV32-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// WASM-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// SYSTEMZ-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// PPC64-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// PPC32-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// AARCH64-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// AARCH64DARWIN-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// ARM-NOT: define{{.*}} arm_aapcscc void @ReturnPassing5(ptr noalias nocapture sret
+// LA64-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
+// LA32-NOT: define{{.*}} void @ReturnPassing5(ptr noalias nocapture sret
 
 // SparcV9 is odd in that it has a return-size limit of 256, not 128 or 64
 // like other platforms, so test to make sure this behavior will still work.
 _BitInt(256) ReturnPassing6(void) {}
 // SPARCV9-NOT: define{{.*}} i256 @ReturnPassing6(
 _BitInt(257) ReturnPassing7(void) {}
-// SPARCV9-NOT: define{{.*}} void @ReturnPassing7(ptr noalias sret
+// SPARCV9-NOT: define{{.*}} void @ReturnPassing7(ptr noalias nocapture sret
 #endif

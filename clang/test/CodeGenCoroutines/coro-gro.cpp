@@ -50,7 +50,7 @@ int f() {
   // CHECK: %[[Size:.+]] = call i64 @llvm.coro.size.i64()
   // CHECK: call noalias noundef nonnull ptr @_Znwm(i64 noundef %[[Size]])
   // CHECK: call void @_ZNSt16coroutine_traitsIJiEE12promise_typeC1Ev(
-  // CHECK: call void @_ZNSt16coroutine_traitsIJiEE12promise_type17get_return_objectEv(ptr sret(%struct.GroType) align {{[0-9]+}} %[[GRO:.+]],
+  // CHECK: call void @_ZNSt16coroutine_traitsIJiEE12promise_type17get_return_objectEv(ptr nocapture sret(%struct.GroType) align {{[0-9]+}} %[[GRO:.+]],
   // CHECK: %[[Conv:.+]] = call noundef i32 @_ZN7GroTypecviEv({{.*}}[[GRO]]
   // CHECK: store i32 %[[Conv]], ptr %[[RetVal]]
 

@@ -12,15 +12,15 @@
 /*****************************************************************************/
 
 SWIFTCALL void indirect_result_1(OUT int *arg0, OUT float *arg1) {}
-// CHECK-LABEL: define {{.*}} void @indirect_result_1(i32* noalias noundef sret(i32*) align 4 dereferenceable(4){{.*}}, float* noalias noundef align 4 dereferenceable(4){{.*}})
+// CHECK-LABEL: define {{.*}} void @indirect_result_1(i32* noalias noundef nocapture sret(i32*) align 4 dereferenceable(4){{.*}}, float* noalias noundef align 4 dereferenceable(4){{.*}})
 
-// TODO: maybe this shouldn't suppress sret.
+// TODO: maybe this shouldn't suppress nocapture sret.
 SWIFTCALL int indirect_result_2(OUT int *arg0, OUT float *arg1) {  __builtin_unreachable(); }
 // CHECK-LABEL: define {{.*}} i32 @indirect_result_2(i32* noalias noundef align 4 dereferenceable(4){{.*}}, float* noalias noundef align 4 dereferenceable(4){{.*}})
 
 typedef struct { char array[1024]; } struct_reallybig;
 SWIFTCALL struct_reallybig indirect_result_3(OUT int *arg0, OUT float *arg1) { __builtin_unreachable(); }
-// CHECK-LABEL: define {{.*}} void @indirect_result_3({{.*}}* noalias sret({{.*}}) {{.*}}, i32* noalias noundef align 4 dereferenceable(4){{.*}}, float* noalias noundef align 4 dereferenceable(4){{.*}})
+// CHECK-LABEL: define {{.*}} void @indirect_result_3({{.*}}* noalias nocapture sret({{.*}}) {{.*}}, i32* noalias noundef align 4 dereferenceable(4){{.*}}, float* noalias noundef align 4 dereferenceable(4){{.*}})
 
 SWIFTCALL void context_1(CONTEXT void *self) {}
 // CHECK-LABEL: define {{.*}} void @context_1(i8* noundef swiftself
@@ -232,7 +232,7 @@ typedef struct {
 } struct_big_1;
 TEST(struct_big_1)
 
-// CHECK-LABEL: define {{.*}} void @return_struct_big_1({{.*}} noalias sret
+// CHECK-LABEL: define {{.*}} void @return_struct_big_1({{.*}} noalias nocapture sret
 
 // Should not be byval.
 // CHECK-LABEL: define {{.*}} void @take_struct_big_1({{.*}}* noundef{{( %.*)?}})

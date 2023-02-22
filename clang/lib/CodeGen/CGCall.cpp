@@ -2419,6 +2419,7 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
     if (RetAI.getInReg())
       SRETAttrs.addAttribute(llvm::Attribute::InReg);
     SRETAttrs.addAlignmentAttr(RetAI.getIndirectAlign().getQuantity());
+    SRETAttrs.addAttribute(llvm::Attribute::NoCapture);
     ArgAttrs[IRFunctionArgs.getSRetArgNo()] =
         llvm::AttributeSet::get(getLLVMContext(), SRETAttrs);
   }

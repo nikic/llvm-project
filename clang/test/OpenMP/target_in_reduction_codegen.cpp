@@ -362,7 +362,7 @@ int main(int argc, char **argv) {
 // CHECK1:       omp.arraycpy.body:
 // CHECK1-NEXT:    [[OMP_ARRAYCPY_SRCELEMENTPAST:%.*]] = phi %struct.S* [ [[TMP5]], [[ENTRY:%.*]] ], [ [[OMP_ARRAYCPY_SRC_ELEMENT:%.*]], [[OMP_ARRAYCPY_BODY]] ]
 // CHECK1-NEXT:    [[OMP_ARRAYCPY_DESTELEMENTPAST:%.*]] = phi %struct.S* [ [[TMP3]], [[ENTRY]] ], [ [[OMP_ARRAYCPY_DEST_ELEMENT:%.*]], [[OMP_ARRAYCPY_BODY]] ]
-// CHECK1-NEXT:    call void @_ZplRK1SS1_(%struct.S* sret([[STRUCT_S]]) align 4 [[REF_TMP]], %struct.S* nonnull align 4 dereferenceable(4) [[OMP_ARRAYCPY_DESTELEMENTPAST]], %struct.S* nonnull align 4 dereferenceable(4) [[OMP_ARRAYCPY_SRCELEMENTPAST]])
+// CHECK1-NEXT:    call void @_ZplRK1SS1_(%struct.S* nocapture sret([[STRUCT_S]]) align 4 [[REF_TMP]], %struct.S* nonnull align 4 dereferenceable(4) [[OMP_ARRAYCPY_DESTELEMENTPAST]], %struct.S* nonnull align 4 dereferenceable(4) [[OMP_ARRAYCPY_SRCELEMENTPAST]])
 // CHECK1-NEXT:    [[CALL:%.*]] = call nonnull align 4 dereferenceable(4) %struct.S* @_ZN1SaSERKS_(%struct.S* nonnull align 4 dereferenceable(4) [[OMP_ARRAYCPY_DESTELEMENTPAST]], %struct.S* nonnull align 4 dereferenceable(4) [[REF_TMP]])
 // CHECK1-NEXT:    call void @_ZN1SD1Ev(%struct.S* nonnull align 4 dereferenceable(4) [[REF_TMP]]) #3
 // CHECK1-NEXT:    [[OMP_ARRAYCPY_DEST_ELEMENT]] = getelementptr [[STRUCT_S]], %struct.S* [[OMP_ARRAYCPY_DESTELEMENTPAST]], i32 1
@@ -374,7 +374,7 @@ int main(int argc, char **argv) {
 //
 //
 // CHECK1-LABEL: define {{[^@]+}}@_ZplRK1SS1_
-// CHECK1-SAME: (%struct.S* noalias sret([[STRUCT_S:%.*]]) align 4 [[AGG_RESULT:%.*]], %struct.S* nonnull align 4 dereferenceable(4) [[A:%.*]], %struct.S* nonnull align 4 dereferenceable(4) [[B:%.*]]) #[[ATTR7:[0-9]+]] {
+// CHECK1-SAME: (%struct.S* noalias nocapture sret([[STRUCT_S:%.*]]) align 4 [[AGG_RESULT:%.*]], %struct.S* nonnull align 4 dereferenceable(4) [[A:%.*]], %struct.S* nonnull align 4 dereferenceable(4) [[B:%.*]]) #[[ATTR7:[0-9]+]] {
 // CHECK1-NEXT:  entry:
 // CHECK1-NEXT:    [[RESULT_PTR:%.*]] = alloca i8*, align 8
 // CHECK1-NEXT:    [[A_ADDR:%.*]] = alloca %struct.S*, align 8

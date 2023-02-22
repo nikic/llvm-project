@@ -9,10 +9,10 @@ struct S {
 };
 
 
-// Make sure sret parameter is generated.
-// CHECK:define internal void @"?ps_main@@YA?AUS@@XZ"(ptr noalias sret(%struct.S) align 4 %agg.result)
+// Make sure nocapture sret parameter is generated.
+// CHECK:define internal void @"?ps_main@@YA?AUS@@XZ"(ptr noalias nocapture sret(%struct.S) align 4 %agg.result)
 // FIXME: change it to real value instead of poison value once semantic is add to a.
-// Make sure the function with sret is called.
+// Make sure the function with nocapture sret is called.
 // CHECK:call void @"?ps_main@@YA?AUS@@XZ"(ptr poison)
 [shader("pixel")]
 S ps_main() {

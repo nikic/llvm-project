@@ -177,7 +177,7 @@ void f_agg_large(struct large x) {
 
 // The address where the struct should be written to will be the first
 // argument
-// CHECK-LABEL: define{{.*}} void @f_agg_large_ret(ptr noalias sret(%struct.large) align 4 %agg.result, i32 noundef %i, i8 noundef signext %j)
+// CHECK-LABEL: define{{.*}} void @f_agg_large_ret(ptr noalias nocapture sret(%struct.large) align 4 %agg.result, i32 noundef %i, i8 noundef signext %j)
 struct large f_agg_large_ret(int32_t i, int8_t j) {
   return (struct large){1, 2, 3, 4};
 }
@@ -189,7 +189,7 @@ void f_vec_large_v16i8(v16i8 x) {
   x[0] = x[7];
 }
 
-// CHECK-LABEL: define{{.*}} void @f_vec_large_v16i8_ret(ptr noalias sret(<16 x i8>) align 16 %agg.result)
+// CHECK-LABEL: define{{.*}} void @f_vec_large_v16i8_ret(ptr noalias nocapture sret(<16 x i8>) align 16 %agg.result)
 v16i8 f_vec_large_v16i8_ret(void) {
   return (v16i8){1, 2, 3, 4, 5, 6, 7, 8};
 }
@@ -207,7 +207,7 @@ int f_scalar_stack_1(struct tiny a, struct small b, struct small_aligned c,
 // the presence of large return values that consume a register due to the need
 // to pass a pointer.
 
-// CHECK-LABEL: define{{.*}} void @f_scalar_stack_2(ptr noalias sret(%struct.large) align 4 %agg.result, i32 noundef %a, i64 noundef %b, i64 noundef %c, fp128 noundef %d, i8 noundef zeroext %e, i8 noundef signext %f, i8 noundef zeroext %g)
+// CHECK-LABEL: define{{.*}} void @f_scalar_stack_2(ptr noalias nocapture sret(%struct.large) align 4 %agg.result, i32 noundef %a, i64 noundef %b, i64 noundef %c, fp128 noundef %d, i8 noundef zeroext %e, i8 noundef signext %f, i8 noundef zeroext %g)
 struct large f_scalar_stack_2(int32_t a, int64_t b, int64_t c, long double d,
                               uint8_t e, int8_t f, uint8_t g) {
   return (struct large){a, e, f, g};

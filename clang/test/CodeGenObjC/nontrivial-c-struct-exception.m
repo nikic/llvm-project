@@ -41,8 +41,8 @@ void testStrongException(void) {
 // CHECK: define{{.*}} void @testWeakException()
 // CHECK: %[[AGG_TMP:.*]] = alloca %[[STRUCT_WEAK]], align 8
 // CHECK: %[[AGG_TMP1:.*]] = alloca %[[STRUCT_WEAK]], align 8
-// CHECK: call void @genWeak(%[[STRUCT_WEAK]]* sret(%[[STRUCT_WEAK]]) align 8 %[[AGG_TMP]])
-// CHECK: invoke void @genWeak(%[[STRUCT_WEAK]]* sret(%[[STRUCT_WEAK]]) align 8 %[[AGG_TMP1]])
+// CHECK: call void @genWeak(%[[STRUCT_WEAK]]* nocapture sret(%[[STRUCT_WEAK]]) align 8 %[[AGG_TMP]])
+// CHECK: invoke void @genWeak(%[[STRUCT_WEAK]]* nocapture sret(%[[STRUCT_WEAK]]) align 8 %[[AGG_TMP1]])
 
 // CHECK: call void @calleeWeak(%[[STRUCT_WEAK]]* noundef %[[AGG_TMP]], %[[STRUCT_WEAK]]* noundef %[[AGG_TMP1]])
 // CHECK: ret void

@@ -236,5 +236,5 @@ struct fds {
 
 struct fds pr52011_4(void) {
   // CHECK-C: define{{.*}} { float, double } @pr52011_4
-  // CHECK-CPP: define{{.*}} void @_Z9pr52011_4v({{.*}} sret
+  // CHECK-CPP: define{{.*}} void @_Z9pr52011_4v({{.*}} nocapture sret
 }

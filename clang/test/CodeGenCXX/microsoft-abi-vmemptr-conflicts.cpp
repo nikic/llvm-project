@@ -49,7 +49,7 @@ long long f(C *c) {
 // CHECK: musttail call x86_thiscallcc void (ptr, ...) %{{.*}}(ptr noundef %{{.*}}, ...)
 // CHECK-NEXT: ret void
 
-namespace sret {
+namespace nocapture sret {
 struct Big { int big[32]; };
 struct A { virtual int a(); };
 struct B { virtual Big b(); };
@@ -63,11 +63,11 @@ void f(C *c) {
 }
 }
 
-// CHECK-LABEL: define dso_local void @"?f@sret@@YAXPAUC@1@@Z"(ptr noundef %c)
-// CHECK: call x86_thiscallcc noundef i32 @"??_9C@sret@@$BA@AE"(ptr {{[^,]*}} %{{.*}})
-// CHECK: call x86_thiscallcc void @"??_9C@sret@@$BA@AE"(ptr {{[^,]*}} %{{.*}}, ptr sret(%"struct.sret::Big") align 4 %{{.*}})
+// CHECK-LABEL: define dso_local void @"?f@nocapture sret@@YAXPAUC@1@@Z"(ptr noundef %c)
+// CHECK: call x86_thiscallcc noundef i32 @"??_9C@nocapture sret@@$BA@AE"(ptr {{[^,]*}} %{{.*}})
+// CHECK: call x86_thiscallcc void @"??_9C@nocapture sret@@$BA@AE"(ptr {{[^,]*}} %{{.*}}, ptr nocapture sret(%"struct.nocapture sret::Big") align 4 %{{.*}})
 
-// CHECK-LABEL: define linkonce_odr x86_thiscallcc void @"??_9C@sret@@$BA@AE"(ptr noundef %this, ...) {{.*}} comdat
+// CHECK-LABEL: define linkonce_odr x86_thiscallcc void @"??_9C@nocapture sret@@$BA@AE"(ptr noundef %this, ...) {{.*}} comdat
 // CHECK: musttail call x86_thiscallcc void (ptr, ...) %{{.*}}(ptr noundef %{{.*}}, ...)
 // CHECK-NEXT: ret void
 

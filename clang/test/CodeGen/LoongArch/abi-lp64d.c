@@ -321,7 +321,7 @@ struct i64x4_s {
   int64_t a, b, c, d;
 };
 
-// CHECK-LABEL: define{{.*}} void @f_i64x4_s(ptr{{.*}} sret(%struct.i64x4_s) align 8 %agg.result, ptr{{.*}} %x)
+// CHECK-LABEL: define{{.*}} void @f_i64x4_s(ptr{{.*}} nocapture sret(%struct.i64x4_s) align 8 %agg.result, ptr{{.*}} %x)
 struct i64x4_s f_i64x4_s(struct i64x4_s x) {
   return x;
 }
@@ -330,7 +330,7 @@ struct f64x4_s {
   double a, b, c, d;
 };
 
-// CHECK-LABEL: define{{.*}} void @f_f64x4_s(ptr{{.*}} sret(%struct.f64x4_s) align 8 %agg.result, ptr{{.*}} %x)
+// CHECK-LABEL: define{{.*}} void @f_f64x4_s(ptr{{.*}} nocapture sret(%struct.f64x4_s) align 8 %agg.result, ptr{{.*}} %x)
 struct f64x4_s f_f64x4_s(struct f64x4_s x) {
   return x;
 }
@@ -397,7 +397,7 @@ union i64_arr3_u {
   int64_t a[3];
 };
 
-// CHECK-LABEL: define{{.*}} void @f_i64_arr3_u(ptr{{.*}} sret(%union.i64_arr3_u) align 8 %agg.result, ptr{{.*}} %x)
+// CHECK-LABEL: define{{.*}} void @f_i64_arr3_u(ptr{{.*}} nocapture sret(%union.i64_arr3_u) align 8 %agg.result, ptr{{.*}} %x)
 union i64_arr3_u f_i64_arr3_u(union i64_arr3_u x) {
   return x;
 }
