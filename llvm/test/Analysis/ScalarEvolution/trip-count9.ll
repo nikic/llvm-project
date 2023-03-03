@@ -283,7 +283,7 @@ define void @even(i4 %n) {
 ; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-1 + (2 * %n))
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-1 + (2 * %n))
 ; CHECK-NEXT:   Predicates:
-; CHECK:       Loop %loop: Trip multiple is 2
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1
@@ -421,7 +421,7 @@ define void @even_nsw(i4 %n) {
 ; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-1 + (2 * %n))
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-1 + (2 * %n))
 ; CHECK-NEXT:   Predicates:
-; CHECK:       Loop %loop: Trip multiple is 2
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1
