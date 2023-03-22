@@ -4988,6 +4988,18 @@ ScalarEvolution::proveNoWrapViaConstantRanges(const SCEVAddRecExpr *AR) {
 
   SCEV::NoWrapFlags Result = SCEV::FlagAnyWrap;
 
+  if (!AR->hasNoSelfWrap()) {
+    const SCEV *BECount = getBackedgeTakenCount(AR->getLoop(), Exact);
+    if (!isa<SCEVCouldNotCompute>(BECount)) {
+      ConstantRange StepCR = getSignedRange(AR->getStepRecurrence(*this));
+      ConstantRange BECountCR = getUnsignedRange(BECount);
+      unsigned NoOverflowBitWidth =
+        BECountCR.getActiveBits() + StepCR.getMinSignedBits();
+      if (NoOverflowBitWidth <= getTypeSizeInBits(AR->getType()))
+        Result = ScalarEvolution::setFlags(Result, SCEV::FlagNW);
+    }
+  }
+
   if (!AR->hasNoSignedWrap()) {
     ConstantRange AddRecRange = getSignedRange(AR);
     ConstantRange IncRange = getSignedRange(AR->getStepRecurrence(*this));
