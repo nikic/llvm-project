@@ -178,8 +178,8 @@ define float @fabs_select_constant_neg0(i32 %c) {
 define float @fabs_select_var_constant_negative(i32 %c, float %x) {
 ; CHECK-LABEL: @fabs_select_var_constant_negative(
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[C:%.*]], 0
-; CHECK-NEXT:    [[SELECT:%.*]] = select i1 [[CMP]], float [[X:%.*]], float -1.000000e+00
-; CHECK-NEXT:    [[FABS:%.*]] = call float @llvm.fabs.f32(float [[SELECT]])
+; CHECK-NEXT:    [[TMP1:%.*]] = call float @llvm.fabs.f32(float [[X:%.*]])
+; CHECK-NEXT:    [[FABS:%.*]] = select i1 [[CMP]], float [[TMP1]], float 1.000000e+00
 ; CHECK-NEXT:    ret float [[FABS]]
 ;
   %cmp = icmp eq i32 %c, 0
