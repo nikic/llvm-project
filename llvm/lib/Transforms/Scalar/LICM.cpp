@@ -1161,7 +1161,9 @@ static MemoryAccess *getClobberingMemoryAccess(MemorySSA &MSSA,
                                                SinkAndHoistLICMFlags &Flags,
                                                MemoryUseOrDef *MA) {
   // See declaration of SetLicmMssaOptCap for usage details.
-  if (Flags.tooManyClobberingCalls())
+  // For already optimized MemoryUses, don't count towards the limit.
+  if (Flags.tooManyClobberingCalls() ||
+      (isa<MemoryUse>(MA) && MA->isOptimized()))
     return MA->getDefiningAccess();
 
   MemoryAccess *Source =
