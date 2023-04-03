@@ -133,7 +133,7 @@ static cl::opt<uint32_t> MaxNumUsesTraversed(
 // correct, but we may not get as "far up" as possible to get which access is
 // clobbering the one queried.
 cl::opt<unsigned> llvm::SetLicmMssaOptCap(
-    "licm-mssa-optimization-cap", cl::init(100), cl::Hidden,
+    "licm-mssa-optimization-cap", cl::init(200), cl::Hidden,
     cl::desc("Enable imprecision in LICM in pathological cases, in exchange "
              "for faster compile. Caps the MemorySSA clobbering calls."));
 
