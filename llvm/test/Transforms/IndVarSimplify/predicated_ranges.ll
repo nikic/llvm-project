@@ -12,7 +12,7 @@
 define void @test_predicated_simple_unsigned(ptr %p, ptr %arr) {
 ; CHECK-LABEL: @test_predicated_simple_unsigned(
 ; CHECK-NEXT:  preheader:
-; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4, [[RNG0:!range !.*]]
+; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4, !range [[RNG0:![0-9]+]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[LEN]], [[PREHEADER:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
@@ -61,7 +61,7 @@ fail:
 define void @test_predicated_simple_signed(ptr %p, ptr %arr) {
 ; CHECK-LABEL: @test_predicated_simple_signed(
 ; CHECK-NEXT:  preheader:
-; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4, [[RNG0]]
+; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4, !range [[RNG0]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[LEN]], [[PREHEADER:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
@@ -118,9 +118,9 @@ define void @predicated_outside_loop_signed_neg(i32 %arg) nounwind #0 {
 ; CHECK-NEXT:    br label [[OUTER:%.*]]
 ; CHECK:       outer:
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[I_INC:%.*]], [[OUTER_INC:%.*]] ], [ 0, [[OUTER_PREHEADER]] ]
-; CHECK-NEXT:    [[SUB2:%.*]] = sub nsw i32 [[ARG]], [[I]]
+; CHECK-NEXT:    [[SUB2:%.*]] = sub nuw nsw i32 [[ARG]], [[I]]
 ; CHECK-NEXT:    [[SUB3:%.*]] = sub nsw i32 [[SUB2]], 1
-; CHECK-NEXT:    [[CMP2:%.*]] = icmp slt i32 0, [[SUB3]]
+; CHECK-NEXT:    [[CMP2:%.*]] = icmp ult i32 0, [[SUB3]]
 ; CHECK-NEXT:    br i1 [[CMP2]], label [[INNER_PH:%.*]], label [[OUTER_INC]]
 ; CHECK:       inner.ph:
 ; CHECK-NEXT:    br label [[INNER:%.*]]
@@ -176,11 +176,7 @@ define void @predicated_outside_loop_signed_pos(i32 %arg) nounwind #0 {
 ; CHECK:       outer.preheader:
 ; CHECK-NEXT:    br label [[OUTER:%.*]]
 ; CHECK:       outer:
-; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[I_INC:%.*]], [[OUTER_INC:%.*]] ], [ 0, [[OUTER_PREHEADER]] ]
-; CHECK-NEXT:    [[SUB2:%.*]] = sub nsw i32 [[ARG]], [[I]]
-; CHECK-NEXT:    [[SUB3:%.*]] = sub nsw i32 [[SUB2]], 1
-; CHECK-NEXT:    [[CMP2:%.*]] = icmp slt i32 0, [[SUB3]]
-; CHECK-NEXT:    br i1 [[CMP2]], label [[INNER_PH:%.*]], label [[OUTER_INC]]
+; CHECK-NEXT:    br i1 true, label [[INNER_PH:%.*]], label [[OUTER_INC:%.*]]
 ; CHECK:       inner.ph:
 ; CHECK-NEXT:    br label [[INNER:%.*]]
 ; CHECK:       inner:
@@ -188,7 +184,6 @@ define void @predicated_outside_loop_signed_pos(i32 %arg) nounwind #0 {
 ; CHECK:       outer.inc.loopexit:
 ; CHECK-NEXT:    br label [[OUTER_INC]]
 ; CHECK:       outer.inc:
-; CHECK-NEXT:    [[I_INC]] = add nuw nsw i32 [[I]], 1
 ; CHECK-NEXT:    br i1 false, label [[OUTER]], label [[EXIT_LOOPEXIT:%.*]]
 ; CHECK:       exit.loopexit:
 ; CHECK-NEXT:    br label [[EXIT]]
@@ -235,7 +230,7 @@ define void @predicated_outside_loop_unsigned(i32 %arg) nounwind #0 {
 ; CHECK-NEXT:    br label [[OUTER:%.*]]
 ; CHECK:       outer:
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[I_INC:%.*]], [[OUTER_INC:%.*]] ], [ 0, [[OUTER_PREHEADER]] ]
-; CHECK-NEXT:    [[SUB2:%.*]] = sub nsw i32 [[ARG]], [[I]]
+; CHECK-NEXT:    [[SUB2:%.*]] = sub nuw nsw i32 [[ARG]], [[I]]
 ; CHECK-NEXT:    [[SUB3:%.*]] = sub nsw i32 [[SUB2]], 1
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp ult i32 0, [[SUB3]]
 ; CHECK-NEXT:    br i1 [[CMP2]], label [[INNER_PH:%.*]], label [[OUTER_INC]]
@@ -470,7 +465,7 @@ define void @test_can_predicate_simple_unsigned(ptr %p, ptr %arr) {
 ; CHECK-NEXT:  preheader:
 ; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[LEN]], -1
-; CHECK-NEXT:    [[RANGE_CHECK1:%.*]] = icmp ult i32 [[TMP0]], [[LEN]]
+; CHECK-NEXT:    [[RANGE_CHECK_FIRST_ITER:%.*]] = icmp ult i32 [[TMP0]], [[LEN]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[LEN]], [[PREHEADER:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
@@ -478,7 +473,7 @@ define void @test_can_predicate_simple_unsigned(ptr %p, ptr %arr) {
 ; CHECK-NEXT:    br i1 [[ZERO_COND]], label [[EXIT:%.*]], label [[RANGE_CHECK_BLOCK:%.*]]
 ; CHECK:       range_check_block:
 ; CHECK-NEXT:    [[IV_NEXT]] = sub i32 [[IV]], 1
-; CHECK-NEXT:    br i1 [[RANGE_CHECK1]], label [[BACKEDGE]], label [[FAIL:%.*]]
+; CHECK-NEXT:    br i1 [[RANGE_CHECK_FIRST_ITER]], label [[BACKEDGE]], label [[FAIL:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[EL_PTR:%.*]] = getelementptr i32, ptr [[P]], i32 [[IV]]
 ; CHECK-NEXT:    [[EL:%.*]] = load i32, ptr [[EL_PTR]], align 4
@@ -521,7 +516,7 @@ define void @test_can_predicate_simple_unsigned_inverted(ptr %p, ptr %arr) {
 ; CHECK-NEXT:  preheader:
 ; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[LEN]], -1
-; CHECK-NEXT:    [[RANGE_CHECK1:%.*]] = icmp uge i32 [[TMP0]], [[LEN]]
+; CHECK-NEXT:    [[RANGE_CHECK_FIRST_ITER:%.*]] = icmp uge i32 [[TMP0]], [[LEN]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[LEN]], [[PREHEADER:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
@@ -529,7 +524,7 @@ define void @test_can_predicate_simple_unsigned_inverted(ptr %p, ptr %arr) {
 ; CHECK-NEXT:    br i1 [[ZERO_COND]], label [[EXIT:%.*]], label [[RANGE_CHECK_BLOCK:%.*]]
 ; CHECK:       range_check_block:
 ; CHECK-NEXT:    [[IV_NEXT]] = sub i32 [[IV]], 1
-; CHECK-NEXT:    br i1 [[RANGE_CHECK1]], label [[FAIL:%.*]], label [[BACKEDGE]]
+; CHECK-NEXT:    br i1 [[RANGE_CHECK_FIRST_ITER]], label [[FAIL:%.*]], label [[BACKEDGE]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[EL_PTR:%.*]] = getelementptr i32, ptr [[P]], i32 [[IV]]
 ; CHECK-NEXT:    [[EL:%.*]] = load i32, ptr [[EL_PTR]], align 4
@@ -624,7 +619,7 @@ define void @test_can_predicate_trunc_unsigned(ptr %p, ptr %arr) {
 ; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[START:%.*]] = zext i32 [[LEN]] to i64
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[LEN]], -1
-; CHECK-NEXT:    [[RANGE_CHECK1:%.*]] = icmp ult i32 [[TMP0]], [[LEN]]
+; CHECK-NEXT:    [[RANGE_CHECK_FIRST_ITER:%.*]] = icmp ult i32 [[TMP0]], [[LEN]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[START]], [[PREHEADER:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
@@ -632,7 +627,7 @@ define void @test_can_predicate_trunc_unsigned(ptr %p, ptr %arr) {
 ; CHECK-NEXT:    br i1 [[ZERO_COND]], label [[EXIT:%.*]], label [[RANGE_CHECK_BLOCK:%.*]]
 ; CHECK:       range_check_block:
 ; CHECK-NEXT:    [[IV_NEXT]] = sub nsw i64 [[IV]], 1
-; CHECK-NEXT:    br i1 [[RANGE_CHECK1]], label [[BACKEDGE]], label [[FAIL:%.*]]
+; CHECK-NEXT:    br i1 [[RANGE_CHECK_FIRST_ITER]], label [[BACKEDGE]], label [[FAIL:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[EL_PTR:%.*]] = getelementptr i32, ptr [[ARR:%.*]], i64 [[IV]]
 ; CHECK-NEXT:    [[EL:%.*]] = load i32, ptr [[EL_PTR]], align 4
@@ -678,7 +673,7 @@ define void @test_can_predicate_trunc_unsigned_inverted(ptr %p, ptr %arr) {
 ; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[START:%.*]] = zext i32 [[LEN]] to i64
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[LEN]], -1
-; CHECK-NEXT:    [[RANGE_CHECK1:%.*]] = icmp uge i32 [[TMP0]], [[LEN]]
+; CHECK-NEXT:    [[RANGE_CHECK_FIRST_ITER:%.*]] = icmp uge i32 [[TMP0]], [[LEN]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[START]], [[PREHEADER:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
@@ -686,7 +681,7 @@ define void @test_can_predicate_trunc_unsigned_inverted(ptr %p, ptr %arr) {
 ; CHECK-NEXT:    br i1 [[ZERO_COND]], label [[EXIT:%.*]], label [[RANGE_CHECK_BLOCK:%.*]]
 ; CHECK:       range_check_block:
 ; CHECK-NEXT:    [[IV_NEXT]] = sub nsw i64 [[IV]], 1
-; CHECK-NEXT:    br i1 [[RANGE_CHECK1]], label [[FAIL:%.*]], label [[BACKEDGE]]
+; CHECK-NEXT:    br i1 [[RANGE_CHECK_FIRST_ITER]], label [[FAIL:%.*]], label [[BACKEDGE]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[EL_PTR:%.*]] = getelementptr i32, ptr [[ARR:%.*]], i64 [[IV]]
 ; CHECK-NEXT:    [[EL:%.*]] = load i32, ptr [[EL_PTR]], align 4
@@ -835,7 +830,7 @@ define void @test_can_predicate_simple_unsigned_different_start(i32 %start, ptr 
 ; CHECK-NEXT:  preheader:
 ; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[START:%.*]], -1
-; CHECK-NEXT:    [[RANGE_CHECK1:%.*]] = icmp ult i32 [[TMP0]], [[LEN]]
+; CHECK-NEXT:    [[RANGE_CHECK_FIRST_ITER:%.*]] = icmp ult i32 [[TMP0]], [[LEN]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[START]], [[PREHEADER:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
@@ -843,7 +838,7 @@ define void @test_can_predicate_simple_unsigned_different_start(i32 %start, ptr 
 ; CHECK-NEXT:    br i1 [[ZERO_COND]], label [[EXIT:%.*]], label [[RANGE_CHECK_BLOCK:%.*]]
 ; CHECK:       range_check_block:
 ; CHECK-NEXT:    [[IV_NEXT]] = sub i32 [[IV]], 1
-; CHECK-NEXT:    br i1 [[RANGE_CHECK1]], label [[BACKEDGE]], label [[FAIL:%.*]]
+; CHECK-NEXT:    br i1 [[RANGE_CHECK_FIRST_ITER]], label [[BACKEDGE]], label [[FAIL:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[EL_PTR:%.*]] = getelementptr i32, ptr [[P]], i32 [[IV]]
 ; CHECK-NEXT:    [[EL:%.*]] = load i32, ptr [[EL_PTR]], align 4
@@ -886,7 +881,7 @@ define void @test_can_predicate_simple_unsigned_inverted_different_start(i32 %st
 ; CHECK-NEXT:  preheader:
 ; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[START:%.*]], -1
-; CHECK-NEXT:    [[RANGE_CHECK1:%.*]] = icmp uge i32 [[TMP0]], [[LEN]]
+; CHECK-NEXT:    [[RANGE_CHECK_FIRST_ITER:%.*]] = icmp uge i32 [[TMP0]], [[LEN]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[START]], [[PREHEADER:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
@@ -894,7 +889,7 @@ define void @test_can_predicate_simple_unsigned_inverted_different_start(i32 %st
 ; CHECK-NEXT:    br i1 [[ZERO_COND]], label [[EXIT:%.*]], label [[RANGE_CHECK_BLOCK:%.*]]
 ; CHECK:       range_check_block:
 ; CHECK-NEXT:    [[IV_NEXT]] = sub i32 [[IV]], 1
-; CHECK-NEXT:    br i1 [[RANGE_CHECK1]], label [[FAIL:%.*]], label [[BACKEDGE]]
+; CHECK-NEXT:    br i1 [[RANGE_CHECK_FIRST_ITER]], label [[FAIL:%.*]], label [[BACKEDGE]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[EL_PTR:%.*]] = getelementptr i32, ptr [[P]], i32 [[IV]]
 ; CHECK-NEXT:    [[EL:%.*]] = load i32, ptr [[EL_PTR]], align 4

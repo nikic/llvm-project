@@ -71,10 +71,7 @@ define void @expandOuterRecurrence(i32 %arg) nounwind {
 ; CHECK:       outer:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i32 [ [[SUB1]], [[OUTER_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[OUTER_INC:%.*]] ]
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[I_INC:%.*]], [[OUTER_INC]] ], [ 0, [[OUTER_PREHEADER]] ]
-; CHECK-NEXT:    [[SUB2:%.*]] = sub nsw i32 [[ARG]], [[I]]
-; CHECK-NEXT:    [[SUB3:%.*]] = sub nsw i32 [[SUB2]], 1
-; CHECK-NEXT:    [[CMP2:%.*]] = icmp slt i32 0, [[SUB3]]
-; CHECK-NEXT:    br i1 [[CMP2]], label [[INNER_PH:%.*]], label [[OUTER_INC]]
+; CHECK-NEXT:    br i1 true, label [[INNER_PH:%.*]], label [[OUTER_INC]]
 ; CHECK:       inner.ph:
 ; CHECK-NEXT:    br label [[INNER:%.*]]
 ; CHECK:       inner:

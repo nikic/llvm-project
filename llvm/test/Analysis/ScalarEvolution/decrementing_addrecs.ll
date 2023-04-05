@@ -33,17 +33,17 @@ define i32 @test_step_1_flags(i32 %n) {
 ; CHECK-NEXT:    %i = phi i32 [ 0, %entry ], [ %i.next, %loop ]
 ; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%loop> U: [0,2147483647) S: [0,2147483647) Exits: (-1 + %n) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %j = phi i32 [ %n.minus.1, %entry ], [ %j.next, %loop ]
-; CHECK-NEXT:    --> {(-1 + %n),+,-1}<nsw><%loop> U: full-set S: full-set Exits: 0 LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {(-1 + %n),+,-1}<nsw><%loop> U: [0,2147483647) S: [0,2147483647) Exits: 0 LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %a = sub i32 %n, %i
-; CHECK-NEXT:    --> {%n,+,-1}<nw><%loop> U: full-set S: full-set Exits: 1 LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {%n,+,-1}<nw><%loop> U: [1,-2147483648) S: [1,-2147483648) Exits: 1 LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %b = sub i32 %n.minus.1, %i
-; CHECK-NEXT:    --> {(-1 + %n),+,-1}<nsw><%loop> U: full-set S: full-set Exits: 0 LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {(-1 + %n),+,-1}<nsw><%loop> U: [0,2147483647) S: [0,2147483647) Exits: 0 LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %c = sub i32 2147483647, %i
 ; CHECK-NEXT:    --> {2147483647,+,-1}<nw><%loop> U: [1,-2147483648) S: [1,-2147483648) Exits: (-2147483648 + (-1 * %n)) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %i.next = add nuw nsw i32 %i, 1
 ; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,-2147483648) S: [1,-2147483648) Exits: %n LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %j.next = add nsw i32 %j, -1
-; CHECK-NEXT:    --> {(-2 + %n),+,-1}<nw><%loop> U: full-set S: full-set Exits: -1 LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {(-2 + %n),+,-1}<nsw><%loop> U: [-1,2147483646) S: [-1,2147483646) Exits: -1 LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @test_step_1_flags
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + %n)
 ; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 2147483646

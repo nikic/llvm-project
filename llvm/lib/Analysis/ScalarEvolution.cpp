@@ -6723,6 +6723,18 @@ const ConstantRange &ScalarEvolution::getRangeRef(
             BitWidth);
         ConservativeResult =
             ConservativeResult.intersectWith(RangeFromFactoring, RangeType);
+
+        // Try to compute range starting from exit-value with negative step
+        const Loop *L = AddRec->getLoop();
+        const SCEV *ExitValue = getSCEVAtScope(S, L->getParentLoop());
+        if (isLoopInvariant(ExitValue, L)) {
+          const SCEV *NegStep =
+              getNegativeSCEV(AddRec->getStepRecurrence(*this));
+          RangeFromAffine =
+              getRangeForAffineAR(ExitValue, NegStep, MaxBECount, BitWidth);
+          ConservativeResult =
+              ConservativeResult.intersectWith(RangeFromAffine, RangeType);
+        }
       }
 
       // Now try symbolic BE count and more powerful methods.

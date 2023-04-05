@@ -29,9 +29,9 @@ define void @smin_simplify_with_guard(i32 %n) {
 ; CHECK-LABEL: 'smin_simplify_with_guard'
 ; CHECK-NEXT:  Classifying expressions for: @smin_simplify_with_guard
 ; CHECK-NEXT:    %i.011 = phi i32 [ %n, %for.body.lr.ph ], [ %dec, %for.body ]
-; CHECK-NEXT:    --> {%n,+,-1}<nsw><%for.body> U: full-set S: full-set Exits: 0 LoopDispositions: { %for.body: Computable }
+; CHECK-NEXT:    --> {%n,+,-1}<nsw><%for.body> U: [0,-2147483648) S: [0,-2147483648) Exits: 0 LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %dec = add nsw i32 %i.011, -1
-; CHECK-NEXT:    --> {(-1 + %n),+,-1}<nw><%for.body> U: full-set S: full-set Exits: -1 LoopDispositions: { %for.body: Computable }
+; CHECK-NEXT:    --> {(-1 + %n),+,-1}<nsw><%for.body> U: [-1,2147483647) S: [-1,2147483647) Exits: -1 LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @smin_simplify_with_guard
 ; CHECK-NEXT:  Loop %for.body: backedge-taken count is %n
 ; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is 2147483647
