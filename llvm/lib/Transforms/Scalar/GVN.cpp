@@ -41,6 +41,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/PHITransAddr.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/UniformityAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -747,19 +748,21 @@ PreservedAnalyses GVNPass::run(Function &F, FunctionAnalysisManager &AM) {
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+  auto &UI = AM.getResult<UniformityInfoAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
   auto *MemDep =
       isMemDepEnabled() ? &AM.getResult<MemoryDependenceAnalysis>(F) : nullptr;
   auto *LI = AM.getCachedResult<LoopAnalysis>(F);
   auto *MSSA = AM.getCachedResult<MemorySSAAnalysis>(F);
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
-  bool Changed = runImpl(F, AC, DT, TLI, AA, MemDep, LI, &ORE,
+  bool Changed = runImpl(F, AC, DT, TLI, UI, AA, MemDep, LI, &ORE,
                          MSSA ? &MSSA->getMSSA() : nullptr);
   if (!Changed)
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<TargetLibraryAnalysis>();
+  PA.preserve<UniformityInfoAnalysis>();
   if (MSSA)
     PA.preserve<MemorySSAAnalysis>();
   if (LI)
@@ -2304,12 +2307,15 @@ bool GVNPass::propagateEquality(Value *LHS, Value *RHS,
     uint32_t LVN = VN.lookupOrAdd(LHS);
     if ((isa<Argument>(LHS) && isa<Argument>(RHS)) ||
         (isa<Instruction>(LHS) && isa<Instruction>(RHS))) {
-      // Move the 'oldest' value to the right-hand side, using the value number
-      // as a proxy for age.
-      uint32_t RVN = VN.lookupOrAdd(RHS);
-      if (LVN < RVN) {
-        std::swap(LHS, RHS);
-        LVN = RVN;
+      // Avoid replacing uniform values with non-uniform values.
+      if (!UI->isUniform(RHS) || UI->isUniform(LHS)) {
+        // Move the 'oldest' value to the right-hand side, using the value
+        // number as a proxy for age.
+        uint32_t RVN = VN.lookupOrAdd(RHS);
+        if (LVN < RVN) {
+          std::swap(LHS, RHS);
+          LVN = RVN;
+        }
       }
     }
 
@@ -2562,13 +2568,15 @@ bool GVNPass::processInstruction(Instruction *I) {
 
 /// runOnFunction - This is the main transformation entry point for a function.
 bool GVNPass::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
-                      const TargetLibraryInfo &RunTLI, AAResults &RunAA,
+                      const TargetLibraryInfo &RunTLI,
+                      const UniformityInfo &RunUI, AAResults &RunAA,
                       MemoryDependenceResults *RunMD, LoopInfo *LI,
                       OptimizationRemarkEmitter *RunORE, MemorySSA *MSSA) {
   AC = &RunAC;
   DT = &RunDT;
   VN.setDomTree(DT);
   TLI = &RunTLI;
+  UI = &RunUI;
   VN.setAliasAnalysis(&RunAA);
   MD = RunMD;
   ImplicitControlFlowTracking ImplicitCFT;
@@ -3168,6 +3176,7 @@ public:
         F, getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F),
         getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
+        getAnalysis<UniformityInfoWrapperPass>().getUniformityInfo(),
         getAnalysis<AAResultsWrapperPass>().getAAResults(),
         Impl.isMemDepEnabled()
             ? &getAnalysis<MemoryDependenceWrapperPass>().getMemDep()
@@ -3181,6 +3190,7 @@ public:
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<UniformityInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     if (Impl.isMemDepEnabled())
       AU.addRequired<MemoryDependenceWrapperPass>();
@@ -3188,6 +3198,7 @@ public:
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<TargetLibraryInfoWrapperPass>();
+    AU.addPreserved<UniformityInfoWrapperPass>();
     AU.addPreserved<LoopInfoWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
     AU.addPreserved<MemorySSAWrapperPass>();
@@ -3204,6 +3215,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(MemoryDependenceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(UniformityInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)

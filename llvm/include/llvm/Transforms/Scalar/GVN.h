@@ -54,6 +54,12 @@ class OptimizationRemarkEmitter;
 class PHINode;
 class TargetLibraryInfo;
 class Value;
+
+template <typename _FunctionT> class GenericSSAContext;
+using SSAContext = GenericSSAContext<Function>;
+template <typename ContextT> class GenericUniformityInfo;
+using UniformityInfo = GenericUniformityInfo<SSAContext>;
+
 /// A private "module" namespace for types and utilities used by GVN. These
 /// are implementation details and should not be used by clients.
 namespace gvn LLVM_LIBRARY_VISIBILITY {
@@ -221,6 +227,7 @@ private:
   MemoryDependenceResults *MD = nullptr;
   DominatorTree *DT = nullptr;
   const TargetLibraryInfo *TLI = nullptr;
+  const UniformityInfo *UI = nullptr;
   AssumptionCache *AC = nullptr;
   SetVector<BasicBlock *> DeadBlocks;
   OptimizationRemarkEmitter *ORE = nullptr;
@@ -260,8 +267,8 @@ private:
   using UnavailBlkVect = SmallVector<BasicBlock *, 64>;
 
   bool runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
-               const TargetLibraryInfo &RunTLI, AAResults &RunAA,
-               MemoryDependenceResults *RunMD, LoopInfo *LI,
+               const TargetLibraryInfo &RunTLI, const UniformityInfo &RunUI,
+               AAResults &RunAA, MemoryDependenceResults *RunMD, LoopInfo *LI,
                OptimizationRemarkEmitter *ORE, MemorySSA *MSSA = nullptr);
 
   /// Push a new Value to the LeaderTable onto the list for its value number.
