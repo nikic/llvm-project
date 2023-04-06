@@ -411,10 +411,9 @@ define i32 @test8(ptr %a, i32 %b, i32 %init) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[ADD]] = add nsw i32 [[SUM_0]], [[TMP2]]
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; CHECK-NEXT:    [[CMP2:%.*]] = icmp slt i64 0, [[INDVARS_IV_NEXT]]
-; CHECK-NEXT:    br i1 [[CMP2]], label [[FOR_COND]], label [[FOR_END]]
+; CHECK-NEXT:    br i1 true, label [[FOR_COND]], label [[FOR_END]]
 ; CHECK:       for.end:
-; CHECK-NEXT:    [[SUM_0_LCSSA:%.*]] = phi i32 [ [[SUM_0]], [[FOR_BODY]] ], [ [[SUM_0]], [[FOR_COND]] ]
+; CHECK-NEXT:    [[SUM_0_LCSSA:%.*]] = phi i32 [ 0, [[FOR_BODY]] ], [ [[SUM_0]], [[FOR_COND]] ]
 ; CHECK-NEXT:    ret i32 [[SUM_0_LCSSA]]
 ; CHECK:       leave:
 ; CHECK-NEXT:    ret i32 0
@@ -856,7 +855,7 @@ define i32 @test16_unsigned_pos1(i32 %start, ptr %p, ptr %q, i32 %x) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[START:%.*]] to i64
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw i64 [[TMP0]], -1
 ; CHECK-NEXT:    [[TMP2:%.*]] = zext i32 [[X:%.*]] to i64
-; CHECK-NEXT:    [[ICMP_USER_WIDE5:%.*]] = icmp ult i64 [[TMP1]], [[TMP2]]
+; CHECK-NEXT:    [[ICMP_USER_WIDE_FIRST_ITER:%.*]] = icmp ult i64 [[TMP1]], [[TMP2]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[BACKEDGE:%.*]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
@@ -864,7 +863,7 @@ define i32 @test16_unsigned_pos1(i32 %start, ptr %p, ptr %q, i32 %x) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw i64 [[INDVARS_IV]], -1
 ; CHECK-NEXT:    br i1 [[COND]], label [[EXIT:%.*]], label [[GUARDED:%.*]]
 ; CHECK:       guarded:
-; CHECK-NEXT:    br i1 [[ICMP_USER_WIDE5]], label [[BACKEDGE]], label [[SIDE_EXIT:%.*]]
+; CHECK-NEXT:    br i1 [[ICMP_USER_WIDE_FIRST_ITER]], label [[BACKEDGE]], label [[SIDE_EXIT:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[STORE_ADDR:%.*]] = getelementptr i32, ptr [[P:%.*]], i64 [[TMP3]]
 ; CHECK-NEXT:    store i32 1, ptr [[STORE_ADDR]], align 4
@@ -1196,7 +1195,7 @@ define i32 @test16_signed_neg(i32 %start, ptr %p, ptr %q, i32 %x) {
 ; CHECK-LABEL: @test16_signed_neg(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[START:%.*]], -1
-; CHECK-NEXT:    [[ICMP_USER3:%.*]] = icmp ult i32 [[TMP0]], [[X:%.*]]
+; CHECK-NEXT:    [[ICMP_USER_FIRST_ITER:%.*]] = icmp ult i32 [[TMP0]], [[X:%.*]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[START]], [[ENTRY:%.*]] ], [ [[IV_NEXT_1:%.*]], [[BACKEDGE:%.*]] ]
@@ -1204,7 +1203,7 @@ define i32 @test16_signed_neg(i32 %start, ptr %p, ptr %q, i32 %x) {
 ; CHECK-NEXT:    [[FOO:%.*]] = add i32 [[IV]], -1
 ; CHECK-NEXT:    br i1 [[COND]], label [[EXIT:%.*]], label [[GUARDED:%.*]]
 ; CHECK:       guarded:
-; CHECK-NEXT:    br i1 [[ICMP_USER3]], label [[BACKEDGE]], label [[SIDE_EXIT:%.*]]
+; CHECK-NEXT:    br i1 [[ICMP_USER_FIRST_ITER]], label [[BACKEDGE]], label [[SIDE_EXIT:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[INDEX:%.*]] = sext i32 [[FOO]] to i64
 ; CHECK-NEXT:    [[STORE_ADDR:%.*]] = getelementptr i32, ptr [[P:%.*]], i64 [[INDEX]]
