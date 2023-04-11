@@ -107,6 +107,8 @@ STATISTIC(NumMinMaxHoisted,
           "Number of min/max expressions hoisted out of the loop");
 STATISTIC(NumGEPsHoisted,
           "Number of geps reassociated and hoisted out of the loop");
+STATISTIC(NumAddSubHoisted, "Number of add/subtract expressions reassociated "
+                            "and hoisted out of the loop");
 
 /// Memory promotion is enabled by default.
 static cl::opt<bool>
@@ -173,7 +175,7 @@ static bool pointerInvalidatedByLoop(MemorySSA *MSSA, MemoryUse *MU,
 static bool pointerInvalidatedByBlock(BasicBlock &BB, MemorySSA &MSSA,
                                       MemoryUse &MU);
 /// Aggregates various functions for hoisting computations out of loop.
-static bool hoistArithmetics(Instruction &I, Loop &L,
+static bool hoistArithmetics(Instruction &I, Loop &L, ScalarEvolution &SE,
                              ICFLoopSafetyInfo &SafetyInfo,
                              MemorySSAUpdater &MSSAU, AssumptionCache *AC,
                              DominatorTree *DT);
@@ -987,7 +989,7 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
 
       // Try to reassociate instructions so that part of computations can be
       // done out of loop.
-      if (hoistArithmetics(I, *CurLoop, *SafetyInfo, MSSAU, AC, DT)) {
+      if (hoistArithmetics(I, *CurLoop, *SE, *SafetyInfo, MSSAU, AC, DT)) {
         Changed = true;
         continue;
       }
@@ -2547,10 +2549,103 @@ static bool hoistGEP(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
   return true;
 }
 
-static bool hoistArithmetics(Instruction &I, Loop &L,
+static bool hoistAddSub(Instruction &I, Loop &L, ScalarEvolution &SE,
+                        ICFLoopSafetyInfo &SafetyInfo,
+                        MemorySSAUpdater &MSSAU) {
+  using namespace PatternMatch;
+  ICmpInst::Predicate Pred;
+  Value *LHS, *RHS;
+  if (!match(&I, m_ICmp(Pred, m_Value(LHS), m_Value(RHS))))
+    return false;
+
+  if (L.isLoopInvariant(LHS)) {
+    std::swap(LHS, RHS);
+    Pred = ICmpInst::getSwappedPredicate(Pred);
+  }
+
+  if (!ICmpInst::isSigned(Pred) || L.isLoopInvariant(LHS) ||
+      !L.isLoopInvariant(RHS) || !LHS->hasOneUse())
+    return false;
+  Value *VariantOp, *InvariantOp;
+  bool NegateVariantOp = false, NegateInvariantOp = false;
+  if (match(LHS, m_Sub(m_Value(VariantOp), m_Value(InvariantOp))))
+    NegateInvariantOp = true;
+  else if (!match(LHS, m_Add(m_Value(VariantOp), m_Value(InvariantOp))))
+    return false;
+
+  if (L.isLoopInvariant(VariantOp)) {
+    std::swap(VariantOp, InvariantOp);
+    std::swap(NegateVariantOp, NegateInvariantOp);
+  }
+
+  if (L.isLoopInvariant(VariantOp) || !L.isLoopInvariant(InvariantOp))
+    return false;
+
+  if (!cast<OverflowingBinaryOperator>(LHS)->hasNoSignedWrap())
+    return false;
+
+  // Now we have the following pattern:
+  //   pow(-1, NegateVariantOp) * VariantOp +
+  //   pow(-1, NegateInvariantOp) * InvariantOp <pred>
+  //   RHS.
+  // The transforms we want to do are the following:
+  // Step 1: move all invariants to right hand side of inequality.
+  //   pow(-1, NegateVariantOp) * VariantOp <pred>
+  //   RHS -
+  //   pow(-1, NegateInvariantOp) * InvariantOp,
+  // or the same can be rewritten as
+  //   pow(-1, NegateVariantOp) * VariantOp <pred>
+  //   RHS + pow(-1, NegateInvariantOp + 1) * InvariantOp.
+  // Step 2: if variant op is inverted, multiply both sides by -1 (and swap
+  // predicate if needed.)
+  //   VariantOp <pred * pow(-1, NegateVariantOp)>
+  //   pow(-1, NegateVariantOp) * RHS +
+  //   pow(-1, NegateVariantOp + NegateInvariantOp + 1) * InvariantOp.
+
+  bool ShouldSwapPredicate = NegateVariantOp;
+  bool ShouldNegateOp1 = NegateVariantOp;
+  bool ShouldNegateOp2 = NegateVariantOp ^ NegateInvariantOp ^ true;
+  assert(!(ShouldNegateOp1 && ShouldNegateOp2) &&
+         "Could not end up negating both operands");
+
+  Value *Op1 = RHS;
+  Value *Op2 = InvariantOp;
+  if (ShouldNegateOp1) {
+    std::swap(Op1, Op2);
+    std::swap(ShouldNegateOp1, ShouldNegateOp2);
+  }
+
+  // Make sure no overflow happens while computing invariant sum.
+  const SCEV *Op1S = SE.getSCEV(Op1);
+  const SCEV *Op2S = SE.getSCEV(Op2);
+  if (ShouldNegateOp2)
+    Op2S = SE.getNegativeSCEV(Op2S);
+  if (!SE.willNotOverflow(Instruction::BinaryOps::Add, /*Signed*/ true, Op1S,
+                          Op2S, /*CtxI*/ &I))
+    return false;
+
+  if (ShouldSwapPredicate)
+    Pred = ICmpInst::getSwappedPredicate(Pred);
+  auto *Preheader = L.getLoopPreheader();
+  assert(Preheader && "Loop is not in simplify form?");
+  IRBuilder<> Builder(Preheader->getTerminator());
+  Value *NewCmpOp = ShouldNegateOp2
+                        ? Builder.CreateSub(Op1, Op2, "invariant.op",
+                                            /*HasNUW*/ false, /*HasNSW*/ true)
+                        : Builder.CreateAdd(Op1, Op2, "invariant.op",
+                                            /*HasNUW*/ false, /*HasNSW*/ true);
+  auto *ICmp = cast<ICmpInst>(&I);
+  ICmp->setPredicate(Pred);
+  ICmp->setOperand(0, VariantOp);
+  ICmp->setOperand(1, NewCmpOp);
+  eraseInstruction(cast<Instruction>(*LHS), SafetyInfo, MSSAU);
+  return true;
+}
+
+static bool hoistArithmetics(Instruction &I, Loop &L, ScalarEvolution &SE,
                              ICFLoopSafetyInfo &SafetyInfo,
-                             MemorySSAUpdater &MSSAU,
-                             AssumptionCache *AC, DominatorTree *DT) {
+                             MemorySSAUpdater &MSSAU, AssumptionCache *AC,
+                             DominatorTree *DT) {
   // Optimize complex patterns, such as (x < INV1 && x < INV2), turning them
   // into (x < min(INV1, INV2)), and hoisting the invariant part of this
   // expression out of the loop.
@@ -2564,6 +2659,13 @@ static bool hoistArithmetics(Instruction &I, Loop &L,
   if (hoistGEP(I, L, SafetyInfo, MSSAU, AC, DT)) {
     ++NumHoisted;
     ++NumGEPsHoisted;
+    return true;
+  }
+
+  // Try to hoist add/sub's by reassociation.
+  if (hoistAddSub(I, L, SE, SafetyInfo, MSSAU)) {
+    ++NumHoisted;
+    ++NumAddSubHoisted;
     return true;
   }
 
