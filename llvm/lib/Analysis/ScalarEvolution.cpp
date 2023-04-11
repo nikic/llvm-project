@@ -231,7 +231,7 @@ ClassifyExpressions("scalar-evolution-classify-expressions",
 
 static cl::opt<bool> UseExpensiveRangeSharpening(
     "scalar-evolution-use-expensive-range-sharpening", cl::Hidden,
-    cl::init(false),
+    cl::init(true),
     cl::desc("Use more powerful methods of sharpening expression ranges. May "
              "be costly in terms of compile time"));
 
