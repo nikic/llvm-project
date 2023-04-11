@@ -1402,9 +1402,9 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
 
 ModulePassManager
 PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
-                                           bool LTOPreLink) {
+                                           ThinOrFullLTOPhase Phase) {
   if (Level == OptimizationLevel::O0)
-    return buildO0DefaultPipeline(Level, LTOPreLink);
+    return buildO0DefaultPipeline(Level, isLTOPreLink(Phase));
 
   ModulePassManager MPM;
 
@@ -1421,14 +1421,32 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   for (auto &C : PipelineStartEPCallbacks)
     C(MPM, Level);
 
-  const ThinOrFullLTOPhase LTOPhase = LTOPreLink
-                                          ? ThinOrFullLTOPhase::FullLTOPreLink
-                                          : ThinOrFullLTOPhase::None;
   // Add the core simplification pipeline.
-  MPM.addPass(buildModuleSimplificationPipeline(Level, LTOPhase));
+  MPM.addPass(buildModuleSimplificationPipeline(Level, Phase));
 
-  // Now add the optimization pipeline.
-  MPM.addPass(buildModuleOptimizationPipeline(Level, LTOPhase));
+  // If we are planning to perform LTO later, don't bloat the code with
+  // unrolling/vectorization/... now.
+  if (!isLTOPreLink(Phase)) {
+    MPM.addPass(buildModuleOptimizationPipeline(Level, Phase));
+  } else {
+    // Run partial inlining pass to partially inline functions that have
+    // large bodies.
+    // FIXME: It isn't clear whether this is really the right place to run this
+    // in ThinLTO. Because there is another canonicalization and simplification
+    // phase that will run after the thin link, running this here ends up with
+    // less information than will be available later and it may grow functions
+    // in ways that aren't beneficial.
+    if (RunPartialInlining)
+      MPM.addPass(PartialInlinerPass());
+
+    // Handle Optimizer{Early,Last}EPCallbacks added by clang on PreLink. Actual
+    // optimization is going to be done in PostLink stage, but clang can't add
+    // callbacks there in case of in-process LTO called by linker.
+    for (auto &C : OptimizerEarlyEPCallbacks)
+      C(MPM, Level);
+    for (auto &C : OptimizerLastEPCallbacks)
+      C(MPM, Level);
+  }
 
   if (PGOOpt && PGOOpt->PseudoProbeForProfiling &&
       PGOOpt->Action == PGOOptions::SampleUse)
@@ -1437,7 +1455,7 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   // Emit annotation remarks.
   addAnnotationRemarksPass(MPM);
 
-  if (LTOPreLink)
+  if (isLTOPreLink(Phase))
     addRequiredLTOPreLinkPasses(MPM);
 
   return MPM;
@@ -1445,58 +1463,8 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
 
 ModulePassManager
 PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
-  if (Level == OptimizationLevel::O0)
-    return buildO0DefaultPipeline(Level, /*LTOPreLink*/true);
-
-  ModulePassManager MPM;
-
-  // Convert @llvm.global.annotations to !annotation metadata.
-  MPM.addPass(Annotation2MetadataPass());
-
-  // Force any function attributes we want the rest of the pipeline to observe.
-  MPM.addPass(ForceFunctionAttrsPass());
-
-  if (PGOOpt && PGOOpt->DebugInfoForProfiling)
-    MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
-
-  // Apply module pipeline start EP callback.
-  for (auto &C : PipelineStartEPCallbacks)
-    C(MPM, Level);
-
-  // If we are planning to perform ThinLTO later, we don't bloat the code with
-  // unrolling/vectorization/... now. Just simplify the module as much as we
-  // can.
-  MPM.addPass(buildModuleSimplificationPipeline(
-      Level, ThinOrFullLTOPhase::ThinLTOPreLink));
-
-  // Run partial inlining pass to partially inline functions that have
-  // large bodies.
-  // FIXME: It isn't clear whether this is really the right place to run this
-  // in ThinLTO. Because there is another canonicalization and simplification
-  // phase that will run after the thin link, running this here ends up with
-  // less information than will be available later and it may grow functions in
-  // ways that aren't beneficial.
-  if (RunPartialInlining)
-    MPM.addPass(PartialInlinerPass());
-
-  if (PGOOpt && PGOOpt->PseudoProbeForProfiling &&
-      PGOOpt->Action == PGOOptions::SampleUse)
-    MPM.addPass(PseudoProbeUpdatePass());
-
-  // Handle Optimizer{Early,Last}EPCallbacks added by clang on PreLink. Actual
-  // optimization is going to be done in PostLink stage, but clang can't add
-  // callbacks there in case of in-process ThinLTO called by linker.
-  for (auto &C : OptimizerEarlyEPCallbacks)
-    C(MPM, Level);
-  for (auto &C : OptimizerLastEPCallbacks)
-    C(MPM, Level);
-
-  // Emit annotation remarks.
-  addAnnotationRemarksPass(MPM);
-
-  addRequiredLTOPreLinkPasses(MPM);
-
-  return MPM;
+  return buildPerModuleDefaultPipeline(Level,
+                                       ThinOrFullLTOPhase::ThinLTOPreLink);
 }
 
 ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
@@ -1557,9 +1525,8 @@ ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
 
 ModulePassManager
 PassBuilder::buildLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
-  // FIXME: We should use a customized pre-link pipeline!
   return buildPerModuleDefaultPipeline(Level,
-                                       /* LTOPreLink */ true);
+                                       ThinOrFullLTOPhase::FullLTOPreLink);
 }
 
 ModulePassManager
