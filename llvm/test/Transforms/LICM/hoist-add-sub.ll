@@ -215,7 +215,7 @@ out_of_bounds:
   ret i32 -1
 }
 
-; TODO: x + iv < 4 ==> iv < 4 - x
+; x + iv < 4 ==> iv < 4 - x
 define i32 @test_02a(ptr %p, ptr %x_p, ptr %length_p) {
 ; CHECK-LABEL: define i32 @test_02a
 ; CHECK-SAME: (ptr [[P:%.*]], ptr [[X_P:%.*]], ptr [[LENGTH_P:%.*]]) {
@@ -227,11 +227,11 @@ define i32 @test_02a(ptr %p, ptr %x_p, ptr %length_p) {
 ; CHECK-NEXT:    [[PRECOND:%.*]] = and i1 [[PRECOND_1]], [[PRECOND_2]]
 ; CHECK-NEXT:    br i1 [[PRECOND]], label [[LOOP_PREHEADER:%.*]], label [[FAILED:%.*]]
 ; CHECK:       loop.preheader:
+; CHECK-NEXT:    [[INVARIANT_OP:%.*]] = sub nsw i32 4, [[X]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ], [ 0, [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[ARITH:%.*]] = add nsw i32 [[X]], [[IV]]
-; CHECK-NEXT:    [[X_CHECK:%.*]] = icmp slt i32 [[ARITH]], 4
+; CHECK-NEXT:    [[X_CHECK:%.*]] = icmp slt i32 [[IV]], [[INVARIANT_OP]]
 ; CHECK-NEXT:    br i1 [[X_CHECK]], label [[OUT_OF_BOUNDS:%.*]], label [[BACKEDGE]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[EL_PTR:%.*]] = getelementptr i32, ptr [[P]], i32 [[IV]]
@@ -328,7 +328,7 @@ out_of_bounds:
   ret i32 -1
 }
 
-; TODO: iv - x < 4 ==> iv < 4 + x
+; iv - x < 4 ==> iv < 4 + x
 define i32 @test_03a(ptr %p, ptr %x_p, ptr %length_p) {
 ; CHECK-LABEL: define i32 @test_03a
 ; CHECK-SAME: (ptr [[P:%.*]], ptr [[X_P:%.*]], ptr [[LENGTH_P:%.*]]) {
@@ -340,11 +340,11 @@ define i32 @test_03a(ptr %p, ptr %x_p, ptr %length_p) {
 ; CHECK-NEXT:    [[PRECOND:%.*]] = and i1 [[PRECOND_1]], [[PRECOND_2]]
 ; CHECK-NEXT:    br i1 [[PRECOND]], label [[LOOP_PREHEADER:%.*]], label [[FAILED:%.*]]
 ; CHECK:       loop.preheader:
+; CHECK-NEXT:    [[INVARIANT_OP:%.*]] = add nsw i32 4, [[X]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ], [ 0, [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[ARITH:%.*]] = sub nsw i32 [[IV]], [[X]]
-; CHECK-NEXT:    [[X_CHECK:%.*]] = icmp slt i32 [[ARITH]], 4
+; CHECK-NEXT:    [[X_CHECK:%.*]] = icmp slt i32 [[IV]], [[INVARIANT_OP]]
 ; CHECK-NEXT:    br i1 [[X_CHECK]], label [[OUT_OF_BOUNDS:%.*]], label [[BACKEDGE]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[EL_PTR:%.*]] = getelementptr i32, ptr [[P]], i32 [[IV]]
@@ -441,7 +441,7 @@ out_of_bounds:
   ret i32 -1
 }
 
-; TODO: iv + x < 4 ==> iv < 4 - x
+; iv + x < 4 ==> iv < 4 - x
 define i32 @test_04a(ptr %p, ptr %x_p, ptr %length_p) {
 ; CHECK-LABEL: define i32 @test_04a
 ; CHECK-SAME: (ptr [[P:%.*]], ptr [[X_P:%.*]], ptr [[LENGTH_P:%.*]]) {
@@ -453,11 +453,11 @@ define i32 @test_04a(ptr %p, ptr %x_p, ptr %length_p) {
 ; CHECK-NEXT:    [[PRECOND:%.*]] = and i1 [[PRECOND_1]], [[PRECOND_2]]
 ; CHECK-NEXT:    br i1 [[PRECOND]], label [[LOOP_PREHEADER:%.*]], label [[FAILED:%.*]]
 ; CHECK:       loop.preheader:
+; CHECK-NEXT:    [[INVARIANT_OP:%.*]] = sub nsw i32 4, [[X]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ], [ 0, [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[ARITH:%.*]] = add nsw i32 [[IV]], [[X]]
-; CHECK-NEXT:    [[X_CHECK:%.*]] = icmp slt i32 [[ARITH]], 4
+; CHECK-NEXT:    [[X_CHECK:%.*]] = icmp slt i32 [[IV]], [[INVARIANT_OP]]
 ; CHECK-NEXT:    br i1 [[X_CHECK]], label [[OUT_OF_BOUNDS:%.*]], label [[BACKEDGE]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[EL_PTR:%.*]] = getelementptr i32, ptr [[P]], i32 [[IV]]

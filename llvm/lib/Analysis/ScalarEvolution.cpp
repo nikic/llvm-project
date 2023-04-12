@@ -2340,6 +2340,8 @@ bool ScalarEvolution::willNotOverflow(Instruction::BinaryOps BinOp, bool Signed,
   // Can we use context to prove the fact we need?
   if (!CtxI)
     return false;
+  if (auto *L = LI.getLoopFor(CtxI->getParent()))
+    B = applyLoopGuards(B, L);
   // If result of operation in wide type is between narrow min/max extended to
   // wide type, it means that the computation was without overflow.
   const SCEV *NarrowMin =
