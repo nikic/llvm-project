@@ -23,7 +23,7 @@ define void @test_1(ptr %cond_buf, ptr %len_buf) {
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[IV_INC:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[IV_INC]] = add nsw i32 [[IV]], 1
 ; CHECK-NEXT:    call void (i1, ...) @llvm.experimental.guard(i1 true) [ "deopt"() ]
-; CHECK-NEXT:    [[IV_INC_CMP:%.*]] = icmp ult i32 [[IV_INC]], [[LEN]]
+; CHECK-NEXT:    [[IV_INC_CMP:%.*]] = icmp slt i32 [[IV_INC]], [[LEN]]
 ; CHECK-NEXT:    call void (i1, ...) @llvm.experimental.guard(i1 [[IV_INC_CMP]]) [ "deopt"() ]
 ; CHECK-NEXT:    [[BECOND:%.*]] = load volatile i1, ptr [[COND_BUF]], align 1
 ; CHECK-NEXT:    br i1 [[BECOND]], label [[LOOP]], label [[LEAVE:%.*]]
@@ -57,7 +57,7 @@ define void @test_2(i32 %n, ptr %len_buf) {
 ; CHECK-SAME: (i32 [[N:%.*]], ptr [[LEN_BUF:%.*]]) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[LEN_BUF]], align 4, !range [[RNG1:![0-9]+]]
-; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[LEN]] to i64
+; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[LEN]] to i64
 ; CHECK-NEXT:    [[TMP1:%.*]] = zext i32 [[N]] to i64
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:

@@ -19,7 +19,7 @@ define void @test_predicated_simple_unsigned(ptr %p, ptr %arr) {
 ; CHECK-NEXT:    [[ZERO_COND:%.*]] = icmp eq i32 [[IV]], 0
 ; CHECK-NEXT:    br i1 [[ZERO_COND]], label [[EXIT:%.*]], label [[RANGE_CHECK_BLOCK:%.*]]
 ; CHECK:       range_check_block:
-; CHECK-NEXT:    [[IV_NEXT]] = sub i32 [[IV]], 1
+; CHECK-NEXT:    [[IV_NEXT]] = sub nsw i32 [[IV]], 1
 ; CHECK-NEXT:    br i1 true, label [[BACKEDGE]], label [[FAIL:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[EL_PTR:%.*]] = getelementptr i32, ptr [[P]], i32 [[IV]]
@@ -68,7 +68,7 @@ define void @test_predicated_simple_signed(ptr %p, ptr %arr) {
 ; CHECK-NEXT:    [[ZERO_COND:%.*]] = icmp eq i32 [[IV]], 0
 ; CHECK-NEXT:    br i1 [[ZERO_COND]], label [[EXIT:%.*]], label [[RANGE_CHECK_BLOCK:%.*]]
 ; CHECK:       range_check_block:
-; CHECK-NEXT:    [[IV_NEXT]] = sub i32 [[IV]], 1
+; CHECK-NEXT:    [[IV_NEXT]] = sub nsw i32 [[IV]], 1
 ; CHECK-NEXT:    br i1 true, label [[BACKEDGE]], label [[FAIL:%.*]]
 ; CHECK:       backedge:
 ; CHECK-NEXT:    [[EL_PTR:%.*]] = getelementptr i32, ptr [[P]], i32 [[IV]]

@@ -17,7 +17,7 @@ define i32 @testDiv(ptr %p, ptr %p1) {
 ; CHECK-NEXT:    br label [[LOOP2:%.*]]
 ; CHECK:       loop2:
 ; CHECK-NEXT:    [[I4:%.*]] = load atomic i64, ptr [[P1:%.*]] unordered, align 8
-; CHECK-NEXT:    [[I6:%.*]] = sub i64 [[I4]], -1
+; CHECK-NEXT:    [[I6:%.*]] = sub nuw nsw i64 [[I4]], -1
 ; CHECK-NEXT:    store atomic i64 [[I6]], ptr [[P1]] unordered, align 8
 ; CHECK-NEXT:    br i1 true, label [[LOOP2_EXIT_LOOPEXIT:%.*]], label [[LOOP2]]
 ; CHECK:       loop2.exit.loopexit:
@@ -80,7 +80,7 @@ define i32 @testRem(ptr %p, ptr %p1) {
 ; CHECK-NEXT:    br label [[LOOP2:%.*]]
 ; CHECK:       loop2:
 ; CHECK-NEXT:    [[I4:%.*]] = load atomic i64, ptr [[P1:%.*]] unordered, align 8
-; CHECK-NEXT:    [[I6:%.*]] = sub i64 [[I4]], -1
+; CHECK-NEXT:    [[I6:%.*]] = sub nuw nsw i64 [[I4]], -1
 ; CHECK-NEXT:    store atomic i64 [[I6]], ptr [[P1]] unordered, align 8
 ; CHECK-NEXT:    br i1 true, label [[LOOP2_EXIT_LOOPEXIT:%.*]], label [[LOOP2]]
 ; CHECK:       loop2.exit.loopexit:

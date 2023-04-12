@@ -2340,6 +2340,20 @@ bool ScalarEvolution::willNotOverflow(Instruction::BinaryOps BinOp, bool Signed,
   // Can we use context to prove the fact we need?
   if (!CtxI)
     return false;
+  // If result of operation in wide type is between narrow min/max extended to
+  // wide type, it means that the computation was without overflow.
+  const SCEV *NarrowMin =
+      getConstant(Signed ? APInt::getSignedMinValue(NarrowTy->getBitWidth())
+                         : APInt::getMinValue(NarrowTy->getBitWidth()));
+  const SCEV *NarrowMax =
+      getConstant(Signed ? APInt::getSignedMaxValue(NarrowTy->getBitWidth())
+                         : APInt::getMaxValue(NarrowTy->getBitWidth()));
+  const SCEV *WideMin = (this->*Extension)(NarrowMin, WideTy, 0);
+  const SCEV *WideMax = (this->*Extension)(NarrowMax, WideTy, 0);
+  ICmpInst::Predicate LEPred = Signed ? ICmpInst::ICMP_SLE : ICmpInst::ICMP_ULE;
+  if (isKnownPredicateAt(LEPred, WideMin, B, CtxI) &&
+      isKnownPredicateAt(LEPred, B, WideMax, CtxI))
+    return true;
   // We can prove that add(x, constant) doesn't wrap if isKnownPredicateAt can
   // guarantee that x <= max_int - constant at the given context.
   // TODO: Support other operations.
