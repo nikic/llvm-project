@@ -1167,6 +1167,9 @@ GetElementPtrInst::GetElementPtrInst(Type *PointeeType, Value *Ptr,
       ResultElementType(getIndexedType(PointeeType, IdxList)) {
   assert(cast<PointerType>(getType()->getScalarType())
              ->isOpaqueOrPointeeTypeMatches(ResultElementType));
+  assert(!(SourceElementType->isStructTy() &&
+           cast<StructType>(SourceElementType)->containsScalableVectorType()) &&
+         "GEP does not support struct types with scalable vector");
   init(Ptr, IdxList, NameStr);
 }
 
@@ -1181,6 +1184,9 @@ GetElementPtrInst::GetElementPtrInst(Type *PointeeType, Value *Ptr,
       ResultElementType(getIndexedType(PointeeType, IdxList)) {
   assert(cast<PointerType>(getType()->getScalarType())
              ->isOpaqueOrPointeeTypeMatches(ResultElementType));
+  assert(!(SourceElementType->isStructTy() &&
+           cast<StructType>(SourceElementType)->containsScalableVectorType()) &&
+         "GEP does not support struct types with scalable vector");
   init(Ptr, IdxList, NameStr);
 }
 

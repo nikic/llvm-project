@@ -3736,6 +3736,8 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
   for (const SCEV *IndexExpr : IndexExprs) {
     // Compute the (potentially symbolic) offset in bytes for this index.
     if (StructType *STy = dyn_cast<StructType>(CurTy)) {
+      assert(!STy->containsScalableVectorType() &&
+             "Structure with scalable vector type should not use GEP");
       // For a struct, add the member offset.
       ConstantInt *Index = cast<SCEVConstant>(IndexExpr)->getValue();
       unsigned FieldNo = Index->getZExtValue();

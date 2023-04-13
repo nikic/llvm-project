@@ -152,12 +152,15 @@ void FunctionLoweringInfo::set(const Function &fn, MachineFunction &mf,
                                                               false, AI);
           }
 
-          // Scalable vectors may need a special StackID to distinguish
-          // them from other (fixed size) stack objects.
-          if (isa<ScalableVectorType>(Ty))
+          // Scalable vectors and structure that contains scalable vector may
+          // need a special StackID to distinguish them from other (fixed size)
+          // stack objects.
+          if (isa<ScalableVectorType>(Ty) ||
+              (isa<StructType>(Ty) &&
+               cast<StructType>(Ty)->containsScalableVectorType())) {
             MF->getFrameInfo().setStackID(FrameIndex,
                                           TFI->getStackIDForScalableVectors());
-
+          }
           StaticAllocaMap[AI] = FrameIndex;
           // Update the catch handler information.
           if (Iter != CatchObjects.end()) {

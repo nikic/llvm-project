@@ -3973,6 +3973,9 @@ static Type *getTypePartition(const DataLayout &DL, Type *Ty, uint64_t Offset,
   if (!STy)
     return nullptr;
 
+  if (STy->containsScalableVectorType())
+    return nullptr;
+
   const StructLayout *SL = DL.getStructLayout(STy);
   if (Offset >= SL->getSizeInBytes())
     return nullptr;

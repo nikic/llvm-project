@@ -764,6 +764,10 @@ static Instruction *unpackLoadToAggregate(InstCombinerImpl &IC, LoadInst &LI) {
         PoisonValue::get(T), NewLoad, 0, Name));
     }
 
+    // Don't unpack for structure with scalable vector.
+    if (ST->containsScalableVectorType())
+      return nullptr;
+
     // We don't want to break loads with padding here as we'd loose
     // the knowledge that padding exists for the rest of the pipeline.
     const DataLayout &DL = IC.getDataLayout();
@@ -1287,6 +1291,10 @@ static bool unpackStoreToAggregate(InstCombinerImpl &IC, StoreInst &SI) {
       combineStoreToNewValue(IC, SI, V);
       return true;
     }
+
+    // Don't unpack for structure with scalable vector.
+    if (ST->containsScalableVectorType())
+      return false;
 
     // We don't want to break loads with padding here as we'd loose
     // the knowledge that padding exists for the rest of the pipeline.

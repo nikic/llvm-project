@@ -218,7 +218,9 @@ class StructType : public Type {
     SCDB_HasBody = 1,
     SCDB_Packed = 2,
     SCDB_IsLiteral = 4,
-    SCDB_IsSized = 8
+    SCDB_IsSized = 8,
+    SCDB_ContainScalableVector = 16,
+    SCDB_NotConatinScalableVector = 32
   };
 
   /// For a named struct that actually has a name, this is a pointer to the
@@ -285,6 +287,14 @@ public:
 
   /// Returns true if this struct contains a scalable vector.
   bool containsScalableVectorType() const;
+
+  /// Returns true if this struct contains homogeneous scalable vector types.
+  /// Note that the definition homogeneous scalable vector type is not recursive
+  /// here. That means the following structure will return a false when calling
+  /// this function.
+  /// {{<vscale x 2 x i32>, <vscale x 4 x i64>},
+  ///  {<vscale x 2 x i32>, <vscale x 4 x i64>}}
+  bool containsHomogeneousScalableVectorTypes() const;
 
   /// Return true if this is a named struct that has a non-empty name.
   bool hasName() const { return SymbolTableEntry != nullptr; }
