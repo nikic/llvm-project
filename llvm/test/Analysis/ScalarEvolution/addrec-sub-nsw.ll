@@ -7,7 +7,7 @@ define i32 @test_1_non_negative(i32 %n) {
 ; CHECK-NEXT:    %i = phi i32 [ 0, %entry ], [ %i.next, %loop ]
 ; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%loop> U: [0,2147483647) S: [0,2147483647) Exits: (-1 + (1 smax %n))<nsw> LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %a = sub i32 %n, %i
-; CHECK-NEXT:    --> {%n,+,-1}<nw><%loop> U: full-set S: full-set Exits: (1 + (-1 * (1 smax %n))<nsw> + %n) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {%n,+,-1}<nsw><%loop> U: full-set S: full-set Exits: (1 + (-1 * (1 smax %n))<nsw> + %n) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %i.next = add nuw nsw i32 %i, 1
 ; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,-2147483648) S: [1,-2147483648) Exits: (1 smax %n) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @test_1_non_negative

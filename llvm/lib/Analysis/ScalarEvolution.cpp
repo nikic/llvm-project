@@ -116,6 +116,7 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 #include <algorithm>
 #include <cassert>
 #include <climits>
@@ -7712,6 +7713,35 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
         Flags = getNoWrapFlagsFromUB(BO->Op);
       LHS = getSCEV(BO->LHS);
       RHS = getSCEV(BO->RHS);
+
+      // Try to prove NSW based on operands signs. Subtracting non-negative
+      // values cannot overflow, as well as subtracting non-positives ones.
+      if (!hasFlags(Flags, SCEV::FlagNSW)) {
+        // If one of the operands is an AddRec, then the resulting expression
+        // makes sense only in the loop of that AddRec, so we can safely use the
+        // loop as context to get facts about operands signs.
+        const Loop *L = nullptr;
+        if (auto *AR = dyn_cast<SCEVAddRecExpr>(LHS))
+          L = AR->getLoop();
+        if (!L)
+          if (auto *AR = dyn_cast<SCEVAddRecExpr>(RHS))
+            L = AR->getLoop();
+        enum class SCEVExprSign { NonNegative, NonPositive, Unknown };
+        auto GetExprSign = [&](const SCEV *S) -> SCEVExprSign {
+          if (isKnownNonNegative(S) ||
+              (L && isKnownNonNegativeInLoop(S, L, *this)))
+            return SCEVExprSign::NonNegative;
+          if (isKnownNonPositive(S) ||
+              (L && isKnownNonPositiveInLoop(S, L, *this)))
+            return SCEVExprSign::NonPositive;
+          return SCEVExprSign::Unknown;
+        };
+        auto LHSSign = GetExprSign(LHS);
+        auto RHSSign = GetExprSign(RHS);
+        if (LHSSign != SCEVExprSign::Unknown && LHSSign == RHSSign)
+          Flags = setFlags(Flags, SCEV::FlagNSW);
+      }
+
       return getMinusSCEV(LHS, RHS, Flags);
     }
     case Instruction::And:
