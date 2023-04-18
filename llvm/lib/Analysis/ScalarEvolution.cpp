@@ -7287,39 +7287,34 @@ bool ScalarEvolution::isAddRecNeverPoison(const Instruction *I, const Loop *L) {
   //     behavior.
 
   auto *ExitingBB = L->getExitingBlock();
-  auto *LatchBB = L->getLoopLatch();
-  if (!ExitingBB || !LatchBB || ExitingBB != LatchBB)
+  if (!ExitingBB || !loopHasNoAbnormalExits(L))
     return false;
 
-  SmallPtrSet<const Instruction *, 16> Pushed;
-  SmallVector<const Instruction *, 8> PoisonStack;
+  SmallPtrSet<const Value *, 16> KnownPoison;
+  SmallVector<const Instruction *, 8> Worklist;
 
   // We start by assuming \c I, the post-inc add recurrence, is poison.  Only
   // things that are known to be poison under that assumption go on the
-  // PoisonStack.
-  Pushed.insert(I);
-  PoisonStack.push_back(I);
+  // Worklist.
+  KnownPoison.insert(I);
+  Worklist.push_back(I);
 
-  bool LatchControlDependentOnPoison = false;
-  while (!PoisonStack.empty() && !LatchControlDependentOnPoison) {
-    const Instruction *Poison = PoisonStack.pop_back_val();
+  while (!Worklist.empty()) {
+    const Instruction *Poison = Worklist.pop_back_val();
 
     for (const Use &U : Poison->uses()) {
-      const User *PoisonUser = U.getUser();
-      if (propagatesPoison(U)) {
-        if (Pushed.insert(cast<Instruction>(PoisonUser)).second)
-          PoisonStack.push_back(cast<Instruction>(PoisonUser));
-      } else if (auto *BI = dyn_cast<BranchInst>(PoisonUser)) {
-        assert(BI->isConditional() && "Only possibility!");
-        if (BI->getParent() == LatchBB) {
-          LatchControlDependentOnPoison = true;
-          break;
-        }
-      }
+      const Instruction *PoisonUser = cast<Instruction>(U.getUser());
+      if (mustTriggerUB(PoisonUser, KnownPoison) &&
+          DT.dominates(PoisonUser->getParent(), ExitingBB))
+        return true;
+
+      if (propagatesPoison(U))
+        if (KnownPoison.insert(PoisonUser).second)
+          Worklist.push_back(PoisonUser);
     }
   }
 
-  return LatchControlDependentOnPoison && loopHasNoAbnormalExits(L);
+  return false;
 }
 
 ScalarEvolution::LoopProperties
