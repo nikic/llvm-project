@@ -17,7 +17,7 @@ target triple = "thumbv8.1m.main-arm-none-eabi"
 ; CHECK: LV: Found an estimated cost of 1 for VF 1 For instruction:   %inc = add nuw nsw i32 %i.016, 1
 ; CHECK: LV: Found an estimated cost of 1 for VF 1 For instruction:   %exitcond.not = icmp eq i32 %inc, %n
 ; CHECK: LV: Found an estimated cost of 0 for VF 1 For instruction:   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
-; CHECK: LV: Scalar loop costs: 5.
+; CHECK: LV: Scalar loop costs: 4.
 ; CHECK: LV: Found an estimated cost of 0 for VF 2 For instruction:   %i.016 = phi i32 [ 0, %for.body.lr.ph ], [ %inc, %for.inc ]
 ; CHECK: LV: Found an estimated cost of 0 for VF 2 For instruction:   %arrayidx = getelementptr inbounds i16, ptr %s, i32 %i.016
 ; CHECK: LV: Found an estimated cost of 18 for VF 2 For instruction:   %1 = load i16, ptr %arrayidx, align 2

@@ -48,18 +48,18 @@ for.end:
 ; CHECK-NEXT:   EMIT vp<[[CAN_IV:%.+]]> = CANONICAL-INDUCTION
 ; CHECK-NEXT:   WIDEN-INDUCTION %iv = phi 0, %iv.next, ir<1>
 ; CHECK-NEXT:   EMIT vp<[[COND:%.+]]> = icmp ule ir<%iv> vp<[[BTC]]>
-; CHECK-NEXT:   WIDEN ir<%cond0> = icmp ult ir<%iv>, ir<13>
-; CHECK-NEXT:   WIDEN-SELECT ir<%s> = select ir<%cond0>, ir<10>, ir<20>
-; CHECK-NEXT: Successor(s): pred.store
+; CHECK-NEXT:  Successor(s): pred.store
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <xVFxUF> pred.store: {
 ; CHECK-NEXT:    pred.store.entry:
-; CHECK-NEXT:      BRANCH-ON-MASK vp<[[COND]]>
+; CHECK-NEXT:      BRANCH-ON-MASK vp<%5>
 ; CHECK-NEXT:    Successor(s): pred.store.if, pred.store.continue
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    pred.store.if:
-; CHECK-NEXT:      vp<[[STEPS:%.+]]> = SCALAR-STEPS vp<[[CAN_IV]]>, ir<1>
-; CHECK-NEXT:      REPLICATE ir<%gep> = getelementptr ir<%ptr>, vp<[[STEPS]]>
+; CHECK-NEXT:      vp<%6>      = SCALAR-STEPS vp<%3>, ir<1>
+; CHECK-NEXT:      REPLICATE ir<%cond0> = icmp vp<%6>, ir<13>
+; CHECK-NEXT:      REPLICATE ir<%gep> = getelementptr ir<%ptr>, vp<%6>
+; CHECK-NEXT:      REPLICATE ir<%s> = select ir<%cond0>, ir<10>, ir<20>
 ; CHECK-NEXT:      REPLICATE store ir<%s>, ir<%gep>
 ; CHECK-NEXT:    Successor(s): pred.store.continue
 ; CHECK-EMPTY:
@@ -68,11 +68,14 @@ for.end:
 ; CHECK-NEXT:  }
 ; CHECK-NEXT:  Successor(s): loop.0
 ; CHECK-EMPTY:
-; CHECK-NEXT: loop.0:
-; CHECK-NEXT:   EMIT vp<[[CAN_IV_NEXT:%.+]]> = VF * UF + vp<[[CAN_IV]]>
-; CHECK-NEXT:   EMIT branch-on-count vp<[[CAN_IV_NEXT]]> vp<[[VEC_TC]]>
-; CHECK-NEXT: No successor
-; CHECK-NEXT: }
+; CHECK-NEXT:  loop.0:
+; CHECK-NEXT:    EMIT vp<%11> = VF * UF +  vp<%3>
+; CHECK-NEXT:    EMIT branch-on-count  vp<%11> vp<%1>
+; CHECK-NEXT:  No successors
+; CHECK-NEXT:}
+
+
+
 define void @test(ptr %ptr) {
 entry:
   br label %loop

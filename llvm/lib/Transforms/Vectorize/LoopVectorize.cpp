@@ -1203,12 +1203,12 @@ public:
                              LoopVectorizationLegality *Legal,
                              const TargetTransformInfo &TTI,
                              const TargetLibraryInfo *TLI, DemandedBits *DB,
-                             AssumptionCache *AC,
+                             AssumptionCache *AC, BlockFrequencyInfo *BFI,
                              OptimizationRemarkEmitter *ORE, const Function *F,
                              const LoopVectorizeHints *Hints,
                              InterleavedAccessInfo &IAI)
       : ScalarEpilogueStatus(SEL), TheLoop(L), PSE(PSE), LI(LI), Legal(Legal),
-        TTI(TTI), TLI(TLI), DB(DB), AC(AC), ORE(ORE), TheFunction(F),
+        TTI(TTI), TLI(TLI), DB(DB), AC(AC), BFI(BFI), ORE(ORE), TheFunction(F),
         Hints(Hints), InterleaveInfo(IAI) {}
 
   /// \return An upper bound for the vectorization factors (both fixed and
@@ -1879,6 +1879,11 @@ private:
   /// \p VF is the vectorization factor chosen for the original loop.
   bool isEpilogueVectorizationProfitable(const ElementCount VF) const;
 
+  /// A helper function that scales provide instruction cost to the
+  /// probability of it's execution relative to the loop header.
+  InstructionCost getInstCostScaledByFreq(InstructionCost &Cost,
+                                          const BasicBlock *BB) const;
+
 public:
   /// The loop that we evaluate.
   Loop *TheLoop;
@@ -1903,6 +1908,8 @@ public:
 
   /// Assumption cache.
   AssumptionCache *AC;
+
+  BlockFrequencyInfo *BFI;
 
   /// Interface to emit optimization remarks.
   OptimizationRemarkEmitter *ORE;
@@ -4570,9 +4577,8 @@ LoopVectorizationCostModel::getDivRemSpeculationCost(Instruction *I,
     ScalarizationCost += getScalarizationOverhead(I, VF, CostKind);
 
     // Scale the cost by the probability of executing the predicated blocks.
-    // This assumes the predicated block for each vector lane is equally
-    // likely.
-    ScalarizationCost = ScalarizationCost / getReciprocalPredBlockProb();
+    ScalarizationCost =
+        getInstCostScaledByFreq(ScalarizationCost, I->getParent());
   }
   InstructionCost SafeDivisorCost = 0;
 
@@ -5626,6 +5632,26 @@ bool LoopVectorizationCostModel::isEpilogueVectorizationProfitable(
   return false;
 }
 
+InstructionCost LoopVectorizationCostModel::getInstCostScaledByFreq(
+    InstructionCost &Cost, const BasicBlock *BB) const {
+
+  if (!Cost.isValid()) {
+    return Cost;
+  }
+
+  if (!BFI)
+    return Cost / getReciprocalPredBlockProb();
+
+  auto HeaderFreq = BFI->getBlockFreq(TheLoop->getHeader()).getFrequency();
+
+  if (HeaderFreq == 0)
+    return Cost / getReciprocalPredBlockProb();
+
+  // Scale the total scalar cost by relative block probability.
+  return (*Cost.getValue() *
+          ((double)BFI->getBlockFreq(BB).getFrequency() / HeaderFreq));
+}
+
 VectorizationFactor
 LoopVectorizationCostModel::selectEpilogueVectorizationFactor(
     const ElementCount MainLoopVF, const LoopVectorizationPlanner &LVP) {
@@ -6432,7 +6458,7 @@ LoopVectorizationCostModel::expectedCost(
     // cost by the probability of executing it. blockNeedsPredication from
     // Legal is used so as to not include all blocks in tail folded loops.
     if (VF.isScalar() && Legal->blockNeedsPredication(BB))
-      BlockCost.first /= getReciprocalPredBlockProb();
+      BlockCost.first = getInstCostScaledByFreq(BlockCost.first, BB);
 
     Cost.first += BlockCost.first;
     Cost.second |= BlockCost.second;
@@ -6517,7 +6543,7 @@ LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
   // conditional branches, but may not be executed for each vector lane. Scale
   // the cost by the probability of executing the predicated block.
   if (isPredicatedInst(I)) {
-    Cost /= getReciprocalPredBlockProb();
+    Cost = getInstCostScaledByFreq(Cost, I->getParent());
 
     // Add the cost of an i1 extract and a branch
     auto *Vec_i1Ty =
@@ -9906,8 +9932,8 @@ static bool processLoopInVPlanNativePath(
   ScalarEpilogueLowering SEL =
       getScalarEpilogueLowering(F, L, Hints, PSI, BFI, TTI, TLI, *LVL, &IAI);
 
-  LoopVectorizationCostModel CM(SEL, L, PSE, LI, LVL, *TTI, TLI, DB, AC, ORE, F,
-                                &Hints, IAI);
+  LoopVectorizationCostModel CM(SEL, L, PSE, LI, LVL, *TTI, TLI, DB, AC, BFI,
+                                ORE, F, &Hints, IAI);
   // Use the planner for outer loop vectorization.
   // TODO: CM is not used at this point inside the planner. Turn CM into an
   // optional argument if we don't need it in the future.
@@ -10248,8 +10274,8 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   }
 
   // Use the cost model.
-  LoopVectorizationCostModel CM(SEL, L, PSE, LI, &LVL, *TTI, TLI, DB, AC, ORE,
-                                F, &Hints, IAI);
+  LoopVectorizationCostModel CM(SEL, L, PSE, LI, &LVL, *TTI, TLI, DB, AC, BFI,
+                                ORE, F, &Hints, IAI);
   CM.collectValuesToIgnore();
   CM.collectElementTypesForWidening();
 
@@ -10606,9 +10632,7 @@ PreservedAnalyses LoopVectorizePass::run(Function &F,
     auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
     ProfileSummaryInfo *PSI =
         MAMProxy.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
-    BlockFrequencyInfo *BFI = nullptr;
-    if (PSI && PSI->hasProfileSummary())
-      BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
+    BlockFrequencyInfo *BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
     LoopVectorizeResult Result =
         runImpl(F, SE, LI, TTI, DT, BFI, &TLI, DB, AC, LAIs, ORE, PSI);
     if (!Result.MadeAnyChange)
