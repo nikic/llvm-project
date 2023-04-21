@@ -13,15 +13,14 @@ define void @test(ptr %p) personality ptr undef {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LOOP_LATCH:%.*]] ], [ 0, [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[IV_NEXT:%.*]], [[LOOP_LATCH]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP_LATCH:%.*]] ]
 ; CHECK-NEXT:    [[RES:%.*]] = invoke i32 @foo(i32 returned [[IV]])
 ; CHECK-NEXT:    to label [[LOOP_LATCH]] unwind label [[EXIT:%.*]]
 ; CHECK:       loop.latch:
-; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[EXT:%.*]] = zext i32 [[IV]] to i64
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i8, ptr [[P:%.*]], i64 [[EXT]]
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw i32 [[IV]], 1
-; CHECK-NEXT:    [[TMP0:%.*]] = trunc i64 [[INDVARS_IV]] to i32
-; CHECK-NEXT:    [[TMP1:%.*]] = call i32 @foo(i32 [[TMP0]])
+; CHECK-NEXT:    [[TMP0:%.*]] = call i32 @foo(i32 [[IV]])
 ; CHECK-NEXT:    br label [[LOOP]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    [[LP:%.*]] = landingpad { ptr, i32 }
@@ -54,20 +53,19 @@ define void @test_critedge(i1 %c, ptr %p) personality ptr undef {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LOOP_LATCH:%.*]] ], [ 0, [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[IV_NEXT:%.*]], [[LOOP_LATCH]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP_LATCH:%.*]] ]
 ; CHECK-NEXT:    br i1 [[C:%.*]], label [[LOOP_INVOKE:%.*]], label [[LOOP_OTHER:%.*]]
 ; CHECK:       loop.invoke:
-; CHECK-NEXT:    [[TMP0:%.*]] = trunc i64 [[INDVARS_IV]] to i32
 ; CHECK-NEXT:    [[RES:%.*]] = invoke i32 @foo(i32 returned [[IV]])
 ; CHECK-NEXT:    to label [[LOOP_LATCH]] unwind label [[EXIT:%.*]]
 ; CHECK:       loop.other:
 ; CHECK-NEXT:    br label [[LOOP_LATCH]]
 ; CHECK:       loop.latch:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[TMP0]], [[LOOP_INVOKE]] ], [ 0, [[LOOP_OTHER]] ]
-; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[IV]], [[LOOP_INVOKE]] ], [ 0, [[LOOP_OTHER]] ]
+; CHECK-NEXT:    [[EXT:%.*]] = zext i32 [[IV]] to i64
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i8, ptr [[P:%.*]], i64 [[EXT]]
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw i32 [[IV]], 1
-; CHECK-NEXT:    [[TMP1:%.*]] = call i32 @foo(i32 [[PHI]])
+; CHECK-NEXT:    [[TMP0:%.*]] = call i32 @foo(i32 [[PHI]])
 ; CHECK-NEXT:    br label [[LOOP]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    [[LP:%.*]] = landingpad { ptr, i32 }
