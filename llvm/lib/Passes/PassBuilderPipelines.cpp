@@ -1255,12 +1255,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     // the CFG mess this may created if allowed to modify CFG, so forbid that.
     FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
     FPM.addPass(InstCombinePass());
-    FPM.addPass(
-        RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
-    FPM.addPass(createFunctionToLoopPassAdaptor(
-        LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
-                 /*AllowSpeculation=*/true),
-        /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
   }
 
   // Now that we've vectorized and unrolled loops, we may have more refined
