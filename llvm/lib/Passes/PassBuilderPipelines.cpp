@@ -1156,7 +1156,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   if (!IsFullLTO) {
     // Eliminate loads by forwarding stores from the previous iteration to loads
     // of the current iteration.
-    FPM.addPass(LoopLoadEliminationPass());
+    //FPM.addPass(LoopLoadEliminationPass());
   }
   // Cleanup after the loop optimization passes.
   FPM.addPass(InstCombinePass());
