@@ -60,13 +60,11 @@
 ; CHECK-O-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-O-NEXT: Running analysis: TypeBasedAA
 ; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
-; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: GlobalSplitPass
 ; CHECK-O-NEXT: Running pass: WholeProgramDevirtPass
 ; CHECK-O1-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O23SZ-NEXT: Running pass: GlobalOptPass
 ; CHECK-O23SZ-NEXT: Running pass: PromotePass
-; CHECK-O23SZ-NEXT: Running pass: ConstantMergePass
 ; CHECK-O23SZ-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass
 ; CHECK-O23SZ-NEXT: Running pass: AggressiveInstCombinePass
@@ -113,37 +111,55 @@
 ; CHECK-O23SZ-NEXT: Running pass: IndVarSimplifyPass on loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopDeletionPass on loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopFullUnrollPass on loop
-; CHECK-O23SZ-NEXT: Running pass: LoopDistributePass on foo
-; CHECK-O23SZ-NEXT: Running analysis: LoopAccessAnalysis on foo
-; CHECK-O23SZ-NEXT: Running pass: LoopVectorizePass on foo
-; CHECK-O23SZ-NEXT: Running analysis: DemandedBitsAnalysis on foo
-; CHECK-O23SZ-NEXT: Running pass: LoopUnrollPass on foo
-; CHECK-O23SZ-NEXT: WarnMissedTransformationsPass on foo
-; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
-; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
-; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass on foo
-; CHECK-O23SZ-NEXT: Running pass: SCCPPass on foo
-; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
-; CHECK-O23SZ-NEXT: Running pass: BDCEPass on foo
-; CHECK-O2-NEXT: Running pass: SLPVectorizerPass on foo
-; CHECK-O3-NEXT: Running pass: SLPVectorizerPass on foo
-; CHECK-OS-NEXT: Running pass: SLPVectorizerPass on foo
-; CHECK-O23SZ-NEXT: Running pass: VectorCombinePass on foo
-; CHECK-O23SZ-NEXT: Running pass: AlignmentFromAssumptionsPass on foo
-; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
-; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass on foo
+; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O-NEXT: Running pass: LowerTypeTestsPass
-; CHECK-O23SZ-NEXT: Running pass: LoopSink
-; CHECK-O23SZ-NEXT: Running pass: DivRemPairs
-; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O23SZ-NEXT: Running pass: EliminateAvailableExternallyPass
-; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
-; CHECK-O23SZ-NEXT: Running pass: CGProfilePass
+; CHECK-O23SZ-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
+; CHECK-O23SZ-NEXT: Running pass: RecomputeGlobalsAAPass
 ; CHECK-EP-NEXT: Running pass: NoOpModulePass
-; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
-; CHECK-O-NEXT: Running pass: PrintModulePass
+; CHECK-O23SZ-NEXT: Running pass: Float2IntPass
+; CHECK-O23SZ-NEXT: Running pass: LowerConstantIntrinsicsPass
+; CHECK-O3-NEXT: Running pass: ControlHeightReductionPass
+; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
+; CHECK-O23SZ-NEXT: Running pass: LCSSAPass
+; CHECK-O23SZ-NEXT: Running pass: LoopRotatePass
+; CHECK-O23SZ-NEXT: Running pass: LoopDeletionPass
+; CHECK-O23SZ-NEXT: Running pass: LoopDistributePass
+; CHECK-O23SZ-NEXT: Running analysis: LoopAccessAnalysis
+; CHECK-O23SZ-NEXT: Running pass: InjectTLIMappings
+; CHECK-O23SZ-NEXT: Running pass: LoopVectorizePass
+; CHECK-O23SZ-NEXT: Running analysis: DemandedBitsAnalysis
+; CHECK-O23SZ-NEXT: Running pass: LoopLoadEliminationPass
+; CHECK-O23SZ-NEXT: Running pass: InstCombinePass
+; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass
+; CHECK-O2-NEXT: Running pass: SLPVectorizerPass
+; CHECK-O3-NEXT: Running pass: SLPVectorizerPass
+; CHECK-OS-NEXT: Running pass: SLPVectorizerPass
+; CHECK-O23SZ-NEXT: Running pass: VectorCombinePass
+; CHECK-O23SZ-NEXT: Running pass: InstCombinePass
+; CHECK-O23SZ-NEXT: Running pass: LoopUnrollPass
+; CHECK-O23SZ-NEXT: Running pass: WarnMissedTransformationsPass
+; CHECK-O23SZ-NEXT: Running pass: SROAPass
+; CHECK-O23SZ-NEXT: Running pass: InstCombinePass
+; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptimizationRemarkEmitterAnalysis
+; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
+; CHECK-O23SZ-NEXT: Running pass: LCSSAPass
+; CHECK-O23SZ-NEXT: Running pass: LICMPass
+; CHECK-O23SZ-NEXT: Running pass: AlignmentFromAssumptionsPass
+; CHECK-O23SZ-NEXT: Running pass: LoopSinkPass
+; CHECK-O23SZ-NEXT: Running pass: InstSimplifyPass
+; CHECK-O23SZ-NEXT: Running pass: DivRemPairsPass
+; CHECK-O23SZ-NEXT: Running pass: TailCallElimPass
+; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass
+; CHECK-EP-NEXT: Running pass: NoOpModulePass
+; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
+; CHECK-O23SZ-NEXT: Running pass: ConstantMergePass
+; CHECK-O23SZ-NEXT: Running pass: CGProfilePass
+; CHECK-O23SZ-NEXT: Running pass: RelLookupTableConverterPass
+; CHECK-O23SZ-NEXT: Running pass: AnnotationRemarksPass
+; CHECK-O23SZ-NEXT: Running pass: PrintModulePass
 
 ; Make sure we get the IR back out without changes when we print the module.
 ; CHECK-O-LABEL: define void @foo(i32 %n) local_unnamed_addr {

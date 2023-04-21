@@ -1326,7 +1326,10 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // memory operations.
   MPM.addPass(RecomputeGlobalsAAPass());
 
-  invokeOptimizerEarlyEPCallbacks(MPM, Level);
+  if (LTOPhase == ThinOrFullLTOPhase::FullLTOPostLink)
+    invokeFullLinkTimeOptimizationEarlyEPCallbacks(MPM, Level);
+  else
+    invokeOptimizerEarlyEPCallbacks(MPM, Level);
 
   FunctionPassManager OptimizePM;
   OptimizePM.addPass(Float2IntPass());
@@ -1401,7 +1404,10 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(OptimizePM),
                                                 PTO.EagerlyInvalidateAnalyses));
 
-  invokeOptimizerLastEPCallbacks(MPM, Level);
+  if (LTOPhase == ThinOrFullLTOPhase::FullLTOPostLink)
+    invokeFullLinkTimeOptimizationLastEPCallbacks(MPM, Level);
+  else
+    invokeOptimizerLastEPCallbacks(MPM, Level);
 
   // Split out cold code. Splitting is done late to avoid hiding context from
   // other optimizations and inadvertently regressing performance. The tradeoff
@@ -1673,11 +1679,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(
       createModuleToPostOrderCGSCCPassAdaptor(PostOrderFunctionAttrsPass()));
 
-  // Do RPO function attribute inference across the module to forward-propagate
-  // attributes where applicable.
-  // FIXME: Is this really an optimization rather than a canonicalization?
-  MPM.addPass(ReversePostOrderFunctionAttrsPass());
-
   // Use in-range annotations on GEP indices to split globals where beneficial.
   MPM.addPass(GlobalSplitPass());
 
@@ -1695,6 +1696,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     // pipeline).
     MPM.addPass(LowerTypeTestsPass(nullptr, nullptr, true));
 
+    invokeFullLinkTimeOptimizationEarlyEPCallbacks(MPM, Level);
     invokeFullLinkTimeOptimizationLastEPCallbacks(MPM, Level);
 
     // Emit annotation remarks.
@@ -1708,10 +1710,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Promote any localized globals to SSA registers.
   MPM.addPass(createModuleToFunctionPassAdaptor(PromotePass()));
-
-  // Linking modules together can lead to duplicate global constant, only
-  // keep one copy of each constant.
-  MPM.addPass(ConstantMergePass());
 
   // Remove unused arguments from functions.
   MPM.addPass(DeadArgumentEliminationPass());
@@ -1846,16 +1844,13 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MainFPM.addPass(createFunctionToLoopPassAdaptor(
       std::move(LPM), /*UseMemorySSA=*/false, /*UseBlockFrequencyInfo=*/true));
 
-  MainFPM.addPass(LoopDistributePass());
-
-  addVectorPasses(Level, MainFPM, /* IsFullLTO */ true);
+  invokePeepholeEPCallbacks(MainFPM, Level);
+  MainFPM.addPass(JumpThreadingPass());
 
   // Run the OpenMPOpt CGSCC pass again late.
   MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
       OpenMPOptCGSCCPass(ThinOrFullLTOPhase::FullLTOPostLink)));
 
-  invokePeepholeEPCallbacks(MainFPM, Level);
-  MainFPM.addPass(JumpThreadingPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM),
                                                 PTO.EagerlyInvalidateAnalyses));
 
@@ -1868,43 +1863,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // in ICP (which is performed earlier than this in the regular LTO pipeline).
   MPM.addPass(LowerTypeTestsPass(nullptr, nullptr, true));
 
-  // Enable splitting late in the FullLTO post-link pipeline.
-  if (EnableHotColdSplit)
-    MPM.addPass(HotColdSplittingPass());
-
-  // Add late LTO optimization passes.
-  FunctionPassManager LateFPM;
-
-  // LoopSink pass sinks instructions hoisted by LICM, which serves as a
-  // canonicalization pass that enables other optimizations. As a result,
-  // LoopSink pass needs to be a very late IR pass to avoid undoing LICM
-  // result too early.
-  LateFPM.addPass(LoopSinkPass());
-
-  // This hoists/decomposes div/rem ops. It should run after other sink/hoist
-  // passes to avoid re-sinking, but before SimplifyCFG because it can allow
-  // flattening of blocks.
-  LateFPM.addPass(DivRemPairsPass());
-
-  // Delete basic blocks, which optimization passes may have killed.
-  LateFPM.addPass(SimplifyCFGPass(
-      SimplifyCFGOptions().convertSwitchRangeToICmp(true).hoistCommonInsts(
-          true)));
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(LateFPM)));
-
-  // Drop bodies of available eternally objects to improve GlobalDCE.
-  MPM.addPass(EliminateAvailableExternallyPass());
-
-  // Now that we have optimized the program, discard unreachable functions.
-  MPM.addPass(GlobalDCEPass());
-
-  if (PTO.MergeFunctions)
-    MPM.addPass(MergeFunctionsPass());
-
-  if (PTO.CallGraphProfile)
-    MPM.addPass(CGProfilePass());
-
-  invokeFullLinkTimeOptimizationLastEPCallbacks(MPM, Level);
+  MPM.addPass(buildModuleOptimizationPipeline(
+      Level, ThinOrFullLTOPhase::FullLTOPostLink));
 
   // Emit annotation remarks.
   addAnnotationRemarksPass(MPM);
