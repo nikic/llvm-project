@@ -965,7 +965,7 @@ public:
   uint32_t getMinTrailingZeros(const SCEV *S);
 
   /// Returns the max constant multiple of S.
-  APInt getConstantMultiple(const SCEV *S);
+  const APInt &getConstantMultiple(const SCEV *S);
 
   // Returns the max constant multiple of S. If S is exactly 0, return 1.
   APInt getNonZeroConstantMultiple(const SCEV *S);

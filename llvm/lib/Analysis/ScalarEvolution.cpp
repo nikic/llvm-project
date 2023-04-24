@@ -6369,7 +6369,7 @@ APInt ScalarEvolution::getConstantMultipleImpl(const SCEV *S) {
   llvm_unreachable("Unknown SCEV kind!");
 }
 
-APInt ScalarEvolution::getConstantMultiple(const SCEV *S) {
+const APInt &ScalarEvolution::getConstantMultiple(const SCEV *S) {
   auto I = ConstantMultipleCache.find(S);
   if (I != ConstantMultipleCache.end())
     return I->second;
@@ -6381,7 +6381,7 @@ APInt ScalarEvolution::getConstantMultiple(const SCEV *S) {
 }
 
 APInt ScalarEvolution::getNonZeroConstantMultiple(const SCEV *S) {
-  APInt Multiple = getConstantMultiple(S);
+  const APInt &Multiple = getConstantMultiple(S);
   return Multiple == 0 ? APInt(Multiple.getBitWidth(), 1) : Multiple;
 }
 
