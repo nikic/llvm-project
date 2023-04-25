@@ -239,7 +239,7 @@ define void @nswnowrap(i32 %v, ptr %buf) {
 ; CHECK-NEXT:    %add = add nsw i32 %v, 1
 ; CHECK-NEXT:    --> (1 + %v) U: full-set S: full-set
 ; CHECK-NEXT:    %i.04 = phi i32 [ %v, %entry ], [ %inc, %for.body ]
-; CHECK-NEXT:    --> {%v,+,1}<nsw><%for.body> U: full-set S: full-set Exits: ((1 + %v) smax %v) LoopDispositions: { %for.body: Computable }
+; CHECK-NEXT:    --> {%v,+,1}<nsw><%for.body> U: full-set S: full-set Exits: ((1 + %v)<nsw> smax %v) LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %inc = add nsw i32 %i.04, 1
 ; CHECK-NEXT:    --> {(1 + %v)<nsw>,+,1}<nsw><%for.body> U: full-set S: full-set Exits: (1 + ((1 + %v)<nsw> smax %v)) LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %buf.gep = getelementptr inbounds i32, ptr %buf, i32 %inc

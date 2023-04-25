@@ -5731,8 +5731,11 @@ const SCEV *ScalarEvolution::createSimpleAffineAddRec(PHINode *PN,
   if (auto *BEInst = dyn_cast<Instruction>(BEValueV)) {
     assert(isLoopInvariant(Accum, L) &&
            "Accum is defined outside L, but is not invariant?");
-    if (isAddRecNeverPoison(BEInst, L))
-      (void)getAddRecExpr(getAddExpr(StartVal, Accum), Accum, L, Flags);
+    if (isAddRecNeverPoison(BEInst, L)) {
+      const SCEV *PostIncAddRec =
+          getAddExpr(PHISCEV, Accum, clearFlags(Flags, SCEV::FlagNW));
+      insertValueToMap(BEInst, PostIncAddRec);
+    }
   }
 
   return PHISCEV;

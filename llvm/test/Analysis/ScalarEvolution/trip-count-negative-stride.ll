@@ -428,10 +428,10 @@ for.end:                                          ; preds = %for.body, %entry
 define void @slt_129_unknown_start(i8 %start) mustprogress {
 ; CHECK-LABEL: 'slt_129_unknown_start'
 ; CHECK-NEXT:  Determining loop execution counts for: @slt_129_unknown_start
-; CHECK-NEXT:  Loop %for.body: backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw> + (-1 * %start) + (0 smax (-127 + %start)<nsw>)) /u -127) + (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))
+; CHECK-NEXT:  Loop %for.body: backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start))))<nuw><nsw> + (-1 * %start)) /u -127) + (1 umin (127 + (-1 * %start))))
 ; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is 2
-; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw> + (-1 * %start) + (0 smax (-127 + %start)<nsw>)) /u -127) + (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))
-; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw> + (-1 * %start) + (0 smax (-127 + %start)<nsw>)) /u -127) + (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))
+; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start))))<nuw><nsw> + (-1 * %start)) /u -127) + (1 umin (127 + (-1 * %start))))
+; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start))))<nuw><nsw> + (-1 * %start)) /u -127) + (1 umin (127 + (-1 * %start))))
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %for.body: Trip multiple is 1
 ;

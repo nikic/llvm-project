@@ -665,9 +665,9 @@ define void @test-add-not-header6(ptr %input, i32 %offset, i32 %numIterations) {
 ; CHECK-NEXT:    %nexti = add nsw i32 %i, 1
 ; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,-2147483648) S: [1,-2147483648) Exits: %numIterations LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %nexti2 = add nsw i32 %i2, 1
-; CHECK-NEXT:    --> {(1 + %offset),+,1}<nsw><%loop> U: full-set S: full-set Exits: (%offset + %numIterations) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {(1 + %offset)<nsw>,+,1}<nsw><%loop> U: [-2147483647,-2147483648) S: [-2147483647,-2147483648) Exits: (%offset + %numIterations) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %ptr = getelementptr inbounds float, ptr %input, i32 %nexti2
-; CHECK-NEXT:    --> {((4 * (sext i32 (1 + %offset) to i64))<nsw> + %input),+,4}<nw><%loop> U: full-set S: full-set Exits: ((4 * (zext i32 (-1 + %numIterations) to i64))<nuw><nsw> + (4 * (sext i32 (1 + %offset) to i64))<nsw> + %input) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {(4 + (4 * (sext i32 %offset to i64))<nsw> + %input),+,4}<nw><%loop> U: full-set S: full-set Exits: (4 + (4 * (zext i32 (-1 + %numIterations) to i64))<nuw><nsw> + (4 * (sext i32 %offset to i64))<nsw> + %input) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @test-add-not-header6
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + %numIterations)
 ; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
@@ -704,9 +704,9 @@ define void @test-add-not-header7(ptr %input, i32 %offset, i32 %numIterations) {
 ; CHECK-NEXT:    %nexti = add nsw i32 %i, 1
 ; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,-2147483648) S: [1,-2147483648) Exits: %numIterations LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %nexti2 = add nsw i32 %i2, 1
-; CHECK-NEXT:    --> {(1 + %offset),+,1}<nsw><%loop> U: full-set S: full-set Exits: (%offset + %numIterations) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {(1 + %offset)<nsw>,+,1}<nsw><%loop> U: [-2147483647,-2147483648) S: [-2147483647,-2147483648) Exits: (%offset + %numIterations) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %ptr = getelementptr inbounds float, ptr %input, i32 %nexti2
-; CHECK-NEXT:    --> {((4 * (sext i32 (1 + %offset) to i64))<nsw> + %input),+,4}<nw><%loop> U: full-set S: full-set Exits: ((4 * (zext i32 (-1 + %numIterations) to i64))<nuw><nsw> + (4 * (sext i32 (1 + %offset) to i64))<nsw> + %input) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {(4 + (4 * (sext i32 %offset to i64))<nsw> + %input),+,4}<nw><%loop> U: full-set S: full-set Exits: (4 + (4 * (zext i32 (-1 + %numIterations) to i64))<nuw><nsw> + (4 * (sext i32 %offset to i64))<nsw> + %input) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @test-add-not-header7
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + %numIterations)
 ; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
