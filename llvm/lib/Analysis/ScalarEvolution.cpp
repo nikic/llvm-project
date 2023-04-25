@@ -5682,27 +5682,38 @@ const SCEV *ScalarEvolution::createSimpleAffineAddRec(PHINode *PN,
   assert(L && L->getHeader() == PN->getParent());
   assert(BEValueV && StartValueV);
 
-  auto BO = MatchBinaryOp(BEValueV, getDataLayout(), AC, DT, PN);
-  if (!BO)
-    return nullptr;
-
-  if (BO->Opcode != Instruction::Add)
-    return nullptr;
-
   const SCEV *Accum = nullptr;
-  if (BO->LHS == PN && L->isLoopInvariant(BO->RHS))
-    Accum = getSCEV(BO->RHS);
-  else if (BO->RHS == PN && L->isLoopInvariant(BO->LHS))
-    Accum = getSCEV(BO->LHS);
-
-  if (!Accum)
-    return nullptr;
-
   SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
-  if (BO->IsNUW)
-    Flags = setFlags(Flags, SCEV::FlagNUW);
-  if (BO->IsNSW)
-    Flags = setFlags(Flags, SCEV::FlagNSW);
+
+  const DataLayout &DL = getDataLayout();
+  auto BO = MatchBinaryOp(BEValueV, DL, AC, DT, PN);
+  if (BO && BO->Opcode == Instruction::Add) {
+    if (BO->LHS == PN && L->isLoopInvariant(BO->RHS))
+      Accum = getSCEV(BO->RHS);
+    else if (BO->RHS == PN && L->isLoopInvariant(BO->LHS))
+      Accum = getSCEV(BO->LHS);
+    else
+      return nullptr;
+
+    if (BO->IsNUW)
+      Flags = setFlags(Flags, SCEV::FlagNUW);
+    if (BO->IsNSW)
+      Flags = setFlags(Flags, SCEV::FlagNSW);
+  } else if (auto *GEP = dyn_cast<GetElementPtrInst>(BEValueV);
+             GEP && GEP->getPointerOperand() == PN &&
+             GEP->hasAllConstantIndices()) {
+    APInt Offset(DL.getIndexTypeSizeInBits(PN->getType()), 0);
+    if (!GEP->accumulateConstantOffset(DL, Offset))
+      return nullptr;
+    Accum = getConstant(Offset);
+    if (GEP->isInBounds()) {
+      Flags = setFlags(Flags, SCEV::FlagNW);
+      if (Offset.isNonNegative())
+        Flags = setFlags(Flags, SCEV::FlagNUW);
+    }
+  } else {
+    return nullptr;
+  }
 
   const SCEV *StartVal = getSCEV(StartValueV);
   const SCEV *PHISCEV = getAddRecExpr(StartVal, Accum, L, Flags);
