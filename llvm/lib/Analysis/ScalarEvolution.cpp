@@ -4791,6 +4791,18 @@ const SCEV *ScalarEvolution::getPointerBase(const SCEV *V) {
   }
 }
 
+/// Determine whether a SCEV for this instruction will not depend on the SCEVs
+/// for its operands. We do not have to walk past such instructions when
+/// invalidating.
+static bool isDependencyBreaking(const Instruction *I) {
+  switch (I->getOpcode()) {
+  case Instruction::Load:
+    return true;
+  default:
+    return false;
+  }
+}
+
 /// Push users of the given Instruction onto the given Worklist.
 static void PushDefUseChildren(Instruction *I,
                                SmallVectorImpl<Instruction *> &Worklist,
@@ -4798,6 +4810,8 @@ static void PushDefUseChildren(Instruction *I,
   // Push the def-use children onto the Worklist stack.
   for (User *U : I->users()) {
     auto *UserInsn = cast<Instruction>(U);
+    if (isDependencyBreaking(UserInsn))
+      continue;
     if (Visited.insert(UserInsn).second)
       Worklist.push_back(UserInsn);
   }
