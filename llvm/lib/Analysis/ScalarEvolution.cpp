@@ -4490,6 +4490,20 @@ void ScalarEvolution::insertValueToMap(Value *V, const SCEV *S) {
   }
 }
 
+/// Determine whether this instruction is either not SCEVable or will always
+/// produce a SCEVUnknown. We do not have to walk past such instructions when
+/// invalidating.
+static bool isAlwaysUnknown(const Instruction *I) {
+  switch (I->getOpcode()) {
+  case Instruction::Load:
+    return true;
+  case Instruction::Shl:
+    return !isa<ConstantInt>(I->getOperand(1));
+  default:
+    return false;
+  }
+}
+
 /// Return an existing SCEV if it exists, otherwise analyze the expression and
 /// create a new one.
 const SCEV *ScalarEvolution::getSCEV(Value *V) {
@@ -4497,7 +4511,11 @@ const SCEV *ScalarEvolution::getSCEV(Value *V) {
 
   if (const SCEV *S = getExistingSCEV(V))
     return S;
-  return createSCEVIter(V);
+  const SCEV *S = createSCEVIter(V);
+  assert((!isa<Instruction>(V) || !isAlwaysUnknown(cast<Instruction>(V)) ||
+          isa<SCEVUnknown>(S)) &&
+         "isAlwaysUnknown() instruction is not SCEVUnknown");
+  return S;
 }
 
 const SCEV *ScalarEvolution::getExistingSCEV(Value *V) {
@@ -4791,18 +4809,6 @@ const SCEV *ScalarEvolution::getPointerBase(const SCEV *V) {
   }
 }
 
-/// Determine whether a SCEV for this instruction will not depend on the SCEVs
-/// for its operands. We do not have to walk past such instructions when
-/// invalidating.
-static bool isDependencyBreaking(const Instruction *I) {
-  switch (I->getOpcode()) {
-  case Instruction::Load:
-    return true;
-  default:
-    return false;
-  }
-}
-
 /// Push users of the given Instruction onto the given Worklist.
 static void PushDefUseChildren(Instruction *I,
                                SmallVectorImpl<Instruction *> &Worklist,
@@ -4810,7 +4816,7 @@ static void PushDefUseChildren(Instruction *I,
   // Push the def-use children onto the Worklist stack.
   for (User *U : I->users()) {
     auto *UserInsn = cast<Instruction>(U);
-    if (isDependencyBreaking(UserInsn))
+    if (isAlwaysUnknown(UserInsn))
       continue;
     if (Visited.insert(UserInsn).second)
       Worklist.push_back(UserInsn);
@@ -8543,6 +8549,14 @@ void ScalarEvolution::forgetValue(Value *V) {
   Worklist.push_back(I);
   Visited.insert(I);
   visitAndClearUsers(Worklist, Visited, ToForget);
+#ifndef NDEBUG
+  if (Visited.size() > 1000) {
+    dbgs() << "INVALIDATING: " << *I << "\n";
+    for (Instruction *V : Visited) {
+      dbgs() << "VISITED: " << *V << "\n";
+    }
+  }
+#endif
 
   forgetMemoizedResults(ToForget);
 }
