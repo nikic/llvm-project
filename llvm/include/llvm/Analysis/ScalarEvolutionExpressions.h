@@ -752,7 +752,7 @@ protected:
   // a SCEV is referenced by multiple SCEVs. Without memoization, this
   // visit algorithm would have exponential time complexity in the worst
   // case, causing the compiler to hang on certain tests.
-  SmallDenseMap<const SCEV *, const SCEV *, 4> RewriteResults;
+  SmallDenseMap<const SCEV *, const SCEV *> RewriteResults;
 
 public:
   SCEVRewriteVisitor(ScalarEvolution &SE) : SE(SE) {}
@@ -800,7 +800,7 @@ public:
   }
 
   const SCEV *visitAddExpr(const SCEVAddExpr *Expr) {
-    SmallVector<const SCEV *, 2> Operands;
+    SmallVector<const SCEV *> Operands;
     bool Changed = false;
     for (const auto *Op : Expr->operands()) {
       Operands.push_back(((SC *)this)->visit(Op));
@@ -810,7 +810,7 @@ public:
   }
 
   const SCEV *visitMulExpr(const SCEVMulExpr *Expr) {
-    SmallVector<const SCEV *, 2> Operands;
+    SmallVector<const SCEV *> Operands;
     bool Changed = false;
     for (const auto *Op : Expr->operands()) {
       Operands.push_back(((SC *)this)->visit(Op));
@@ -827,7 +827,7 @@ public:
   }
 
   const SCEV *visitAddRecExpr(const SCEVAddRecExpr *Expr) {
-    SmallVector<const SCEV *, 2> Operands;
+    SmallVector<const SCEV *> Operands;
     bool Changed = false;
     for (const auto *Op : Expr->operands()) {
       Operands.push_back(((SC *)this)->visit(Op));
@@ -839,7 +839,7 @@ public:
   }
 
   const SCEV *visitSMaxExpr(const SCEVSMaxExpr *Expr) {
-    SmallVector<const SCEV *, 2> Operands;
+    SmallVector<const SCEV *> Operands;
     bool Changed = false;
     for (const auto *Op : Expr->operands()) {
       Operands.push_back(((SC *)this)->visit(Op));
@@ -849,7 +849,7 @@ public:
   }
 
   const SCEV *visitUMaxExpr(const SCEVUMaxExpr *Expr) {
-    SmallVector<const SCEV *, 2> Operands;
+    SmallVector<const SCEV *> Operands;
     bool Changed = false;
     for (const auto *Op : Expr->operands()) {
       Operands.push_back(((SC *)this)->visit(Op));
@@ -859,7 +859,7 @@ public:
   }
 
   const SCEV *visitSMinExpr(const SCEVSMinExpr *Expr) {
-    SmallVector<const SCEV *, 2> Operands;
+    SmallVector<const SCEV *> Operands;
     bool Changed = false;
     for (const auto *Op : Expr->operands()) {
       Operands.push_back(((SC *)this)->visit(Op));
@@ -869,7 +869,7 @@ public:
   }
 
   const SCEV *visitUMinExpr(const SCEVUMinExpr *Expr) {
-    SmallVector<const SCEV *, 2> Operands;
+    SmallVector<const SCEV *> Operands;
     bool Changed = false;
     for (const auto *Op : Expr->operands()) {
       Operands.push_back(((SC *)this)->visit(Op));
@@ -879,7 +879,7 @@ public:
   }
 
   const SCEV *visitSequentialUMinExpr(const SCEVSequentialUMinExpr *Expr) {
-    SmallVector<const SCEV *, 2> Operands;
+    SmallVector<const SCEV *> Operands;
     bool Changed = false;
     for (const auto *Op : Expr->operands()) {
       Operands.push_back(((SC *)this)->visit(Op));
