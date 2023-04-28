@@ -1206,11 +1206,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
                                   .hoistCommonInsts(true)
                                   .sinkCommonInsts(true)));
 
-  if (IsFullLTO) {
-    FPM.addPass(SCCPPass());
+  if (IsFullLTO)
     FPM.addPass(InstCombinePass());
-    FPM.addPass(BDCEPass());
-  }
 
   // Optimize parallel scalar instruction chains into SIMD instructions.
   if (PTO.SLPVectorization) {
@@ -1814,6 +1811,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MainFPM.addPass(DSEPass());
   MainFPM.addPass(MoveAutoInitPass());
   MainFPM.addPass(MergedLoadStoreMotionPass());
+
+  MainFPM.addPass(SCCPPass());
+  MainFPM.addPass(BDCEPass());
 
   LoopPassManager LPM;
   if (EnableLoopFlatten && Level.getSpeedupLevel() > 1)
