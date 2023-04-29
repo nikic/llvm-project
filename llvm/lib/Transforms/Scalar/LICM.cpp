@@ -890,7 +890,7 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
     if (!LoopNestMode && inSubLoop(BB, CurLoop, LI))
       continue;
 
-    for (Instruction &I : llvm::make_early_inc_range(*BB)) {
+    for (Instruction &I : llvm::make_early_inc_range(BB->instructionsWithoutDebug())) {
       // Try hoisting the instruction out to the preheader.  We can only do
       // this if all of the operands of the instruction are loop invariant and
       // if it is safe to hoist the instruction. We also check block frequency
