@@ -20,10 +20,7 @@ entry:
 define i8 @test2(i32 %a) {
 ; CHECK-LABEL: test2:
 ; CHECK:       // %bb.0: // %entry
-; CHECK-NEXT:    mov w8, #135
-; CHECK-NEXT:    and w8, w0, w8
-; CHECK-NEXT:    cmp w8, #1024
-; CHECK-NEXT:    cset w0, eq
+; CHECK-NEXT:    mov w0, wzr
 ; CHECK-NEXT:    ret
 entry:
   %and = and i32 %a, 135
@@ -37,7 +34,7 @@ entry:
 define i8 @test3(i32 %a) {
 ; CHECK-LABEL: test3:
 ; CHECK:       // %bb.0: // %entry
-; CHECK-NEXT:    mov w8, #1024
+; CHECK-NEXT:    mov w8, #1024 // =0x400
 ; CHECK-NEXT:    movk w8, #33, lsl #16
 ; CHECK-NEXT:    and w8, w0, w8
 ; CHECK-NEXT:    cmp w8, #1024
@@ -68,10 +65,7 @@ entry:
 define i8 @test5(i64 %a) {
 ; CHECK-LABEL: test5:
 ; CHECK:       // %bb.0: // %entry
-; CHECK-NEXT:    and x8, x0, #0x3ffffc000
-; CHECK-NEXT:    and x8, x8, #0xfffffffe00007fff
-; CHECK-NEXT:    cmp x8, #1024
-; CHECK-NEXT:    cset w0, eq
+; CHECK-NEXT:    mov w0, wzr
 ; CHECK-NEXT:    ret
 entry:
   %and = and i64 %a, 8589950976
@@ -84,10 +78,7 @@ entry:
 define i8 @test6(i64 %a) {
 ; CHECK-LABEL: test6:
 ; CHECK:       // %bb.0: // %entry
-; CHECK-NEXT:    mov w8, #135
-; CHECK-NEXT:    and x8, x0, x8
-; CHECK-NEXT:    cmp x8, #1024
-; CHECK-NEXT:    cset w0, eq
+; CHECK-NEXT:    mov w0, wzr
 ; CHECK-NEXT:    ret
 entry:
   %and = and i64 %a, 135
@@ -101,7 +92,7 @@ entry:
 define i8 @test7(i64 %a) {
 ; CHECK-LABEL: test7:
 ; CHECK:       // %bb.0: // %entry
-; CHECK-NEXT:    mov w8, #1024
+; CHECK-NEXT:    mov w8, #1024 // =0x400
 ; CHECK-NEXT:    movk w8, #33, lsl #16
 ; CHECK-NEXT:    and x8, x0, x8
 ; CHECK-NEXT:    cmp x8, #1024
@@ -175,7 +166,7 @@ define i32 @test9(ptr nocapture %x, ptr nocapture readonly %y, i32 %n) {
 ; CHECK-NEXT:    cmp w2, #1
 ; CHECK-NEXT:    b.lt .LBB8_3
 ; CHECK-NEXT:  // %bb.1: // %for.body.preheader
-; CHECK-NEXT:    mov w9, #1024
+; CHECK-NEXT:    mov w9, #1024 // =0x400
 ; CHECK-NEXT:    mov w8, w2
 ; CHECK-NEXT:    movk w9, #32, lsl #16
 ; CHECK-NEXT:  .LBB8_2: // %for.body
@@ -226,7 +217,7 @@ define void @test10(ptr nocapture %x, ptr nocapture readonly %y, ptr nocapture %
 ; CHECK-LABEL: test10:
 ; CHECK:       // %bb.0: // %entry
 ; CHECK-NEXT:    ldr w8, [x1]
-; CHECK-NEXT:    mov w9, #1024
+; CHECK-NEXT:    mov w9, #1024 // =0x400
 ; CHECK-NEXT:    movk w9, #32, lsl #16
 ; CHECK-NEXT:    and w8, w8, w9
 ; CHECK-NEXT:    str w8, [x0]
@@ -253,10 +244,7 @@ entry:
 define i8 @test11(i64 %a) {
 ; CHECK-LABEL: test11:
 ; CHECK:       // %bb.0: // %entry
-; CHECK-NEXT:    mov w8, #-1610612736
-; CHECK-NEXT:    and x8, x0, x8
-; CHECK-NEXT:    cmp x8, #1024
-; CHECK-NEXT:    cset w0, eq
+; CHECK-NEXT:    mov w0, wzr
 ; CHECK-NEXT:    ret
 entry:
   %and = and i64 %a, 2684354560

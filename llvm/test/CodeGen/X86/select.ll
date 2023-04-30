@@ -60,7 +60,7 @@ define i32 @test2() nounwind {
 ; GENERIC-NEXT:    testb $1, %al
 ; GENERIC-NEXT:    movl $-3840, %eax ## imm = 0xF100
 ; GENERIC-NEXT:    cmovnel %ecx, %eax
-; GENERIC-NEXT:    cmpl $32768, %eax ## imm = 0x8000
+; GENERIC-NEXT:    cmpl $32767, %eax ## imm = 0x7FFF
 ; GENERIC-NEXT:    jge LBB1_1
 ; GENERIC-NEXT:  ## %bb.2: ## %bb91
 ; GENERIC-NEXT:    xorl %eax, %eax
@@ -77,7 +77,7 @@ define i32 @test2() nounwind {
 ; ATOM-NEXT:    movl $-3840, %edx ## imm = 0xF100
 ; ATOM-NEXT:    testb $1, %al
 ; ATOM-NEXT:    cmovnel %ecx, %edx
-; ATOM-NEXT:    cmpl $32768, %edx ## imm = 0x8000
+; ATOM-NEXT:    cmpl $32767, %edx ## imm = 0x7FFF
 ; ATOM-NEXT:    jge LBB1_1
 ; ATOM-NEXT:  ## %bb.2: ## %bb91
 ; ATOM-NEXT:    xorl %eax, %eax
@@ -94,7 +94,7 @@ define i32 @test2() nounwind {
 ; ATHLON-NEXT:    testb $1, %al
 ; ATHLON-NEXT:    movl $-3840, %eax ## imm = 0xF100
 ; ATHLON-NEXT:    cmovnel %ecx, %eax
-; ATHLON-NEXT:    cmpl $32768, %eax ## imm = 0x8000
+; ATHLON-NEXT:    cmpl $32767, %eax ## imm = 0x7FFF
 ; ATHLON-NEXT:    jge LBB1_1
 ; ATHLON-NEXT:  ## %bb.2: ## %bb91
 ; ATHLON-NEXT:    xorl %eax, %eax
@@ -112,7 +112,7 @@ define i32 @test2() nounwind {
 ; MCU-NEXT:  # %bb.1: # %entry
 ; MCU-NEXT:    movl $-3840, %ecx # imm = 0xF100
 ; MCU-NEXT:  .LBB1_2: # %entry
-; MCU-NEXT:    cmpl $32768, %ecx # imm = 0x8000
+; MCU-NEXT:    cmpl $32767, %ecx # imm = 0x7FFF
 ; MCU-NEXT:    jge .LBB1_3
 ; MCU-NEXT:  # %bb.4: # %bb91
 ; MCU-NEXT:    xorl %eax, %eax

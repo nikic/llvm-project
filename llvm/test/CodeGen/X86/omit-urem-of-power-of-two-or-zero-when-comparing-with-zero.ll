@@ -64,7 +64,7 @@ define i1 @p3_scalar_shifted2_urem_by_const(i32 %x, i32 %y) {
 ; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
 ; CHECK-NEXT:    shll %cl, %edi
 ; CHECK-NEXT:    imull $-1431655765, %edi, %eax # imm = 0xAAAAAAAB
-; CHECK-NEXT:    cmpl $1431655766, %eax # imm = 0x55555556
+; CHECK-NEXT:    cmpl $1431655765, %eax # imm = 0x55555555
 ; CHECK-NEXT:    setb %al
 ; CHECK-NEXT:    retq
   %t0 = and i32 %x, 2 ; clearly a power-of-two or zero

@@ -124,8 +124,8 @@ if.end:
 define dso_local void @test2_1(i32 %X) nounwind minsize {
 ; CHECK-LABEL: test2_1:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    movzbl %dil, %eax
-; CHECK-NEXT:    cmpl $256, %eax # imm = 0x100
+; CHECK-NEXT:    movb $1, %al
+; CHECK-NEXT:    testb %al, %al
 ; CHECK-NEXT:    je bar # TAILCALL
 ; CHECK-NEXT:  # %bb.1: # %if.end
 ; CHECK-NEXT:    retq

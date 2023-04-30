@@ -792,23 +792,12 @@ define i1 @negative_scalar_i8_bitsinmiddle_slt(i8 %x, i8 %y) nounwind {
 define i1 @scalar_i8_signbit_eq_with_nonzero(i8 %x, i8 %y) nounwind {
 ; X86-LABEL: scalar_i8_signbit_eq_with_nonzero:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx
-; X86-NEXT:    movb $-128, %al
-; X86-NEXT:    shlb %cl, %al
-; X86-NEXT:    andb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    cmpb $1, %al
-; X86-NEXT:    sete %al
+; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: scalar_i8_signbit_eq_with_nonzero:
 ; X64:       # %bb.0:
-; X64-NEXT:    movl %esi, %ecx
-; X64-NEXT:    movb $-128, %al
-; X64-NEXT:    # kill: def $cl killed $cl killed $ecx
-; X64-NEXT:    shlb %cl, %al
-; X64-NEXT:    andb %dil, %al
-; X64-NEXT:    cmpb $1, %al
-; X64-NEXT:    sete %al
+; X64-NEXT:    xorl %eax, %eax
 ; X64-NEXT:    retq
   %t0 = shl i8 128, %y
   %t1 = and i8 %t0, %x

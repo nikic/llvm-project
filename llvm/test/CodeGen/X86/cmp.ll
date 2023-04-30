@@ -280,9 +280,7 @@ define i32 @test13(i32 %mask, i32 %base, i32 %intra) {
 define i32 @test14(i32 %mask, i32 %base, i32 %intra) {
 ; CHECK-LABEL: test14:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movl %esi, %eax # encoding: [0x89,0xf0]
-; CHECK-NEXT:    shrl $7, %edi # encoding: [0xc1,0xef,0x07]
-; CHECK-NEXT:    cmovnsl %edx, %eax # encoding: [0x0f,0x49,0xc2]
+; CHECK-NEXT:    movl %edx, %eax # encoding: [0x89,0xd0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %s = lshr i32 %mask, 7
   %tobool = icmp sgt i32 %s, -1

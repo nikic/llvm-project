@@ -4233,6 +4233,105 @@ SDValue TargetLowering::SimplifySetCC(EVT VT, SDValue N0, SDValue N1,
       !DAG.doesNodeExist(ISD::SUB, DAG.getVTList(OpVT), {N0, N1}))
     return DAG.getSetCC(dl, VT, N1, N0, SwappedCC);
 
+  // Try to constant fold SetCC.
+  if (OpVT.isInteger()) {
+    KnownBits KnownRHS = DAG.computeKnownBits(N1);
+    if (!KnownRHS.isUnknown()) {
+      KnownBits KnownLHS = DAG.computeKnownBits(N0);
+      std::optional<bool> Res;
+      // Check if we can constant fold this with knownbits.
+      switch (Cond) {
+      case ISD::SETEQ:
+        Res = KnownBits::eq(KnownLHS, KnownRHS);
+        break;
+      case ISD::SETNE:
+        Res = KnownBits::ne(KnownLHS, KnownRHS);
+        break;
+      case ISD::SETLT:
+        Res = KnownBits::slt(KnownLHS, KnownRHS);
+        break;
+      case ISD::SETULT:
+        Res = KnownBits::ult(KnownLHS, KnownRHS);
+        break;
+      case ISD::SETGT:
+        Res = KnownBits::sgt(KnownLHS, KnownRHS);
+        break;
+      case ISD::SETUGT:
+        Res = KnownBits::ugt(KnownLHS, KnownRHS);
+        break;
+      case ISD::SETLE:
+        Res = KnownBits::sle(KnownLHS, KnownRHS);
+        break;
+      case ISD::SETULE:
+        Res = KnownBits::ule(KnownLHS, KnownRHS);
+        break;
+      case ISD::SETGE:
+        Res = KnownBits::sge(KnownLHS, KnownRHS);
+        break;
+      case ISD::SETUGE:
+        Res = KnownBits::uge(KnownLHS, KnownRHS);
+        break;
+      default:
+        break;
+      }
+
+      if (Res)
+        return DAG.getBoolConstant(*Res, dl, VT, OpVT);
+
+      // We aren't able to constant fold with known bits but can either 1) make
+      // conditions stronger (i.e ule -> ult) or 2) simplify with
+      // isKnownNeverZero if RHS is zero.
+      switch (Cond) {
+      case ISD::SETLE:
+      case ISD::SETULE:
+      case ISD::SETGE:
+      case ISD::SETUGE:
+        Res = KnownBits::eq(KnownLHS, KnownRHS);
+        [[fallthrough]];
+      case ISD::SETEQ:
+      case ISD::SETNE:
+        // isKnownNeverZero is able to prove cases computeKnownBits can't.
+        if (!Res && KnownRHS.isZero() && DAG.isKnownNeverZero(N0))
+          Res = false;
+        break;
+      default:
+        break;
+      }
+
+      if (Res) {
+        assert(*Res == false &&
+               "There is a bug in KnownBits::{sge,uge,sle,ule}");
+        ISD::CondCode NewCond = Cond;
+        // NB: We could remove this switch and just do `Cond ^ ISD::SETEQ` for
+        // the new opcode.
+        switch (Cond) {
+          // Remove the or eq portion of the condition.
+        case ISD::SETULE:
+          NewCond = ISD::SETULT;
+          break;
+        case ISD::SETLE:
+          NewCond = ISD::SETLT;
+          break;
+        case ISD::SETUGE:
+          NewCond = ISD::SETUGT;
+          break;
+        case ISD::SETGE:
+          NewCond = ISD::SETGT;
+          break;
+          // Evaluate to true/false.
+        case ISD::SETNE:
+          return DAG.getBoolConstant(true, dl, VT, OpVT);
+        case ISD::SETEQ:
+          return DAG.getBoolConstant(false, dl, VT, OpVT);
+        default:
+          break;
+        }
+        if (Cond != NewCond)
+          return DAG.getSetCC(dl, VT, N0, N1, NewCond);
+      }
+    }
+  }
+
   if (SDValue V = foldSetCCWithRotate(VT, N0, N1, Cond, dl, DAG))
     return V;
 

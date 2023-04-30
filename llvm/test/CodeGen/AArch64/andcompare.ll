@@ -2451,7 +2451,7 @@ define i32 @cmp_to_ands3(i32 %num, i32 %a) {
 ;
 ; GISEL-LABEL: cmp_to_ands3:
 ; GISEL:       // %bb.0:
-; GISEL-NEXT:    mov w8, #23
+; GISEL-NEXT:    mov w8, #23 // =0x17
 ; GISEL-NEXT:    and w8, w0, w8
 ; GISEL-NEXT:    cmp w8, #7
 ; GISEL-NEXT:    csel w0, w1, wzr, hi
@@ -2466,8 +2466,8 @@ define i32 @cmp_to_ands4(i32 %num, i32 %a) {
 ; SDISEL-LABEL: cmp_to_ands4:
 ; SDISEL:       // %bb.0:
 ; SDISEL-NEXT:    and w8, w0, #0x30
-; SDISEL-NEXT:    tst w0, #0x20
-; SDISEL-NEXT:    csel w0, w8, w1, eq
+; SDISEL-NEXT:    cmp w8, #31
+; SDISEL-NEXT:    csel w0, w8, w1, lo
 ; SDISEL-NEXT:    ret
 ;
 ; GISEL-LABEL: cmp_to_ands4:

@@ -10,20 +10,13 @@ define i8 @or_i8_ri(i8 zeroext %0, i8 zeroext %1) {
 ; X86-LABEL: or_i8_ri:
 ; X86:       # %bb.0:
 ; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
-; X86-NEXT:    movl %eax, %ecx
-; X86-NEXT:    orb $-17, %cl
-; X86-NEXT:    je .LBB0_2
-; X86-NEXT:  # %bb.1:
-; X86-NEXT:    movl %ecx, %eax
-; X86-NEXT:  .LBB0_2:
+; X86-NEXT:    orb $-17, %al
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: or_i8_ri:
 ; X64:       # %bb.0:
 ; X64-NEXT:    movl %edi, %eax
 ; X64-NEXT:    orb $-17, %al
-; X64-NEXT:    movzbl %al, %eax
-; X64-NEXT:    cmovel %edi, %eax
 ; X64-NEXT:    # kill: def $al killed $al killed $eax
 ; X64-NEXT:    retq
   %3 = or i8 %0, -17
@@ -60,14 +53,8 @@ define i8 @or_i8_rr(i8 zeroext %0, i8 zeroext %1) {
 define i16 @or_i16_ri(i16 zeroext %0, i16 zeroext %1) {
 ; X86-LABEL: or_i16_ri:
 ; X86:       # %bb.0:
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-NEXT:    movl %eax, %ecx
-; X86-NEXT:    orl $65519, %ecx # imm = 0xFFEF
-; X86-NEXT:    testw %cx, %cx
-; X86-NEXT:    je .LBB2_2
-; X86-NEXT:  # %bb.1:
-; X86-NEXT:    movl %ecx, %eax
-; X86-NEXT:  .LBB2_2:
+; X86-NEXT:    movl $65519, %eax # imm = 0xFFEF
+; X86-NEXT:    orl {{[0-9]+}}(%esp), %eax
 ; X86-NEXT:    # kill: def $ax killed $ax killed $eax
 ; X86-NEXT:    retl
 ;
@@ -75,7 +62,6 @@ define i16 @or_i16_ri(i16 zeroext %0, i16 zeroext %1) {
 ; X64:       # %bb.0:
 ; X64-NEXT:    movl %edi, %eax
 ; X64-NEXT:    orl $65519, %eax # imm = 0xFFEF
-; X64-NEXT:    cmovel %edi, %eax
 ; X64-NEXT:    # kill: def $ax killed $ax killed $eax
 ; X64-NEXT:    retq
   %3 = or i16 %0, -17
@@ -114,19 +100,11 @@ define i32 @or_i32_ri(i32 %0, i32 %1) {
 ; X86-LABEL: or_i32_ri:
 ; X86:       # %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-NEXT:    movl %eax, %ecx
-; X86-NEXT:    orl $-17, %ecx
-; X86-NEXT:    jle .LBB4_2
-; X86-NEXT:  # %bb.1:
-; X86-NEXT:    movl %ecx, %eax
-; X86-NEXT:  .LBB4_2:
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: or_i32_ri:
 ; X64:       # %bb.0:
 ; X64-NEXT:    movl %edi, %eax
-; X64-NEXT:    orl $-17, %eax
-; X64-NEXT:    cmovlel %edi, %eax
 ; X64-NEXT:    retq
   %3 = or i32 %0, -17
   %4 = icmp slt i32 %3, 1
@@ -161,29 +139,13 @@ define i32 @or_i32_rr(i32 %0, i32 %1) {
 define i64 @or_i64_ri(i64 %0, i64 %1) nounwind {
 ; X86-LABEL: or_i64_ri:
 ; X86:       # %bb.0:
-; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-NEXT:    movl %eax, %ecx
-; X86-NEXT:    orl $-17, %ecx
-; X86-NEXT:    cmpl $1, %ecx
-; X86-NEXT:    movl $-1, %edx
-; X86-NEXT:    movl $-1, %esi
-; X86-NEXT:    sbbl $0, %esi
-; X86-NEXT:    jl .LBB6_1
-; X86-NEXT:  # %bb.2:
-; X86-NEXT:    movl %ecx, %eax
-; X86-NEXT:    popl %esi
-; X86-NEXT:    retl
-; X86-NEXT:  .LBB6_1:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %edx
-; X86-NEXT:    popl %esi
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: or_i64_ri:
 ; X64:       # %bb.0:
 ; X64-NEXT:    movq %rdi, %rax
-; X64-NEXT:    orq $-17, %rax
-; X64-NEXT:    cmovleq %rdi, %rax
 ; X64-NEXT:    retq
   %3 = or i64 %0, -17
   %4 = icmp slt i64 %3, 1
