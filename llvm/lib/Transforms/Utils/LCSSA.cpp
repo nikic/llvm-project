@@ -66,31 +66,34 @@ static cl::opt<bool, true>
                         cl::Hidden,
                         cl::desc("Verify loop lcssa form (time consuming)"));
 
+using ExitBlockCache = SmallDenseMap<Loop *, SmallVector<BasicBlock *, 1>>;
+
+static ArrayRef<BasicBlock *> getExitBlocks(Loop *L, ExitBlockCache &Cache) {
+  auto It = Cache.find(L);
+  if (It != Cache.end())
+    return It->second;
+  L->getExitBlocks(Cache[L]);
+  return Cache[L];
+}
+
 /// Return true if the specified block is in the list.
-static bool isExitBlock(BasicBlock *BB,
-                        const SmallVectorImpl<BasicBlock *> &ExitBlocks) {
+static bool isExitBlock(BasicBlock *BB, ArrayRef<BasicBlock *> ExitBlocks) {
   return is_contained(ExitBlocks, BB);
 }
 
 /// For every instruction from the worklist, check to see if it has any uses
 /// that are outside the current loop.  If so, insert LCSSA PHI nodes and
 /// rewrite the uses.
-bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
-                                    const DominatorTree &DT, const LoopInfo &LI,
-                                    IRBuilderBase &Builder,
-                                    SmallVectorImpl<PHINode *> *PHIsToRemove) {
+static bool formLCSSAForInstructions(
+    SmallVectorImpl<Instruction *> &Worklist, const DominatorTree &DT,
+    const LoopInfo &LI, IRBuilderBase &Builder, ExitBlockCache &LoopExitBlocks,
+    SmallVectorImpl<PHINode *> *PHIsToRemove) {
   SmallVector<Use *, 16> UsesToRewrite;
   SmallSetVector<PHINode *, 16> LocalPHIsToRemove;
   PredIteratorCache PredCache;
   bool Changed = false;
 
   IRBuilderBase::InsertPointGuard InsertPtGuard(Builder);
-
-  // Cache the Loop ExitBlocks across this loop.  We expect to get a lot of
-  // instructions within the same loops, computing the exit blocks is
-  // expensive, and we're not mutating the loop structure.
-  SmallDenseMap<Loop*, SmallVector<BasicBlock *,1>> LoopExitBlocks;
-
   while (!Worklist.empty()) {
     UsesToRewrite.clear();
 
@@ -99,11 +102,7 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
     BasicBlock *InstBB = I->getParent();
     Loop *L = LI.getLoopFor(InstBB);
     assert(L && "Instruction belongs to a BB that's not part of a loop");
-    if (!LoopExitBlocks.count(L))
-      L->getExitBlocks(LoopExitBlocks[L]);
-    assert(LoopExitBlocks.count(L));
-    const SmallVectorImpl<BasicBlock *> &ExitBlocks = LoopExitBlocks[L];
-
+    const ArrayRef<BasicBlock *> ExitBlocks = getExitBlocks(L, LoopExitBlocks);
     if (ExitBlocks.empty())
       continue;
 
@@ -290,9 +289,18 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
   return Changed;
 }
 
+bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
+                                    const DominatorTree &DT, const LoopInfo &LI,
+                                    IRBuilderBase &Builder,
+                                    SmallVectorImpl<PHINode *> *PHIsToRemove) {
+  ExitBlockCache LoopExitBlocks;
+  return ::formLCSSAForInstructions(Worklist, DT, LI, Builder, LoopExitBlocks,
+                                    PHIsToRemove);
+}
+
 // Compute the set of BasicBlocks in the loop `L` dominating at least one exit.
 static void computeBlocksDominatingExits(
-    Loop &L, const DominatorTree &DT, SmallVector<BasicBlock *, 8> &ExitBlocks,
+    Loop &L, const DominatorTree &DT, ArrayRef<BasicBlock *> ExitBlocks,
     SmallSetVector<BasicBlock *, 8> &BlocksDominatingExits) {
   // We start from the exit blocks, as every block trivially dominates itself
   // (not strictly).
@@ -333,7 +341,8 @@ static void computeBlocksDominatingExits(
   }
 }
 
-bool llvm::formLCSSA(Loop &L, const DominatorTree &DT, const LoopInfo *LI) {
+static bool formLCSSA(Loop &L, const DominatorTree &DT, const LoopInfo *LI,
+                      ExitBlockCache &LoopExitBlocks) {
   bool Changed = false;
 
 #ifdef EXPENSIVE_CHECKS
@@ -344,8 +353,7 @@ bool llvm::formLCSSA(Loop &L, const DominatorTree &DT, const LoopInfo *LI) {
   }
 #endif
 
-  SmallVector<BasicBlock *, 8> ExitBlocks;
-  L.getExitBlocks(ExitBlocks);
+  ArrayRef<BasicBlock *> ExitBlocks = getExitBlocks(&L, LoopExitBlocks);
   if (ExitBlocks.empty())
     return false;
 
@@ -394,24 +402,37 @@ bool llvm::formLCSSA(Loop &L, const DominatorTree &DT, const LoopInfo *LI) {
   return Changed;
 }
 
+bool llvm::formLCSSA(Loop &L, const DominatorTree &DT, const LoopInfo *LI) {
+  ExitBlockCache LoopExitBlocks;
+  return ::formLCSSA(L, DT, LI, LoopExitBlocks);
+}
+
 /// Process a loop nest depth first.
-bool llvm::formLCSSARecursively(Loop &L, const DominatorTree &DT,
-                                const LoopInfo *LI) {
+static bool formLCSSARecursively(Loop &L, const DominatorTree &DT,
+                                 const LoopInfo *LI,
+                                 ExitBlockCache &LoopExitBlocks) {
   bool Changed = false;
 
   // Recurse depth-first through inner loops.
   for (Loop *SubLoop : L.getSubLoops())
-    Changed |= formLCSSARecursively(*SubLoop, DT, LI);
+    Changed |= ::formLCSSARecursively(*SubLoop, DT, LI, LoopExitBlocks);
 
-  Changed |= formLCSSA(L, DT, LI);
+  Changed |= ::formLCSSA(L, DT, LI, LoopExitBlocks);
   return Changed;
+}
+
+bool llvm::formLCSSARecursively(Loop &L, const DominatorTree &DT,
+                                const LoopInfo *LI) {
+  ExitBlockCache LoopExitBlocks;
+  return ::formLCSSARecursively(L, DT, LI, LoopExitBlocks);
 }
 
 /// Process all loops in the function, inner-most out.
 static bool formLCSSAOnAllLoops(const LoopInfo *LI, const DominatorTree &DT) {
   bool Changed = false;
+  ExitBlockCache LoopExitBlocks;
   for (const auto &L : *LI)
-    Changed |= formLCSSARecursively(*L, DT, LI);
+    Changed |= ::formLCSSARecursively(*L, DT, LI, LoopExitBlocks);
   return Changed;
 }
 
