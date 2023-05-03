@@ -25,7 +25,7 @@ class AssumptionCache;
 class StringRef;
 class AnalysisUsage;
 class TargetTransformInfo;
-class AAResults;
+class BatchAAResults;
 class BasicBlock;
 class ICFLoopSafetyInfo;
 class IRBuilderBase;
@@ -343,7 +343,7 @@ void getLoopAnalysisUsage(AnalysisUsage &AU);
 /// to assess the legality of duplicating atomic loads.  Generally, this is
 /// true when moving out of loop and not true when moving into loops.
 /// If \p ORE is set use it to emit optimization remarks.
-bool canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
+bool canSinkOrHoistInst(Instruction &I, BatchAAResults &AA, DominatorTree *DT,
                         Loop *CurLoop, MemorySSAUpdater &MSSAU,
                         bool TargetExecutesOncePerLoop,
                         SinkAndHoistLICMFlags &LICMFlags,

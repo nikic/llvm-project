@@ -168,6 +168,7 @@ static bool isSafeToExecuteUnconditionally(
 static bool pointerInvalidatedByLoop(MemorySSA *MSSA, MemoryUse *MU,
                                      Loop *CurLoop, Instruction &I,
                                      SinkAndHoistLICMFlags &Flags,
+                                     BatchAAResults &BAA,
                                      bool InvariantGroup);
 static bool pointerInvalidatedByBlock(BasicBlock &BB, MemorySSA &MSSA,
                                       MemoryUse &MU);
@@ -195,6 +196,25 @@ static SmallVector<PointersAndHasReadsOutsideSet, 0>
 collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L);
 
 namespace {
+#if 0
+struct BatchAACache {
+  AAResults &AA;
+  std::optional<BatchAAResults> Cache;
+
+  BatchAACache(AAResults &AA) : AA(AA) {}
+
+  BatchAAResults &get() {
+    if (!Cache)
+      Cache.emplace(AA);
+    return *Cache;
+  }
+
+  void invalidate() {
+    Cache.reset();
+  }
+};
+#endif
+
 struct LoopInvariantCodeMotion {
   bool runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI, DominatorTree *DT,
                  AssumptionCache *AC, TargetLibraryInfo *TLI,
@@ -555,6 +575,7 @@ bool llvm::sinkRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
   SmallVector<DomTreeNode *, 16> Worklist = collectChildrenInLoop(N, CurLoop);
 
   bool Changed = false;
+  BatchAAResults BAA(*AA);
   for (DomTreeNode *DTN : reverse(Worklist)) {
     BasicBlock *BB = DTN->getBlock();
     // Only need to process the contents of this block if it is not part of a
@@ -588,7 +609,7 @@ bool llvm::sinkRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
           isNotUsedOrFoldableInLoop(I, LoopNestMode ? OutermostLoop : CurLoop,
                                     SafetyInfo, TTI, FoldableInLoop,
                                     LoopNestMode) &&
-          canSinkOrHoistInst(I, AA, DT, CurLoop, MSSAU, true, Flags, ORE)) {
+          canSinkOrHoistInst(I, BAA, DT, CurLoop, MSSAU, true, Flags, ORE)) {
         if (sink(I, LI, DT, CurLoop, SafetyInfo, MSSAU, ORE)) {
           if (!FoldableInLoop) {
             ++II;
@@ -884,6 +905,7 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
   Worklist.perform(LI);
   bool Changed = false;
   BasicBlock *Preheader = CurLoop->getLoopPreheader();
+  BatchAAResults BAA(*AA);
   for (BasicBlock *BB : Worklist) {
     // Only need to process the contents of this block if it is not part of a
     // subloop (which would already have been processed).
@@ -899,7 +921,7 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
       // and we have accurately duplicated the control flow from the loop header
       // to that block.
       if (CurLoop->hasLoopInvariantOperands(&I) &&
-          canSinkOrHoistInst(I, AA, DT, CurLoop, MSSAU, true, Flags, ORE) &&
+          canSinkOrHoistInst(I, BAA, DT, CurLoop, MSSAU, true, Flags, ORE) &&
           isSafeToExecuteUnconditionally(
               I, DT, TLI, CurLoop, SafetyInfo, ORE,
               Preheader->getTerminator(), AC, AllowSpeculation)) {
@@ -1155,8 +1177,9 @@ static MemoryAccess *getClobberingMemoryAccess(MemorySSA &MSSA,
   return Source;
 }
 
-bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
-                              Loop *CurLoop, MemorySSAUpdater &MSSAU,
+bool llvm::canSinkOrHoistInst(Instruction &I, BatchAAResults &AA,
+                              DominatorTree *DT, Loop *CurLoop,
+                              MemorySSAUpdater &MSSAU,
                               bool TargetExecutesOncePerLoop,
                               SinkAndHoistLICMFlags &Flags,
                               OptimizationRemarkEmitter *ORE) {
@@ -1172,7 +1195,7 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
 
     // Loads from constant memory are always safe to move, even if they end up
     // in the same alias set as something that ends up being modified.
-    if (!isModSet(AA->getModRefInfoMask(LI->getOperand(0))))
+    if (!isModSet(AA.getModRefInfoMask(MemoryLocation::get(LI))))
       return true;
     if (LI->hasMetadata(LLVMContext::MD_invariant_load))
       return true;
@@ -1189,7 +1212,7 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
     bool InvariantGroup = LI->hasMetadata(LLVMContext::MD_invariant_group);
 
     bool Invalidated = pointerInvalidatedByLoop(
-        MSSA, MU, CurLoop, I, Flags, InvariantGroup);
+        MSSA, MU, CurLoop, I, Flags, AA, InvariantGroup);
     // Check loop-invariant address because this may also be a sinkable load
     // whose address is not necessarily loop-invariant.
     if (ORE && Invalidated && CurLoop->isLoopInvariant(LI->getPointerOperand()))
@@ -1223,7 +1246,7 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
       return true;
 
     // Handle simple cases by querying alias analysis.
-    MemoryEffects Behavior = AA->getMemoryEffects(CI);
+    MemoryEffects Behavior = AA.getMemoryEffects(CI);
     if (Behavior.doesNotAccessMemory())
       return true;
     if (Behavior.onlyReadsMemory()) {
@@ -1236,7 +1259,7 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
           if (Op->getType()->isPointerTy() &&
               pointerInvalidatedByLoop(
                   MSSA, cast<MemoryUse>(MSSA->getMemoryAccess(CI)), CurLoop, I,
-                  Flags, /*InvariantGroup=*/false))
+                  Flags, AA, /*InvariantGroup=*/false))
             return false;
         return true;
       }
@@ -1272,8 +1295,7 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
       return false;
 
     auto *SIMD = MSSA->getMemoryAccess(SI);
-    BatchAAResults BAA(*AA);
-    auto *Source = getClobberingMemoryAccess(*MSSA, BAA, Flags, SIMD);
+    auto *Source = getClobberingMemoryAccess(*MSSA, AA, Flags, SIMD);
     // Make sure there are no clobbers inside the loop.
     if (!MSSA->isLiveOnEntryDef(Source) &&
            CurLoop->contains(Source->getBlock()))
@@ -1288,7 +1310,7 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
       if (auto *Accesses = MSSA->getBlockAccesses(BB)) {
         for (const auto &MA : *Accesses)
           if (const auto *MU = dyn_cast<MemoryUse>(&MA)) {
-            auto *MD = getClobberingMemoryAccess(*MSSA, BAA, Flags,
+            auto *MD = getClobberingMemoryAccess(*MSSA, AA, Flags,
                 const_cast<MemoryUse *>(MU));
             if (!MSSA->isLiveOnEntryDef(MD) &&
                 CurLoop->contains(MD->getBlock()))
@@ -1310,7 +1332,7 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
               // Check if the call may read from the memory location written
               // to by SI. Check CI's attributes and arguments; the number of
               // such checks performed is limited above by NoOfMemAccTooLarge.
-              ModRefInfo MRI = BAA.getModRefInfo(CI, MemoryLocation::get(SI));
+              ModRefInfo MRI = AA.getModRefInfo(CI, MemoryLocation::get(SI));
               if (isModOrRefSet(MRI))
                 return false;
             }
@@ -2342,6 +2364,7 @@ collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L) {
 static bool pointerInvalidatedByLoop(MemorySSA *MSSA, MemoryUse *MU,
                                      Loop *CurLoop, Instruction &I,
                                      SinkAndHoistLICMFlags &Flags,
+                                     BatchAAResults &BAA,
                                      bool InvariantGroup) {
   // For hoisting, use the walker to determine safety
   if (!Flags.getIsSink()) {
@@ -2354,7 +2377,6 @@ static bool pointerInvalidatedByLoop(MemorySSA *MSSA, MemoryUse *MU,
     // 2) the earliest access is at the loop header,
     // if the memory loaded is the phi node
 
-    BatchAAResults BAA(MSSA->getAA());
     MemoryAccess *Source = getClobberingMemoryAccess(*MSSA, BAA, Flags, MU);
     return !MSSA->isLiveOnEntryDef(Source) &&
            CurLoop->contains(Source->getBlock()) &&
