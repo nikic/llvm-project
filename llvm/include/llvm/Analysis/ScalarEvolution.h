@@ -2037,7 +2037,8 @@ private:
                       SCEV::NoWrapFlags &Flags);
 
   /// Forget predicated/non-predicated backedge taken counts for the given loop.
-  void forgetBackedgeTakenCounts(const Loop *L, bool Predicated);
+  /// Returns whether something was forgotten.
+  bool forgetBackedgeTakenCounts(const Loop *L, bool Predicated);
 
   /// Drop memoized information for all \p SCEVs.
   void forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs);

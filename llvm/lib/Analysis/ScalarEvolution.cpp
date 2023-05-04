@@ -8434,30 +8434,42 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
   // Iterate over all the loops and sub-loops to drop SCEV information.
   while (!LoopWorklist.empty()) {
     auto *CurrL = LoopWorklist.pop_back_val();
+    bool VisitUsers = false;
 
     // Drop any stored trip count value.
-    forgetBackedgeTakenCounts(CurrL, /* Predicated */ false);
-    forgetBackedgeTakenCounts(CurrL, /* Predicated */ true);
+    VisitUsers |= forgetBackedgeTakenCounts(CurrL, /* Predicated */ false);
+    VisitUsers |= forgetBackedgeTakenCounts(CurrL, /* Predicated */ true);
 
     // Drop information about predicated SCEV rewrites for this loop.
     for (auto I = PredicatedSCEVRewrites.begin();
          I != PredicatedSCEVRewrites.end();) {
       std::pair<const SCEV *, const Loop *> Entry = I->first;
-      if (Entry.second == CurrL)
+      if (Entry.second == CurrL) {
         PredicatedSCEVRewrites.erase(I++);
-      else
+        VisitUsers = true;
+      } else
         ++I;
     }
 
     auto LoopUsersItr = LoopUsers.find(CurrL);
     if (LoopUsersItr != LoopUsers.end()) {
       ToForget.insert(ToForget.end(), LoopUsersItr->second.begin(),
-                LoopUsersItr->second.end());
+                      LoopUsersItr->second.end());
+      VisitUsers = true;
     }
 
+    if (!VisitUsers)
+      VisitUsers = any_of(CurrL->getHeader()->phis(), [&](PHINode &PN) {
+        return ValueExprMap.find_as(static_cast<Value *>(&PN)) !=
+                   ValueExprMap.end() ||
+               ConstantEvolutionLoopExitValue.contains(&PN);
+      });
+
     // Drop information about expressions based on loop-header PHIs.
-    PushLoopPHIs(CurrL, Worklist, Visited);
-    visitAndClearUsers(Worklist, Visited, ToForget);
+    if (VisitUsers) {
+      PushLoopPHIs(CurrL, Worklist, Visited);
+      visitAndClearUsers(Worklist, Visited, ToForget);
+    }
 
     LoopPropertiesCache.erase(CurrL);
     // Forget all contained loops too, to avoid dangling entries in the
@@ -13838,7 +13850,7 @@ bool ScalarEvolution::hasOperand(const SCEV *S, const SCEV *Op) const {
   return SCEVExprContains(S, [&](const SCEV *Expr) { return Expr == Op; });
 }
 
-void ScalarEvolution::forgetBackedgeTakenCounts(const Loop *L,
+bool ScalarEvolution::forgetBackedgeTakenCounts(const Loop *L,
                                                 bool Predicated) {
   auto &BECounts =
       Predicated ? PredicatedBackedgeTakenCounts : BackedgeTakenCounts;
@@ -13854,7 +13866,9 @@ void ScalarEvolution::forgetBackedgeTakenCounts(const Loop *L,
       }
     }
     BECounts.erase(It);
+    return true;
   }
+  return false;
 }
 
 void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs) {
