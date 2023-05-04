@@ -45,7 +45,7 @@ for.body:
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
   %index.011 = phi i8 [ %add, %for.body ], [ %x, %for.body.preheader ]
   %idxprom = zext i8 %index.011 to i64
-  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %idxprom
+  %arrayidx = getelementptr i32, ptr %a, i64 %idxprom
   %0 = load i32, ptr %arrayidx, align 4
   %mul = shl i32 %0, 1
   %arrayidx2 = getelementptr inbounds i32, ptr %b, i64 %indvars.iv

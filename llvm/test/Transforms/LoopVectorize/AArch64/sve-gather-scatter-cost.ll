@@ -103,7 +103,7 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ]
   %indvars.iv.stride2 = mul i64 %indvars.iv, 2
-  %arrayidx = getelementptr inbounds float, ptr %b, i64 %indvars.iv.stride2
+  %arrayidx = getelementptr float, ptr %b, i64 %indvars.iv.stride2
   %0 = load float, ptr %arrayidx, align 4
   %arrayidx2 = getelementptr inbounds float, ptr %a, i64 %indvars.iv
   store float %0, ptr %arrayidx2, align 4

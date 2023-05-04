@@ -1434,12 +1434,10 @@ std::optional<int64_t> llvm::getPtrStride(PredicatedScalarEvolution &PSE,
   if (isNoWrapAddRec(Ptr, AR, PSE, Lp))
     return Stride;
 
-  // An inbounds getelementptr that is a AddRec with a unit stride
-  // cannot wrap per definition.  If it did, the result would be poison
-  // and any memory access dependent on it would be immediate UB
-  // when executed.
+  // Getelementptr inbounds implies that the addition of the offset to the base
+  // pointer is "nusw" in the SCEV sense, which is exactly what we require here.
   if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptr);
-      GEP && GEP->isInBounds() && (Stride == 1 || Stride == -1))
+      GEP && GEP->isInBounds())
     return Stride;
 
   // If the null pointer is undefined, then a access sequence which would

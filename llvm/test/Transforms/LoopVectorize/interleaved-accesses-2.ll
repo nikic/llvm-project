@@ -46,7 +46,7 @@ for.cond.cleanup:
 for.body:
   %out_offset.08 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
   %mul = shl i64 %out_offset.08, 1
-  %arrayidx = getelementptr inbounds float, ptr %in, i64 %mul
+  %arrayidx = getelementptr float, ptr %in, i64 %mul
   %0 = load i32, ptr %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float, ptr %out, i64 %out_offset.08
   store i32 %0, ptr %arrayidx1, align 4
