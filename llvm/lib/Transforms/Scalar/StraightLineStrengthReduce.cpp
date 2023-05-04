@@ -284,9 +284,7 @@ bool StraightLineStrengthReduce::isBasisFor(const Candidate &Basis,
 
 static bool isGEPFoldable(GetElementPtrInst *GEP,
                           const TargetTransformInfo *TTI) {
-  SmallVector<const Value *, 4> Indices(GEP->indices());
-  return TTI->getGEPCost(GEP->getSourceElementType(), GEP->getPointerOperand(),
-                         Indices) == TargetTransformInfo::TCC_Free;
+  return TTI->getGEPCost(GEP) == TargetTransformInfo::TCC_Free;
 }
 
 // Returns whether (Base + Index * Stride) can be folded to an addressing mode.

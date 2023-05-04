@@ -13,12 +13,16 @@
 define void @test_geps() {
 ; ALL-LABEL: 'test_geps'
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %giant_gep0 = getelementptr inbounds i8, ptr undef, i64 9223372036854775807
+; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep0, align 1
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %giant_gep1 = getelementptr inbounds i8, ptr undef, i128 295147905179352825855
+; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep1, align 1
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'test_geps'
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %giant_gep0 = getelementptr inbounds i8, ptr undef, i64 9223372036854775807
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep0, align 1
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %giant_gep1 = getelementptr inbounds i8, ptr undef, i128 295147905179352825855
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep1, align 1
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 
@@ -29,9 +33,11 @@ define void @test_geps() {
   ; dead code.
   ; This GEP has index INT64_MAX, which is cost 1.
   %giant_gep0 = getelementptr inbounds i8, ptr undef, i64 9223372036854775807
+  store volatile i8 undef, ptr %giant_gep0
 
   ; This GEP index wraps around to -1, which is cost 0.
   %giant_gep1 = getelementptr inbounds i8, ptr undef, i128 295147905179352825855
+  store volatile i8 undef, ptr %giant_gep1
 
   ret void
 }

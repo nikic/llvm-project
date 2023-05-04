@@ -12,97 +12,169 @@ target datalayout = "e-m:e-p:32:32-Fi8-i64:64-v128:64:128-a:0:32-n32-S64"
 define void @testi8(ptr %a, i32 %i) {
 ; CHECK-V6M-LABEL: 'testi8'
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i8, ptr %a, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a1, align 1
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am4 = getelementptr inbounds i8, ptr %a, i32 -1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am4, align 1
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i8, ptr %a, i32 31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a31, align 1
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a32 = getelementptr inbounds i8, ptr %a, i32 32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a32, align 1
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4095 = getelementptr inbounds i8, ptr %a, i32 4095
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4095, align 1
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i8, ptr %a, i32 4096
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4096, align 1
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds i8, ptr %a, i32 -255
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am255, align 1
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i8, ptr %a, i32 -256
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am256, align 1
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i8, ptr %a, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %ai, align 1
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-NOFP-LABEL: 'testi8'
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i8, ptr %a, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a1, align 1
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i8, ptr %a, i32 -1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am4, align 1
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i8, ptr %a, i32 31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a31, align 1
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i8, ptr %a, i32 32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a32, align 1
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a4095 = getelementptr inbounds i8, ptr %a, i32 4095
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4095, align 1
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i8, ptr %a, i32 4096
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4096, align 1
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i8, ptr %a, i32 -255
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am255, align 1
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i8, ptr %a, i32 -256
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am256, align 1
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i8, ptr %a, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %ai, align 1
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-FP-LABEL: 'testi8'
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i8, ptr %a, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a1, align 1
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i8, ptr %a, i32 -1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am4, align 1
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i8, ptr %a, i32 31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a31, align 1
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i8, ptr %a, i32 32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a32, align 1
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a4095 = getelementptr inbounds i8, ptr %a, i32 4095
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4095, align 1
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i8, ptr %a, i32 4096
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4096, align 1
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i8, ptr %a, i32 -255
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am255, align 1
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i8, ptr %a, i32 -256
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am256, align 1
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i8, ptr %a, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %ai, align 1
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-MVE-LABEL: 'testi8'
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i8, ptr %a, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a1, align 1
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i8, ptr %a, i32 -1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am4, align 1
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i8, ptr %a, i32 31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a31, align 1
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i8, ptr %a, i32 32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a32, align 1
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a4095 = getelementptr inbounds i8, ptr %a, i32 4095
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4095, align 1
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i8, ptr %a, i32 4096
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4096, align 1
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i8, ptr %a, i32 -255
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am255, align 1
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i8, ptr %a, i32 -256
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am256, align 1
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i8, ptr %a, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %ai, align 1
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-MVEFP-LABEL: 'testi8'
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i8, ptr %a, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a1, align 1
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i8, ptr %a, i32 -1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am4, align 1
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i8, ptr %a, i32 31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a31, align 1
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i8, ptr %a, i32 32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a32, align 1
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a4095 = getelementptr inbounds i8, ptr %a, i32 4095
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4095, align 1
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i8, ptr %a, i32 4096
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4096, align 1
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i8, ptr %a, i32 -255
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am255, align 1
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i8, ptr %a, i32 -256
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am256, align 1
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i8, ptr %a, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %ai, align 1
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-T32-LABEL: 'testi8'
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i8, ptr %a, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a1, align 1
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i8, ptr %a, i32 -1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am4, align 1
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i8, ptr %a, i32 31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a31, align 1
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i8, ptr %a, i32 32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a32, align 1
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a4095 = getelementptr inbounds i8, ptr %a, i32 4095
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4095, align 1
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i8, ptr %a, i32 4096
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4096, align 1
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i8, ptr %a, i32 -255
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am255, align 1
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i8, ptr %a, i32 -256
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am256, align 1
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i8, ptr %a, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %ai, align 1
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-A32-LABEL: 'testi8'
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i8, ptr %a, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a1, align 1
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i8, ptr %a, i32 -1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am4, align 1
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i8, ptr %a, i32 31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a31, align 1
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i8, ptr %a, i32 32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a32, align 1
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a4095 = getelementptr inbounds i8, ptr %a, i32 4095
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4095, align 1
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i8, ptr %a, i32 4096
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %a4096, align 1
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i8, ptr %a, i32 -255
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am255, align 1
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am256 = getelementptr inbounds i8, ptr %a, i32 -256
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %am256, align 1
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i8, ptr %a, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %ai, align 1
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
   %a1 = getelementptr inbounds i8, ptr %a, i32 1
+  store volatile i8 undef, ptr %a1
   %am4 = getelementptr inbounds i8, ptr %a, i32 -1
+  store volatile i8 undef, ptr %am4
   %a31 = getelementptr inbounds i8, ptr %a, i32 31
+  store volatile i8 undef, ptr %a31
   %a32 = getelementptr inbounds i8, ptr %a, i32 32
+  store volatile i8 undef, ptr %a32
   %a4095 = getelementptr inbounds i8, ptr %a, i32 4095
+  store volatile i8 undef, ptr %a4095
   %a4096 = getelementptr inbounds i8, ptr %a, i32 4096
+  store volatile i8 undef, ptr %a4096
   %am255 = getelementptr inbounds i8, ptr %a, i32 -255
+  store volatile i8 undef, ptr %am255
   %am256 = getelementptr inbounds i8, ptr %a, i32 -256
+  store volatile i8 undef, ptr %am256
   %ai = getelementptr inbounds i8, ptr %a, i32 %i
+  store volatile i8 undef, ptr %ai
 
   ret void
 }
@@ -110,97 +182,169 @@ define void @testi8(ptr %a, i32 %i) {
 define void @testi16(ptr %a, i32 %i) {
 ; CHECK-V6M-LABEL: 'testi16'
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i16, ptr %a, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a1, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am4 = getelementptr inbounds i16, ptr %a, i32 -1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am4, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i16, ptr %a, i32 31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a31, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a32 = getelementptr inbounds i16, ptr %a, i32 32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a32, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4095 = getelementptr inbounds i16, ptr %a, i32 2046
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4095, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i16, ptr %a, i32 2048
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4096, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds i16, ptr %a, i32 -127
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am255, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i16, ptr %a, i32 -128
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am256, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds i16, ptr %a, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %ai, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-NOFP-LABEL: 'testi16'
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i16, ptr %a, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a1, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i16, ptr %a, i32 -1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am4, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i16, ptr %a, i32 31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a31, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i16, ptr %a, i32 32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a32, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a4095 = getelementptr inbounds i16, ptr %a, i32 2046
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4095, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i16, ptr %a, i32 2048
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4096, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i16, ptr %a, i32 -127
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am255, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i16, ptr %a, i32 -128
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am256, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i16, ptr %a, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %ai, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-FP-LABEL: 'testi16'
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i16, ptr %a, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a1, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i16, ptr %a, i32 -1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am4, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i16, ptr %a, i32 31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a31, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i16, ptr %a, i32 32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a32, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a4095 = getelementptr inbounds i16, ptr %a, i32 2046
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4095, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i16, ptr %a, i32 2048
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4096, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i16, ptr %a, i32 -127
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am255, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i16, ptr %a, i32 -128
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am256, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i16, ptr %a, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %ai, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-MVE-LABEL: 'testi16'
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i16, ptr %a, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a1, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i16, ptr %a, i32 -1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am4, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i16, ptr %a, i32 31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a31, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i16, ptr %a, i32 32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a32, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a4095 = getelementptr inbounds i16, ptr %a, i32 2046
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4095, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i16, ptr %a, i32 2048
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4096, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i16, ptr %a, i32 -127
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am255, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i16, ptr %a, i32 -128
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am256, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i16, ptr %a, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %ai, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-MVEFP-LABEL: 'testi16'
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i16, ptr %a, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a1, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i16, ptr %a, i32 -1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am4, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i16, ptr %a, i32 31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a31, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i16, ptr %a, i32 32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a32, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a4095 = getelementptr inbounds i16, ptr %a, i32 2046
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4095, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i16, ptr %a, i32 2048
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4096, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i16, ptr %a, i32 -127
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am255, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i16, ptr %a, i32 -128
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am256, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i16, ptr %a, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %ai, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-T32-LABEL: 'testi16'
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i16, ptr %a, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a1, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i16, ptr %a, i32 -1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am4, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i16, ptr %a, i32 31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a31, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i16, ptr %a, i32 32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a32, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a4095 = getelementptr inbounds i16, ptr %a, i32 2046
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4095, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i16, ptr %a, i32 2048
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4096, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i16, ptr %a, i32 -127
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am255, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i16, ptr %a, i32 -128
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am256, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i16, ptr %a, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %ai, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-A32-LABEL: 'testi16'
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i16, ptr %a, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a1, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i16, ptr %a, i32 -1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am4, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i16, ptr %a, i32 31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a31, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i16, ptr %a, i32 32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a32, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4095 = getelementptr inbounds i16, ptr %a, i32 2046
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4095, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i16, ptr %a, i32 2048
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %a4096, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i16, ptr %a, i32 -127
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am255, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i16, ptr %a, i32 -128
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %am256, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds i16, ptr %a, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 undef, ptr %ai, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
   %a1 = getelementptr inbounds i16, ptr %a, i32 1
+  store volatile i16 undef, ptr %a1
   %am4 = getelementptr inbounds i16, ptr %a, i32 -1
+  store volatile i16 undef, ptr %am4
   %a31 = getelementptr inbounds i16, ptr %a, i32 31
+  store volatile i16 undef, ptr %a31
   %a32 = getelementptr inbounds i16, ptr %a, i32 32
+  store volatile i16 undef, ptr %a32
   %a4095 = getelementptr inbounds i16, ptr %a, i32 2046
+  store volatile i16 undef, ptr %a4095
   %a4096 = getelementptr inbounds i16, ptr %a, i32 2048
+  store volatile i16 undef, ptr %a4096
   %am255 = getelementptr inbounds i16, ptr %a, i32 -127
+  store volatile i16 undef, ptr %am255
   %am256 = getelementptr inbounds i16, ptr %a, i32 -128
+  store volatile i16 undef, ptr %am256
   %ai = getelementptr inbounds i16, ptr %a, i32 %i
+  store volatile i16 undef, ptr %ai
 
   ret void
 }
@@ -208,97 +352,169 @@ define void @testi16(ptr %a, i32 %i) {
 define void @testi32(ptr %a, i32 %i) {
 ; CHECK-V6M-LABEL: 'testi32'
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i32, ptr %a, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am4 = getelementptr inbounds i32, ptr %a, i32 -1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am4, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i32, ptr %a, i32 31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a31, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a32 = getelementptr inbounds i32, ptr %a, i32 32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a32, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds i32, ptr %a, i32 1023
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1023, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds i32, ptr %a, i32 1024
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1024, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds i32, ptr %a, i32 -63
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am255, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i32, ptr %a, i32 -64
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am256, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds i32, ptr %a, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %ai, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-NOFP-LABEL: 'testi32'
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i32, ptr %a, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i32, ptr %a, i32 -1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am4, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i32, ptr %a, i32 31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a31, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i32, ptr %a, i32 32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a32, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1023 = getelementptr inbounds i32, ptr %a, i32 1023
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1023, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds i32, ptr %a, i32 1024
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1024, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i32, ptr %a, i32 -63
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am255, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i32, ptr %a, i32 -64
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am256, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i32, ptr %a, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %ai, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-FP-LABEL: 'testi32'
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i32, ptr %a, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i32, ptr %a, i32 -1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am4, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i32, ptr %a, i32 31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a31, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i32, ptr %a, i32 32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a32, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1023 = getelementptr inbounds i32, ptr %a, i32 1023
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1023, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds i32, ptr %a, i32 1024
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1024, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i32, ptr %a, i32 -63
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am255, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i32, ptr %a, i32 -64
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am256, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i32, ptr %a, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %ai, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-MVE-LABEL: 'testi32'
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i32, ptr %a, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i32, ptr %a, i32 -1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am4, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i32, ptr %a, i32 31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a31, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i32, ptr %a, i32 32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a32, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1023 = getelementptr inbounds i32, ptr %a, i32 1023
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1023, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds i32, ptr %a, i32 1024
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1024, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i32, ptr %a, i32 -63
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am255, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i32, ptr %a, i32 -64
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am256, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i32, ptr %a, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %ai, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-MVEFP-LABEL: 'testi32'
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i32, ptr %a, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i32, ptr %a, i32 -1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am4, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i32, ptr %a, i32 31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a31, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i32, ptr %a, i32 32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a32, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1023 = getelementptr inbounds i32, ptr %a, i32 1023
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1023, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds i32, ptr %a, i32 1024
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1024, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i32, ptr %a, i32 -63
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am255, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i32, ptr %a, i32 -64
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am256, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i32, ptr %a, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %ai, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-T32-LABEL: 'testi32'
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i32, ptr %a, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i32, ptr %a, i32 -1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am4, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i32, ptr %a, i32 31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a31, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i32, ptr %a, i32 32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a32, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1023 = getelementptr inbounds i32, ptr %a, i32 1023
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1023, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds i32, ptr %a, i32 1024
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1024, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i32, ptr %a, i32 -63
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am255, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i32, ptr %a, i32 -64
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am256, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i32, ptr %a, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %ai, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-A32-LABEL: 'testi32'
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i32, ptr %a, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i32, ptr %a, i32 -1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am4, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i32, ptr %a, i32 31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a31, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i32, ptr %a, i32 32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a32, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1023 = getelementptr inbounds i32, ptr %a, i32 1023
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1023, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds i32, ptr %a, i32 1024
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %a1024, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i32, ptr %a, i32 -63
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am255, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am256 = getelementptr inbounds i32, ptr %a, i32 -64
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %am256, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ai = getelementptr inbounds i32, ptr %a, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 undef, ptr %ai, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
   %a1 = getelementptr inbounds i32, ptr %a, i32 1
+  store volatile i32 undef, ptr %a1
   %am4 = getelementptr inbounds i32, ptr %a, i32 -1
+  store volatile i32 undef, ptr %am4
   %a31 = getelementptr inbounds i32, ptr %a, i32 31
+  store volatile i32 undef, ptr %a31
   %a32 = getelementptr inbounds i32, ptr %a, i32 32
+  store volatile i32 undef, ptr %a32
   %a1023 = getelementptr inbounds i32, ptr %a, i32 1023
+  store volatile i32 undef, ptr %a1023
   %a1024 = getelementptr inbounds i32, ptr %a, i32 1024
+  store volatile i32 undef, ptr %a1024
   %am255 = getelementptr inbounds i32, ptr %a, i32 -63
+  store volatile i32 undef, ptr %am255
   %am256 = getelementptr inbounds i32, ptr %a, i32 -64
+  store volatile i32 undef, ptr %am256
   %ai = getelementptr inbounds i32, ptr %a, i32 %i
+  store volatile i32 undef, ptr %ai
 
   ret void
 }
@@ -306,113 +522,201 @@ define void @testi32(ptr %a, i32 %i) {
 define void @testi64(ptr %a, i32 %i) {
 ; CHECK-V6M-LABEL: 'testi64'
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i64, ptr %a, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a1, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am4 = getelementptr inbounds i64, ptr %a, i32 -1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am4, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a15 = getelementptr inbounds i64, ptr %a, i32 15
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a15, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a16 = getelementptr inbounds i64, ptr %a, i32 16
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a16, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a31 = getelementptr inbounds i64, ptr %a, i32 31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a31, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a32 = getelementptr inbounds i64, ptr %a, i32 32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a32, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4095 = getelementptr inbounds i64, ptr %a, i32 1023
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4095, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i64, ptr %a, i32 1024
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4096, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds i64, ptr %a, i32 -63
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am255, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i64, ptr %a, i32 -64
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am256, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds i64, ptr %a, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %ai, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-NOFP-LABEL: 'testi64'
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i64, ptr %a, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a1, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i64, ptr %a, i32 -1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am4, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a15 = getelementptr inbounds i64, ptr %a, i32 15
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a15, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a16 = getelementptr inbounds i64, ptr %a, i32 16
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a16, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i64, ptr %a, i32 31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a31, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i64, ptr %a, i32 32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a32, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4095 = getelementptr inbounds i64, ptr %a, i32 1023
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4095, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i64, ptr %a, i32 1024
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4096, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i64, ptr %a, i32 -63
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am255, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am256 = getelementptr inbounds i64, ptr %a, i32 -64
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am256, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds i64, ptr %a, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %ai, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-FP-LABEL: 'testi64'
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i64, ptr %a, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a1, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i64, ptr %a, i32 -1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am4, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a15 = getelementptr inbounds i64, ptr %a, i32 15
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a15, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a16 = getelementptr inbounds i64, ptr %a, i32 16
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a16, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i64, ptr %a, i32 31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a31, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i64, ptr %a, i32 32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a32, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4095 = getelementptr inbounds i64, ptr %a, i32 1023
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4095, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i64, ptr %a, i32 1024
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4096, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i64, ptr %a, i32 -63
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am255, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am256 = getelementptr inbounds i64, ptr %a, i32 -64
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am256, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds i64, ptr %a, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %ai, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-MVE-LABEL: 'testi64'
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i64, ptr %a, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a1, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i64, ptr %a, i32 -1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am4, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a15 = getelementptr inbounds i64, ptr %a, i32 15
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a15, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a16 = getelementptr inbounds i64, ptr %a, i32 16
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a16, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i64, ptr %a, i32 31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a31, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i64, ptr %a, i32 32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a32, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4095 = getelementptr inbounds i64, ptr %a, i32 1023
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4095, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i64, ptr %a, i32 1024
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4096, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i64, ptr %a, i32 -63
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am255, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am256 = getelementptr inbounds i64, ptr %a, i32 -64
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am256, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds i64, ptr %a, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %ai, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-MVEFP-LABEL: 'testi64'
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i64, ptr %a, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a1, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i64, ptr %a, i32 -1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am4, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a15 = getelementptr inbounds i64, ptr %a, i32 15
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a15, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a16 = getelementptr inbounds i64, ptr %a, i32 16
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a16, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i64, ptr %a, i32 31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a31, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i64, ptr %a, i32 32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a32, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4095 = getelementptr inbounds i64, ptr %a, i32 1023
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4095, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i64, ptr %a, i32 1024
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4096, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i64, ptr %a, i32 -63
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am255, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am256 = getelementptr inbounds i64, ptr %a, i32 -64
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am256, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds i64, ptr %a, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %ai, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-T32-LABEL: 'testi64'
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds i64, ptr %a, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a1, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am4 = getelementptr inbounds i64, ptr %a, i32 -1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am4, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a15 = getelementptr inbounds i64, ptr %a, i32 15
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a15, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a16 = getelementptr inbounds i64, ptr %a, i32 16
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a16, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a31 = getelementptr inbounds i64, ptr %a, i32 31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a31, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a32 = getelementptr inbounds i64, ptr %a, i32 32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a32, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4095 = getelementptr inbounds i64, ptr %a, i32 1023
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4095, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i64, ptr %a, i32 1024
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4096, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds i64, ptr %a, i32 -63
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am255, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am256 = getelementptr inbounds i64, ptr %a, i32 -64
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am256, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds i64, ptr %a, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %ai, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-A32-LABEL: 'testi64'
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1 = getelementptr inbounds i64, ptr %a, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a1, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am4 = getelementptr inbounds i64, ptr %a, i32 -1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am4, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a15 = getelementptr inbounds i64, ptr %a, i32 15
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a15, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a16 = getelementptr inbounds i64, ptr %a, i32 16
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a16, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a31 = getelementptr inbounds i64, ptr %a, i32 31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a31, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a32 = getelementptr inbounds i64, ptr %a, i32 32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a32, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4095 = getelementptr inbounds i64, ptr %a, i32 1023
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4095, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a4096 = getelementptr inbounds i64, ptr %a, i32 1024
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %a4096, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds i64, ptr %a, i32 -63
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am255, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds i64, ptr %a, i32 -64
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %am256, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds i64, ptr %a, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile i64 undef, ptr %ai, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
   %a1 = getelementptr inbounds i64, ptr %a, i32 1
+  store volatile i64 undef, ptr %a1
   %am4 = getelementptr inbounds i64, ptr %a, i32 -1
+  store volatile i64 undef, ptr %am4
   %a15 = getelementptr inbounds i64, ptr %a, i32 15
+  store volatile i64 undef, ptr %a15
   %a16 = getelementptr inbounds i64, ptr %a, i32 16
+  store volatile i64 undef, ptr %a16
   %a31 = getelementptr inbounds i64, ptr %a, i32 31
+  store volatile i64 undef, ptr %a31
   %a32 = getelementptr inbounds i64, ptr %a, i32 32
+  store volatile i64 undef, ptr %a32
   %a4095 = getelementptr inbounds i64, ptr %a, i32 1023
+  store volatile i64 undef, ptr %a4095
   %a4096 = getelementptr inbounds i64, ptr %a, i32 1024
+  store volatile i64 undef, ptr %a4096
   %am255 = getelementptr inbounds i64, ptr %a, i32 -63
+  store volatile i64 undef, ptr %am255
   %am256 = getelementptr inbounds i64, ptr %a, i32 -64
+  store volatile i64 undef, ptr %am256
   %ai = getelementptr inbounds i64, ptr %a, i32 %i
+  store volatile i64 undef, ptr %ai
 
   ret void
 }
@@ -420,113 +724,201 @@ define void @testi64(ptr %a, i32 %i) {
 define void @testhalf(ptr %a, i32 %i) {
 ; CHECK-V6M-LABEL: 'testhalf'
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1 = getelementptr inbounds half, ptr %a, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am1 = getelementptr inbounds half, ptr %a, i32 -1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am1, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a255 = getelementptr inbounds half, ptr %a, i32 255
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a255, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds half, ptr %a, i32 256
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a256, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds half, ptr %a, i32 -255
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am255, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds half, ptr %a, i32 -256
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am256, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds half, ptr %a, i32 1023
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1023, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds half, ptr %a, i32 1024
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1024, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am63 = getelementptr inbounds half, ptr %a, i32 -63
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am63, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am64 = getelementptr inbounds half, ptr %a, i32 -64
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am64, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds half, ptr %a, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %ai, align 2
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-NOFP-LABEL: 'testhalf'
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds half, ptr %a, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds half, ptr %a, i32 -1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am1, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds half, ptr %a, i32 255
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a255, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a256 = getelementptr inbounds half, ptr %a, i32 256
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a256, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds half, ptr %a, i32 -255
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am255, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds half, ptr %a, i32 -256
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am256, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1023 = getelementptr inbounds half, ptr %a, i32 1023
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1023, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1024 = getelementptr inbounds half, ptr %a, i32 1024
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1024, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds half, ptr %a, i32 -63
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am63, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds half, ptr %a, i32 -64
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am64, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds half, ptr %a, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %ai, align 2
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-FP-LABEL: 'testhalf'
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1 = getelementptr inbounds half, ptr %a, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am1 = getelementptr inbounds half, ptr %a, i32 -1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am1, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a255 = getelementptr inbounds half, ptr %a, i32 255
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a255, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a256 = getelementptr inbounds half, ptr %a, i32 256
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a256, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds half, ptr %a, i32 -255
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am255, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am256 = getelementptr inbounds half, ptr %a, i32 -256
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am256, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds half, ptr %a, i32 1023
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1023, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds half, ptr %a, i32 1024
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1024, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am63 = getelementptr inbounds half, ptr %a, i32 -63
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am63, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds half, ptr %a, i32 -64
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am64, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds half, ptr %a, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %ai, align 2
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-MVE-LABEL: 'testhalf'
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds half, ptr %a, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds half, ptr %a, i32 -1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am1, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds half, ptr %a, i32 255
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a255, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds half, ptr %a, i32 256
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a256, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds half, ptr %a, i32 -255
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am255, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds half, ptr %a, i32 -256
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am256, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds half, ptr %a, i32 1023
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1023, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds half, ptr %a, i32 1024
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1024, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds half, ptr %a, i32 -63
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am63, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds half, ptr %a, i32 -64
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am64, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds half, ptr %a, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %ai, align 2
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-MVEFP-LABEL: 'testhalf'
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds half, ptr %a, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds half, ptr %a, i32 -1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am1, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds half, ptr %a, i32 255
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a255, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds half, ptr %a, i32 256
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a256, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds half, ptr %a, i32 -255
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am255, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds half, ptr %a, i32 -256
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am256, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds half, ptr %a, i32 1023
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1023, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds half, ptr %a, i32 1024
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1024, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds half, ptr %a, i32 -63
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am63, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds half, ptr %a, i32 -64
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am64, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds half, ptr %a, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %ai, align 2
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-T32-LABEL: 'testhalf'
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1 = getelementptr inbounds half, ptr %a, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am1 = getelementptr inbounds half, ptr %a, i32 -1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am1, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a255 = getelementptr inbounds half, ptr %a, i32 255
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a255, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a256 = getelementptr inbounds half, ptr %a, i32 256
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a256, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds half, ptr %a, i32 -255
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am255, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am256 = getelementptr inbounds half, ptr %a, i32 -256
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am256, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds half, ptr %a, i32 1023
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1023, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds half, ptr %a, i32 1024
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1024, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am63 = getelementptr inbounds half, ptr %a, i32 -63
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am63, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds half, ptr %a, i32 -64
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am64, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds half, ptr %a, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %ai, align 2
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-A32-LABEL: 'testhalf'
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1 = getelementptr inbounds half, ptr %a, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am1 = getelementptr inbounds half, ptr %a, i32 -1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am1, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a255 = getelementptr inbounds half, ptr %a, i32 255
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a255, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds half, ptr %a, i32 256
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a256, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds half, ptr %a, i32 -255
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am255, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds half, ptr %a, i32 -256
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am256, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds half, ptr %a, i32 1023
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1023, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds half, ptr %a, i32 1024
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %a1024, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am63 = getelementptr inbounds half, ptr %a, i32 -63
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am63, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am64 = getelementptr inbounds half, ptr %a, i32 -64
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %am64, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds half, ptr %a, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile half undef, ptr %ai, align 2
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
   %a1 = getelementptr inbounds half, ptr %a, i32 1
+  store volatile half undef, ptr %a1
   %am1 = getelementptr inbounds half, ptr %a, i32 -1
+  store volatile half undef, ptr %am1
   %a255 = getelementptr inbounds half, ptr %a, i32 255
+  store volatile half undef, ptr %a255
   %a256 = getelementptr inbounds half, ptr %a, i32 256
+  store volatile half undef, ptr %a256
   %am255 = getelementptr inbounds half, ptr %a, i32 -255
+  store volatile half undef, ptr %am255
   %am256 = getelementptr inbounds half, ptr %a, i32 -256
+  store volatile half undef, ptr %am256
   %a1023 = getelementptr inbounds half, ptr %a, i32 1023
+  store volatile half undef, ptr %a1023
   %a1024 = getelementptr inbounds half, ptr %a, i32 1024
+  store volatile half undef, ptr %a1024
   %am63 = getelementptr inbounds half, ptr %a, i32 -63
+  store volatile half undef, ptr %am63
   %am64 = getelementptr inbounds half, ptr %a, i32 -64
+  store volatile half undef, ptr %am64
   %ai = getelementptr inbounds half, ptr %a, i32 %i
+  store volatile half undef, ptr %ai
 
   ret void
 }
@@ -534,113 +926,201 @@ define void @testhalf(ptr %a, i32 %i) {
 define void @testfloat(ptr %a, i32 %i) {
 ; CHECK-V6M-LABEL: 'testfloat'
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds float, ptr %a, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am1 = getelementptr inbounds float, ptr %a, i32 -1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am1, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a255 = getelementptr inbounds float, ptr %a, i32 255
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a255, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds float, ptr %a, i32 256
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a256, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds float, ptr %a, i32 -255
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am255, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds float, ptr %a, i32 -256
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am256, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds float, ptr %a, i32 1023
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1023, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds float, ptr %a, i32 1024
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1024, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am63 = getelementptr inbounds float, ptr %a, i32 -63
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am63, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am64 = getelementptr inbounds float, ptr %a, i32 -64
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am64, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds float, ptr %a, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %ai, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-NOFP-LABEL: 'testfloat'
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds float, ptr %a, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds float, ptr %a, i32 -1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am1, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds float, ptr %a, i32 255
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a255, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a256 = getelementptr inbounds float, ptr %a, i32 256
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a256, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds float, ptr %a, i32 -255
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am255, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds float, ptr %a, i32 -256
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am256, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1023 = getelementptr inbounds float, ptr %a, i32 1023
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1023, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds float, ptr %a, i32 1024
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1024, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds float, ptr %a, i32 -63
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am63, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am64 = getelementptr inbounds float, ptr %a, i32 -64
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am64, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds float, ptr %a, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %ai, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-FP-LABEL: 'testfloat'
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds float, ptr %a, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds float, ptr %a, i32 -1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am1, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds float, ptr %a, i32 255
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a255, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds float, ptr %a, i32 256
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a256, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds float, ptr %a, i32 -255
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am255, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds float, ptr %a, i32 -256
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am256, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds float, ptr %a, i32 1023
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1023, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds float, ptr %a, i32 1024
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1024, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds float, ptr %a, i32 -63
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am63, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds float, ptr %a, i32 -64
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am64, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds float, ptr %a, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %ai, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-MVE-LABEL: 'testfloat'
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds float, ptr %a, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds float, ptr %a, i32 -1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am1, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds float, ptr %a, i32 255
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a255, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a256 = getelementptr inbounds float, ptr %a, i32 256
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a256, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds float, ptr %a, i32 -255
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am255, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds float, ptr %a, i32 -256
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am256, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1023 = getelementptr inbounds float, ptr %a, i32 1023
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1023, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds float, ptr %a, i32 1024
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1024, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds float, ptr %a, i32 -63
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am63, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am64 = getelementptr inbounds float, ptr %a, i32 -64
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am64, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds float, ptr %a, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %ai, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-MVEFP-LABEL: 'testfloat'
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds float, ptr %a, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds float, ptr %a, i32 -1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am1, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds float, ptr %a, i32 255
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a255, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds float, ptr %a, i32 256
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a256, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds float, ptr %a, i32 -255
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am255, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds float, ptr %a, i32 -256
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am256, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds float, ptr %a, i32 1023
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1023, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds float, ptr %a, i32 1024
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1024, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds float, ptr %a, i32 -63
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am63, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds float, ptr %a, i32 -64
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am64, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds float, ptr %a, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %ai, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-T32-LABEL: 'testfloat'
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds float, ptr %a, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds float, ptr %a, i32 -1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am1, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds float, ptr %a, i32 255
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a255, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds float, ptr %a, i32 256
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a256, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds float, ptr %a, i32 -255
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am255, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds float, ptr %a, i32 -256
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am256, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds float, ptr %a, i32 1023
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1023, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds float, ptr %a, i32 1024
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1024, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds float, ptr %a, i32 -63
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am63, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds float, ptr %a, i32 -64
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am64, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds float, ptr %a, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %ai, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-A32-LABEL: 'testfloat'
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds float, ptr %a, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds float, ptr %a, i32 -1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am1, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds float, ptr %a, i32 255
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a255, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds float, ptr %a, i32 256
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a256, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds float, ptr %a, i32 -255
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am255, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds float, ptr %a, i32 -256
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am256, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds float, ptr %a, i32 1023
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1023, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds float, ptr %a, i32 1024
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %a1024, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds float, ptr %a, i32 -63
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am63, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds float, ptr %a, i32 -64
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %am64, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds float, ptr %a, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float undef, ptr %ai, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
   %a1 = getelementptr inbounds float, ptr %a, i32 1
+  store volatile float undef, ptr %a1
   %am1 = getelementptr inbounds float, ptr %a, i32 -1
+  store volatile float undef, ptr %am1
   %a255 = getelementptr inbounds float, ptr %a, i32 255
+  store volatile float undef, ptr %a255
   %a256 = getelementptr inbounds float, ptr %a, i32 256
+  store volatile float undef, ptr %a256
   %am255 = getelementptr inbounds float, ptr %a, i32 -255
+  store volatile float undef, ptr %am255
   %am256 = getelementptr inbounds float, ptr %a, i32 -256
+  store volatile float undef, ptr %am256
   %a1023 = getelementptr inbounds float, ptr %a, i32 1023
+  store volatile float undef, ptr %a1023
   %a1024 = getelementptr inbounds float, ptr %a, i32 1024
+  store volatile float undef, ptr %a1024
   %am63 = getelementptr inbounds float, ptr %a, i32 -63
+  store volatile float undef, ptr %am63
   %am64 = getelementptr inbounds float, ptr %a, i32 -64
+  store volatile float undef, ptr %am64
   %ai = getelementptr inbounds float, ptr %a, i32 %i
+  store volatile float undef, ptr %ai
 
   ret void
 }
@@ -648,113 +1128,201 @@ define void @testfloat(ptr %a, i32 %i) {
 define void @testdouble(ptr %a, i32 %i) {
 ; CHECK-V6M-LABEL: 'testdouble'
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds double, ptr %a, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %a1, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am1 = getelementptr inbounds double, ptr %a, i32 -1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %am1, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a255 = getelementptr inbounds double, ptr %a, i32 127
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %a255, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds double, ptr %a, i32 128
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %a256, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am255 = getelementptr inbounds double, ptr %a, i32 -127
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %am255, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds double, ptr %a, i32 -128
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %am256, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds double, ptr %a, i32 511
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %a1023, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds double, ptr %a, i32 512
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %a1024, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am63 = getelementptr inbounds double, ptr %a, i32 -31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %am63, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am64 = getelementptr inbounds double, ptr %a, i32 -32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %am64, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds double, ptr %a, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %ai, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-NOFP-LABEL: 'testdouble'
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds double, ptr %a, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %a1, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds double, ptr %a, i32 -1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %am1, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds double, ptr %a, i32 127
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %a255, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds double, ptr %a, i32 128
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %a256, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds double, ptr %a, i32 -127
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %am255, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds double, ptr %a, i32 -128
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %am256, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds double, ptr %a, i32 511
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %a1023, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds double, ptr %a, i32 512
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %a1024, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds double, ptr %a, i32 -31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %am63, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds double, ptr %a, i32 -32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %am64, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds double, ptr %a, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile double undef, ptr %ai, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-FP-LABEL: 'testdouble'
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds double, ptr %a, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds double, ptr %a, i32 -1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am1, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds double, ptr %a, i32 127
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a255, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds double, ptr %a, i32 128
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a256, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds double, ptr %a, i32 -127
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am255, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds double, ptr %a, i32 -128
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am256, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds double, ptr %a, i32 511
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1023, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds double, ptr %a, i32 512
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1024, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds double, ptr %a, i32 -31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am63, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds double, ptr %a, i32 -32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am64, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds double, ptr %a, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %ai, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-MVE-LABEL: 'testdouble'
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds double, ptr %a, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds double, ptr %a, i32 -1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am1, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds double, ptr %a, i32 127
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a255, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds double, ptr %a, i32 128
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a256, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds double, ptr %a, i32 -127
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am255, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds double, ptr %a, i32 -128
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am256, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds double, ptr %a, i32 511
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1023, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds double, ptr %a, i32 512
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1024, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds double, ptr %a, i32 -31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am63, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds double, ptr %a, i32 -32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am64, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds double, ptr %a, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %ai, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-MVEFP-LABEL: 'testdouble'
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds double, ptr %a, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds double, ptr %a, i32 -1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am1, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds double, ptr %a, i32 127
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a255, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds double, ptr %a, i32 128
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a256, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds double, ptr %a, i32 -127
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am255, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds double, ptr %a, i32 -128
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am256, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds double, ptr %a, i32 511
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1023, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds double, ptr %a, i32 512
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1024, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds double, ptr %a, i32 -31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am63, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds double, ptr %a, i32 -32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am64, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds double, ptr %a, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %ai, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-T32-LABEL: 'testdouble'
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds double, ptr %a, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds double, ptr %a, i32 -1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am1, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds double, ptr %a, i32 127
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a255, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds double, ptr %a, i32 128
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a256, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds double, ptr %a, i32 -127
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am255, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds double, ptr %a, i32 -128
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am256, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds double, ptr %a, i32 511
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1023, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds double, ptr %a, i32 512
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1024, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds double, ptr %a, i32 -31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am63, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds double, ptr %a, i32 -32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am64, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds double, ptr %a, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %ai, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-A32-LABEL: 'testdouble'
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1 = getelementptr inbounds double, ptr %a, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am1 = getelementptr inbounds double, ptr %a, i32 -1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am1, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a255 = getelementptr inbounds double, ptr %a, i32 127
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a255, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a256 = getelementptr inbounds double, ptr %a, i32 128
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a256, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am255 = getelementptr inbounds double, ptr %a, i32 -127
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am255, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %am256 = getelementptr inbounds double, ptr %a, i32 -128
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am256, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1023 = getelementptr inbounds double, ptr %a, i32 511
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1023, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1024 = getelementptr inbounds double, ptr %a, i32 512
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %a1024, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am63 = getelementptr inbounds double, ptr %a, i32 -31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am63, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %am64 = getelementptr inbounds double, ptr %a, i32 -32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %am64, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ai = getelementptr inbounds double, ptr %a, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double undef, ptr %ai, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
   %a1 = getelementptr inbounds double, ptr %a, i32 1
+  store volatile double undef, ptr %a1
   %am1 = getelementptr inbounds double, ptr %a, i32 -1
+  store volatile double undef, ptr %am1
   %a255 = getelementptr inbounds double, ptr %a, i32 127
+  store volatile double undef, ptr %a255
   %a256 = getelementptr inbounds double, ptr %a, i32 128
+  store volatile double undef, ptr %a256
   %am255 = getelementptr inbounds double, ptr %a, i32 -127
+  store volatile double undef, ptr %am255
   %am256 = getelementptr inbounds double, ptr %a, i32 -128
+  store volatile double undef, ptr %am256
   %a1023 = getelementptr inbounds double, ptr %a, i32 511
+  store volatile double undef, ptr %a1023
   %a1024 = getelementptr inbounds double, ptr %a, i32 512
+  store volatile double undef, ptr %a1024
   %am63 = getelementptr inbounds double, ptr %a, i32 -31
+  store volatile double undef, ptr %am63
   %am64 = getelementptr inbounds double, ptr %a, i32 -32
+  store volatile double undef, ptr %am64
   %ai = getelementptr inbounds double, ptr %a, i32 %i
+  store volatile double undef, ptr %ai
 
   ret void
 }
@@ -762,433 +1330,833 @@ define void @testdouble(ptr %a, i32 %i) {
 define void @testvecs(i32 %i) {
 ; CHECK-V6M-LABEL: 'testvecs'
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b7 = getelementptr inbounds <4 x i8>, ptr undef, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %b7, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b8 = getelementptr inbounds <4 x i16>, ptr undef, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %b8, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b9 = getelementptr inbounds <4 x i32>, ptr undef, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %b9, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b10 = getelementptr inbounds <4 x i64>, ptr undef, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %b10, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b11 = getelementptr inbounds <4 x half>, ptr undef, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %b11, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b12 = getelementptr inbounds <4 x float>, ptr undef, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %b12, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b13 = getelementptr inbounds <4 x double>, ptr undef, i32 1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %b13, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o7 = getelementptr inbounds <4 x i8>, ptr undef, i32 4
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %o7, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o8 = getelementptr inbounds <4 x i16>, ptr undef, i32 4
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %o8, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o9 = getelementptr inbounds <4 x i32>, ptr undef, i32 4
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %o9, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o10 = getelementptr inbounds <4 x i64>, ptr undef, i32 4
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %o10, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o11 = getelementptr inbounds <4 x half>, ptr undef, i32 4
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %o11, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o12 = getelementptr inbounds <4 x float>, ptr undef, i32 4
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %o12, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o13 = getelementptr inbounds <4 x double>, ptr undef, i32 4
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %o13, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p7 = getelementptr inbounds <4 x i8>, ptr undef, i32 31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %p7, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p8 = getelementptr inbounds <4 x i16>, ptr undef, i32 31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %p8, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p9 = getelementptr inbounds <4 x i32>, ptr undef, i32 31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %p9, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p10 = getelementptr inbounds <4 x i64>, ptr undef, i32 31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %p10, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p11 = getelementptr inbounds <4 x half>, ptr undef, i32 31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %p11, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p12 = getelementptr inbounds <4 x float>, ptr undef, i32 31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %p12, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p13 = getelementptr inbounds <4 x double>, ptr undef, i32 31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %p13, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q7 = getelementptr inbounds <4 x i8>, ptr undef, i32 32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %q7, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q8 = getelementptr inbounds <4 x i16>, ptr undef, i32 32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %q8, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q9 = getelementptr inbounds <4 x i32>, ptr undef, i32 32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %q9, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q10 = getelementptr inbounds <4 x i64>, ptr undef, i32 32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %q10, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q11 = getelementptr inbounds <4 x half>, ptr undef, i32 32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %q11, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q12 = getelementptr inbounds <4 x float>, ptr undef, i32 32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %q12, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q13 = getelementptr inbounds <4 x double>, ptr undef, i32 32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %q13, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %r7, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %r8, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %r9, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %r10, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r11 = getelementptr inbounds <4 x half>, ptr undef, i32 -31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %r11, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r12 = getelementptr inbounds <4 x float>, ptr undef, i32 -31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %r12, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r13 = getelementptr inbounds <4 x double>, ptr undef, i32 -31
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %r13, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %s7, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %s8, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %s9, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %s10, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s11 = getelementptr inbounds <4 x half>, ptr undef, i32 -32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %s11, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s12 = getelementptr inbounds <4 x float>, ptr undef, i32 -32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %s12, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s13 = getelementptr inbounds <4 x double>, ptr undef, i32 -32
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %s13, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c7 = getelementptr inbounds <4 x i8>, ptr undef, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %c7, align 4
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c8 = getelementptr inbounds <4 x i16>, ptr undef, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %c8, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c9 = getelementptr inbounds <4 x i32>, ptr undef, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %c9, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c10 = getelementptr inbounds <4 x i64>, ptr undef, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %c10, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c11 = getelementptr inbounds <4 x half>, ptr undef, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %c11, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c12 = getelementptr inbounds <4 x float>, ptr undef, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %c12, align 8
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c13 = getelementptr inbounds <4 x double>, ptr undef, i32 %i
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %c13, align 32
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %d0 = getelementptr inbounds i8, ptr undef, i32 -1
+; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %d0, align 1
 ; CHECK-V6M-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-NOFP-LABEL: 'testvecs'
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b7 = getelementptr inbounds <4 x i8>, ptr undef, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %b7, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b8 = getelementptr inbounds <4 x i16>, ptr undef, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %b8, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b9 = getelementptr inbounds <4 x i32>, ptr undef, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %b9, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b10 = getelementptr inbounds <4 x i64>, ptr undef, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %b10, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b11 = getelementptr inbounds <4 x half>, ptr undef, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %b11, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b12 = getelementptr inbounds <4 x float>, ptr undef, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %b12, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b13 = getelementptr inbounds <4 x double>, ptr undef, i32 1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %b13, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o7 = getelementptr inbounds <4 x i8>, ptr undef, i32 4
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %o7, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o8 = getelementptr inbounds <4 x i16>, ptr undef, i32 4
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %o8, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o9 = getelementptr inbounds <4 x i32>, ptr undef, i32 4
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %o9, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o10 = getelementptr inbounds <4 x i64>, ptr undef, i32 4
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %o10, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o11 = getelementptr inbounds <4 x half>, ptr undef, i32 4
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %o11, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o12 = getelementptr inbounds <4 x float>, ptr undef, i32 4
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %o12, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o13 = getelementptr inbounds <4 x double>, ptr undef, i32 4
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %o13, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p7 = getelementptr inbounds <4 x i8>, ptr undef, i32 31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %p7, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p8 = getelementptr inbounds <4 x i16>, ptr undef, i32 31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %p8, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p9 = getelementptr inbounds <4 x i32>, ptr undef, i32 31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %p9, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p10 = getelementptr inbounds <4 x i64>, ptr undef, i32 31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %p10, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p11 = getelementptr inbounds <4 x half>, ptr undef, i32 31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %p11, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p12 = getelementptr inbounds <4 x float>, ptr undef, i32 31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %p12, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p13 = getelementptr inbounds <4 x double>, ptr undef, i32 31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %p13, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %q7 = getelementptr inbounds <4 x i8>, ptr undef, i32 32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %q7, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %q8 = getelementptr inbounds <4 x i16>, ptr undef, i32 32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %q8, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q9 = getelementptr inbounds <4 x i32>, ptr undef, i32 32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %q9, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q10 = getelementptr inbounds <4 x i64>, ptr undef, i32 32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %q10, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %q11 = getelementptr inbounds <4 x half>, ptr undef, i32 32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %q11, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q12 = getelementptr inbounds <4 x float>, ptr undef, i32 32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %q12, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q13 = getelementptr inbounds <4 x double>, ptr undef, i32 32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %q13, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %r7, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %r8, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %r9, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %r10, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r11 = getelementptr inbounds <4 x half>, ptr undef, i32 -31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %r11, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r12 = getelementptr inbounds <4 x float>, ptr undef, i32 -31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %r12, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r13 = getelementptr inbounds <4 x double>, ptr undef, i32 -31
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %r13, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %s7, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %s8, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %s9, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %s10, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s11 = getelementptr inbounds <4 x half>, ptr undef, i32 -32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %s11, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s12 = getelementptr inbounds <4 x float>, ptr undef, i32 -32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %s12, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s13 = getelementptr inbounds <4 x double>, ptr undef, i32 -32
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %s13, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c7 = getelementptr inbounds <4 x i8>, ptr undef, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %c7, align 4
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c8 = getelementptr inbounds <4 x i16>, ptr undef, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %c8, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c9 = getelementptr inbounds <4 x i32>, ptr undef, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %c9, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c10 = getelementptr inbounds <4 x i64>, ptr undef, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %c10, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c11 = getelementptr inbounds <4 x half>, ptr undef, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %c11, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c12 = getelementptr inbounds <4 x float>, ptr undef, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %c12, align 8
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c13 = getelementptr inbounds <4 x double>, ptr undef, i32 %i
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %c13, align 32
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %d0 = getelementptr inbounds i8, ptr undef, i32 -1
+; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %d0, align 1
 ; CHECK-V7M-NOFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-V7M-FP-LABEL: 'testvecs'
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b7 = getelementptr inbounds <4 x i8>, ptr undef, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %b7, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b8 = getelementptr inbounds <4 x i16>, ptr undef, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %b8, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b9 = getelementptr inbounds <4 x i32>, ptr undef, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %b9, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b10 = getelementptr inbounds <4 x i64>, ptr undef, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %b10, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b11 = getelementptr inbounds <4 x half>, ptr undef, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %b11, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b12 = getelementptr inbounds <4 x float>, ptr undef, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %b12, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b13 = getelementptr inbounds <4 x double>, ptr undef, i32 1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %b13, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o7 = getelementptr inbounds <4 x i8>, ptr undef, i32 4
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %o7, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o8 = getelementptr inbounds <4 x i16>, ptr undef, i32 4
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %o8, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o9 = getelementptr inbounds <4 x i32>, ptr undef, i32 4
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %o9, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o10 = getelementptr inbounds <4 x i64>, ptr undef, i32 4
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %o10, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o11 = getelementptr inbounds <4 x half>, ptr undef, i32 4
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %o11, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o12 = getelementptr inbounds <4 x float>, ptr undef, i32 4
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %o12, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o13 = getelementptr inbounds <4 x double>, ptr undef, i32 4
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %o13, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p7 = getelementptr inbounds <4 x i8>, ptr undef, i32 31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %p7, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p8 = getelementptr inbounds <4 x i16>, ptr undef, i32 31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %p8, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p9 = getelementptr inbounds <4 x i32>, ptr undef, i32 31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %p9, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p10 = getelementptr inbounds <4 x i64>, ptr undef, i32 31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %p10, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p11 = getelementptr inbounds <4 x half>, ptr undef, i32 31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %p11, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p12 = getelementptr inbounds <4 x float>, ptr undef, i32 31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %p12, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p13 = getelementptr inbounds <4 x double>, ptr undef, i32 31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %p13, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %q7 = getelementptr inbounds <4 x i8>, ptr undef, i32 32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %q7, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %q8 = getelementptr inbounds <4 x i16>, ptr undef, i32 32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %q8, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q9 = getelementptr inbounds <4 x i32>, ptr undef, i32 32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %q9, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q10 = getelementptr inbounds <4 x i64>, ptr undef, i32 32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %q10, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %q11 = getelementptr inbounds <4 x half>, ptr undef, i32 32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %q11, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %q12 = getelementptr inbounds <4 x float>, ptr undef, i32 32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %q12, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q13 = getelementptr inbounds <4 x double>, ptr undef, i32 32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %q13, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %r7, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %r8, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %r9, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %r10, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r11 = getelementptr inbounds <4 x half>, ptr undef, i32 -31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %r11, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r12 = getelementptr inbounds <4 x float>, ptr undef, i32 -31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %r12, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r13 = getelementptr inbounds <4 x double>, ptr undef, i32 -31
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %r13, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %s7, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %s8, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %s9, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %s10, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s11 = getelementptr inbounds <4 x half>, ptr undef, i32 -32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %s11, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s12 = getelementptr inbounds <4 x float>, ptr undef, i32 -32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %s12, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s13 = getelementptr inbounds <4 x double>, ptr undef, i32 -32
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %s13, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c7 = getelementptr inbounds <4 x i8>, ptr undef, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i8> undef, ptr %c7, align 4
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c8 = getelementptr inbounds <4 x i16>, ptr undef, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i16> undef, ptr %c8, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c9 = getelementptr inbounds <4 x i32>, ptr undef, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i32> undef, ptr %c9, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c10 = getelementptr inbounds <4 x i64>, ptr undef, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x i64> undef, ptr %c10, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c11 = getelementptr inbounds <4 x half>, ptr undef, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %c11, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c12 = getelementptr inbounds <4 x float>, ptr undef, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x float> undef, ptr %c12, align 8
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c13 = getelementptr inbounds <4 x double>, ptr undef, i32 %i
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %c13, align 32
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %d0 = getelementptr inbounds i8, ptr undef, i32 -1
+; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %d0, align 1
 ; CHECK-V7M-FP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CHECK-MVE-LABEL: 'testvecs'
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b7 = getelementptr inbounds <4 x i8>, ptr undef, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %b7, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b8 = getelementptr inbounds <4 x i16>, ptr undef, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %b8, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b9 = getelementptr inbounds <4 x i32>, ptr undef, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %b9, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b10 = getelementptr inbounds <4 x i64>, ptr undef, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %b10, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b11 = getelementptr inbounds <4 x half>, ptr undef, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %b11, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b12 = getelementptr inbounds <4 x float>, ptr undef, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %b12, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b13 = getelementptr inbounds <4 x double>, ptr undef, i32 1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %b13, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o7 = getelementptr inbounds <4 x i8>, ptr undef, i32 4
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %o7, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o8 = getelementptr inbounds <4 x i16>, ptr undef, i32 4
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %o8, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o9 = getelementptr inbounds <4 x i32>, ptr undef, i32 4
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %o9, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o10 = getelementptr inbounds <4 x i64>, ptr undef, i32 4
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %o10, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o11 = getelementptr inbounds <4 x half>, ptr undef, i32 4
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %o11, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o12 = getelementptr inbounds <4 x float>, ptr undef, i32 4
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %o12, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o13 = getelementptr inbounds <4 x double>, ptr undef, i32 4
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %o13, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p7 = getelementptr inbounds <4 x i8>, ptr undef, i32 31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %p7, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p8 = getelementptr inbounds <4 x i16>, ptr undef, i32 31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %p8, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p9 = getelementptr inbounds <4 x i32>, ptr undef, i32 31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %p9, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p10 = getelementptr inbounds <4 x i64>, ptr undef, i32 31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %p10, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p11 = getelementptr inbounds <4 x half>, ptr undef, i32 31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %p11, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p12 = getelementptr inbounds <4 x float>, ptr undef, i32 31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %p12, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p13 = getelementptr inbounds <4 x double>, ptr undef, i32 31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %p13, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q7 = getelementptr inbounds <4 x i8>, ptr undef, i32 32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %q7, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q8 = getelementptr inbounds <4 x i16>, ptr undef, i32 32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %q8, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q9 = getelementptr inbounds <4 x i32>, ptr undef, i32 32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %q9, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q10 = getelementptr inbounds <4 x i64>, ptr undef, i32 32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %q10, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q11 = getelementptr inbounds <4 x half>, ptr undef, i32 32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %q11, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q12 = getelementptr inbounds <4 x float>, ptr undef, i32 32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %q12, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q13 = getelementptr inbounds <4 x double>, ptr undef, i32 32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %q13, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %r7, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %r8, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %r9, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %r10, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r11 = getelementptr inbounds <4 x half>, ptr undef, i32 -31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %r11, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r12 = getelementptr inbounds <4 x float>, ptr undef, i32 -31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %r12, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r13 = getelementptr inbounds <4 x double>, ptr undef, i32 -31
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %r13, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %s7, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %s8, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %s9, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %s10, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s11 = getelementptr inbounds <4 x half>, ptr undef, i32 -32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %s11, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s12 = getelementptr inbounds <4 x float>, ptr undef, i32 -32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %s12, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s13 = getelementptr inbounds <4 x double>, ptr undef, i32 -32
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %s13, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c7 = getelementptr inbounds <4 x i8>, ptr undef, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %c7, align 4
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c8 = getelementptr inbounds <4 x i16>, ptr undef, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %c8, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c9 = getelementptr inbounds <4 x i32>, ptr undef, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %c9, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c10 = getelementptr inbounds <4 x i64>, ptr undef, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %c10, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c11 = getelementptr inbounds <4 x half>, ptr undef, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %c11, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c12 = getelementptr inbounds <4 x float>, ptr undef, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %c12, align 8
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c13 = getelementptr inbounds <4 x double>, ptr undef, i32 %i
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %c13, align 32
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %d0 = getelementptr inbounds i8, ptr undef, i32 -1
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %d0, align 1
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-MVEFP-LABEL: 'testvecs'
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b7 = getelementptr inbounds <4 x i8>, ptr undef, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %b7, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b8 = getelementptr inbounds <4 x i16>, ptr undef, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %b8, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b9 = getelementptr inbounds <4 x i32>, ptr undef, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %b9, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b10 = getelementptr inbounds <4 x i64>, ptr undef, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %b10, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b11 = getelementptr inbounds <4 x half>, ptr undef, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %b11, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b12 = getelementptr inbounds <4 x float>, ptr undef, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %b12, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b13 = getelementptr inbounds <4 x double>, ptr undef, i32 1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %b13, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o7 = getelementptr inbounds <4 x i8>, ptr undef, i32 4
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %o7, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o8 = getelementptr inbounds <4 x i16>, ptr undef, i32 4
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %o8, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o9 = getelementptr inbounds <4 x i32>, ptr undef, i32 4
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %o9, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o10 = getelementptr inbounds <4 x i64>, ptr undef, i32 4
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %o10, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o11 = getelementptr inbounds <4 x half>, ptr undef, i32 4
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %o11, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %o12 = getelementptr inbounds <4 x float>, ptr undef, i32 4
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %o12, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o13 = getelementptr inbounds <4 x double>, ptr undef, i32 4
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %o13, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p7 = getelementptr inbounds <4 x i8>, ptr undef, i32 31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %p7, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p8 = getelementptr inbounds <4 x i16>, ptr undef, i32 31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %p8, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p9 = getelementptr inbounds <4 x i32>, ptr undef, i32 31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %p9, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p10 = getelementptr inbounds <4 x i64>, ptr undef, i32 31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %p10, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p11 = getelementptr inbounds <4 x half>, ptr undef, i32 31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %p11, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p12 = getelementptr inbounds <4 x float>, ptr undef, i32 31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %p12, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p13 = getelementptr inbounds <4 x double>, ptr undef, i32 31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %p13, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q7 = getelementptr inbounds <4 x i8>, ptr undef, i32 32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %q7, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q8 = getelementptr inbounds <4 x i16>, ptr undef, i32 32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %q8, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q9 = getelementptr inbounds <4 x i32>, ptr undef, i32 32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %q9, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q10 = getelementptr inbounds <4 x i64>, ptr undef, i32 32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %q10, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q11 = getelementptr inbounds <4 x half>, ptr undef, i32 32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %q11, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q12 = getelementptr inbounds <4 x float>, ptr undef, i32 32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %q12, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q13 = getelementptr inbounds <4 x double>, ptr undef, i32 32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %q13, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %r7, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %r8, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %r9, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %r10, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r11 = getelementptr inbounds <4 x half>, ptr undef, i32 -31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %r11, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %r12 = getelementptr inbounds <4 x float>, ptr undef, i32 -31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %r12, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r13 = getelementptr inbounds <4 x double>, ptr undef, i32 -31
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %r13, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %s7, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %s8, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %s9, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %s10, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s11 = getelementptr inbounds <4 x half>, ptr undef, i32 -32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %s11, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s12 = getelementptr inbounds <4 x float>, ptr undef, i32 -32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %s12, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s13 = getelementptr inbounds <4 x double>, ptr undef, i32 -32
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %s13, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c7 = getelementptr inbounds <4 x i8>, ptr undef, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i8> undef, ptr %c7, align 4
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c8 = getelementptr inbounds <4 x i16>, ptr undef, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i16> undef, ptr %c8, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c9 = getelementptr inbounds <4 x i32>, ptr undef, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i32> undef, ptr %c9, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c10 = getelementptr inbounds <4 x i64>, ptr undef, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x i64> undef, ptr %c10, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c11 = getelementptr inbounds <4 x half>, ptr undef, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: store volatile <4 x half> undef, ptr %c11, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c12 = getelementptr inbounds <4 x float>, ptr undef, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x float> undef, ptr %c12, align 8
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c13 = getelementptr inbounds <4 x double>, ptr undef, i32 %i
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x double> undef, ptr %c13, align 32
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %d0 = getelementptr inbounds i8, ptr undef, i32 -1
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %d0, align 1
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-T32-LABEL: 'testvecs'
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b7 = getelementptr inbounds <4 x i8>, ptr undef, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %b7, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b8 = getelementptr inbounds <4 x i16>, ptr undef, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %b8, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b9 = getelementptr inbounds <4 x i32>, ptr undef, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %b9, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b10 = getelementptr inbounds <4 x i64>, ptr undef, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %b10, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b11 = getelementptr inbounds <4 x half>, ptr undef, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %b11, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b12 = getelementptr inbounds <4 x float>, ptr undef, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %b12, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b13 = getelementptr inbounds <4 x double>, ptr undef, i32 1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %b13, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o7 = getelementptr inbounds <4 x i8>, ptr undef, i32 4
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %o7, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o8 = getelementptr inbounds <4 x i16>, ptr undef, i32 4
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %o8, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o9 = getelementptr inbounds <4 x i32>, ptr undef, i32 4
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %o9, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o10 = getelementptr inbounds <4 x i64>, ptr undef, i32 4
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %o10, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o11 = getelementptr inbounds <4 x half>, ptr undef, i32 4
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %o11, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o12 = getelementptr inbounds <4 x float>, ptr undef, i32 4
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %o12, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o13 = getelementptr inbounds <4 x double>, ptr undef, i32 4
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %o13, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p7 = getelementptr inbounds <4 x i8>, ptr undef, i32 31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %p7, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p8 = getelementptr inbounds <4 x i16>, ptr undef, i32 31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %p8, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p9 = getelementptr inbounds <4 x i32>, ptr undef, i32 31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %p9, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p10 = getelementptr inbounds <4 x i64>, ptr undef, i32 31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %p10, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p11 = getelementptr inbounds <4 x half>, ptr undef, i32 31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %p11, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p12 = getelementptr inbounds <4 x float>, ptr undef, i32 31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %p12, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p13 = getelementptr inbounds <4 x double>, ptr undef, i32 31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %p13, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q7 = getelementptr inbounds <4 x i8>, ptr undef, i32 32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %q7, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q8 = getelementptr inbounds <4 x i16>, ptr undef, i32 32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %q8, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q9 = getelementptr inbounds <4 x i32>, ptr undef, i32 32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %q9, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q10 = getelementptr inbounds <4 x i64>, ptr undef, i32 32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %q10, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q11 = getelementptr inbounds <4 x half>, ptr undef, i32 32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %q11, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q12 = getelementptr inbounds <4 x float>, ptr undef, i32 32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %q12, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q13 = getelementptr inbounds <4 x double>, ptr undef, i32 32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %q13, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %r7, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %r8, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %r9, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %r10, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r11 = getelementptr inbounds <4 x half>, ptr undef, i32 -31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %r11, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r12 = getelementptr inbounds <4 x float>, ptr undef, i32 -31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %r12, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r13 = getelementptr inbounds <4 x double>, ptr undef, i32 -31
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %r13, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %s7, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %s8, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %s9, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %s10, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s11 = getelementptr inbounds <4 x half>, ptr undef, i32 -32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %s11, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s12 = getelementptr inbounds <4 x float>, ptr undef, i32 -32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %s12, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s13 = getelementptr inbounds <4 x double>, ptr undef, i32 -32
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %s13, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c7 = getelementptr inbounds <4 x i8>, ptr undef, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %c7, align 4
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c8 = getelementptr inbounds <4 x i16>, ptr undef, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %c8, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c9 = getelementptr inbounds <4 x i32>, ptr undef, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %c9, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c10 = getelementptr inbounds <4 x i64>, ptr undef, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %c10, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c11 = getelementptr inbounds <4 x half>, ptr undef, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %c11, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c12 = getelementptr inbounds <4 x float>, ptr undef, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %c12, align 8
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c13 = getelementptr inbounds <4 x double>, ptr undef, i32 %i
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %c13, align 32
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %d0 = getelementptr inbounds i8, ptr undef, i32 -1
+; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %d0, align 1
 ; CHECK-T32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-A32-LABEL: 'testvecs'
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b7 = getelementptr inbounds <4 x i8>, ptr undef, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %b7, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b8 = getelementptr inbounds <4 x i16>, ptr undef, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %b8, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b9 = getelementptr inbounds <4 x i32>, ptr undef, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %b9, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b10 = getelementptr inbounds <4 x i64>, ptr undef, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %b10, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b11 = getelementptr inbounds <4 x half>, ptr undef, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %b11, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b12 = getelementptr inbounds <4 x float>, ptr undef, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %b12, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b13 = getelementptr inbounds <4 x double>, ptr undef, i32 1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %b13, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o7 = getelementptr inbounds <4 x i8>, ptr undef, i32 4
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %o7, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o8 = getelementptr inbounds <4 x i16>, ptr undef, i32 4
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %o8, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o9 = getelementptr inbounds <4 x i32>, ptr undef, i32 4
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %o9, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o10 = getelementptr inbounds <4 x i64>, ptr undef, i32 4
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %o10, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o11 = getelementptr inbounds <4 x half>, ptr undef, i32 4
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %o11, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o12 = getelementptr inbounds <4 x float>, ptr undef, i32 4
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %o12, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %o13 = getelementptr inbounds <4 x double>, ptr undef, i32 4
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %o13, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p7 = getelementptr inbounds <4 x i8>, ptr undef, i32 31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %p7, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p8 = getelementptr inbounds <4 x i16>, ptr undef, i32 31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %p8, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p9 = getelementptr inbounds <4 x i32>, ptr undef, i32 31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %p9, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p10 = getelementptr inbounds <4 x i64>, ptr undef, i32 31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %p10, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p11 = getelementptr inbounds <4 x half>, ptr undef, i32 31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %p11, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p12 = getelementptr inbounds <4 x float>, ptr undef, i32 31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %p12, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p13 = getelementptr inbounds <4 x double>, ptr undef, i32 31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %p13, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q7 = getelementptr inbounds <4 x i8>, ptr undef, i32 32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %q7, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q8 = getelementptr inbounds <4 x i16>, ptr undef, i32 32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %q8, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q9 = getelementptr inbounds <4 x i32>, ptr undef, i32 32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %q9, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q10 = getelementptr inbounds <4 x i64>, ptr undef, i32 32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %q10, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q11 = getelementptr inbounds <4 x half>, ptr undef, i32 32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %q11, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q12 = getelementptr inbounds <4 x float>, ptr undef, i32 32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %q12, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %q13 = getelementptr inbounds <4 x double>, ptr undef, i32 32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %q13, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %r7, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %r8, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %r9, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %r10, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r11 = getelementptr inbounds <4 x half>, ptr undef, i32 -31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %r11, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r12 = getelementptr inbounds <4 x float>, ptr undef, i32 -31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %r12, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %r13 = getelementptr inbounds <4 x double>, ptr undef, i32 -31
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %r13, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %s7, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %s8, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %s9, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %s10, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s11 = getelementptr inbounds <4 x half>, ptr undef, i32 -32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %s11, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s12 = getelementptr inbounds <4 x float>, ptr undef, i32 -32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %s12, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s13 = getelementptr inbounds <4 x double>, ptr undef, i32 -32
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %s13, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c7 = getelementptr inbounds <4 x i8>, ptr undef, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: store volatile <4 x i8> undef, ptr %c7, align 4
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c8 = getelementptr inbounds <4 x i16>, ptr undef, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i16> undef, ptr %c8, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c9 = getelementptr inbounds <4 x i32>, ptr undef, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x i32> undef, ptr %c9, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c10 = getelementptr inbounds <4 x i64>, ptr undef, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store volatile <4 x i64> undef, ptr %c10, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c11 = getelementptr inbounds <4 x half>, ptr undef, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store volatile <4 x half> undef, ptr %c11, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c12 = getelementptr inbounds <4 x float>, ptr undef, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <4 x float> undef, ptr %c12, align 8
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c13 = getelementptr inbounds <4 x double>, ptr undef, i32 %i
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store volatile <4 x double> undef, ptr %c13, align 32
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %d0 = getelementptr inbounds i8, ptr undef, i32 -1
+; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %d0, align 1
 ; CHECK-A32-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 
   %b7 = getelementptr inbounds <4 x i8>, ptr undef, i32 1
+  store volatile <4 x i8> undef, ptr %b7
   %b8 = getelementptr inbounds <4 x i16>, ptr undef, i32 1
+  store volatile <4 x i16> undef, ptr %b8
   %b9 = getelementptr inbounds <4 x i32>, ptr undef, i32 1
+  store volatile <4 x i32> undef, ptr %b9
   %b10 = getelementptr inbounds <4 x i64>, ptr undef, i32 1
+  store volatile <4 x i64> undef, ptr %b10
   %b11 = getelementptr inbounds <4 x half>, ptr undef, i32 1
+  store volatile <4 x half> undef, ptr %b11
   %b12 = getelementptr inbounds <4 x float>, ptr undef, i32 1
+  store volatile <4 x float> undef, ptr %b12
   %b13 = getelementptr inbounds <4 x double>, ptr undef, i32 1
+  store volatile <4 x double> undef, ptr %b13
 
   %o7 = getelementptr inbounds <4 x i8>, ptr undef, i32 4
+  store volatile <4 x i8> undef, ptr %o7
   %o8 = getelementptr inbounds <4 x i16>, ptr undef, i32 4
+  store volatile <4 x i16> undef, ptr %o8
   %o9 = getelementptr inbounds <4 x i32>, ptr undef, i32 4
+  store volatile <4 x i32> undef, ptr %o9
   %o10 = getelementptr inbounds <4 x i64>, ptr undef, i32 4
+  store volatile <4 x i64> undef, ptr %o10
   %o11 = getelementptr inbounds <4 x half>, ptr undef, i32 4
+  store volatile <4 x half> undef, ptr %o11
   %o12 = getelementptr inbounds <4 x float>, ptr undef, i32 4
+  store volatile <4 x float> undef, ptr %o12
   %o13 = getelementptr inbounds <4 x double>, ptr undef, i32 4
+  store volatile <4 x double> undef, ptr %o13
 
   %p7 = getelementptr inbounds <4 x i8>, ptr undef, i32 31
+  store volatile <4 x i8> undef, ptr %p7
   %p8 = getelementptr inbounds <4 x i16>, ptr undef, i32 31
+  store volatile <4 x i16> undef, ptr %p8
   %p9 = getelementptr inbounds <4 x i32>, ptr undef, i32 31
+  store volatile <4 x i32> undef, ptr %p9
   %p10 = getelementptr inbounds <4 x i64>, ptr undef, i32 31
+  store volatile <4 x i64> undef, ptr %p10
   %p11 = getelementptr inbounds <4 x half>, ptr undef, i32 31
+  store volatile <4 x half> undef, ptr %p11
   %p12 = getelementptr inbounds <4 x float>, ptr undef, i32 31
+  store volatile <4 x float> undef, ptr %p12
   %p13 = getelementptr inbounds <4 x double>, ptr undef, i32 31
+  store volatile <4 x double> undef, ptr %p13
 
   %q7 = getelementptr inbounds <4 x i8>, ptr undef, i32 32
+  store volatile <4 x i8> undef, ptr %q7
   %q8 = getelementptr inbounds <4 x i16>, ptr undef, i32 32
+  store volatile <4 x i16> undef, ptr %q8
   %q9 = getelementptr inbounds <4 x i32>, ptr undef, i32 32
+  store volatile <4 x i32> undef, ptr %q9
   %q10 = getelementptr inbounds <4 x i64>, ptr undef, i32 32
+  store volatile <4 x i64> undef, ptr %q10
   %q11 = getelementptr inbounds <4 x half>, ptr undef, i32 32
+  store volatile <4 x half> undef, ptr %q11
   %q12 = getelementptr inbounds <4 x float>, ptr undef, i32 32
+  store volatile <4 x float> undef, ptr %q12
   %q13 = getelementptr inbounds <4 x double>, ptr undef, i32 32
+  store volatile <4 x double> undef, ptr %q13
 
   %r7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -31
+  store volatile <4 x i8> undef, ptr %r7
   %r8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -31
+  store volatile <4 x i16> undef, ptr %r8
   %r9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -31
+  store volatile <4 x i32> undef, ptr %r9
   %r10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -31
+  store volatile <4 x i64> undef, ptr %r10
   %r11 = getelementptr inbounds <4 x half>, ptr undef, i32 -31
+  store volatile <4 x half> undef, ptr %r11
   %r12 = getelementptr inbounds <4 x float>, ptr undef, i32 -31
+  store volatile <4 x float> undef, ptr %r12
   %r13 = getelementptr inbounds <4 x double>, ptr undef, i32 -31
+  store volatile <4 x double> undef, ptr %r13
 
   %s7 = getelementptr inbounds <4 x i8>, ptr undef, i32 -32
+  store volatile <4 x i8> undef, ptr %s7
   %s8 = getelementptr inbounds <4 x i16>, ptr undef, i32 -32
+  store volatile <4 x i16> undef, ptr %s8
   %s9 = getelementptr inbounds <4 x i32>, ptr undef, i32 -32
+  store volatile <4 x i32> undef, ptr %s9
   %s10 = getelementptr inbounds <4 x i64>, ptr undef, i32 -32
+  store volatile <4 x i64> undef, ptr %s10
   %s11 = getelementptr inbounds <4 x half>, ptr undef, i32 -32
+  store volatile <4 x half> undef, ptr %s11
   %s12 = getelementptr inbounds <4 x float>, ptr undef, i32 -32
+  store volatile <4 x float> undef, ptr %s12
   %s13 = getelementptr inbounds <4 x double>, ptr undef, i32 -32
+  store volatile <4 x double> undef, ptr %s13
 
   %c7 = getelementptr inbounds <4 x i8>, ptr undef, i32 %i
+  store volatile <4 x i8> undef, ptr %c7
   %c8 = getelementptr inbounds <4 x i16>, ptr undef, i32 %i
+  store volatile <4 x i16> undef, ptr %c8
   %c9 = getelementptr inbounds <4 x i32>, ptr undef, i32 %i
+  store volatile <4 x i32> undef, ptr %c9
   %c10 = getelementptr inbounds <4 x i64>, ptr undef, i32 %i
+  store volatile <4 x i64> undef, ptr %c10
   %c11 = getelementptr inbounds <4 x half>, ptr undef, i32 %i
+  store volatile <4 x half> undef, ptr %c11
   %c12 = getelementptr inbounds <4 x float>, ptr undef, i32 %i
+  store volatile <4 x float> undef, ptr %c12
   %c13 = getelementptr inbounds <4 x double>, ptr undef, i32 %i
+  store volatile <4 x double> undef, ptr %c13
 
   %d0 = getelementptr inbounds i8, ptr undef, i32 -1
+  store volatile i8 undef, ptr %d0
 
   ret void
 }

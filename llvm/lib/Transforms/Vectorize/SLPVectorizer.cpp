@@ -7364,9 +7364,6 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
                                  "Calculated GEPs cost for Tree"));
         return InstructionCost{TTI::TCC_Free};
       }
-      VecCost = TTI->getPointersChainCost(
-          PtrsRetainedInVecCode, BasePtr,
-          TTI::PointersChainInfo::getKnownNonUniformStrided(), CostKind);
     } else {
       // Case 1: Ptrs are the arguments of loads that we are going to transform
       // into masked gather load intrinsic.
@@ -7383,16 +7380,13 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
               : TTI::PointersChainInfo::getKnownNonUniformStrided();
 
       ScalarCost = TTI->getPointersChainCost(Ptrs, BasePtr, PtrsInfo, CostKind);
+    }
 
-      // Remark: it not quite correct to use scalar GEP cost for a vector GEP,
-      // but it's not clear how to do that without having vector GEP arguments
-      // ready.
-      // Perhaps using just TTI::TCC_Free/TTI::TCC_Basic would be better option.
-      if (const auto *Base = dyn_cast<GetElementPtrInst>(BasePtr)) {
-        SmallVector<const Value *> Indices(Base->indices());
-        VecCost = TTI->getGEPCost(Base->getSourceElementType(),
-                                  Base->getPointerOperand(), Indices, CostKind);
-      }
+    if (auto *BaseGEP = dyn_cast<GEPOperator>(BasePtr)) {
+      SmallVector<const Value *> Indices(BaseGEP->indices());
+      VecCost = TTI->getGEPCost(BaseGEP->getSourceElementType(),
+                                BaseGEP->getPointerOperand(), Indices, {VecTy},
+                                CostKind);
     }
 
     LLVM_DEBUG(dumpTreeCosts(E, 0, VecCost, ScalarCost,

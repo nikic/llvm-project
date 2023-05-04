@@ -12,15 +12,15 @@ declare double @llvm.pow.f64(double, double)
 define void @test(double* nocapture %A, double* nocapture %B, double* nocapture %C, double* nocapture %D, double* nocapture %E) {
 
 ; CHECK: Calculating cost of runtime checks:
-; CHECK-NEXT:  0  for   {{.+}} = getelementptr double, double* %A, i64 16
+; CHECK-NEXT:  1  for   {{.+}} = getelementptr double, double* %A, i64 16
 ; CHECK-NEXT:  0  for   {{.+}} = bitcast double*
-; CHECK-NEXT:  0  for   {{.+}} = getelementptr double, double* %B, i64 16
+; CHECK-NEXT:  1  for   {{.+}} = getelementptr double, double* %B, i64 16
 ; CHECK-NEXT:  0  for   {{.+}} = bitcast double*
-; CHECK-NEXT:  0  for   {{.+}} = getelementptr double, double* %E, i64 16
+; CHECK-NEXT:  1  for   {{.+}} = getelementptr double, double* %E, i64 16
 ; CHECK-NEXT:  0  for   {{.+}} = bitcast double*
-; CHECK-NEXT:  0  for   {{.+}} = getelementptr double, double* %C, i64 16
+; CHECK-NEXT:  1  for   {{.+}} = getelementptr double, double* %C, i64 16
 ; CHECK-NEXT:  0  for   {{.+}} = bitcast double*
-; CHECK-NEXT:  0  for   {{.+}} = getelementptr double, double* %D, i64 16
+; CHECK-NEXT:  1  for   {{.+}} = getelementptr double, double* %D, i64 16
 ; CHECK-NEXT:  0  for   {{.+}} = bitcast double*
 ; CHECK-NEXT:  1  for   {{.+}} = icmp ult i8*
 ; CHECK-NEXT:  1  for   {{.+}} = icmp ult i8*
@@ -57,9 +57,9 @@ define void @test(double* nocapture %A, double* nocapture %B, double* nocapture 
 ; CHECK-NEXT:  1  for   {{.+}} = icmp ult i8*
 ; CHECK-NEXT:  1  for   {{.+}} = and i1
 ; CHECK-NEXT:  1  for   {{.+}} = or i1
-; CHECK-NEXT: Total cost of runtime checks: 35
+; CHECK-NEXT: Total cost of runtime checks: 40
 
-; CHECK: LV: Vectorization is not beneficial: expected trip count < minimum profitable VF (16 < 24)
+; CHECK: LV: Vectorization is not beneficial: expected trip count < minimum profitable VF (16 < 28)
 ;
 ; CHECK-LABEL: @test(
 ; CHECK-NEXT: entry:

@@ -23,9 +23,10 @@ define void @outer3(ptr %ptr, i32 %j) {
 ; Thus, both the gep and ret can be simplified.
 ; CHECK: Analyzing call of inner1
 ; CHECK: NumInstructionsSimplified: 2
-; CHECK: NumInstructions: 2
+; CHECK: NumInstructions: 3
 define void @inner1(ptr %ptr, i32 %i) {
   %G = getelementptr inbounds [4 x i32], ptr %ptr, i32 0, i32 %i
+  store i32 undef, ptr %G
   ret void
 }
 
@@ -33,9 +34,10 @@ define void @inner1(ptr %ptr, i32 %i) {
 ; AArch64.  Thus, only the ret can be simplified and not the gep.
 ; CHECK: Analyzing call of inner2
 ; CHECK: NumInstructionsSimplified: 1
-; CHECK: NumInstructions: 2
+; CHECK: NumInstructions: 3
 define void @inner2(ptr %ptr, i32 %i) {
   %G = getelementptr inbounds [4 x i32], ptr %ptr, i32 1, i32 %i
+  store i32 undef, ptr %G
   ret void
 }
 
@@ -44,8 +46,9 @@ define void @inner2(ptr %ptr, i32 %i) {
 ; gep and ret can be simplified.
 ; CHECK: Analyzing call of inner3
 ; CHECK: NumInstructionsSimplified: 2
-; CHECK: NumInstructions: 2
+; CHECK: NumInstructions: 3
 define void @inner3(ptr %ptr, i32 %i, i32 %j) {
   %G = getelementptr inbounds [4 x i32], ptr %ptr, i32 %i, i32 %j
+  store i32 undef, ptr %G
   ret void
 }

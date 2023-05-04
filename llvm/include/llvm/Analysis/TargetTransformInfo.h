@@ -24,6 +24,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/IR/FMF.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/AtomicOrdering.h"
@@ -282,11 +283,37 @@ public:
     TCC_Expensive = 4 ///< The cost of a 'div' instruction on x86.
   };
 
+  /// A representation of a user of a GEP operation.
+  ///
+  /// If AccessType is nullptr, then the user isn't a memory op and the GEP
+  /// can't be folded.
+  ///
+  /// If AccessType is a type, then it will be passed to isLegalAddressingMode
+  /// to determine if the GEP can possibly be folded.
+  struct GEPUser {
+    Type *AccessType;
+    /// Create a user which accesses memory of type \p Ty. Useful when
+    /// estimating the cost of a GEP when its users haven't been created yet.
+    GEPUser(Type *Ty);
+    /// Create a user from an already existing Value and determine the type of
+    /// memory it accesses, if any.
+    GEPUser(const Value *User);
+  };
+
   /// Estimate the cost of a GEP operation when lowered.
   InstructionCost
   getGEPCost(Type *PointeeType, const Value *Ptr,
-             ArrayRef<const Value *> Operands,
+             ArrayRef<const Value *> Operands, ArrayRef<GEPUser> Users,
              TargetCostKind CostKind = TCK_SizeAndLatency) const;
+
+  InstructionCost
+  getGEPCost(GetElementPtrInst *GEP,
+             TargetCostKind CostKind = TCK_SizeAndLatency) const {
+    SmallVector<GEPUser> Users(GEP->users());
+    SmallVector<const Value *> Ops(GEP->indices());
+    return getGEPCost(GEP->getSourceElementType(), GEP->getPointerOperand(),
+                      Ops, Users, CostKind);
+  }
 
   /// Describe known properties for a set of pointers.
   struct PointersChainInfo {
@@ -1666,6 +1693,7 @@ public:
   virtual const DataLayout &getDataLayout() const = 0;
   virtual InstructionCost getGEPCost(Type *PointeeType, const Value *Ptr,
                                      ArrayRef<const Value *> Operands,
+                                     ArrayRef<GEPUser> Users,
                                      TTI::TargetCostKind CostKind) = 0;
   virtual InstructionCost
   getPointersChainCost(ArrayRef<const Value *> Ptrs, const Value *Base,
@@ -2023,9 +2051,9 @@ public:
 
   InstructionCost
   getGEPCost(Type *PointeeType, const Value *Ptr,
-             ArrayRef<const Value *> Operands,
+             ArrayRef<const Value *> Operands, ArrayRef<GEPUser> Users,
              TargetTransformInfo::TargetCostKind CostKind) override {
-    return Impl.getGEPCost(PointeeType, Ptr, Operands, CostKind);
+    return Impl.getGEPCost(PointeeType, Ptr, Operands, Users, CostKind);
   }
   InstructionCost getPointersChainCost(ArrayRef<const Value *> Ptrs,
                                        const Value *Base,

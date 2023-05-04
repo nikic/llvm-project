@@ -30,11 +30,10 @@ define ptr @test1(i32 %j, ptr readonly %P, ptr readnone %Q) {
 ; CHECK-NEXT:    [[P1:%.*]] = phi ptr [ [[ARRAYIDX0]], [[FOR_BODY]] ]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       loopexit1:
-; CHECK-NEXT:    [[ARRAYIDX0_LCSSA:%.*]] = phi ptr [ [[ARRAYIDX0]], [[IF_END]] ]
-; CHECK-NEXT:    [[ARRAYIDX1_LE:%.*]] = getelementptr inbounds ptr, ptr [[ARRAYIDX0_LCSSA]], i64 1
+; CHECK-NEXT:    [[P2:%.*]] = phi ptr [ [[ARRAYIDX1]], [[IF_END]] ]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi ptr [ [[P1]], [[LOOPEXIT0]] ], [ [[ARRAYIDX1_LE]], [[LOOPEXIT1]] ], [ null, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi ptr [ [[P1]], [[LOOPEXIT0]] ], [ [[P2]], [[LOOPEXIT1]] ], [ null, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret ptr [[RETVAL_0]]
 ;
 entry:
@@ -106,12 +105,10 @@ define ptr @test2(i32 %j, ptr readonly %P, ptr readnone %Q) {
 ; CHECK-NEXT:    [[P1:%.*]] = phi ptr [ [[ADD_PTR]], [[FOR_BODY]] ]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       loopexit2:
-; CHECK-NEXT:    [[IDX2_EXT_LCSSA:%.*]] = phi i64 [ [[IDX2_EXT]], [[IF_END]] ]
-; CHECK-NEXT:    [[ADD_PTR_LCSSA:%.*]] = phi ptr [ [[ADD_PTR]], [[IF_END]] ]
-; CHECK-NEXT:    [[ARRAYIDX2_LE:%.*]] = getelementptr inbounds ptr, ptr [[ADD_PTR_LCSSA]], i64 [[IDX2_EXT_LCSSA]]
+; CHECK-NEXT:    [[P2:%.*]] = phi ptr [ [[ARRAYIDX2]], [[IF_END]] ]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi ptr [ [[P1]], [[LOOPEXIT1]] ], [ [[ARRAYIDX2_LE]], [[LOOPEXIT2]] ], [ [[P0]], [[LOOPEXIT0]] ]
+; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi ptr [ [[P1]], [[LOOPEXIT1]] ], [ [[P2]], [[LOOPEXIT2]] ], [ [[P0]], [[LOOPEXIT0]] ]
 ; CHECK-NEXT:    ret ptr [[RETVAL_0]]
 ;
 entry:
@@ -188,14 +185,12 @@ define ptr @test3(i64 %j, ptr readonly %P, ptr readnone %Q) {
 ; CHECK-NEXT:    [[P1:%.*]] = phi ptr [ [[ARRAYIDX0]], [[FOR_BODY]] ]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       loopexit1:
-; CHECK-NEXT:    [[TRUNC_LCSSA1:%.*]] = phi i32 [ [[TRUNC]], [[IF_END]] ]
-; CHECK-NEXT:    [[P_ADDR_LCSSA:%.*]] = phi ptr [ [[P_ADDR]], [[IF_END]] ]
 ; CHECK-NEXT:    [[TRUNC_LCSSA:%.*]] = phi i32 [ [[TRUNC]], [[IF_END]] ]
-; CHECK-NEXT:    [[ARRAYIDX1_LE:%.*]] = getelementptr inbounds ptr, ptr [[P_ADDR_LCSSA]], i32 [[TRUNC_LCSSA1]]
+; CHECK-NEXT:    [[P2:%.*]] = phi ptr [ [[ARRAYIDX1]], [[IF_END]] ]
 ; CHECK-NEXT:    call void @dummy(i32 [[TRUNC_LCSSA]])
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi ptr [ [[P1]], [[LOOPEXIT0]] ], [ [[ARRAYIDX1_LE]], [[LOOPEXIT1]] ], [ null, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi ptr [ [[P1]], [[LOOPEXIT0]] ], [ [[P2]], [[LOOPEXIT1]] ], [ null, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret ptr [[RETVAL_0]]
 ;
 entry:

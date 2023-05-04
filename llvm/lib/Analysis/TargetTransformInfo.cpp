@@ -221,11 +221,43 @@ int TargetTransformInfo::getInlinerVectorBonusPercent() const {
   return TTIImpl->getInlinerVectorBonusPercent();
 }
 
-InstructionCost
-TargetTransformInfo::getGEPCost(Type *PointeeType, const Value *Ptr,
-                                ArrayRef<const Value *> Operands,
-                                TTI::TargetCostKind CostKind) const {
-  return TTIImpl->getGEPCost(PointeeType, Ptr, Operands, CostKind);
+TargetTransformInfo::GEPUser::GEPUser(Type *Ty) : AccessType(Ty) {}
+
+TargetTransformInfo::GEPUser::GEPUser(const Value *User) {
+  if (auto *L = dyn_cast<LoadInst>(User))
+    AccessType = L->getType();
+  else if (auto *S = dyn_cast<StoreInst>(User))
+    AccessType = S->getValueOperand()->getType();
+  else if (const IntrinsicInst *Intr = dyn_cast<IntrinsicInst>(User)) {
+    switch (Intr->getIntrinsicID()) {
+    case Intrinsic::masked_load:
+    case Intrinsic::masked_gather:
+    case Intrinsic::masked_expandload:
+    case Intrinsic::vp_load:
+    case Intrinsic::vp_gather:
+    case Intrinsic::experimental_vp_strided_load:
+      AccessType = Intr->getType();
+      break;
+    case Intrinsic::masked_store:
+    case Intrinsic::masked_scatter:
+    case Intrinsic::masked_compressstore:
+    case Intrinsic::vp_store:
+    case Intrinsic::vp_scatter:
+    case Intrinsic::experimental_vp_strided_store:
+      AccessType = Intr->getOperand(0)->getType();
+      break;
+    default:
+      AccessType = nullptr;
+      break;
+    }
+  } else
+    AccessType = nullptr;
+}
+
+InstructionCost TargetTransformInfo::getGEPCost(
+    Type *PointeeType, const Value *Ptr, ArrayRef<const Value *> Operands,
+    ArrayRef<GEPUser> Users, TTI::TargetCostKind CostKind) const {
+  return TTIImpl->getGEPCost(PointeeType, Ptr, Operands, Users, CostKind);
 }
 
 InstructionCost TargetTransformInfo::getPointersChainCost(

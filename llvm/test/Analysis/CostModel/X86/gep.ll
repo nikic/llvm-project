@@ -7,22 +7,30 @@
 define void @test_geps() {
 ; THRU-LABEL: 'test_geps'
 ; THRU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %giant_gep0 = getelementptr inbounds i8, ptr undef, i64 9223372036854775807
+; THRU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep0, align 1
 ; THRU-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %giant_gep1 = getelementptr inbounds i8, ptr undef, i128 295147905179352825855
+; THRU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep1, align 1
 ; THRU-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; LATE-LABEL: 'test_geps'
 ; LATE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %giant_gep0 = getelementptr inbounds i8, ptr undef, i64 9223372036854775807
+; LATE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep0, align 1
 ; LATE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %giant_gep1 = getelementptr inbounds i8, ptr undef, i128 295147905179352825855
+; LATE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep1, align 1
 ; LATE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SIZE-LABEL: 'test_geps'
 ; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %giant_gep0 = getelementptr inbounds i8, ptr undef, i64 9223372036854775807
+; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep0, align 1
 ; SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %giant_gep1 = getelementptr inbounds i8, ptr undef, i128 295147905179352825855
+; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep1, align 1
 ; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SIZE_LATE-LABEL: 'test_geps'
 ; SIZE_LATE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %giant_gep0 = getelementptr inbounds i8, ptr undef, i64 9223372036854775807
+; SIZE_LATE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep0, align 1
 ; SIZE_LATE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %giant_gep1 = getelementptr inbounds i8, ptr undef, i128 295147905179352825855
+; SIZE_LATE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i8 undef, ptr %giant_gep1, align 1
 ; SIZE_LATE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 
@@ -37,9 +45,11 @@ define void @test_geps() {
   ; dead code.
   ; This GEP has index INT64_MAX, which is cost 1.
   %giant_gep0 = getelementptr inbounds i8, ptr undef, i64 9223372036854775807
+  store volatile i8 undef, ptr %giant_gep0
 
   ; This GEP index wraps around to -1, which is cost 0.
   %giant_gep1 = getelementptr inbounds i8, ptr undef, i128 295147905179352825855
+  store volatile i8 undef, ptr %giant_gep1
 
   ret void
 }
