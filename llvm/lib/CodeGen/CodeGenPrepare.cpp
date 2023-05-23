@@ -4687,46 +4687,28 @@ bool AddressingModeMatcher::matchOperationAddr(User *AddrInst, unsigned Opcode,
   case Instruction::GetElementPtr: {
     // Scan the GEP.  We check it if it contains constant offsets and at most
     // one variable offset.
-    int VariableOperand = -1;
     unsigned VariableScale = 0;
+    Value *VariableOperand = nullptr;
 
-    int64_t ConstantOffset = 0;
-    gep_type_iterator GTI = gep_type_begin(AddrInst);
-    for (unsigned i = 1, e = AddrInst->getNumOperands(); i != e; ++i, ++GTI) {
-      if (StructType *STy = GTI.getStructTypeOrNull()) {
-        const StructLayout *SL = DL.getStructLayout(STy);
-        unsigned Idx =
-            cast<ConstantInt>(AddrInst->getOperand(i))->getZExtValue();
-        ConstantOffset += SL->getElementOffset(Idx);
-      } else {
-        TypeSize TS = DL.getTypeAllocSize(GTI.getIndexedType());
-        if (TS.isNonZero()) {
-          // The optimisations below currently only work for fixed offsets.
-          if (TS.isScalable())
-            return false;
-          int64_t TypeSize = TS.getFixedValue();
-          if (ConstantInt *CI =
-                  dyn_cast<ConstantInt>(AddrInst->getOperand(i))) {
-            const APInt &CVal = CI->getValue();
-            if (CVal.getSignificantBits() <= 64) {
-              ConstantOffset += CVal.getSExtValue() * TypeSize;
-              continue;
-            }
-          }
-          // We only allow one variable index at the moment.
-          if (VariableOperand != -1)
-            return false;
+    APInt Offset(DL.getIndexTypeSizeInBits(AddrInst->getOperand(0)->getType()),
+                 0);
+    MapVector<Value *, APInt> VariableOffsets;
+    cast<GEPOperator>(AddrInst)->collectOffset(DL, Offset.getBitWidth(),
+                                               VariableOffsets, Offset);
 
-          // Remember the variable index.
-          VariableOperand = i;
-          VariableScale = TypeSize;
-        }
-      }
+    // We only allow one variable index at the moment.
+    if (VariableOffsets.size() > 1)
+      return false;
+
+    if (VariableOffsets.size() == 1) {
+      VariableOperand = VariableOffsets.begin()->first;
+      VariableScale = VariableOffsets.begin()->second.getZExtValue();
     }
 
+    int64_t ConstantOffset = Offset.getSExtValue();
     // A common case is for the GEP to only do a constant offset.  In this case,
     // just add it to the disp field and check validity.
-    if (VariableOperand == -1) {
+    if (!VariableOperand) {
       AddrMode.BaseOffs += ConstantOffset;
       if (matchAddr(AddrInst->getOperand(0), Depth + 1)) {
           if (!cast<GEPOperator>(AddrInst)->isInBounds())
@@ -4782,8 +4764,7 @@ bool AddressingModeMatcher::matchOperationAddr(User *AddrInst, unsigned Opcode,
     }
 
     // Match the remaining variable portion of the GEP.
-    if (!matchScaledValue(AddrInst->getOperand(VariableOperand), VariableScale,
-                          Depth)) {
+    if (!matchScaledValue(VariableOperand, VariableScale, Depth)) {
       // If it couldn't be matched, try stuffing the base into a register
       // instead of matching it, and retrying the match of the scale.
       AddrMode = BackupAddrMode;
@@ -4793,8 +4774,7 @@ bool AddressingModeMatcher::matchOperationAddr(User *AddrInst, unsigned Opcode,
       AddrMode.HasBaseReg = true;
       AddrMode.BaseReg = AddrInst->getOperand(0);
       AddrMode.BaseOffs += ConstantOffset;
-      if (!matchScaledValue(AddrInst->getOperand(VariableOperand),
-                            VariableScale, Depth)) {
+      if (!matchScaledValue(VariableOperand, VariableScale, Depth)) {
         // If even that didn't work, bail.
         AddrMode = BackupAddrMode;
         AddrModeInsts.resize(OldSize);
