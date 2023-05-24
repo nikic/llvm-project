@@ -2550,6 +2550,25 @@ Instruction *InstCombinerImpl::visitUnconditionalBranchInst(BranchInst &BI) {
   return nullptr;
 }
 
+static bool handlePotentiallyDeadBlock(BasicBlock *BB, InstCombiner &IC) {
+  if (!BB->getSinglePredecessor())
+    return false;
+
+  bool Changed = false;
+  for (Instruction &Inst : make_early_inc_range(make_range(
+           std::next(BB->getTerminator()->getReverseIterator()), BB->rend()))) {
+    if (!Inst.use_empty() && !Inst.getType()->isTokenTy()) {
+      IC.replaceInstUsesWith(Inst, PoisonValue::get(Inst.getType()));
+      Changed = true;
+    }
+    if (Inst.isEHPad() || Inst.getType()->isTokenTy())
+      continue;
+    IC.eraseInstFromFunction(Inst);
+    Changed = true;
+  }
+  return Changed;
+}
+
 Instruction *InstCombinerImpl::visitBranchInst(BranchInst &BI) {
   if (BI.isUnconditional())
     return visitUnconditionalBranchInst(BI);
@@ -2593,6 +2612,12 @@ Instruction *InstCombinerImpl::visitBranchInst(BranchInst &BI) {
     return &BI;
   }
 
+  if (auto *CI = dyn_cast<ConstantInt>(Cond)) {
+    BasicBlock *DeadSucc = BI.getSuccessor(CI->getZExtValue());
+    if (handlePotentiallyDeadBlock(DeadSucc, *this))
+      return &BI;
+  }
+
   return nullptr;
 }
 
@@ -2609,6 +2634,16 @@ Instruction *InstCombinerImpl::visitSwitchInst(SwitchInst &SI) {
       Case.setValue(cast<ConstantInt>(NewCase));
     }
     return replaceOperand(SI, 0, Op0);
+  }
+
+  if (auto *CI = dyn_cast<ConstantInt>(Cond)) {
+    bool Changed = false;
+    BasicBlock *LiveSucc = SI.findCaseValue(CI)->getCaseSuccessor();
+    for (BasicBlock *Succ : successors(&SI))
+      if (Succ != LiveSucc)
+        Changed |= handlePotentiallyDeadBlock(Succ, *this);
+    if (Changed)
+      return &SI;
   }
 
   KnownBits Known = computeKnownBits(Cond, 0, &SI);
