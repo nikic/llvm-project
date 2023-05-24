@@ -174,7 +174,8 @@ namespace {
     /// This records all nodes attempted to be added to the worklist since we
     /// considered a new worklist entry. As we keep do not add duplicate nodes
     /// in the worklist, this is different from the tail of the worklist.
-    SmallSetVector<SDNode *, 32> PruningList;
+    SetVector<SDNode *, SmallVector<SDNode *, 32>, SmallPtrSet<SDNode *, 32>>
+        PruningList;
 
     /// Set of nodes which have been combined (at least once).
     ///
