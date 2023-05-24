@@ -295,12 +295,28 @@ inverse_post_order_ext(const T &G, SetType &S) {
 template<class GraphT, class GT = GraphTraits<GraphT>>
 class ReversePostOrderTraversal {
   using NodeRef = typename GT::NodeRef;
+  using ChildItTy = typename GT::ChildIteratorType;
 
   using VecTy = SmallVector<NodeRef, 8>;
   VecTy Blocks; // Block list in normal PO order
 
   void Initialize(const GraphT &G) {
-    std::copy(po_begin(G), po_end(G), std::back_inserter(Blocks));
+    SmallVector<std::tuple<NodeRef, ChildItTy, ChildItTy>, 8> VisitStack;
+    SmallPtrSet<NodeRef, 8> Visited;
+    NodeRef Entry = GT::getEntryNode(G);
+    VisitStack.emplace_back(Entry, GT::child_begin(Entry),
+                            GT::child_end(Entry));
+    while (!VisitStack.empty()) {
+      auto &Entry = VisitStack.back();
+      if (std::get<1>(Entry) == std::get<2>(Entry)) {
+        Blocks.push_back(std::get<0>(Entry));
+        VisitStack.pop_back();
+        continue;
+      }
+      NodeRef BB = *std::get<1>(Entry)++;
+      if (Visited.insert(BB).second)
+        VisitStack.emplace_back(BB, GT::child_begin(BB), GT::child_end(BB));
+    }
   }
 
 public:
