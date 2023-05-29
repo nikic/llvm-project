@@ -393,10 +393,10 @@ PreservedAnalyses IPSCCPPass::run(Module &M, ModuleAnalysisManager &AM) {
     return FAM.getResult<AssumptionAnalysis>(F);
   };
   auto getAnalysis = [&FAM](Function &F) -> AnalysisResultsForFn {
+    AssumptionCache &AC = FAM.getResult<AssumptionAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    return {
-        std::make_unique<PredicateInfo>(F, DT, FAM.getResult<AssumptionAnalysis>(F)),
-        &DT, FAM.getCachedResult<PostDominatorTreeAnalysis>(F) };
+    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
+    return {std::make_unique<PredicateInfo>(F, DT, AC), &DT, &PDT};
   };
 
   if (!runIPSCCP(M, DL, &FAM, GetBFI, GetTLI, GetTTI, GetAC, getAnalysis,
