@@ -273,9 +273,18 @@ KnownBits KnownBits::lshr(const KnownBits &LHS, const KnownBits &RHS) {
     return Known;
   }
 
-  // Find the common bits from all possible shifts.
+  // Fast path for common case where the shift amount is unknown.
   APInt MaxValue = RHS.getMaxValue();
   unsigned MaxShiftAmount = getMaxShiftAmount(MaxValue, BitWidth);
+  if (MinShiftAmount == 0 && MaxShiftAmount == BitWidth - 1 &&
+      isPowerOf2_32(BitWidth)) {
+    Known.Zero.setHighBits(LHS.countMinLeadingZeros());
+    if (LHS.isAllOnes())
+      Known.One.setBit(0);
+    return Known;
+  }
+
+  // Find the common bits from all possible shifts.
   unsigned ShiftAmtZeroMask = RHS.Zero.zextOrTrunc(32).getZExtValue();
   unsigned ShiftAmtOneMask = RHS.One.zextOrTrunc(32).getZExtValue();
   Known.Zero.setAllBits();
