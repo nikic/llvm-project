@@ -54,12 +54,15 @@ define i32 @or_and_shift_shift_and(i32 %x) {
 
 define i32 @multiuse1(i32 %x) {
 ; CHECK-LABEL: @multiuse1(
-; CHECK-NEXT:    [[TMP1:%.*]] = shl i32 [[X:%.*]], 6
-; CHECK-NEXT:    [[TMP2:%.*]] = and i32 [[TMP1]], 384
+; CHECK-NEXT:    [[TMP1:%.*]] = lshr i32 [[X:%.*]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = and i32 [[TMP1]], 1
 ; CHECK-NEXT:    [[TMP3:%.*]] = lshr i32 [[X]], 1
-; CHECK-NEXT:    [[TMP4:%.*]] = and i32 [[TMP3]], 3
-; CHECK-NEXT:    [[TMP5:%.*]] = or i32 [[TMP4]], [[TMP2]]
-; CHECK-NEXT:    ret i32 [[TMP5]]
+; CHECK-NEXT:    [[TMP4:%.*]] = and i32 [[TMP3]], 2
+; CHECK-NEXT:    [[TMP5:%.*]] = shl i32 [[X]], 6
+; CHECK-NEXT:    [[TMP6:%.*]] = and i32 [[TMP5]], 384
+; CHECK-NEXT:    [[TMP7:%.*]] = or i32 [[TMP2]], [[TMP4]]
+; CHECK-NEXT:    [[TMP8:%.*]] = or i32 [[TMP7]], [[TMP6]]
+; CHECK-NEXT:    ret i32 [[TMP8]]
 ;
   %1 = and i32 %x, 2
   %2 = and i32 %x, 4
@@ -77,16 +80,18 @@ define i32 @multiuse2(i32 %x) {
 ; CHECK-LABEL: @multiuse2(
 ; CHECK-NEXT:    [[TMP1:%.*]] = shl i32 [[X:%.*]], 1
 ; CHECK-NEXT:    [[TMP2:%.*]] = and i32 [[TMP1]], 12
-; CHECK-NEXT:    [[TMP3:%.*]] = shl i32 [[X]], 8
-; CHECK-NEXT:    [[TMP4:%.*]] = and i32 [[TMP3]], 24576
-; CHECK-NEXT:    [[TMP5:%.*]] = shl i32 [[X]], 8
-; CHECK-NEXT:    [[TMP6:%.*]] = and i32 [[TMP5]], 7680
-; CHECK-NEXT:    [[TMP7:%.*]] = or i32 [[TMP4]], [[TMP6]]
-; CHECK-NEXT:    [[TMP8:%.*]] = shl i32 [[X]], 1
-; CHECK-NEXT:    [[TMP9:%.*]] = and i32 [[TMP8]], 240
-; CHECK-NEXT:    [[TMP10:%.*]] = or i32 [[TMP2]], [[TMP9]]
-; CHECK-NEXT:    [[TMP11:%.*]] = or i32 [[TMP7]], [[TMP10]]
-; CHECK-NEXT:    ret i32 [[TMP11]]
+; CHECK-NEXT:    [[TMP3:%.*]] = shl i32 [[X]], 1
+; CHECK-NEXT:    [[TMP4:%.*]] = and i32 [[TMP3]], 48
+; CHECK-NEXT:    [[TMP5:%.*]] = and i32 [[X]], 96
+; CHECK-NEXT:    [[TMP6:%.*]] = shl nuw nsw i32 [[TMP5]], 8
+; CHECK-NEXT:    [[TMP7:%.*]] = shl nuw nsw i32 [[TMP5]], 1
+; CHECK-NEXT:    [[TMP8:%.*]] = shl i32 [[X]], 8
+; CHECK-NEXT:    [[TMP9:%.*]] = and i32 [[TMP8]], 7680
+; CHECK-NEXT:    [[TMP10:%.*]] = or i32 [[TMP6]], [[TMP9]]
+; CHECK-NEXT:    [[TMP11:%.*]] = or i32 [[TMP7]], [[TMP4]]
+; CHECK-NEXT:    [[TMP12:%.*]] = or i32 [[TMP2]], [[TMP11]]
+; CHECK-NEXT:    [[TMP13:%.*]] = or i32 [[TMP10]], [[TMP12]]
+; CHECK-NEXT:    ret i32 [[TMP13]]
 ;
   %1 = and i32 %x, 6
   %2 = shl nuw nsw i32 %1, 8
