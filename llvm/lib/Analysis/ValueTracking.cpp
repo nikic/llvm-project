@@ -5644,48 +5644,54 @@ static bool isSameUnderlyingObjectInLoop(const PHINode *PN,
 }
 
 const Value *llvm::getUnderlyingObject(const Value *V, unsigned MaxLookup) {
-  if (!V->getType()->isPointerTy())
-    return V;
-  for (unsigned Count = 0; MaxLookup == 0 || Count < MaxLookup; ++Count) {
-    if (auto *GEP = dyn_cast<GEPOperator>(V)) {
-      V = GEP->getPointerOperand();
-    } else if (Operator::getOpcode(V) == Instruction::BitCast ||
-               Operator::getOpcode(V) == Instruction::AddrSpaceCast) {
-      V = cast<Operator>(V)->getOperand(0);
-      if (!V->getType()->isPointerTy())
-        return V;
-    } else if (auto *GA = dyn_cast<GlobalAlias>(V)) {
-      if (GA->isInterposable())
-        return V;
-      V = GA->getAliasee();
-    } else {
-      if (auto *PHI = dyn_cast<PHINode>(V)) {
-        // Look through single-arg phi nodes created by LCSSA.
-        if (PHI->getNumIncomingValues() == 1) {
-          V = PHI->getIncomingValue(0);
-          continue;
-        }
-      } else if (auto *Call = dyn_cast<CallBase>(V)) {
-        // CaptureTracking can know about special capturing properties of some
-        // intrinsics like launder.invariant.group, that can't be expressed with
-        // the attributes, but have properties like returning aliasing pointer.
-        // Because some analysis may assume that nocaptured pointer is not
-        // returned from some special intrinsic (because function would have to
-        // be marked with returns attribute), it is crucial to use this function
-        // because it should be in sync with CaptureTracking. Not using it may
-        // cause weird miscompilations where 2 aliasing pointers are assumed to
-        // noalias.
-        if (auto *RP = getArgumentAliasingToReturnedPointer(Call, false)) {
-          V = RP;
-          continue;
-        }
-      }
+  std::function<const Value *(const Value *, unsigned)> Visit =
+      [&](const Value *Root, unsigned Count) {
+        const Value *V = Root;
+        if (!V->getType()->isPointerTy() ||
+            (MaxLookup != 0 && Count == MaxLookup))
+          return V;
 
-      return V;
-    }
-    assert(V->getType()->isPointerTy() && "Unexpected operand type!");
-  }
-  return V;
+        if (auto *GEP = dyn_cast<GEPOperator>(V)) {
+          V = GEP->getPointerOperand();
+        } else if (Operator::getOpcode(V) == Instruction::BitCast ||
+                   Operator::getOpcode(V) == Instruction::AddrSpaceCast) {
+          V = cast<Operator>(V)->getOperand(0);
+          if (!V->getType()->isPointerTy())
+            return V;
+        } else if (auto *GA = dyn_cast<GlobalAlias>(V)) {
+          if (GA->isInterposable())
+            return V;
+          V = GA->getAliasee();
+        } else {
+          if (auto *PHI = dyn_cast<PHINode>(V)) {
+            // Look through single-arg phi nodes created by LCSSA.
+            if (PHI->getNumIncomingValues() == 1) {
+              V = PHI->getIncomingValue(0);
+              return Visit(V, Count + 1);
+            }
+          } else if (auto *Call = dyn_cast<CallBase>(V)) {
+            // CaptureTracking can know about special capturing properties of
+            // some intrinsics like launder.invariant.group, that can't be
+            // expressed with the attributes, but have properties like returning
+            // aliasing pointer. Because some analysis may assume that
+            // nocaptured pointer is not returned from some special intrinsic
+            // (because function would have to be marked with returns
+            // attribute), it is crucial to use this function because it should
+            // be in sync with CaptureTracking. Not using it may cause weird
+            // miscompilations where 2 aliasing pointers are assumed to noalias.
+            if (auto *RP = getArgumentAliasingToReturnedPointer(Call, false)) {
+              V = RP;
+              return Visit(RP, Count + 1);
+            }
+          }
+
+          return V;
+        }
+        assert(V->getType()->isPointerTy() && "Unexpected operand type!");
+        return Visit(V, Count + 1);
+      };
+
+  return Visit(V, 0);
 }
 
 void llvm::getUnderlyingObjects(const Value *V,
