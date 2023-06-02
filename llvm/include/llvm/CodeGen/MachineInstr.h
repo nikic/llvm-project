@@ -311,6 +311,15 @@ private:
     return Op.isReg() && Op.isUse();
   }
 
+  class OpUsesReg {
+    Register Reg;
+  public:
+    OpUsesReg(Register Reg) : Reg(Reg) {}
+    bool operator()(const MachineOperand &Op) const {
+      return Op.isReg() && Op.getReg() == Reg;
+    }
+  };
+
 public:
   MachineInstr(const MachineInstr &) = delete;
   MachineInstr &operator=(const MachineInstr &) = delete;
@@ -568,21 +577,16 @@ public:
   /// Returns a range of all of the operands that correspond to a debug use of
   /// \p Reg.
   template <typename Operand, typename Instruction>
-  static iterator_range<
-      filter_iterator<Operand *, std::function<bool(Operand &Op)>>>
+  static iterator_range<filter_iterator<Operand *, OpUsesReg>>
   getDebugOperandsForReg(Instruction *MI, Register Reg) {
-    std::function<bool(Operand & Op)> OpUsesReg(
-        [Reg](Operand &Op) { return Op.isReg() && Op.getReg() == Reg; });
-    return make_filter_range(MI->debug_operands(), OpUsesReg);
+    return make_filter_range(MI->debug_operands(), OpUsesReg(Reg));
   }
-  iterator_range<filter_iterator<const MachineOperand *,
-                                 std::function<bool(const MachineOperand &Op)>>>
+  iterator_range<filter_iterator<const MachineOperand *, OpUsesReg>>
   getDebugOperandsForReg(Register Reg) const {
     return MachineInstr::getDebugOperandsForReg<const MachineOperand,
                                                 const MachineInstr>(this, Reg);
   }
-  iterator_range<filter_iterator<MachineOperand *,
-                                 std::function<bool(MachineOperand &Op)>>>
+  iterator_range<filter_iterator<MachineOperand *, OpUsesReg>>
   getDebugOperandsForReg(Register Reg) {
     return MachineInstr::getDebugOperandsForReg<MachineOperand, MachineInstr>(
         this, Reg);
