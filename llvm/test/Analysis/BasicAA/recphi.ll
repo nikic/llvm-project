@@ -41,11 +41,11 @@ end:
 ; CHECK: MustAlias:	i32* %tab, [2 x i32]* %tab
 ; CHECK: MustAlias:	i32* %tab, i8* %tab
 ; CHECK: NoAlias:	i32* %arrayidx, i32* %tab
-; CHECK: MayAlias:	i32* %incdec.ptr.i, [2 x i32]* %tab
+; CHECK: PartialAlias:	i32* %incdec.ptr.i, [2 x i32]* %tab
 ; CHECK: NoAlias:	i32* %incdec.ptr.i, i8* %tab
 ; CHECK: MayAlias:	i32* %arrayidx, i32* %incdec.ptr.i
 ; CHECK: NoAlias:	i32* %incdec.ptr.i, i32* %tab
-; CHECK: MayAlias:	i32* %p.addr.05.i, [2 x i32]* %tab
+; CHECK: PartialAlias:	i32* %p.addr.05.i, [2 x i32]* %tab
 ; CHECK: MayAlias:	i32* %p.addr.05.i, i8* %tab
 ; CHECK: MayAlias:	i32* %arrayidx, i32* %p.addr.05.i
 ; CHECK: MayAlias:	i32* %p.addr.05.i, i32* %tab
@@ -95,11 +95,11 @@ if.end: ; preds = %f.exit
 ; CHECK: PartialAlias (off -36):	i32* %arrayidx1, [10 x i32]* %tab
 ; CHECK: NoAlias:	i32* %arrayidx1, i8* %tab
 ; CHECK: NoAlias:	i32* %arrayidx1, i32* %tab
-; CHECK: MayAlias:	i32* %incdec.ptr.i, [10 x i32]* %tab
+; CHECK: PartialAlias:	i32* %incdec.ptr.i, [10 x i32]* %tab
 ; CHECK: MayAlias:	i32* %incdec.ptr.i, i8* %tab
 ; CHECK: MayAlias:	i32* %incdec.ptr.i, i32* %tab
 ; CHECK: MayAlias:	i32* %arrayidx1, i32* %incdec.ptr.i
-; CHECK: MayAlias:	i32* %p.addr.05.i, [10 x i32]* %tab
+; CHECK: PartialAlias:	i32* %p.addr.05.i, [10 x i32]* %tab
 ; CHECK: MayAlias:	i32* %p.addr.05.i, i8* %tab
 ; CHECK: MayAlias:	i32* %p.addr.05.i, i32* %tab
 ; CHECK: MayAlias:	i32* %arrayidx1, i32* %p.addr.05.i
@@ -144,9 +144,9 @@ if.end: ; preds = %f.exit
 
 ; CHECK-LABEL: Function: negative: 5 pointers, 1 call sites
 ; CHECK: PartialAlias (off -4):	i16* %_tmp1, [3 x i16]* %int_arr.10
-; CHECK: MayAlias:	[3 x i16]* %int_arr.10, i16* %ls1.9.0
+; CHECK: PartialAlias:	[3 x i16]* %int_arr.10, i16* %ls1.9.0
 ; CHECK: MayAlias:	i16* %_tmp1, i16* %ls1.9.0
-; CHECK: MayAlias:	i16* %_tmp7, [3 x i16]* %int_arr.10
+; CHECK: PartialAlias:	i16* %_tmp7, [3 x i16]* %int_arr.10
 ; CHECK: MayAlias:	i16* %_tmp1, i16* %_tmp7
 ; CHECK: NoAlias:	i16* %_tmp7, i16* %ls1.9.0
 ; CHECK: PartialAlias (off -2):	i16* %_tmp11, [3 x i16]* %int_arr.10
@@ -155,8 +155,8 @@ if.end: ; preds = %f.exit
 ; CHECK: MayAlias:	i16* %_tmp11, i16* %_tmp7
 ; CHECK: NoModRef:  Ptr: [3 x i16]* %int_arr.10	<->  %_tmp16 = call i16 @call(i32 %_tmp13)
 ; CHECK: NoModRef:  Ptr: i16* %_tmp1	<->  %_tmp16 = call i16 @call(i32 %_tmp13)
-; CHECK: Both ModRef:  Ptr: i16* %ls1.9.0	<->  %_tmp16 = call i16 @call(i32 %_tmp13)
-; CHECK: Both ModRef:  Ptr: i16* %_tmp7	<->  %_tmp16 = call i16 @call(i32 %_tmp13)
+; CHECK: NoModRef:  Ptr: i16* %ls1.9.0	<->  %_tmp16 = call i16 @call(i32 %_tmp13)
+; CHECK: NoModRef:  Ptr: i16* %_tmp7	<->  %_tmp16 = call i16 @call(i32 %_tmp13)
 ; CHECK: NoModRef:  Ptr: i16* %_tmp11	<->  %_tmp16 = call i16 @call(i32 %_tmp13)
 define i16 @negative(i16 %argc.5.par) {
   %int_arr.10 = alloca [3 x i16], align 1
@@ -282,7 +282,7 @@ exit:
 ; CHECK: NoAlias:  i8* %a, i8* %p.base
 ; CHECK: NoAlias:  i8* %a, i8* %p.outer
 ; CHECK: NoAlias:  i8* %a, i8* %p.outer.next
-; CHECK: MayAlias: i8* %a, i8* %p.inner
+; CHECK: NoAlias:  i8* %a, i8* %p.inner
 ; CHECK: NoAlias:  i8* %a, i8* %p.inner.next
 ; TODO: (a, p.inner) could be NoAlias
 define void @nested_loop2(i1 %c, i1 %c2, ptr noalias %p.base) {
@@ -351,7 +351,7 @@ exit:
 ; CHECK: NoAlias:	i8* %a, i8* %p.base
 ; CHECK: NoAlias:	i8* %a, i8* %p1
 ; CHECK: NoAlias:	i8* %a, i8* %p1.next
-; CHECK: MayAlias:	i8* %a, i8* %p2
+; CHECK: NoAlias:	i8* %a, i8* %p2
 ; CHECK: NoAlias:	i8* %a, i8* %p2.next
 ; TODO: %p2 does not alias %a
 define void @sibling_loop(i1 %c, i1 %c2, ptr noalias %p.base) {

@@ -82,7 +82,7 @@ declare void @inc(ptr)
 ; actually only one underlying value.
 ; FIXME: All of these could be NoAlias.
 ; CHECK-LABEL: loop_phi_chain
-; CHECK: MayAlias: i32* %val1, i32* @Y
+; CHECK: NoAlias: i32* %val1, i32* @Y
 ; CHECK: MayAlias: i32* %val2, i32* @Y
 ; CHECK: MayAlias: i32* %val3, i32* @Y
 define void @loop_phi_chain(i32 %a, i32 %b, i32 %c) {

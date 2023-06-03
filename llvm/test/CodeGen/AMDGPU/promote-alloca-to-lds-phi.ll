@@ -128,12 +128,9 @@ endif:
 ;     }
 ; }
 
-; FIXME: This should be promotable. We need to use
-; getUnderlyingObjects when looking at the icmp user.
-
 ; CHECK-LABEL: @ptr_induction_var_same_alloca(
-; CHECK: %alloca = alloca [64 x i32], align 4
-; CHECK: phi ptr addrspace(5) [ %arrayidx, %entry ], [ %incdec.ptr, %for.body ]
+; CHECK-NOT: {{.*}} = alloca
+; CHECK: phi ptr addrspace(3) [ %arrayidx, %entry ], [ %incdec.ptr, %for.body ]
 define amdgpu_kernel void @ptr_induction_var_same_alloca() #0 {
 entry:
   %alloca = alloca [64 x i32], align 4, addrspace(5)
