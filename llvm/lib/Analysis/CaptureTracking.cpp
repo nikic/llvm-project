@@ -411,7 +411,11 @@ UseCaptureKind llvm::DetermineUseCaptureKind(
         if (IsDereferenceableOrNull && IsDereferenceableOrNull(O, DL))
           return UseCaptureKind::NO_CAPTURE;
       }
-    }
+    } else if (getUnderlyingObjectLookThrough(I->getOperand(Idx)) ==
+               getUnderlyingObjectLookThrough(I->getOperand(OtherIdx)))
+      // Pointers that are comparisons against the same object to do not
+      // capture.
+      return UseCaptureKind::NO_CAPTURE;
 
     // Otherwise, be conservative. There are crazy ways to capture pointers
     // using comparisons.
