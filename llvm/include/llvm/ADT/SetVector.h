@@ -47,7 +47,7 @@ namespace llvm {
 /// value_type to float and key_type to int can produce very surprising results,
 /// but it is not explicitly disallowed.
 template <typename T, typename Vector = std::vector<T>,
-          typename Set = DenseSet<T>>
+          typename Set = DenseSet<T>, unsigned N = 0>
 class SetVector {
 public:
   using value_type = typename Vector::value_type;
@@ -150,6 +150,17 @@ public:
   /// Insert a new element into the SetVector.
   /// \returns true if the element was inserted into the SetVector.
   bool insert(const value_type &X) {
+    if constexpr (canBeSmall())
+      if (isSmall()) {
+        if (llvm::find(vector_, X) == vector_.end()) {
+          vector_.push_back(X);
+          if (vector_.size() > N)
+            makeBig();
+          return true;
+        }
+        return false;
+      }
+
     bool result = set_.insert(X).second;
     if (result)
       vector_.push_back(X);
@@ -159,13 +170,26 @@ public:
   /// Insert a range of elements into the SetVector.
   template<typename It>
   void insert(It Start, It End) {
-    for (; Start != End; ++Start)
-      if (set_.insert(*Start).second)
+    for (; Start != End; ++Start) {
+      if constexpr (canBeSmall())
+        insert(*Start);
+      else if (set_.insert(*Start).second)
         vector_.push_back(*Start);
+    }
   }
 
   /// Remove an item from the set vector.
   bool remove(const value_type& X) {
+    if constexpr (canBeSmall())
+      if (isSmall()) {
+        typename vector_type::iterator I = find(vector_, X);
+        if (I != vector_.end()) {
+          vector_.erase(I);
+          return true;
+        }
+        return false;
+      }
+
     if (set_.erase(X)) {
       typename vector_type::iterator I = find(vector_, X);
       assert(I != vector_.end() && "Corrupted SetVector instances!");
@@ -180,6 +204,10 @@ public:
   /// element erased. This is the end of the SetVector if the last element is
   /// erased.
   iterator erase(const_iterator I) {
+    if constexpr (canBeSmall())
+      if (isSmall())
+        return vector_.erase(I);
+
     const key_type &V = *I;
     assert(set_.count(V) && "Corrupted SetVector instances!");
     set_.erase(V);
@@ -201,8 +229,14 @@ public:
   /// \returns true if any element is removed.
   template <typename UnaryPredicate>
   bool remove_if(UnaryPredicate P) {
-    typename vector_type::iterator I =
-        llvm::remove_if(vector_, TestAndEraseFromSet<UnaryPredicate>(P, set_));
+    typename vector_type::iterator I = [this, P] {
+      if constexpr (canBeSmall())
+        if (isSmall())
+          return llvm::remove_if(vector_, P);
+
+      return llvm::remove_if(vector_, TestAndEraseFromSet<UnaryPredicate>(P, set_));
+    }();
+
     if (I == vector_.end())
       return false;
     vector_.erase(I, vector_.end());
@@ -211,12 +245,20 @@ public:
 
   /// Check if the SetVector contains the given key.
   bool contains(const key_type &key) const {
+    if constexpr (canBeSmall())
+      if (isSmall())
+        return find(vector_, key) != vector_.end();
+
     return set_.find(key) != set_.end();
   }
 
   /// Count the number of elements of a given key in the SetVector.
   /// \returns 0 if the element is not in the SetVector, 1 if it is.
   size_type count(const key_type &key) const {
+    if constexpr (canBeSmall())
+      if (isSmall())
+        return llvm::count(vector_, key);
+
     return set_.count(key);
   }
 
@@ -229,7 +271,9 @@ public:
   /// Remove the last element of the SetVector.
   void pop_back() {
     assert(!empty() && "Cannot remove an element from an empty SetVector!");
-    set_.erase(back());
+    if (!isSmall())
+      set_.erase(back());
+
     vector_.pop_back();
   }
 
@@ -301,6 +345,35 @@ private:
     }
   };
 
+  template <class AlwaysVoid, template <class...> class Op, class... Args>
+  static constexpr inline bool is_valid_v = false;
+
+  template <template <class...> class Op, class... Args>
+  static constexpr inline bool
+      is_valid_v<std::void_t<Op<Args...>>, Op, Args...> = true;
+
+  template <typename T1, typename T2>
+  using eq_t = decltype(std::declval<T1 &>() == std::declval<T2 &>());
+
+  [[nodiscard]] static constexpr bool canBeSmall() noexcept {
+    if (N == 0)
+      return false;
+
+    return is_valid_v<void, eq_t, const value_type, const value_type> ||
+           is_valid_v<void, eq_t, const value_type, value_type> ||
+           is_valid_v<void, eq_t, value_type, const value_type>;
+  }
+
+  [[nodiscard]] bool isSmall() const noexcept {
+    return set_.empty();
+  }
+
+  void makeBig() {
+    if constexpr (canBeSmall())
+      for (const auto &entry : vector_)
+        set_.insert(entry);
+  }
+
   set_type set_;         ///< The set.
   vector_type vector_;   ///< The vector.
 };
@@ -309,7 +382,7 @@ private:
 /// a certain size.
 template <typename T, unsigned N>
 class SmallSetVector
-    : public SetVector<T, SmallVector<T, N>, SmallDenseSet<T, N>> {
+    : public SetVector<T, SmallVector<T, N>, DenseSet<T>, N> {
 public:
   SmallSetVector() = default;
 
