@@ -301,6 +301,7 @@ private:
     }
   };
 
+protected:
   set_type set_;         ///< The set.
   vector_type vector_;   ///< The vector.
 };
@@ -310,13 +311,188 @@ private:
 template <typename T, unsigned N>
 class SmallSetVector
     : public SetVector<T, SmallVector<T, N>, SmallDenseSet<T, N>> {
+private:
+  [[nodiscard]] bool isSmall() const noexcept {
+    return this->set_.empty();
+  }
+
+  void makeBig() {
+    for (const auto &entry : this->vector_) {
+      this->set_.insert(entry);
+    }
+  }
+
+  using BaseClassT = SetVector<T, SmallVector<T, N>, SmallDenseSet<T, N>>;
+
 public:
+  using value_type = typename BaseClassT::value_type;
+  using key_type = typename BaseClassT::key_type;
+  using reference = typename BaseClassT::reference;
+  using const_reference = typename BaseClassT::const_reference;
+  using set_type = typename BaseClassT::set_type;
+  using vector_type = typename BaseClassT::vector_type;
+  using iterator = typename BaseClassT::iterator;
+  using const_iterator = typename BaseClassT::const_iterator;
+  using reverse_iterator = typename BaseClassT::reverse_iterator;
+  using const_reverse_iterator = typename BaseClassT::const_reverse_iterator;
+  using size_type = typename BaseClassT::size_type;
+
   SmallSetVector() = default;
 
   /// Initialize a SmallSetVector with a range of elements
   template<typename It>
   SmallSetVector(It Start, It End) {
     this->insert(Start, End);
+  }
+
+  bool insert(const value_type &X) {
+    if (isSmall()) {
+      if (llvm::find(this->vector_, X) == this->vector_.end()) {
+        this->vector_.push_back(X);
+        if (this->vector_.size() > N) {
+          makeBig();
+        }
+        return true;
+      }
+      return false;
+    }
+
+    return BaseClassT::insert(X);
+  }
+
+  template<typename It>
+  void insert(It Start, It End) {
+    for (; Start != End; ++Start)
+      insert(*Start);
+  }
+
+  bool remove(const value_type& X) {
+    if (isSmall()) {
+      auto It = llvm::find(this->vector_, X);
+      if (It != this->vector_.end()) {
+        this->vector_.erase(It);
+        return true;
+      }
+      return false;
+    }
+    
+    return BaseClassT::remove(X);
+  }
+
+  iterator erase(const_iterator I) {
+    if (isSmall())
+      return this->vector_.erase(I);
+
+    return BaseClassT::erase(I);
+  }
+
+  template <typename UnaryPredicate>
+  bool remove_if(UnaryPredicate P) {
+    if (isSmall()) {
+      auto I = llvm::remove_if(this->vector_, P);
+      if (I == this->vector_.end())
+        return false;
+
+      this->vector_.erase(I, this->vector_.end());
+      return true;
+    }
+
+    return BaseClassT::template remove_if<UnaryPredicate>(P);
+  }
+
+  /// Check if the SetVector contains the given key.
+  bool contains(const key_type &key) const {
+    if (isSmall())
+      return llvm::find(this->vector_, key) != this->vector_.end();
+    
+    return BaseClassT::contains(key);
+  }
+
+  /// Count the number of elements of a given key in the SetVector.
+  /// \returns 0 if the element is not in the SetVector, 1 if it is.
+  size_type count(const key_type &key) const {
+    if (isSmall())
+      return llvm::find(this->vector_, key) != this->vector_.end();
+
+    return BaseClassT::count(key);
+  }
+
+  /// Completely clear the SetVector
+  void clear() {
+    if (!isSmall())
+      this->set_.clear();
+    this->vector_.clear();
+  }
+
+  /// Remove the last element of the SetVector.
+  void pop_back() {
+    assert(!this->empty() && "Cannot remove an element from an empty SetVector!");
+
+    if (isSmall())
+      this->vector_.pop_back();
+    else
+      BaseClassT::pop_back();
+  }
+
+  [[nodiscard]] value_type pop_back_val() {
+    if (isSmall()) {
+      value_type Ret = this->back();
+      pop_back();
+      return Ret;
+    }
+
+    return BaseClassT::pop_back_val();
+  }
+
+  /// Compute This := This u S, return whether 'This' changed.
+  /// TODO: We should be able to use set_union from SetOperations.h, but
+  ///       SetVector interface is inconsistent with DenseSet.
+  template <class STy>
+  bool set_union(const STy &S) {
+    bool Changed = false;
+
+    for (typename STy::const_iterator SI = S.begin(), SE = S.end(); SI != SE;
+         ++SI)
+      if (insert(*SI))
+        Changed = true;
+
+    return Changed;
+  }
+
+  /// Compute This := This - B
+  /// TODO: We should be able to use set_subtract from SetOperations.h, but
+  ///       SetVector interface is inconsistent with DenseSet.
+  template <class STy>
+  void set_subtract(const STy &S) {
+    for (typename STy::const_iterator SI = S.begin(), SE = S.end(); SI != SE;
+         ++SI)
+      remove(*SI);
+  }
+
+  void swap(SmallSetVector &RHS) {
+    this->set_.swap(RHS.set_);
+    this->vector_.swap(RHS.vector_);
+  }
+
+  operator BaseClassT() {
+    if (isSmall())
+      makeBig();
+
+    return *this;
+  }
+
+  operator BaseClassT&() {
+    if (isSmall())
+      makeBig();
+
+    return *this;
+  }
+
+  operator BaseClassT*() {
+    if (isSmall())
+      makeBig();
+
+    return static_cast<BaseClassT>(this);
   }
 };
 
