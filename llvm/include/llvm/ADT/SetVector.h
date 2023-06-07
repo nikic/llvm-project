@@ -310,7 +310,7 @@ protected:
 /// a certain size.
 template <typename T, unsigned N>
 class SmallSetVector
-    : public SetVector<T, SmallVector<T, N>, SmallDenseSet<T, N>> {
+    : public SetVector<T, SmallVector<T, N>, DenseSet<T>> {
 private:
   [[nodiscard]] bool isSmall() const noexcept {
     return this->set_.empty();
@@ -322,7 +322,7 @@ private:
     }
   }
 
-  using BaseClassT = SetVector<T, SmallVector<T, N>, SmallDenseSet<T, N>>;
+  using BaseClassT = SetVector<T, SmallVector<T, N>, DenseSet<T>>;
 
 public:
   using value_type = typename BaseClassT::value_type;
