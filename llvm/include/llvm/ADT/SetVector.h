@@ -345,23 +345,8 @@ private:
     }
   };
 
-  template <class AlwaysVoid, template <class...> class Op, class... Args>
-  static constexpr inline bool is_valid_v = false;
-
-  template <template <class...> class Op, class... Args>
-  static constexpr inline bool
-      is_valid_v<std::void_t<Op<Args...>>, Op, Args...> = true;
-
-  template <typename T1, typename T2>
-  using eq_t = decltype(std::declval<T1 &>() == std::declval<T2 &>());
-
   [[nodiscard]] static constexpr bool canBeSmall() noexcept {
-    if (N == 0)
-      return false;
-
-    return is_valid_v<void, eq_t, const value_type, const value_type> ||
-           is_valid_v<void, eq_t, const value_type, value_type> ||
-           is_valid_v<void, eq_t, value_type, const value_type>;
+    return N != 0;
   }
 
   [[nodiscard]] bool isSmall() const noexcept {
