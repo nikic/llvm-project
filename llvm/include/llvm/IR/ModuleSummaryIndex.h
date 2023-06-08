@@ -661,6 +661,11 @@ public:
   struct VFuncId {
     GlobalValue::GUID GUID;
     uint64_t Offset;
+
+    bool operator==(const VFuncId &Other) const {
+      return GUID == Other.GUID && Offset == Other.Offset;
+    }
+    bool operator!=(const VFuncId &Other) const { return !(*this == Other); }
   };
 
   /// A specification for a virtual function call with all constant integer
@@ -669,6 +674,11 @@ public:
   struct ConstVCall {
     VFuncId VFunc;
     std::vector<uint64_t> Args;
+
+    bool operator==(const ConstVCall &Other) const {
+      return VFunc == Other.VFunc && Args == Other.Args;
+    }
+    bool operator!=(const ConstVCall &Other) const { return !(*this == Other); }
   };
 
   /// All type identifier related information. Because these fields are
@@ -1023,7 +1033,7 @@ template <> struct DenseMapInfo<FunctionSummary::VFuncId> {
   }
 
   static bool isEqual(FunctionSummary::VFuncId L, FunctionSummary::VFuncId R) {
-    return L.GUID == R.GUID && L.Offset == R.Offset;
+    return L == R;
   }
 
   static unsigned getHashValue(FunctionSummary::VFuncId I) { return I.GUID; }
@@ -1040,8 +1050,7 @@ template <> struct DenseMapInfo<FunctionSummary::ConstVCall> {
 
   static bool isEqual(FunctionSummary::ConstVCall L,
                       FunctionSummary::ConstVCall R) {
-    return DenseMapInfo<FunctionSummary::VFuncId>::isEqual(L.VFunc, R.VFunc) &&
-           L.Args == R.Args;
+    return L == R;
   }
 
   static unsigned getHashValue(FunctionSummary::ConstVCall I) {
