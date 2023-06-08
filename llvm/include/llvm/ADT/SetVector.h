@@ -316,7 +316,7 @@ public:
       remove(*SI);
   }
 
-  void swap(SetVector<T, Vector, Set> &RHS) {
+  void swap(SetVector<T, Vector, Set, N> &RHS) {
     set_.swap(RHS.set_);
     vector_.swap(RHS.vector_);
   }
