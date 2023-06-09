@@ -112,7 +112,7 @@ define i32 @test_04(i32 %x, i1 %c) {
 ; CHECK:       bb2:
 ; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
-; CHECK-NEXT:    [[P:%.*]] = phi i32 [ 0, [[BB1]] ], [ 1, [[BB2]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i32 [ 1, [[BB2]] ], [ 0, [[BB1]] ]
 ; CHECK-NEXT:    [[A:%.*]] = add i32 [[X:%.*]], 1
 ; CHECK-NEXT:    [[R:%.*]] = add i32 [[P]], [[A]]
 ; CHECK-NEXT:    ret i32 [[R]]
@@ -142,7 +142,7 @@ define i32 @test_05_neg(i32 %x, i1 %cond) {
 ; CHECK-NEXT:    [[CALL:%.*]] = call i1 @cond()
 ; CHECK-NEXT:    br i1 [[CALL]], label [[BB2]], label [[BB3]]
 ; CHECK:       bb3:
-; CHECK-NEXT:    [[P:%.*]] = phi i32 [ 0, [[BB1]] ], [ [[A]], [[BB2]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i32 [ [[A]], [[BB2]] ], [ 0, [[BB1]] ]
 ; CHECK-NEXT:    ret i32 [[P]]
 ;
 bb0:

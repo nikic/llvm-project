@@ -21,7 +21,7 @@ define i32 @test1(ptr %addr, i1 %c) {
 ; CHECK-NEXT:    [[Z:%.*]] = call i32 @use(ptr [[PTR]])
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[P:%.*]] = phi i32 [ poison, [[NULL]] ], [ [[Y]], [[NOT_NULL]] ], [ [[Z]], [[NOT_NULL_2]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i32 [ [[Z]], [[NOT_NULL_2]] ], [ [[Y]], [[NOT_NULL]] ], [ poison, [[NULL]] ]
 ; CHECK-NEXT:    ret i32 [[P]]
 ;
 entry:
@@ -65,7 +65,7 @@ define i32 @test2(ptr %addr, i1 %c) {
 ; CHECK-NEXT:    [[Z:%.*]] = call i32 @use(ptr [[PTR]])
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[P:%.*]] = phi i32 [ [[X]], [[LEFT]] ], [ [[Y]], [[RIGHT]] ], [ [[Z]], [[RIGHT_2]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i32 [ [[Z]], [[RIGHT_2]] ], [ [[Y]], [[RIGHT]] ], [ [[X]], [[LEFT]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[P]]
 ;
 entry:

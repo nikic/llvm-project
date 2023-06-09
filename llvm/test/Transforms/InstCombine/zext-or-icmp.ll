@@ -217,7 +217,7 @@ define i1 @PR51762(ptr %i, i32 %t0, i16 %t1, ptr %p, ptr %d, ptr %f, i32 %p2, i1
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_COND:%.*]]
 ; CHECK:       for.cond:
-; CHECK-NEXT:    [[I_SROA_8_0:%.*]] = phi i32 [ poison, [[ENTRY:%.*]] ], [ [[I_SROA_8_0_EXTRACT_TRUNC:%.*]], [[COND_TRUE:%.*]] ]
+; CHECK-NEXT:    [[I_SROA_8_0:%.*]] = phi i32 [ [[I_SROA_8_0_EXTRACT_TRUNC:%.*]], [[COND_TRUE:%.*]] ], [ poison, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    br i1 [[C1:%.*]], label [[COND_TRUE]], label [[FOR_END11:%.*]]
 ; CHECK:       cond.true:
 ; CHECK-NEXT:    [[I_SROA_8_0_EXTRACT_TRUNC]] = ashr i32 [[T0:%.*]], 31

@@ -96,8 +96,8 @@ define i32 @test_gep_and_bitcast_phi(i1 %cond, i1 %cond2, i1 %cond3) {
 ; ALL-NEXT:    [[OBJ2_TYPED:%.*]] = call ptr @get_ptr.i32()
 ; ALL-NEXT:    br label [[MERGE]]
 ; ALL:       merge:
-; ALL-NEXT:    [[OBJ:%.*]] = phi ptr [ [[OBJ1]], [[BB1]] ], [ [[OBJ2_TYPED]], [[BB2]] ]
-; ALL-NEXT:    [[ANOTHER_PHI:%.*]] = phi ptr [ [[OBJ1]], [[BB1]] ], [ null, [[BB2]] ]
+; ALL-NEXT:    [[OBJ:%.*]] = phi ptr [ [[OBJ2_TYPED]], [[BB2]] ], [ [[OBJ1]], [[BB1]] ]
+; ALL-NEXT:    [[ANOTHER_PHI:%.*]] = phi ptr [ null, [[BB2]] ], [ [[OBJ1]], [[BB1]] ]
 ; ALL-NEXT:    call void @foo.i8(ptr [[ANOTHER_PHI]])
 ; ALL-NEXT:    br i1 [[COND2:%.*]], label [[BB3:%.*]], label [[BB4:%.*]]
 ; ALL:       bb3:
@@ -271,7 +271,7 @@ define i32 @test_gep_and_bitcast_same_bb_and_extra_use(i1 %cond, i1 %cond2) {
 ; INSTCOMBINE-NEXT:    [[PTR2:%.*]] = getelementptr inbounds i8, ptr [[OBJ]], i64 16
 ; INSTCOMBINE-NEXT:    br label [[EXIT]]
 ; INSTCOMBINE:       exit:
-; INSTCOMBINE-NEXT:    [[PTR_TYPED:%.*]] = phi ptr [ [[PTR1]], [[ENTRY:%.*]] ], [ [[PTR2]], [[BB2]] ]
+; INSTCOMBINE-NEXT:    [[PTR_TYPED:%.*]] = phi ptr [ [[PTR2]], [[BB2]] ], [ [[PTR1]], [[ENTRY:%.*]] ]
 ; INSTCOMBINE-NEXT:    [[RES_PHI:%.*]] = load i32, ptr [[PTR_TYPED]], align 4
 ; INSTCOMBINE-NEXT:    store i32 1, ptr [[PTR_TYPED]], align 4
 ; INSTCOMBINE-NEXT:    [[RES:%.*]] = select i1 [[COND2:%.*]], i32 [[RES_PHI]], i32 1
@@ -367,8 +367,8 @@ define i32 @test_extra_uses(i1 %cond, i1 %cond2) {
 ; ALL-NEXT:    call void @foo.i32(ptr nonnull [[PTR2]])
 ; ALL-NEXT:    br label [[EXIT]]
 ; ALL:       exit:
-; ALL-NEXT:    [[PTR_TYPED:%.*]] = phi ptr [ [[PTR1]], [[BB1]] ], [ [[PTR2]], [[BB2]] ]
-; ALL-NEXT:    [[RES_PHI:%.*]] = phi i32 [ [[RES1]], [[BB1]] ], [ [[RES2]], [[BB2]] ]
+; ALL-NEXT:    [[PTR_TYPED:%.*]] = phi ptr [ [[PTR2]], [[BB2]] ], [ [[PTR1]], [[BB1]] ]
+; ALL-NEXT:    [[RES_PHI:%.*]] = phi i32 [ [[RES2]], [[BB2]] ], [ [[RES1]], [[BB1]] ]
 ; ALL-NEXT:    store i32 1, ptr [[PTR_TYPED]], align 4
 ; ALL-NEXT:    [[RES:%.*]] = select i1 [[COND2:%.*]], i32 [[RES_PHI]], i32 1
 ; ALL-NEXT:    ret i32 [[RES]]
@@ -414,8 +414,8 @@ define i32 @test_extra_uses_non_inbounds(i1 %cond, i1 %cond2) {
 ; ALL-NEXT:    call void @foo.i32(ptr nonnull [[PTR2]])
 ; ALL-NEXT:    br label [[EXIT]]
 ; ALL:       exit:
-; ALL-NEXT:    [[PTR_TYPED:%.*]] = phi ptr [ [[PTR1]], [[BB1]] ], [ [[PTR2]], [[BB2]] ]
-; ALL-NEXT:    [[RES_PHI:%.*]] = phi i32 [ [[RES1]], [[BB1]] ], [ [[RES2]], [[BB2]] ]
+; ALL-NEXT:    [[PTR_TYPED:%.*]] = phi ptr [ [[PTR2]], [[BB2]] ], [ [[PTR1]], [[BB1]] ]
+; ALL-NEXT:    [[RES_PHI:%.*]] = phi i32 [ [[RES2]], [[BB2]] ], [ [[RES1]], [[BB1]] ]
 ; ALL-NEXT:    store i32 1, ptr [[PTR_TYPED]], align 4
 ; ALL-NEXT:    [[RES:%.*]] = select i1 [[COND2:%.*]], i32 [[RES_PHI]], i32 1
 ; ALL-NEXT:    ret i32 [[RES]]
@@ -461,8 +461,8 @@ define i32 @test_extra_uses_multiple_geps(i1 %cond, i1 %cond2) {
 ; ALL-NEXT:    call void @foo.i32(ptr nonnull [[PTR2_1]])
 ; ALL-NEXT:    br label [[EXIT]]
 ; ALL:       exit:
-; ALL-NEXT:    [[PTR_TYPED:%.*]] = phi ptr [ [[PTR1]], [[BB1]] ], [ [[PTR2_1]], [[BB2]] ]
-; ALL-NEXT:    [[RES_PHI:%.*]] = phi i32 [ [[RES1]], [[BB1]] ], [ [[RES2]], [[BB2]] ]
+; ALL-NEXT:    [[PTR_TYPED:%.*]] = phi ptr [ [[PTR2_1]], [[BB2]] ], [ [[PTR1]], [[BB1]] ]
+; ALL-NEXT:    [[RES_PHI:%.*]] = phi i32 [ [[RES2]], [[BB2]] ], [ [[RES1]], [[BB1]] ]
 ; ALL-NEXT:    store i32 1, ptr [[PTR_TYPED]], align 4
 ; ALL-NEXT:    [[RES:%.*]] = select i1 [[COND2:%.*]], i32 [[RES_PHI]], i32 1
 ; ALL-NEXT:    ret i32 [[RES]]
@@ -509,8 +509,8 @@ define i8 @test_gep_extra_uses(i1 %cond, i1 %cond2) {
 ; ALL-NEXT:    call void @foo.i8(ptr nonnull [[PTR2]])
 ; ALL-NEXT:    br label [[EXIT]]
 ; ALL:       exit:
-; ALL-NEXT:    [[PTR_TYPED:%.*]] = phi ptr [ [[PTR1]], [[BB1]] ], [ [[PTR2]], [[BB2]] ]
-; ALL-NEXT:    [[RES_PHI:%.*]] = phi i8 [ [[RES1]], [[BB1]] ], [ [[RES2]], [[BB2]] ]
+; ALL-NEXT:    [[PTR_TYPED:%.*]] = phi ptr [ [[PTR2]], [[BB2]] ], [ [[PTR1]], [[BB1]] ]
+; ALL-NEXT:    [[RES_PHI:%.*]] = phi i8 [ [[RES2]], [[BB2]] ], [ [[RES1]], [[BB1]] ]
 ; ALL-NEXT:    store i8 1, ptr [[PTR_TYPED]], align 1
 ; ALL-NEXT:    [[RES:%.*]] = select i1 [[COND2:%.*]], i8 [[RES_PHI]], i8 1
 ; ALL-NEXT:    ret i8 [[RES]]
@@ -559,7 +559,7 @@ define ptr @test_dont_optimize_swifterror(i1 %cond, i1 %cond2, ptr %ptr) {
 ; INSTCOMBINE-NEXT:    [[RES2:%.*]] = load ptr, ptr [[OBJ2]], align 8
 ; INSTCOMBINE-NEXT:    br label [[EXIT]]
 ; INSTCOMBINE:       exit:
-; INSTCOMBINE-NEXT:    [[RES_PHI:%.*]] = phi ptr [ [[RES1]], [[BB1]] ], [ [[RES2]], [[BB2]] ]
+; INSTCOMBINE-NEXT:    [[RES_PHI:%.*]] = phi ptr [ [[RES2]], [[BB2]] ], [ [[RES1]], [[BB1]] ]
 ; INSTCOMBINE-NEXT:    store ptr null, ptr [[OBJ]], align 8
 ; INSTCOMBINE-NEXT:    [[RES:%.*]] = select i1 [[COND2:%.*]], ptr [[RES_PHI]], ptr null
 ; INSTCOMBINE-NEXT:    ret ptr [[RES]]
@@ -578,7 +578,7 @@ define ptr @test_dont_optimize_swifterror(i1 %cond, i1 %cond2, ptr %ptr) {
 ; INSTCOMBINEGVN-NEXT:    [[RES2:%.*]] = load ptr, ptr [[OBJ2]], align 8
 ; INSTCOMBINEGVN-NEXT:    br label [[EXIT]]
 ; INSTCOMBINEGVN:       exit:
-; INSTCOMBINEGVN-NEXT:    [[RES_PHI:%.*]] = phi ptr [ [[PTR]], [[BB1]] ], [ [[RES2]], [[BB2]] ]
+; INSTCOMBINEGVN-NEXT:    [[RES_PHI:%.*]] = phi ptr [ [[RES2]], [[BB2]] ], [ [[PTR]], [[BB1]] ]
 ; INSTCOMBINEGVN-NEXT:    store ptr null, ptr [[OBJ]], align 8
 ; INSTCOMBINEGVN-NEXT:    [[RES:%.*]] = select i1 [[COND2:%.*]], ptr [[RES_PHI]], ptr null
 ; INSTCOMBINEGVN-NEXT:    ret ptr [[RES]]

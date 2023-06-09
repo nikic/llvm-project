@@ -12,8 +12,8 @@ define i32 @hash_string(ptr nocapture %key) nounwind readonly {
 ; CHECK-NEXT:    [[T1:%.*]] = icmp eq i8 [[T0]], 0
 ; CHECK-NEXT:    br i1 [[T1]], label [[BB2:%.*]], label [[BB:%.*]]
 ; CHECK:       bb:
-; CHECK-NEXT:    [[INDVAR:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[T:%.*]], [[BB]] ]
-; CHECK-NEXT:    [[K_04:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[T8:%.*]], [[BB]] ]
+; CHECK-NEXT:    [[INDVAR:%.*]] = phi i64 [ [[T:%.*]], [[BB]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[K_04:%.*]] = phi i32 [ [[T8:%.*]], [[BB]] ], [ 0, [[ENTRY]] ]
 ; CHECK-NEXT:    [[CP_05:%.*]] = getelementptr i8, ptr [[KEY]], i64 [[INDVAR]]
 ; CHECK-NEXT:    [[T2:%.*]] = shl nuw nsw i32 [[K_04]], 1
 ; CHECK-NEXT:    [[T5:%.*]] = load i8, ptr [[CP_05]], align 1
@@ -26,7 +26,7 @@ define i32 @hash_string(ptr nocapture %key) nounwind readonly {
 ; CHECK-NEXT:    [[T10:%.*]] = icmp eq i8 [[T9]], 0
 ; CHECK-NEXT:    br i1 [[T10]], label [[BB2]], label [[BB]]
 ; CHECK:       bb2:
-; CHECK-NEXT:    [[K_0_LCSSA:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[T8]], [[BB]] ]
+; CHECK-NEXT:    [[K_0_LCSSA:%.*]] = phi i32 [ [[T8]], [[BB]] ], [ 0, [[ENTRY]] ]
 ; CHECK-NEXT:    ret i32 [[K_0_LCSSA]]
 ;
 entry:

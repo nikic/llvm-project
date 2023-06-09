@@ -19,7 +19,7 @@ define i1 @test1(ptr %p) personality ptr @__CxxFrameHandler3 {
 ; CHECK-NEXT:    [[TMP2:%.*]] = catchpad within [[TMP1]] [ptr null, i32 64, ptr null]
 ; CHECK-NEXT:    catchret from [[TMP2]] to label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[D:%.*]] = phi ptr [ [[A]], [[INVOKE_CONT]] ], [ [[C]], [[CATCH:%.*]] ]
+; CHECK-NEXT:    [[D:%.*]] = phi ptr [ [[C]], [[CATCH:%.*]] ], [ [[A]], [[INVOKE_CONT]] ]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq ptr [[D]], [[A]]
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;

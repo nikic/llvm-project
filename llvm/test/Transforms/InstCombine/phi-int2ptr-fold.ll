@@ -14,8 +14,8 @@ define i64 @func(ptr %X, ptr %Y, i1 %cond) {
 ; CHECK:       bb2:
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[PHI_IN:%.*]] = phi ptr [ [[X:%.*]], [[BB1]] ], [ [[Y:%.*]], [[BB2]] ]
-; CHECK-NEXT:    [[X_P_I:%.*]] = ptrtoint ptr [[PHI_IN]] to i64
+; CHECK-NEXT:    [[PHI:%.*]] = phi ptr [ [[Y:%.*]], [[BB2]] ], [ [[X:%.*]], [[BB1]] ]
+; CHECK-NEXT:    [[X_P_I:%.*]] = ptrtoint ptr [[PHI]] to i64
 ; CHECK-NEXT:    ret i64 [[X_P_I]]
 ;
   br i1 %cond, label %bb1, label %bb2

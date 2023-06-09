@@ -11,14 +11,14 @@ define void @phi_recurrence_start_first() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[WHILE_COND:%.*]]
 ; CHECK:       while.cond:
-; CHECK-NEXT:    [[CELL_0:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[START:%.*]], [[FOR_COND26:%.*]] ]
+; CHECK-NEXT:    [[CELL_0:%.*]] = phi i32 [ [[START:%.*]], [[FOR_COND26:%.*]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[COND_V:%.*]] = call i1 @cond()
 ; CHECK-NEXT:    br i1 [[COND_V]], label [[IF_THEN:%.*]], label [[WHILE_END:%.*]]
 ; CHECK:       if.then:
 ; CHECK-NEXT:    [[START]] = add nuw nsw i32 [[CELL_0]], 1
 ; CHECK-NEXT:    br i1 [[COND_V]], label [[FOR_COND11:%.*]], label [[FOR_COND26]]
 ; CHECK:       for.cond11:
-; CHECK-NEXT:    [[I_1:%.*]] = phi i32 [ [[START]], [[IF_THEN]] ], [ [[STEP:%.*]], [[FOR_COND11]] ]
+; CHECK-NEXT:    [[I_1:%.*]] = phi i32 [ [[STEP:%.*]], [[FOR_COND11]] ], [ [[START]], [[IF_THEN]] ]
 ; CHECK-NEXT:    [[CMP13:%.*]] = icmp ult i32 [[I_1]], 100
 ; CHECK-NEXT:    [[STEP]] = add nuw nsw i32 [[I_1]], 1
 ; CHECK-NEXT:    br i1 [[CMP13]], label [[FOR_COND11]], label [[WHILE_END]]
@@ -57,7 +57,7 @@ define void @phi_recurrence_step_first() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[WHILE_COND:%.*]]
 ; CHECK:       while.cond:
-; CHECK-NEXT:    [[CELL_0:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[START:%.*]], [[FOR_COND26:%.*]] ]
+; CHECK-NEXT:    [[CELL_0:%.*]] = phi i32 [ [[START:%.*]], [[FOR_COND26:%.*]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[COND_V:%.*]] = call i1 @cond()
 ; CHECK-NEXT:    br i1 [[COND_V]], label [[IF_THEN:%.*]], label [[WHILE_END:%.*]]
 ; CHECK:       if.then:

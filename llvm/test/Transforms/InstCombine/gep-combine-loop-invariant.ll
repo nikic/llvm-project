@@ -26,8 +26,8 @@ define i32 @foo(ptr nocapture readnone %match, i32 %cur_match, i32 %best_len, i3
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[I3]], [[SCAN_END]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[DO_END]], label [[IF_THEN]]
 ; CHECK:       if.then:
-; CHECK-NEXT:    [[CUR_MATCH_ADDR_09:%.*]] = phi i32 [ [[CUR_MATCH]], [[IF_THEN_LR_PH]] ], [ [[I4]], [[DO_BODY:%.*]] ]
-; CHECK-NEXT:    [[CHAIN_LENGTH_ADDR_08:%.*]] = phi i32 [ [[CHAIN_LENGTH:%.*]], [[IF_THEN_LR_PH]] ], [ [[DEC:%.*]], [[DO_BODY]] ]
+; CHECK-NEXT:    [[CUR_MATCH_ADDR_09:%.*]] = phi i32 [ [[I4]], [[DO_BODY:%.*]] ], [ [[CUR_MATCH]], [[IF_THEN_LR_PH]] ]
+; CHECK-NEXT:    [[CHAIN_LENGTH_ADDR_08:%.*]] = phi i32 [ [[DEC:%.*]], [[DO_BODY]] ], [ [[CHAIN_LENGTH:%.*]], [[IF_THEN_LR_PH]] ]
 ; CHECK-NEXT:    [[AND:%.*]] = and i32 [[CUR_MATCH_ADDR_09]], [[WMASK:%.*]]
 ; CHECK-NEXT:    [[IDXPROM:%.*]] = zext i32 [[AND]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[PREV:%.*]], i64 [[IDXPROM]]
@@ -39,7 +39,7 @@ define i32 @foo(ptr nocapture readnone %match, i32 %cur_match, i32 %best_len, i3
 ; CHECK-NEXT:    [[CMP5:%.*]] = icmp eq i32 [[DEC]], 0
 ; CHECK-NEXT:    br i1 [[CMP5]], label [[DO_END]], label [[DO_BODY]]
 ; CHECK:       do.end:
-; CHECK-NEXT:    [[CONT_0:%.*]] = phi i32 [ 1, [[ENTRY:%.*]] ], [ 0, [[IF_THEN]] ], [ 0, [[LAND_LHS_TRUE]] ], [ 1, [[DO_BODY]] ]
+; CHECK-NEXT:    [[CONT_0:%.*]] = phi i32 [ 0, [[LAND_LHS_TRUE]] ], [ 0, [[IF_THEN]] ], [ 1, [[DO_BODY]] ], [ 1, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[CONT_0]]
 ;
 entry:
@@ -215,8 +215,8 @@ define float @gep_cross_loop(ptr %_arg_, ptr %_arg_3, float %_arg_8) {
 ; CHECK-NEXT:    [[ADD_PTR:%.*]] = getelementptr inbounds float, ptr [[_ARG_3:%.*]], i64 [[I]]
 ; CHECK-NEXT:    br label [[FOR_COND_I:%.*]]
 ; CHECK:       for.cond.i:
-; CHECK-NEXT:    [[IDX:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[ADD11_I:%.*]], [[FOR_BODY_I:%.*]] ]
-; CHECK-NEXT:    [[SUM:%.*]] = phi float [ 0.000000e+00, [[ENTRY]] ], [ [[ADD_I:%.*]], [[FOR_BODY_I]] ]
+; CHECK-NEXT:    [[IDX:%.*]] = phi i64 [ [[ADD11_I:%.*]], [[FOR_BODY_I:%.*]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[SUM:%.*]] = phi float [ [[ADD_I:%.*]], [[FOR_BODY_I]] ], [ 0.000000e+00, [[ENTRY]] ]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i64 [[IDX]], 17
 ; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY_I]], label [[FOR_COND_I_I_I_PREHEADER:%.*]]
 ; CHECK:       for.cond.i.i.i.preheader:

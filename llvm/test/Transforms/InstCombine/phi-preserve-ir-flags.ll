@@ -12,7 +12,7 @@ define float @func1(float %a, float %b, float %c, i1 %cond) {
 ; CHECK:       cond.false:
 ; CHECK-NEXT:    br label [[COND_END]]
 ; CHECK:       cond.end:
-; CHECK-NEXT:    [[B_PN:%.*]] = phi float [ [[B:%.*]], [[COND_TRUE]] ], [ [[C:%.*]], [[COND_FALSE]] ]
+; CHECK-NEXT:    [[B_PN:%.*]] = phi float [ [[C:%.*]], [[COND_FALSE]] ], [ [[B:%.*]], [[COND_TRUE]] ]
 ; CHECK-NEXT:    [[E:%.*]] = fsub fast float [[A:%.*]], [[B_PN]]
 ; CHECK-NEXT:    ret float [[E]]
 ;
@@ -42,7 +42,7 @@ define float @func2(float %a, float %b, float %c, i1 %cond) {
 ; CHECK:       cond.false:
 ; CHECK-NEXT:    br label [[COND_END]]
 ; CHECK:       cond.end:
-; CHECK-NEXT:    [[B_PN:%.*]] = phi float [ [[B:%.*]], [[COND_TRUE]] ], [ [[C:%.*]], [[COND_FALSE]] ]
+; CHECK-NEXT:    [[B_PN:%.*]] = phi float [ [[C:%.*]], [[COND_FALSE]] ], [ [[B:%.*]], [[COND_TRUE]] ]
 ; CHECK-NEXT:    [[E:%.*]] = fsub float [[A:%.*]], [[B_PN]]
 ; CHECK-NEXT:    ret float [[E]]
 ;
@@ -72,7 +72,7 @@ define float @func3(float %a, float %b, float %c, i1 %cond) {
 ; CHECK:       cond.false:
 ; CHECK-NEXT:    br label [[COND_END]]
 ; CHECK:       cond.end:
-; CHECK-NEXT:    [[E_IN:%.*]] = phi float [ [[A:%.*]], [[COND_TRUE]] ], [ [[B:%.*]], [[COND_FALSE]] ]
+; CHECK-NEXT:    [[E_IN:%.*]] = phi float [ [[B:%.*]], [[COND_FALSE]] ], [ [[A:%.*]], [[COND_TRUE]] ]
 ; CHECK-NEXT:    [[E:%.*]] = fadd fast float [[E_IN]], -2.000000e+00
 ; CHECK-NEXT:    ret float [[E]]
 ;
@@ -101,7 +101,7 @@ define float @func4(float %a, float %b, float %c, i1 %cond) {
 ; CHECK:       cond.false:
 ; CHECK-NEXT:    br label [[COND_END]]
 ; CHECK:       cond.end:
-; CHECK-NEXT:    [[E_IN:%.*]] = phi float [ [[A:%.*]], [[COND_TRUE]] ], [ [[B:%.*]], [[COND_FALSE]] ]
+; CHECK-NEXT:    [[E_IN:%.*]] = phi float [ [[B:%.*]], [[COND_FALSE]] ], [ [[A:%.*]], [[COND_TRUE]] ]
 ; CHECK-NEXT:    [[E:%.*]] = fadd float [[E_IN]], -2.000000e+00
 ; CHECK-NEXT:    ret float [[E]]
 ;

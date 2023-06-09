@@ -24,7 +24,7 @@ define { i32, i32 } @test0({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 %
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ]
+; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_LEFT:%.*]], [[LEFT]] ]
 ; CHECK-NEXT:    call void @baz()
 ; CHECK-NEXT:    ret { i32, i32 } [[AGG_LEFT_PN]]
 ;
@@ -64,8 +64,8 @@ define { i32, i32 } @negative_test1({ i32, i32 } %agg_left, { i32, i32 } %agg_ri
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ]
-; CHECK-NEXT:    [[AGG_RIGHT_PN:%.*]] = phi { i32, i32 } [ [[AGG_RIGHT]], [[LEFT]] ], [ [[AGG_LEFT]], [[RIGHT]] ]
+; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_LEFT:%.*]], [[LEFT]] ]
+; CHECK-NEXT:    [[AGG_RIGHT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT]], [[RIGHT]] ], [ [[AGG_RIGHT]], [[LEFT]] ]
 ; CHECK-NEXT:    [[I6:%.*]] = extractvalue { i32, i32 } [[AGG_RIGHT_PN]], 1
 ; CHECK-NEXT:    [[I5:%.*]] = extractvalue { i32, i32 } [[AGG_LEFT_PN]], 0
 ; CHECK-NEXT:    call void @baz()
@@ -113,8 +113,8 @@ define { i32, i32 } @negative_test2({ i32, i32 } %agg_left, { i32, i32 } %agg_ri
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[I5:%.*]] = phi i32 [ [[I2]], [[LEFT]] ], [ [[I3]], [[RIGHT]] ]
-; CHECK-NEXT:    [[I6:%.*]] = phi i32 [ [[I0]], [[LEFT]] ], [ [[I4]], [[RIGHT]] ]
+; CHECK-NEXT:    [[I5:%.*]] = phi i32 [ [[I3]], [[RIGHT]] ], [ [[I2]], [[LEFT]] ]
+; CHECK-NEXT:    [[I6:%.*]] = phi i32 [ [[I4]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    call void @baz()
 ; CHECK-NEXT:    [[I7:%.*]] = insertvalue { i32, i32 } undef, i32 [[I5]], 0
 ; CHECK-NEXT:    [[I8:%.*]] = insertvalue { i32, i32 } [[I7]], i32 [[I6]], 1
@@ -156,14 +156,14 @@ define { i32, i32 } @test3({ i32, i32 } %agg_00, { i32, i32 } %agg_01, { i32, i3
 ; CHECK:       bb01:
 ; CHECK-NEXT:    br label [[BB0_MERGE]]
 ; CHECK:       bb0.merge:
-; CHECK-NEXT:    [[AGG_00_PN:%.*]] = phi { i32, i32 } [ [[AGG_00:%.*]], [[BB00]] ], [ [[AGG_01:%.*]], [[BB01]] ]
+; CHECK-NEXT:    [[AGG_00_PN:%.*]] = phi { i32, i32 } [ [[AGG_01:%.*]], [[BB01]] ], [ [[AGG_00:%.*]], [[BB00]] ]
 ; CHECK-NEXT:    br label [[END:%.*]]
 ; CHECK:       bb10:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[AGG_00_PN_PN:%.*]] = phi { i32, i32 } [ [[AGG_00_PN]], [[BB0_MERGE]] ], [ [[AGG_10:%.*]], [[BB10]] ]
+; CHECK-NEXT:    [[AGG_10_PN:%.*]] = phi { i32, i32 } [ [[AGG_10:%.*]], [[BB10]] ], [ [[AGG_00_PN]], [[BB0_MERGE]] ]
 ; CHECK-NEXT:    call void @baz()
-; CHECK-NEXT:    ret { i32, i32 } [[AGG_00_PN_PN]]
+; CHECK-NEXT:    ret { i32, i32 } [[AGG_10_PN]]
 ;
 entry:
   br i1 %c0, label %bb0.dispatch, label %bb10
@@ -216,8 +216,8 @@ define { i32, i32 } @test4({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 %
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[MIDDLE]]
 ; CHECK:       middle:
-; CHECK-NEXT:    [[I5:%.*]] = phi i32 [ [[I0]], [[LEFT]] ], [ [[I3]], [[RIGHT]] ], [ [[I5]], [[MIDDLE]] ]
-; CHECK-NEXT:    [[I6:%.*]] = phi i32 [ [[I2]], [[LEFT]] ], [ [[I4]], [[RIGHT]] ], [ [[I6]], [[MIDDLE]] ]
+; CHECK-NEXT:    [[I5:%.*]] = phi i32 [ [[I5]], [[MIDDLE]] ], [ [[I3]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
+; CHECK-NEXT:    [[I6:%.*]] = phi i32 [ [[I6]], [[MIDDLE]] ], [ [[I4]], [[RIGHT]] ], [ [[I2]], [[LEFT]] ]
 ; CHECK-NEXT:    call void @baz()
 ; CHECK-NEXT:    [[C1:%.*]] = call i1 @geni1()
 ; CHECK-NEXT:    br i1 [[C1]], label [[END:%.*]], label [[MIDDLE]]
@@ -266,7 +266,7 @@ define { i32, i32 } @test5({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 %
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[MIDDLE]]
 ; CHECK:       middle:
-; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_LEFT_PN]], [[MIDDLE]] ]
+; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT_PN]], [[MIDDLE]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_LEFT:%.*]], [[LEFT]] ]
 ; CHECK-NEXT:    call void @baz()
 ; CHECK-NEXT:    [[C1:%.*]] = call i1 @geni1()
 ; CHECK-NEXT:    br i1 [[C1]], label [[END:%.*]], label [[MIDDLE]]
@@ -315,7 +315,7 @@ define { i32, i32 } @test6({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 %
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[MERGE]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ]
+; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_LEFT:%.*]], [[LEFT]] ]
 ; CHECK-NEXT:    call void @baz()
 ; CHECK-NEXT:    br i1 [[C1:%.*]], label [[END:%.*]], label [[PASSTHROUGH:%.*]]
 ; CHECK:       passthrough:
@@ -373,7 +373,7 @@ define { i32, i32 } @negative_test7({ i32, i32 } %agg_left, { i32, i32 } %agg_ri
 ; CHECK-NEXT:    call void @usei32(i32 [[I2]])
 ; CHECK-NEXT:    br label [[MERGE]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[I3:%.*]] = phi i32 [ [[I1]], [[LEFT]] ], [ [[I2]], [[RIGHT]] ]
+; CHECK-NEXT:    [[I3:%.*]] = phi i32 [ [[I2]], [[RIGHT]] ], [ [[I1]], [[LEFT]] ]
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[END:%.*]]
 ; CHECK:       end:
@@ -429,7 +429,7 @@ define { i32, i32 } @test8({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 %
 ; CHECK:       impossible:
 ; CHECK-NEXT:    unreachable
 ; CHECK:       end:
-; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_LEFT]], [[LEFT]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_RIGHT]], [[RIGHT]] ]
+; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_RIGHT]], [[RIGHT]] ], [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_LEFT]], [[LEFT]] ]
 ; CHECK-NEXT:    call void @baz()
 ; CHECK-NEXT:    ret { i32, i32 } [[AGG_LEFT_PN]]
 ;
@@ -478,7 +478,7 @@ define { i32, i32 } @test9({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 %
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ]
+; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_LEFT:%.*]], [[LEFT]] ]
 ; CHECK-NEXT:    call void @baz()
 ; CHECK-NEXT:    ret { i32, i32 } [[AGG_LEFT_PN]]
 ;

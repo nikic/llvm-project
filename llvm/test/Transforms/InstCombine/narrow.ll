@@ -106,8 +106,8 @@ define i1 @searchArray1(i32 %needle, ptr %haystack) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[INDVAR:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INDVAR_NEXT:%.*]], [[LOOP]] ]
-; CHECK-NEXT:    [[FOUND:%.*]] = phi i8 [ 0, [[ENTRY]] ], [ [[OR:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[INDVAR:%.*]] = phi i32 [ [[INDVAR_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[FOUND:%.*]] = phi i8 [ [[OR:%.*]], [[LOOP]] ], [ 0, [[ENTRY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[INDVAR]] to i64
 ; CHECK-NEXT:    [[IDX:%.*]] = getelementptr i32, ptr [[HAYSTACK:%.*]], i64 [[TMP0]]
 ; CHECK-NEXT:    [[LD:%.*]] = load i32, ptr [[IDX]], align 4
@@ -150,8 +150,8 @@ define i1 @searchArray2(i32 %hay, ptr %haystack) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[INDVAR:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDVAR_NEXT:%.*]], [[LOOP]] ]
-; CHECK-NEXT:    [[FOUND:%.*]] = phi i8 [ 1, [[ENTRY]] ], [ [[AND:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[INDVAR:%.*]] = phi i64 [ [[INDVAR_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[FOUND:%.*]] = phi i8 [ [[AND:%.*]], [[LOOP]] ], [ 1, [[ENTRY]] ]
 ; CHECK-NEXT:    [[IDX:%.*]] = getelementptr i32, ptr [[HAYSTACK:%.*]], i64 [[INDVAR]]
 ; CHECK-NEXT:    [[LD:%.*]] = load i32, ptr [[IDX]], align 4
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp eq i32 [[LD]], [[HAY:%.*]]
@@ -194,7 +194,7 @@ define i32 @shrinkLogicAndPhi1(i8 %x, i1 %cond) {
 ; CHECK:       if:
 ; CHECK-NEXT:    br label [[ENDIF]]
 ; CHECK:       endif:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 21, [[ENTRY:%.*]] ], [ 33, [[IF]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 33, [[IF]] ], [ 21, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[ZEXT:%.*]] = zext i8 [[X:%.*]] to i32
 ; CHECK-NEXT:    [[LOGIC:%.*]] = xor i32 [[PHI]], [[ZEXT]]
 ; CHECK-NEXT:    ret i32 [[LOGIC]]
@@ -221,7 +221,7 @@ define i32 @shrinkLogicAndPhi2(i8 %x, i1 %cond) {
 ; CHECK:       if:
 ; CHECK-NEXT:    br label [[ENDIF]]
 ; CHECK:       endif:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 21, [[ENTRY:%.*]] ], [ 33, [[IF]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 33, [[IF]] ], [ 21, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[ZEXT:%.*]] = zext i8 [[X:%.*]] to i32
 ; CHECK-NEXT:    [[LOGIC:%.*]] = xor i32 [[PHI]], [[ZEXT]]
 ; CHECK-NEXT:    ret i32 [[LOGIC]]

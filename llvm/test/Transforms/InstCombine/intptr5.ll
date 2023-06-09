@@ -13,7 +13,7 @@ define  void @test(ptr %a, ptr readnone %a_end, i64 %b, ptr %bf) unnamed_addr  {
 ; CHECK:       bb2:
 ; CHECK-NEXT:    br label [[FOR_BODY_PREHEADER]]
 ; CHECK:       for.body.preheader:
-; CHECK-NEXT:    [[B_PHI:%.*]] = phi ptr [ [[TMP0]], [[BB1]] ], [ [[BF:%.*]], [[BB2]] ]
+; CHECK-NEXT:    [[B_PHI:%.*]] = phi ptr [ [[BF:%.*]], [[BB2]] ], [ [[TMP0]], [[BB1]] ]
 ; CHECK-NEXT:    switch i64 [[B]], label [[FOR_BODY:%.*]] [
 ; CHECK-NEXT:    i64 1, label [[FOR_BODY]]
 ; CHECK-NEXT:    ]

@@ -11,7 +11,7 @@ define double @test(i1 %c, ptr %p) {
 ; CHECK-NEXT:    [[LOAD1:%.*]] = load double, ptr @Q, align 8
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[TMP0:%.*]] = phi double [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[LOAD1]], [[IF]] ]
+; CHECK-NEXT:    [[TMP0:%.*]] = phi double [ [[LOAD1]], [[IF]] ], [ 0.000000e+00, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    store double [[TMP0]], ptr [[P:%.*]], align 8
 ; CHECK-NEXT:    ret double [[TMP0]]
 ;

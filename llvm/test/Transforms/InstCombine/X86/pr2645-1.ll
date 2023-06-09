@@ -8,7 +8,7 @@ define internal void @0(ptr %arg, i32 %arg1, ptr %arg2) {
 ; CHECK-NEXT:  bb:
 ; CHECK-NEXT:    br label [[BB3:%.*]]
 ; CHECK:       bb3:
-; CHECK-NEXT:    [[DOT0:%.*]] = phi i32 [ 0, [[BB:%.*]] ], [ [[I17:%.*]], [[BB4:%.*]] ]
+; CHECK-NEXT:    [[DOT0:%.*]] = phi i32 [ [[I17:%.*]], [[BB4:%.*]] ], [ 0, [[BB:%.*]] ]
 ; CHECK-NEXT:    [[I:%.*]] = icmp slt i32 [[DOT0]], [[ARG1:%.*]]
 ; CHECK-NEXT:    br i1 [[I]], label [[BB4]], label [[BB18:%.*]]
 ; CHECK:       bb4:
@@ -20,8 +20,8 @@ define internal void @0(ptr %arg, i32 %arg1, ptr %arg2) {
 ; CHECK-NEXT:    [[I12:%.*]] = shufflevector <8 x i16> [[I11]], <8 x i16> poison, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
 ; CHECK-NEXT:    [[I13:%.*]] = bitcast <8 x i16> [[I12]] to <4 x i32>
 ; CHECK-NEXT:    [[I14:%.*]] = sitofp <4 x i32> [[I13]] to <4 x float>
-; CHECK-NEXT:    [[TMP2:%.*]] = sext i32 [[DOT0]] to i64
-; CHECK-NEXT:    [[I15:%.*]] = getelementptr i8, ptr [[ARG:%.*]], i64 [[TMP2]]
+; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[DOT0]] to i64
+; CHECK-NEXT:    [[I15:%.*]] = getelementptr i8, ptr [[ARG:%.*]], i64 [[TMP1]]
 ; CHECK-NEXT:    store <4 x float> [[I14]], ptr [[I15]], align 1
 ; CHECK-NEXT:    [[I17]] = add i32 [[DOT0]], 1
 ; CHECK-NEXT:    br label [[BB3]]

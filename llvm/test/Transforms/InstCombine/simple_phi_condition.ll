@@ -79,7 +79,7 @@ define i1 @test_direct_implication_complex_cfg(i1 %cond, i32 %cnt1) {
 ; CHECK:       if.true:
 ; CHECK-NEXT:    br label [[LOOP1:%.*]]
 ; CHECK:       loop1:
-; CHECK-NEXT:    [[IV1:%.*]] = phi i32 [ 0, [[IF_TRUE]] ], [ [[IV1_NEXT:%.*]], [[LOOP1]] ]
+; CHECK-NEXT:    [[IV1:%.*]] = phi i32 [ [[IV1_NEXT:%.*]], [[LOOP1]] ], [ 0, [[IF_TRUE]] ]
 ; CHECK-NEXT:    [[IV1_NEXT]] = add i32 [[IV1]], 1
 ; CHECK-NEXT:    [[LOOP_COND_1:%.*]] = icmp slt i32 [[IV1_NEXT]], [[CNT1:%.*]]
 ; CHECK-NEXT:    br i1 [[LOOP_COND_1]], label [[LOOP1]], label [[IF_TRUE_END:%.*]]
@@ -120,7 +120,7 @@ define i1 @test_inverted_implication_complex_cfg(i1 %cond, i32 %cnt1) {
 ; CHECK:       if.true:
 ; CHECK-NEXT:    br label [[LOOP1:%.*]]
 ; CHECK:       loop1:
-; CHECK-NEXT:    [[IV1:%.*]] = phi i32 [ 0, [[IF_TRUE]] ], [ [[IV1_NEXT:%.*]], [[LOOP1]] ]
+; CHECK-NEXT:    [[IV1:%.*]] = phi i32 [ [[IV1_NEXT:%.*]], [[LOOP1]] ], [ 0, [[IF_TRUE]] ]
 ; CHECK-NEXT:    [[IV1_NEXT]] = add i32 [[IV1]], 1
 ; CHECK-NEXT:    [[LOOP_COND_1:%.*]] = icmp slt i32 [[IV1_NEXT]], [[CNT1:%.*]]
 ; CHECK-NEXT:    br i1 [[LOOP_COND_1]], label [[LOOP1]], label [[IF_TRUE_END:%.*]]
@@ -203,7 +203,7 @@ define i1 @test_multiple_predecessors_wrong_value(i1 %cond, i1 %cond2) {
 ; CHECK:       if2.false:
 ; CHECK-NEXT:    br label [[MERGE]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[RET:%.*]] = phi i1 [ true, [[IF_TRUE]] ], [ true, [[IF2_TRUE]] ], [ false, [[IF2_FALSE]] ]
+; CHECK-NEXT:    [[RET:%.*]] = phi i1 [ false, [[IF2_FALSE]] ], [ true, [[IF2_TRUE]] ], [ true, [[IF_TRUE]] ]
 ; CHECK-NEXT:    ret i1 [[RET]]
 ;
 entry:
@@ -239,7 +239,7 @@ define i1 @test_multiple_predecessors_no_edge_domination(i1 %cond, i1 %cond2) {
 ; CHECK:       if2.false:
 ; CHECK-NEXT:    br label [[MERGE]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[RET:%.*]] = phi i1 [ true, [[IF_TRUE]] ], [ false, [[IF2_TRUE]] ], [ false, [[IF2_FALSE]] ]
+; CHECK-NEXT:    [[RET:%.*]] = phi i1 [ false, [[IF2_FALSE]] ], [ false, [[IF2_TRUE]] ], [ true, [[IF_TRUE]] ]
 ; CHECK-NEXT:    ret i1 [[RET]]
 ;
 entry:
@@ -437,7 +437,7 @@ define i8 @test_switch_wrong_value(i8 %cond) {
 ; CHECK:       default:
 ; CHECK-NEXT:    ret i8 42
 ; CHECK:       merge:
-; CHECK-NEXT:    [[RET:%.*]] = phi i8 [ 1, [[SW_1]] ], [ 7, [[SW_7]] ], [ 10, [[SW_19]] ]
+; CHECK-NEXT:    [[RET:%.*]] = phi i8 [ 10, [[SW_19]] ], [ 7, [[SW_7]] ], [ 1, [[SW_1]] ]
 ; CHECK-NEXT:    ret i8 [[RET]]
 ;
 entry:
@@ -523,7 +523,7 @@ define i8 @test_switch_duplicate_edge(i8 %cond) {
 ; CHECK:       default:
 ; CHECK-NEXT:    ret i8 42
 ; CHECK:       merge:
-; CHECK-NEXT:    [[RET:%.*]] = phi i8 [ 1, [[SW_1]] ], [ 7, [[SW_7]] ]
+; CHECK-NEXT:    [[RET:%.*]] = phi i8 [ 7, [[SW_7]] ], [ 1, [[SW_1]] ]
 ; CHECK-NEXT:    ret i8 [[RET]]
 ;
 entry:
@@ -562,7 +562,7 @@ define i8 @test_switch_default_edge(i8 %cond) {
 ; CHECK:       sw.19:
 ; CHECK-NEXT:    br label [[MERGE]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[RET:%.*]] = phi i8 [ 1, [[SW_1]] ], [ 7, [[SW_7]] ], [ 19, [[SW_19]] ], [ 42, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[RET:%.*]] = phi i8 [ 19, [[SW_19]] ], [ 7, [[SW_7]] ], [ 1, [[SW_1]] ], [ 42, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i8 [[RET]]
 ;
 entry:
@@ -599,7 +599,7 @@ define i8 @test_switch_default_edge_direct(i8 %cond) {
 ; CHECK:       sw.7:
 ; CHECK-NEXT:    br label [[MERGE]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[RET:%.*]] = phi i8 [ 1, [[SW_1]] ], [ 7, [[SW_7]] ], [ 19, [[ENTRY:%.*]] ], [ 19, [[ENTRY]] ]
+; CHECK-NEXT:    [[RET:%.*]] = phi i8 [ 7, [[SW_7]] ], [ 1, [[SW_1]] ], [ 19, [[ENTRY:%.*]] ], [ 19, [[ENTRY]] ]
 ; CHECK-NEXT:    ret i8 [[RET]]
 ;
 entry:
@@ -632,7 +632,7 @@ define i8 @test_switch_default_edge_duplicate(i8 %cond) {
 ; CHECK:       sw.19:
 ; CHECK-NEXT:    br label [[MERGE]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[RET:%.*]] = phi i8 [ 1, [[SW_1]] ], [ 7, [[SW_7]] ], [ 19, [[SW_19]] ]
+; CHECK-NEXT:    [[RET:%.*]] = phi i8 [ 19, [[SW_19]] ], [ 7, [[SW_7]] ], [ 1, [[SW_1]] ]
 ; CHECK-NEXT:    ret i8 [[RET]]
 ;
 entry:

@@ -2978,7 +2978,7 @@ define i1 @icmp_swap_operands_for_cse(i32 %X, i32 %Y) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = and i32 [[SUB]], 16
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[RES_IN:%.*]] = phi i32 [ [[TMP0]], [[TRUE]] ], [ [[TMP1]], [[FALSE]] ]
+; CHECK-NEXT:    [[RES_IN:%.*]] = phi i32 [ [[TMP1]], [[FALSE]] ], [ [[TMP0]], [[TRUE]] ]
 ; CHECK-NEXT:    [[RES:%.*]] = icmp ne i32 [[RES_IN]], 0
 ; CHECK-NEXT:    ret i1 [[RES]]
 ;
@@ -3012,7 +3012,7 @@ define i1 @icmp_swap_operands_for_cse2(i32 %X, i32 %Y) {
 ; CHECK-NEXT:    [[SUB2:%.*]] = sub i32 [[Y]], [[X]]
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[RES_IN_IN:%.*]] = phi i32 [ [[ADD]], [[TRUE]] ], [ [[SUB2]], [[FALSE]] ]
+; CHECK-NEXT:    [[RES_IN_IN:%.*]] = phi i32 [ [[SUB2]], [[FALSE]] ], [ [[ADD]], [[TRUE]] ]
 ; CHECK-NEXT:    [[RES_IN:%.*]] = and i32 [[RES_IN_IN]], 1
 ; CHECK-NEXT:    [[RES:%.*]] = icmp ne i32 [[RES_IN]], 0
 ; CHECK-NEXT:    ret i1 [[RES]]
@@ -3047,7 +3047,7 @@ define i1 @icmp_do_not_swap_operands_for_cse(i32 %X, i32 %Y) {
 ; CHECK-NEXT:    [[SUB2:%.*]] = sub i32 [[Y]], [[X]]
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[RES_IN_IN:%.*]] = phi i32 [ [[SUB]], [[TRUE]] ], [ [[SUB2]], [[FALSE]] ]
+; CHECK-NEXT:    [[RES_IN_IN:%.*]] = phi i32 [ [[SUB2]], [[FALSE]] ], [ [[SUB]], [[TRUE]] ]
 ; CHECK-NEXT:    [[RES_IN:%.*]] = and i32 [[RES_IN_IN]], 1
 ; CHECK-NEXT:    [[RES:%.*]] = icmp ne i32 [[RES_IN]], 0
 ; CHECK-NEXT:    ret i1 [[RES]]

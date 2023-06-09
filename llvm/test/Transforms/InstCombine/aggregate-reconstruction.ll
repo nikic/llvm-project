@@ -286,7 +286,7 @@ define { i32, i32 } @test17({ i32, i32 } %srcagg0, { i32, i32 } %srcagg1, i1 %c)
 ; CHECK:       intermediate:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[SRCAGG_PHI:%.*]] = phi { i32, i32 } [ [[SRCAGG0:%.*]], [[ENTRY:%.*]] ], [ [[SRCAGG1:%.*]], [[INTERMEDIATE]] ]
+; CHECK-NEXT:    [[SRCAGG_PHI:%.*]] = phi { i32, i32 } [ [[SRCAGG1:%.*]], [[INTERMEDIATE]] ], [ [[SRCAGG0:%.*]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret { i32, i32 } [[SRCAGG_PHI]]
 ;
 entry:

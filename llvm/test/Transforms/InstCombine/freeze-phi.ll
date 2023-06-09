@@ -9,7 +9,7 @@ define i32 @const(i1 %cond) {
 ; CHECK:       B:
 ; CHECK-NEXT:    br label [[C]]
 ; CHECK:       C:
-; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ 0, [[A]] ], [ 1, [[B]] ]
+; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ 1, [[B]] ], [ 0, [[A]] ]
 ; CHECK-NEXT:    ret i32 [[Y]]
 ;
   br i1 %cond, label %A, label %B
@@ -31,7 +31,7 @@ define <2 x i32> @vec(i1 %cond) {
 ; CHECK:       B:
 ; CHECK-NEXT:    br label [[C]]
 ; CHECK:       C:
-; CHECK-NEXT:    [[Y:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[A]] ], [ <i32 2, i32 3>, [[B]] ]
+; CHECK-NEXT:    [[Y:%.*]] = phi <2 x i32> [ <i32 2, i32 3>, [[B]] ], [ <i32 0, i32 1>, [[A]] ]
 ; CHECK-NEXT:    ret <2 x i32> [[Y]]
 ;
   br i1 %cond, label %A, label %B
@@ -53,7 +53,7 @@ define <2 x i32> @vec_undef(i1 %cond) {
 ; CHECK:       B:
 ; CHECK-NEXT:    br label [[C]]
 ; CHECK:       C:
-; CHECK-NEXT:    [[Y:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[A]] ], [ <i32 2, i32 0>, [[B]] ]
+; CHECK-NEXT:    [[Y:%.*]] = phi <2 x i32> [ <i32 2, i32 0>, [[B]] ], [ <i32 0, i32 1>, [[A]] ]
 ; CHECK-NEXT:    ret <2 x i32> [[Y]]
 ;
   br i1 %cond, label %A, label %B
@@ -76,7 +76,7 @@ define i32 @one(i1 %cond, i32 %x) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = freeze i32 [[X:%.*]]
 ; CHECK-NEXT:    br label [[C]]
 ; CHECK:       C:
-; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ 0, [[A]] ], [ [[TMP1]], [[B]] ]
+; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ [[TMP1]], [[B]] ], [ 0, [[A]] ]
 ; CHECK-NEXT:    ret i32 [[Y]]
 ;
   br i1 %cond, label %A, label %B
@@ -98,7 +98,7 @@ define i32 @two(i1 %cond, i32 %x, i32 %x2) {
 ; CHECK:       B:
 ; CHECK-NEXT:    br label [[C]]
 ; CHECK:       C:
-; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ [[X:%.*]], [[A]] ], [ [[X2:%.*]], [[B]] ]
+; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ [[X2:%.*]], [[B]] ], [ [[X:%.*]], [[A]] ]
 ; CHECK-NEXT:    [[Y_FR:%.*]] = freeze i32 [[Y]]
 ; CHECK-NEXT:    ret i32 [[Y_FR]]
 ;
@@ -126,7 +126,7 @@ define i32 @two_undef(i8 %cond, i32 %x) {
 ; CHECK:       C:
 ; CHECK-NEXT:    br label [[D]]
 ; CHECK:       D:
-; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ undef, [[A]] ], [ [[X:%.*]], [[B]] ], [ 0, [[C]] ]
+; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ 0, [[C]] ], [ [[X:%.*]], [[B]] ], [ undef, [[A]] ]
 ; CHECK-NEXT:    [[Y_FR:%.*]] = freeze i32 [[Y]]
 ; CHECK-NEXT:    ret i32 [[Y_FR]]
 ;
@@ -159,7 +159,7 @@ define i32 @one_undef(i8 %cond) {
 ; CHECK:       C:
 ; CHECK-NEXT:    br label [[D]]
 ; CHECK:       D:
-; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ 0, [[A]] ], [ 32, [[B]] ], [ 0, [[C]] ]
+; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ 0, [[C]] ], [ 32, [[B]] ], [ 0, [[A]] ]
 ; CHECK-NEXT:    ret i32 [[Y]]
 ;
   switch i8 %cond, label %A [
@@ -194,7 +194,7 @@ define i32 @one_constexpr(i8 %cond, i32 %x) {
 ; CHECK:       C:
 ; CHECK-NEXT:    br label [[D]]
 ; CHECK:       D:
-; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ [[TMP1]], [[A]] ], [ 32, [[B]] ], [ 0, [[C]] ]
+; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ 0, [[C]] ], [ 32, [[B]] ], [ [[TMP1]], [[A]] ]
 ; CHECK-NEXT:    ret i32 [[Y]]
 ;
   switch i8 %cond, label %A [

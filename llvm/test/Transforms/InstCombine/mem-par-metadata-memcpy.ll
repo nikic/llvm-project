@@ -18,7 +18,7 @@ define void @_Z4testPcl(ptr %out, i64 %size) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_COND:%.*]]
 ; CHECK:       for.cond:
-; CHECK-NEXT:    [[I_0:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[ADD2:%.*]], [[FOR_INC:%.*]] ]
+; CHECK-NEXT:    [[I_0:%.*]] = phi i64 [ [[ADD2:%.*]], [[FOR_INC:%.*]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i64 [[I_0]], [[SIZE:%.*]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY:%.*]], label [[FOR_END:%.*]]
 ; CHECK:       for.body:

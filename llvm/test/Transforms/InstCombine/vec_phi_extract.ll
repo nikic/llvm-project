@@ -7,7 +7,7 @@ define void @f(i64 %val, i32  %limit, ptr %ptr) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = trunc i64 [[VAL:%.*]] to i32
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[TMP1:%.*]] = phi i32 [ [[TMP0]], [[ENTRY:%.*]] ], [ [[TMP5:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = phi i32 [ [[TMP5:%.*]], [[LOOP]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[END:%.*]] = icmp ult i32 [[TMP1]], [[LIMIT:%.*]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 10
 ; CHECK-NEXT:    [[TMP3:%.*]] = sext i32 [[TMP1]] to i64
@@ -46,7 +46,7 @@ define void @copy(i64 %val, i32  %limit, ptr %ptr) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = trunc i64 [[VAL:%.*]] to i32
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[TMP1:%.*]] = phi i32 [ [[TMP0]], [[ENTRY:%.*]] ], [ [[TMP5:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = phi i32 [ [[TMP5:%.*]], [[LOOP]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[END:%.*]] = icmp ult i32 [[TMP1]], [[LIMIT:%.*]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 10
 ; CHECK-NEXT:    [[TMP3:%.*]] = sext i32 [[TMP1]] to i64
@@ -89,7 +89,7 @@ define void @nocopy(i64 %val, i32  %limit, ptr %ptr) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = add <16 x i32> [[TMP2]], <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[TMP4:%.*]] = phi <16 x i32> [ [[TMP3]], [[ENTRY:%.*]] ], [ [[INC:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[TMP4:%.*]] = phi <16 x i32> [ [[INC:%.*]], [[LOOP]] ], [ [[TMP3]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[ELT:%.*]] = extractelement <16 x i32> [[TMP4]], i64 0
 ; CHECK-NEXT:    [[ELTCOPY:%.*]] = extractelement <16 x i32> [[TMP4]], i64 1
 ; CHECK-NEXT:    [[END:%.*]] = icmp ult i32 [[ELT]], [[LIMIT:%.*]]
@@ -131,8 +131,8 @@ define i1 @g(<3 x i32> %input_2, i1 %c1) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = extractelement <3 x i32> [[INPUT_2:%.*]], i64 0
 ; CHECK-NEXT:    br label [[FOR_COND:%.*]]
 ; CHECK:       for.cond:
-; CHECK-NEXT:    [[TMP1:%.*]] = phi i32 [ [[TMP0]], [[ENTRY:%.*]] ], [ [[TMP4:%.*]], [[FOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[TMP2:%.*]] = phi i32 [ poison, [[ENTRY]] ], [ [[TMP3:%.*]], [[FOR_BODY]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = phi i32 [ [[TMP4:%.*]], [[FOR_BODY:%.*]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[TMP2:%.*]] = phi i32 [ [[TMP3:%.*]], [[FOR_BODY]] ], [ poison, [[ENTRY]] ]
 ; CHECK-NEXT:    br i1 [[C1:%.*]], label [[FOR_END:%.*]], label [[FOR_BODY]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[TMP3]] = add i32 [[TMP2]], -1

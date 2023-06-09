@@ -164,7 +164,7 @@ define void @test6(i32 %n, ptr %a, ptr %gi) nounwind uwtable ssp {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_COND:%.*]]
 ; CHECK:       for.cond:
-; CHECK-NEXT:    [[STOREMERGE:%.*]] = phi i32 [ 42, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[STOREMERGE:%.*]] = phi i32 [ [[INC:%.*]], [[FOR_BODY:%.*]] ], [ 42, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    store i32 [[STOREMERGE]], ptr [[GI:%.*]], align 4, !tbaa [[TBAA0:![0-9]+]]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[STOREMERGE]], [[N:%.*]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[FOR_END:%.*]]

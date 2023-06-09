@@ -17,10 +17,10 @@ define void @foo() nounwind  {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[BB7_OUTER:%.*]]
 ; CHECK:       bb7.outer:
-; CHECK-NEXT:    [[I:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDVAR_NEXT26:%.*]], [[BB11:%.*]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i64 [ [[INDVAR_NEXT26:%.*]], [[BB11:%.*]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    br label [[BB1:%.*]]
 ; CHECK:       bb1:
-; CHECK-NEXT:    [[J:%.*]] = phi i64 [ 0, [[BB7_OUTER]] ], [ [[INDVAR_NEXT:%.*]], [[BB1]] ]
+; CHECK-NEXT:    [[J:%.*]] = phi i64 [ [[INDVAR_NEXT:%.*]], [[BB1]] ], [ 0, [[BB7_OUTER]] ]
 ; CHECK-NEXT:    [[T4:%.*]] = getelementptr [1001 x [20000 x double]], ptr @Nice, i64 0, i64 [[I]], i64 [[J]]
 ; CHECK-NEXT:    store <2 x double> zeroinitializer, ptr [[T4]], align 16
 ; CHECK-NEXT:    [[S4:%.*]] = getelementptr [1001 x [20001 x double]], ptr @Awkward, i64 0, i64 [[I]], i64 [[J]]

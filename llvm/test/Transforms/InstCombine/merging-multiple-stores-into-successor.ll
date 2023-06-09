@@ -27,12 +27,12 @@ define void @_Z4testv() {
 ; CHECK-NEXT:    [[I11:%.*]] = trunc i64 [[I7]] to i32
 ; CHECK-NEXT:    br label [[BB12]]
 ; CHECK:       bb12:
-; CHECK-NEXT:    [[STOREMERGE1:%.*]] = phi i32 [ [[I11]], [[BB10]] ], [ 1, [[BB9]] ]
-; CHECK-NEXT:    store i32 [[STOREMERGE1]], ptr @arr_2, align 4
+; CHECK-NEXT:    [[STOREMERGE:%.*]] = phi i32 [ [[I11]], [[BB10]] ], [ 1, [[BB9]] ]
+; CHECK-NEXT:    store i32 [[STOREMERGE]], ptr @arr_2, align 4
 ; CHECK-NEXT:    store i16 [[I4]], ptr @arr_4, align 2
 ; CHECK-NEXT:    [[I8:%.*]] = sext i16 [[I4]] to i32
 ; CHECK-NEXT:    store i32 [[I8]], ptr @arr_3, align 16
-; CHECK-NEXT:    store i32 [[STOREMERGE1]], ptr getelementptr inbounds ([0 x i32], ptr @arr_2, i64 0, i64 1), align 4
+; CHECK-NEXT:    store i32 [[STOREMERGE]], ptr getelementptr inbounds ([0 x i32], ptr @arr_2, i64 0, i64 1), align 4
 ; CHECK-NEXT:    store i16 [[I4]], ptr getelementptr inbounds ([0 x i16], ptr @arr_4, i64 0, i64 1), align 2
 ; CHECK-NEXT:    store i32 [[I8]], ptr getelementptr inbounds ([8 x i32], ptr @arr_3, i64 0, i64 1), align 4
 ; CHECK-NEXT:    ret void
@@ -169,7 +169,7 @@ define %struct.half @one_elem_struct_merge(i1 %cond, %struct.half %a, half %b) {
 ; CHECK:       BB1:
 ; CHECK-NEXT:    br label [[SINK]]
 ; CHECK:       sink:
-; CHECK-NEXT:    [[STOREMERGE:%.*]] = phi half [ [[TMP0]], [[BB0]] ], [ [[B:%.*]], [[BB1]] ]
+; CHECK-NEXT:    [[STOREMERGE:%.*]] = phi half [ [[B:%.*]], [[BB1]] ], [ [[TMP0]], [[BB0]] ]
 ; CHECK-NEXT:    [[VAL1:%.*]] = insertvalue [[STRUCT_HALF]] poison, half [[STOREMERGE]], 0
 ; CHECK-NEXT:    ret [[STRUCT_HALF]] [[VAL1]]
 ;
@@ -257,7 +257,7 @@ define i64 @ptrtoint_merge(i1 %cond, i64 %a, ptr %b) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint ptr [[B:%.*]] to i64
 ; CHECK-NEXT:    br label [[SINK]]
 ; CHECK:       sink:
-; CHECK-NEXT:    [[STOREMERGE:%.*]] = phi i64 [ [[A:%.*]], [[BB0]] ], [ [[TMP0]], [[BB1]] ]
+; CHECK-NEXT:    [[STOREMERGE:%.*]] = phi i64 [ [[TMP0]], [[BB1]] ], [ [[A:%.*]], [[BB0]] ]
 ; CHECK-NEXT:    ret i64 [[STOREMERGE]]
 ;
 entry:
@@ -275,17 +275,16 @@ sink:
 }
 
 define ptr @inttoptr_merge(i1 %cond, i64 %a, ptr %b) {
-; CHECK-LABEL: define ptr @inttoptr_merge
-; CHECK-SAME: (i1 [[COND:%.*]], i64 [[A:%.*]], ptr [[B:%.*]]) {
+; CHECK-LABEL: @inttoptr_merge(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    br i1 [[COND]], label [[BB0:%.*]], label [[BB1:%.*]]
+; CHECK-NEXT:    br i1 [[COND:%.*]], label [[BB0:%.*]], label [[BB1:%.*]]
 ; CHECK:       BB0:
-; CHECK-NEXT:    [[TMP0:%.*]] = inttoptr i64 [[A]] to ptr
+; CHECK-NEXT:    [[TMP0:%.*]] = inttoptr i64 [[A:%.*]] to ptr
 ; CHECK-NEXT:    br label [[SINK:%.*]]
 ; CHECK:       BB1:
 ; CHECK-NEXT:    br label [[SINK]]
 ; CHECK:       sink:
-; CHECK-NEXT:    [[STOREMERGE:%.*]] = phi ptr [ [[B]], [[BB1]] ], [ [[TMP0]], [[BB0]] ]
+; CHECK-NEXT:    [[STOREMERGE:%.*]] = phi ptr [ [[B:%.*]], [[BB1]] ], [ [[TMP0]], [[BB0]] ]
 ; CHECK-NEXT:    ret ptr [[STOREMERGE]]
 ;
 entry:

@@ -915,7 +915,7 @@ define i32 @test50(i1 %which) {
 ; CHECK:       delay:
 ; CHECK-NEXT:    br label [[FINAL]]
 ; CHECK:       final:
-; CHECK-NEXT:    [[A:%.*]] = phi i32 [ 1019, [[ENTRY:%.*]] ], [ 123, [[DELAY]] ]
+; CHECK-NEXT:    [[A:%.*]] = phi i32 [ 123, [[DELAY]] ], [ 1019, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[A]]
 ;
 entry:
@@ -937,7 +937,7 @@ define <2 x i32> @test50vec(i1 %which) {
 ; CHECK:       delay:
 ; CHECK-NEXT:    br label [[FINAL]]
 ; CHECK:       final:
-; CHECK-NEXT:    [[A:%.*]] = phi <2 x i32> [ <i32 1019, i32 1019>, [[ENTRY:%.*]] ], [ <i32 123, i32 123>, [[DELAY]] ]
+; CHECK-NEXT:    [[A:%.*]] = phi <2 x i32> [ <i32 123, i32 123>, [[DELAY]] ], [ <i32 1019, i32 1019>, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret <2 x i32> [[A]]
 ;
 entry:
@@ -959,7 +959,7 @@ define <2 x i32> @test50vec2(i1 %which) {
 ; CHECK:       delay:
 ; CHECK-NEXT:    br label [[FINAL]]
 ; CHECK:       final:
-; CHECK-NEXT:    [[A:%.*]] = phi <2 x i32> [ <i32 1019, i32 2509>, [[ENTRY:%.*]] ], [ <i32 123, i32 351>, [[DELAY]] ]
+; CHECK-NEXT:    [[A:%.*]] = phi <2 x i32> [ <i32 123, i32 351>, [[DELAY]] ], [ <i32 1019, i32 2509>, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret <2 x i32> [[A]]
 ;
 entry:
@@ -1217,7 +1217,7 @@ define i32 @PR46712(i1 %x, i1 %y, i1 %b, i64 %z) {
 ; CHECK-NEXT:    [[SEL:%.*]] = zext i1 [[BOOL5]] to i32
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[T5:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[SEL]], [[TRUE]] ]
+; CHECK-NEXT:    [[T5:%.*]] = phi i32 [ [[SEL]], [[TRUE]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[T5]]
 ;
 entry:
@@ -1249,7 +1249,7 @@ define i32 @PR46712_logical(i1 %x, i1 %y, i1 %b, i64 %z) {
 ; CHECK-NEXT:    [[SEL:%.*]] = zext i1 [[BOOL5]] to i32
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[T5:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[SEL]], [[TRUE]] ]
+; CHECK-NEXT:    [[T5:%.*]] = phi i32 [ [[SEL]], [[TRUE]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[T5]]
 ;
 entry:

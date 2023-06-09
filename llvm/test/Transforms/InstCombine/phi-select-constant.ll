@@ -11,7 +11,7 @@ define i32 @foo(i1 %which) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = select i1 icmp eq (ptr @A, ptr @B), i32 2, i32 1
 ; CHECK-NEXT:    br label [[FINAL]]
 ; CHECK:       final:
-; CHECK-NEXT:    [[USE2:%.*]] = phi i32 [ 1, [[ENTRY:%.*]] ], [ [[TMP0]], [[DELAY]] ]
+; CHECK-NEXT:    [[USE2:%.*]] = phi i32 [ [[TMP0]], [[DELAY]] ], [ 1, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[USE2]]
 ;
 entry:
@@ -35,7 +35,7 @@ define <4 x i64> @vec1(i1 %which) {
 ; CHECK:       delay:
 ; CHECK-NEXT:    br label [[FINAL]]
 ; CHECK:       final:
-; CHECK-NEXT:    [[PHINODE:%.*]] = phi <4 x i64> [ zeroinitializer, [[ENTRY:%.*]] ], [ <i64 0, i64 0, i64 126, i64 127>, [[DELAY]] ]
+; CHECK-NEXT:    [[PHINODE:%.*]] = phi <4 x i64> [ <i64 0, i64 0, i64 126, i64 127>, [[DELAY]] ], [ zeroinitializer, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret <4 x i64> [[PHINODE]]
 ;
 entry:
@@ -57,7 +57,7 @@ define <4 x i64> @vec2(i1 %which) {
 ; CHECK:       delay:
 ; CHECK-NEXT:    br label [[FINAL]]
 ; CHECK:       final:
-; CHECK-NEXT:    [[PHINODE:%.*]] = phi <4 x i64> [ <i64 124, i64 125, i64 126, i64 127>, [[ENTRY:%.*]] ], [ <i64 0, i64 125, i64 0, i64 127>, [[DELAY]] ]
+; CHECK-NEXT:    [[PHINODE:%.*]] = phi <4 x i64> [ <i64 0, i64 125, i64 0, i64 127>, [[DELAY]] ], [ <i64 124, i64 125, i64 126, i64 127>, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret <4 x i64> [[PHINODE]]
 ;
 entry:
@@ -84,7 +84,7 @@ define <2 x i8> @vec3(i1 %cond1, i1 %cond2, <2 x i1> %x, <2 x i8> %y, <2 x i8> %
 ; CHECK:       if2:
 ; CHECK-NEXT:    br label [[ELSE]]
 ; CHECK:       else:
-; CHECK-NEXT:    [[PHI:%.*]] = phi <2 x i1> [ [[X:%.*]], [[IF2]] ], [ <i1 false, i1 true>, [[ENTRY:%.*]] ], [ <i1 true, i1 false>, [[IF1]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi <2 x i1> [ [[X:%.*]], [[IF2]] ], [ <i1 true, i1 false>, [[IF1]] ], [ <i1 false, i1 true>, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[SEL:%.*]] = select <2 x i1> [[PHI]], <2 x i8> [[Y:%.*]], <2 x i8> [[Z:%.*]]
 ; CHECK-NEXT:    ret <2 x i8> [[SEL]]
 ;
@@ -171,7 +171,7 @@ define i32 @phi_trans(i1 %c, i1 %c2, i32 %v) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = select i1 [[C2:%.*]], i32 [[V3]], i32 [[V5]]
 ; CHECK-NEXT:    br label [[JOIN]]
 ; CHECK:       join:
-; CHECK-NEXT:    [[PHI1:%.*]] = phi i32 [ [[V2]], [[IF]] ], [ [[TMP0]], [[ELSE]] ]
+; CHECK-NEXT:    [[PHI1:%.*]] = phi i32 [ [[TMP0]], [[ELSE]] ], [ [[V2]], [[IF]] ]
 ; CHECK-NEXT:    ret i32 [[PHI1]]
 ;
 entry:

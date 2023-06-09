@@ -20,7 +20,7 @@ define void @test1(ptr %p) personality ptr @__CxxFrameHandler3 {
 ; CHECK-NEXT:    invoke void @throw() [ "funclet"(token [[CATCH]]) ]
 ; CHECK-NEXT:    to label [[UNREACHABLE]] unwind label [[EHCLEANUP]]
 ; CHECK:       ehcleanup:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i64 [ [[TMP1]], [[CATCH_DISPATCH]] ], [ 9, [[INVOKE_CONT1:%.*]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i64 [ 9, [[INVOKE_CONT1:%.*]] ], [ [[TMP1]], [[CATCH_DISPATCH]] ]
 ; CHECK-NEXT:    [[CLEANUP:%.*]] = cleanuppad within none []
 ; CHECK-NEXT:    call void @release(i64 [[PHI]]) [ "funclet"(token [[CLEANUP]]) ]
 ; CHECK-NEXT:    cleanupret from [[CLEANUP]] unwind to caller

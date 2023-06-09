@@ -10,9 +10,9 @@ define void @_Z3fooi(i32 signext %n) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_COND:%.*]]
 ; CHECK:       for.cond:
-; CHECK-NEXT:    [[TMP0:%.*]] = phi float [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[ADD_I:%.*]], [[FOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[TMP1:%.*]] = phi float [ 0.000000e+00, [[ENTRY]] ], [ [[ADD4_I:%.*]], [[FOR_BODY]] ]
-; CHECK-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[FOR_BODY]] ]
+; CHECK-NEXT:    [[TMP0:%.*]] = phi float [ [[ADD_I:%.*]], [[FOR_BODY:%.*]] ], [ 0.000000e+00, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = phi float [ [[ADD4_I:%.*]], [[FOR_BODY]] ], [ 0.000000e+00, [[ENTRY]] ]
+; CHECK-NEXT:    [[I_0:%.*]] = phi i32 [ [[INC:%.*]], [[FOR_BODY]] ], [ 0, [[ENTRY]] ]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[I_0]], [[N:%.*]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[FOR_END:%.*]]
 ; CHECK:       for.body:
@@ -78,8 +78,8 @@ define void @multi_phi(i32 signext %n) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_COND:%.*]]
 ; CHECK:       for.cond:
-; CHECK-NEXT:    [[TMP0:%.*]] = phi float [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[TMP6:%.*]], [[ODD_BB:%.*]] ]
-; CHECK-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[ODD_BB]] ]
+; CHECK-NEXT:    [[TMP0:%.*]] = phi float [ [[TMP6:%.*]], [[ODD_BB:%.*]] ], [ 0.000000e+00, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[I_0:%.*]] = phi i32 [ [[INC:%.*]], [[ODD_BB]] ], [ 0, [[ENTRY]] ]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[I_0]], [[N:%.*]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY:%.*]], label [[FOR_END:%.*]]
 ; CHECK:       for.body:
@@ -99,7 +99,7 @@ define void @multi_phi(i32 signext %n) {
 ; CHECK-NEXT:    [[TMP5:%.*]] = fadd float [[SUB_I]], [[ADD_I]]
 ; CHECK-NEXT:    br label [[ODD_BB]]
 ; CHECK:       odd.bb:
-; CHECK-NEXT:    [[TMP6]] = phi float [ [[ADD_I]], [[FOR_BODY]] ], [ [[TMP5]], [[EVEN_BB]] ]
+; CHECK-NEXT:    [[TMP6]] = phi float [ [[TMP5]], [[EVEN_BB]] ], [ [[ADD_I]], [[FOR_BODY]] ]
 ; CHECK-NEXT:    br label [[FOR_COND]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    store float [[TMP0]], ptr @dd, align 4

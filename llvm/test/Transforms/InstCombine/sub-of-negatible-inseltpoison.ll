@@ -422,7 +422,7 @@ define i8 @t16(i1 %c, i8 %x) {
 ; CHECK:       else:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[Z_NEG:%.*]] = phi i8 [ [[X:%.*]], [[THEN]] ], [ 42, [[ELSE]] ]
+; CHECK-NEXT:    [[Z_NEG:%.*]] = phi i8 [ 42, [[ELSE]] ], [ [[X:%.*]], [[THEN]] ]
 ; CHECK-NEXT:    ret i8 [[Z_NEG]]
 ;
 begin:
@@ -447,7 +447,7 @@ define i8 @n17(i1 %c, i8 %x) {
 ; CHECK:       else:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[Z:%.*]] = phi i8 [ [[Y]], [[THEN]] ], [ -42, [[ELSE]] ]
+; CHECK-NEXT:    [[Z:%.*]] = phi i8 [ -42, [[ELSE]] ], [ [[Y]], [[THEN]] ]
 ; CHECK-NEXT:    call void @use8(i8 [[Z]])
 ; CHECK-NEXT:    [[N:%.*]] = sub i8 0, [[Z]]
 ; CHECK-NEXT:    ret i8 [[N]]
@@ -475,7 +475,7 @@ define i8 @n19(i1 %c, i8 %x, i8 %y) {
 ; CHECK:       else:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi i8 [ [[Z]], [[THEN]] ], [ [[Y:%.*]], [[ELSE]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi i8 [ [[Y:%.*]], [[ELSE]] ], [ [[Z]], [[THEN]] ]
 ; CHECK-NEXT:    [[N:%.*]] = sub i8 0, [[R]]
 ; CHECK-NEXT:    ret i8 [[N]]
 ;
@@ -497,7 +497,7 @@ define void @phi_with_duplicate_incoming_basic_blocks(i32 %x, i32 %y, i1 %should
 ; CHECK-NEXT:    [[X_INC_NEG:%.*]] = xor i32 [[X:%.*]], -1
 ; CHECK-NEXT:    br i1 [[SHOULD_LOOKUP:%.*]], label [[LOOKUP:%.*]], label [[LOOP:%.*]]
 ; CHECK:       lookup:
-; CHECK-NEXT:    [[TO_LOOKUP:%.*]] = phi i32 [ [[Y:%.*]], [[ENTRY:%.*]] ], [ [[METAVAL_NEG:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[TO_LOOKUP:%.*]] = phi i32 [ [[METAVAL_NEG:%.*]], [[LOOP]] ], [ [[Y:%.*]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    switch i32 [[TO_LOOKUP]], label [[END:%.*]] [
 ; CHECK-NEXT:    i32 0, label [[LOOP]]
 ; CHECK-NEXT:    i32 42, label [[LOOP]]

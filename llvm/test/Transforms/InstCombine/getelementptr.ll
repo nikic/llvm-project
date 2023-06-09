@@ -564,7 +564,7 @@ define i32 @test28() nounwind  {
 ; CHECK-NEXT:    [[T3:%.*]] = call i32 @puts(ptr noundef nonnull dereferenceable(1) @.str) #[[ATTR0]]
 ; CHECK-NEXT:    br label [[BB10:%.*]]
 ; CHECK:       bb10:
-; CHECK-NEXT:    [[INDVAR:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INDVAR_NEXT:%.*]], [[BB10]] ]
+; CHECK-NEXT:    [[INDVAR:%.*]] = phi i32 [ [[INDVAR_NEXT:%.*]], [[BB10]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[T12_REC:%.*]] = xor i32 [[INDVAR]], -1
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[T12_REC]] to i64
 ; CHECK-NEXT:    [[T12:%.*]] = getelementptr inbounds [1 x [1 x %struct.x]], ptr [[ORIENTATIONS]], i64 1, i64 0, i64 [[TMP0]]

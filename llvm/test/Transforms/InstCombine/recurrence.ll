@@ -64,7 +64,7 @@ define i64 @test_or4(i64 %a, ptr %p) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[A:%.*]], [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ [[A:%.*]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[STEP:%.*]] = load volatile i64, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[IV_NEXT]] = or i64 [[IV]], [[STEP]]
 ; CHECK-NEXT:    tail call void @use(i64 [[IV_NEXT]])
@@ -145,7 +145,7 @@ define i64 @test_and4(i64 %a, ptr %p) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[A:%.*]], [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ [[A:%.*]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[STEP:%.*]] = load volatile i64, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[IV_NEXT]] = and i64 [[IV]], [[STEP]]
 ; CHECK-NEXT:    tail call void @use(i64 [[IV_NEXT]])

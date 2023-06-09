@@ -14,7 +14,7 @@ define void @matching_phi(i64 %a, ptr %b, i1 %cond) {
 ; CHECK-NEXT:    store float 1.000000e+01, ptr [[ADD]], align 4
 ; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
-; CHECK-NEXT:    [[A_ADDR_03:%.*]] = phi ptr [ [[ADDB]], [[BB1]] ], [ [[ADD]], [[BB2]] ]
+; CHECK-NEXT:    [[A_ADDR_03:%.*]] = phi ptr [ [[ADD]], [[BB2]] ], [ [[ADDB]], [[BB1]] ]
 ; CHECK-NEXT:    [[I1:%.*]] = load float, ptr [[A_ADDR_03]], align 4
 ; CHECK-NEXT:    [[MUL_I:%.*]] = fmul float [[I1]], 4.200000e+01
 ; CHECK-NEXT:    store float [[MUL_I]], ptr [[A_ADDR_03]], align 4
@@ -58,8 +58,8 @@ define void @no_matching_phi(i64 %a, ptr %b, i1 %cond) {
 ; CHECK-NEXT:    store float 1.000000e+01, ptr [[ADD]], align 4
 ; CHECK-NEXT:    br label [[C]]
 ; CHECK:       C:
-; CHECK-NEXT:    [[A_ADDR_03:%.*]] = phi ptr [ [[ADDB]], [[A]] ], [ [[ADD]], [[B]] ]
-; CHECK-NEXT:    [[B_ADDR_02:%.*]] = phi ptr [ [[TMP0]], [[A]] ], [ [[ADDB]], [[B]] ]
+; CHECK-NEXT:    [[A_ADDR_03:%.*]] = phi ptr [ [[ADD]], [[B]] ], [ [[ADDB]], [[A]] ]
+; CHECK-NEXT:    [[B_ADDR_02:%.*]] = phi ptr [ [[ADDB]], [[B]] ], [ [[TMP0]], [[A]] ]
 ; CHECK-NEXT:    [[I1:%.*]] = load float, ptr [[B_ADDR_02]], align 4
 ; CHECK-NEXT:    [[MUL_I:%.*]] = fmul float [[I1]], 4.200000e+01
 ; CHECK-NEXT:    store float [[MUL_I]], ptr [[A_ADDR_03]], align 4

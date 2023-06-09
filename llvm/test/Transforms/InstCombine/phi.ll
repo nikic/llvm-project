@@ -159,7 +159,7 @@ define i32 @test_dead_cycle_two_insts(i32 %A, i1 %cond) {
 ; CHECK-NEXT:  BB0:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       Loop:
-; CHECK-NEXT:    [[B:%.*]] = phi i32 [ [[A:%.*]], [[BB0:%.*]] ], [ [[D:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[B:%.*]] = phi i32 [ [[D:%.*]], [[LOOP]] ], [ [[A:%.*]], [[BB0:%.*]] ]
 ; CHECK-NEXT:    [[C:%.*]] = add i32 [[B]], 123
 ; CHECK-NEXT:    [[D]] = lshr i32 [[C]], 1
 ; CHECK-NEXT:    br i1 [[COND:%.*]], label [[LOOP]], label [[EXIT:%.*]]
@@ -186,7 +186,7 @@ define i32 @test_dead_cycle_intrin(i32 %A, i1 %cond) {
 ; CHECK-NEXT:  BB0:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       Loop:
-; CHECK-NEXT:    [[B:%.*]] = phi i32 [ [[A:%.*]], [[BB0:%.*]] ], [ [[C:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[B:%.*]] = phi i32 [ [[C:%.*]], [[LOOP]] ], [ [[A:%.*]], [[BB0:%.*]] ]
 ; CHECK-NEXT:    [[C]] = call i32 @llvm.uadd.sat.i32(i32 [[B]], i32 123)
 ; CHECK-NEXT:    br i1 [[COND:%.*]], label [[LOOP]], label [[EXIT:%.*]]
 ; CHECK:       Exit:
@@ -211,7 +211,7 @@ define ptr @test8(ptr %A, i1 %b) {
 ; CHECK:       BB1:
 ; CHECK-NEXT:    br label [[BB2]]
 ; CHECK:       BB2:
-; CHECK-NEXT:    [[B:%.*]] = getelementptr { i32, i32 }, ptr [[A:%.*]], i64 0, i32 1
+; CHECK-NEXT:    [[B:%.*]] = getelementptr inbounds { i32, i32 }, ptr [[A:%.*]], i64 0, i32 1
 ; CHECK-NEXT:    ret ptr [[B]]
 ;
 BB0:
@@ -238,7 +238,7 @@ define i32 @test9(ptr %A, ptr %B) {
 ; CHECK:       bb1:
 ; CHECK-NEXT:    br label [[BB2]]
 ; CHECK:       bb2:
-; CHECK-NEXT:    [[E_IN:%.*]] = phi ptr [ [[B:%.*]], [[BB]] ], [ [[A]], [[BB1]] ]
+; CHECK-NEXT:    [[E_IN:%.*]] = phi ptr [ [[A]], [[BB1]] ], [ [[B:%.*]], [[BB]] ]
 ; CHECK-NEXT:    [[E:%.*]] = load i32, ptr [[E_IN]], align 1
 ; CHECK-NEXT:    ret i32 [[E]]
 ;
@@ -270,7 +270,7 @@ define i32 @test10(ptr %A, ptr %B) {
 ; CHECK:       bb1:
 ; CHECK-NEXT:    br label [[BB2]]
 ; CHECK:       bb2:
-; CHECK-NEXT:    [[E_IN:%.*]] = phi ptr [ [[B:%.*]], [[BB]] ], [ [[A]], [[BB1]] ]
+; CHECK-NEXT:    [[E_IN:%.*]] = phi ptr [ [[A]], [[BB1]] ], [ [[B:%.*]], [[BB]] ]
 ; CHECK-NEXT:    [[E:%.*]] = load i32, ptr [[E_IN]], align 16
 ; CHECK-NEXT:    ret i32 [[E]]
 ;
@@ -344,7 +344,7 @@ define i64 @test12(i1 %cond, ptr %Ptr, i64 %Val) {
 ; CHECK:       two:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[T869_0_OFF64:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[VAL:%.*]], [[TWO]] ]
+; CHECK-NEXT:    [[T869_0_OFF64:%.*]] = phi i64 [ [[VAL:%.*]], [[TWO]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[T41:%.*]] = ptrtoint ptr [[PTR:%.*]] to i64
 ; CHECK-NEXT:    [[T2:%.*]] = add i64 [[T869_0_OFF64]], [[T41]]
 ; CHECK-NEXT:    ret i64 [[T2]]
@@ -379,7 +379,7 @@ define void @test13(i1 %cond, i32 %V1, double %Vald) {
 ; CHECK:       two:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[T31:%.*]] = phi double [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[VALD:%.*]], [[TWO]] ]
+; CHECK-NEXT:    [[T31:%.*]] = phi double [ [[VALD:%.*]], [[TWO]] ], [ 0.000000e+00, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    call void @test13f(double [[T31]], i32 [[V1:%.*]])
 ; CHECK-NEXT:    ret void
 ;
@@ -410,7 +410,7 @@ define i640 @test14a(i320 %A, i320 %B, i1 %b1) {
 ; CHECK-NEXT:  BB0:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       Loop:
-; CHECK-NEXT:    [[C_IN:%.*]] = phi i320 [ [[A:%.*]], [[BB0:%.*]] ], [ [[B:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[C_IN:%.*]] = phi i320 [ [[B:%.*]], [[LOOP]] ], [ [[A:%.*]], [[BB0:%.*]] ]
 ; CHECK-NEXT:    br i1 [[B1:%.*]], label [[LOOP]], label [[EXIT:%.*]]
 ; CHECK:       Exit:
 ; CHECK-NEXT:    [[C:%.*]] = zext i320 [[C_IN]] to i640
@@ -436,7 +436,7 @@ define i160 @test14b(i320 %pA, i320 %pB, i1 %b1) {
 ; CHECK-NEXT:    [[B:%.*]] = trunc i320 [[PB:%.*]] to i160
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       Loop:
-; CHECK-NEXT:    [[C:%.*]] = phi i160 [ [[A]], [[BB0:%.*]] ], [ [[B]], [[LOOP]] ]
+; CHECK-NEXT:    [[C:%.*]] = phi i160 [ [[B]], [[LOOP]] ], [ [[A]], [[BB0:%.*]] ]
 ; CHECK-NEXT:    br i1 [[B1:%.*]], label [[LOOP]], label [[EXIT:%.*]]
 ; CHECK:       Exit:
 ; CHECK-NEXT:    ret i160 [[C]]
@@ -461,12 +461,12 @@ define i64 @test15b(i64 %A, i1 %b) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br i1 [[B:%.*]], label [[ONE:%.*]], label [[TWO:%.*]]
 ; CHECK:       one:
-; CHECK-NEXT:    [[X_OFF64:%.*]] = phi i64 [ [[A:%.*]], [[ENTRY:%.*]] ], [ [[Y_OFF64:%.*]], [[TWO]] ]
+; CHECK-NEXT:    [[X_OFF64:%.*]] = phi i64 [ [[Y_OFF64:%.*]], [[TWO]] ], [ [[A:%.*]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[C:%.*]] = call i64 @test15a(i64 [[X_OFF64]])
 ; CHECK-NEXT:    br label [[TWO]]
 ; CHECK:       two:
-; CHECK-NEXT:    [[Y_OFF0:%.*]] = phi i64 [ [[A]], [[ENTRY]] ], [ [[C]], [[ONE]] ]
-; CHECK-NEXT:    [[Y_OFF64]] = phi i64 [ [[A]], [[ENTRY]] ], [ 0, [[ONE]] ]
+; CHECK-NEXT:    [[Y_OFF0:%.*]] = phi i64 [ [[C]], [[ONE]] ], [ [[A]], [[ENTRY]] ]
+; CHECK-NEXT:    [[Y_OFF64]] = phi i64 [ 0, [[ONE]] ], [ [[A]], [[ENTRY]] ]
 ; CHECK-NEXT:    [[D:%.*]] = call i64 @test15a(i64 [[Y_OFF64]])
 ; CHECK-NEXT:    [[TMP0:%.*]] = and i64 [[D]], 1
 ; CHECK-NEXT:    [[D1_NOT:%.*]] = icmp eq i64 [[TMP0]], 0
@@ -606,7 +606,7 @@ define i32 @PR51435(ptr %ptr, ptr %atomic_ptr, i1 %c) {
 ; CHECK-NEXT:    [[Y:%.*]] = load atomic i32, ptr [[ATOMIC_PTR:%.*]] acquire, align 4
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[COND:%.*]] = phi i32 [ [[X]], [[ENTRY:%.*]] ], [ [[Y]], [[IF]] ]
+; CHECK-NEXT:    [[COND:%.*]] = phi i32 [ [[Y]], [[IF]] ], [ [[X]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[COND]]
 ;
 entry:
@@ -723,7 +723,7 @@ define void @test22() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[Y:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[Y:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[Y]] = add i32 [[PHI]], 1
 ; CHECK-NEXT:    [[O:%.*]] = or i32 [[Y]], [[PHI]]
 ; CHECK-NEXT:    [[E:%.*]] = icmp eq i32 [[O]], [[Y]]
@@ -749,7 +749,7 @@ define i32 @test23(i32 %A, i1 %pb, ptr %P) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[A:%.*]], 19
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       Loop:
-; CHECK-NEXT:    [[B:%.*]] = phi i32 [ [[TMP0]], [[BB0:%.*]] ], [ 61, [[LOOP]] ]
+; CHECK-NEXT:    [[B:%.*]] = phi i32 [ 61, [[LOOP]] ], [ [[TMP0]], [[BB0:%.*]] ]
 ; CHECK-NEXT:    store i32 [[B]], ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    br i1 [[PB:%.*]], label [[LOOP]], label [[EXIT:%.*]]
 ; CHECK:       Exit:
@@ -933,7 +933,7 @@ define i1 @PR24766(i8 %x1, i8 %x2, i8 %condition) {
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp sle i8 [[X1]], [[X2]]
 ; CHECK-NEXT:    br label [[EPILOG]]
 ; CHECK:       epilog:
-; CHECK-NEXT:    [[CONDITIONMET_SHRUNK:%.*]] = phi i1 [ false, [[ENTRY:%.*]] ], [ [[CMP2]], [[SW2]] ], [ [[CMP1]], [[SW1]] ]
+; CHECK-NEXT:    [[CONDITIONMET_SHRUNK:%.*]] = phi i1 [ [[CMP2]], [[SW2]] ], [ [[CMP1]], [[SW1]] ], [ false, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i1 [[CONDITIONMET_SHRUNK]]
 ;
 entry:
@@ -977,7 +977,7 @@ define i1 @PR24766_no_constants(i8 %x1, i8 %x2, i8 %condition, i1 %another_condi
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp sle i8 [[X1]], [[X2]]
 ; CHECK-NEXT:    br label [[EPILOG]]
 ; CHECK:       epilog:
-; CHECK-NEXT:    [[CONDITIONMET_IN:%.*]] = phi i1 [ [[ANOTHER_CONDITION:%.*]], [[ENTRY:%.*]] ], [ [[CMP2]], [[SW2]] ], [ [[CMP1]], [[SW1]] ]
+; CHECK-NEXT:    [[CONDITIONMET_IN:%.*]] = phi i1 [ [[CMP2]], [[SW2]] ], [ [[CMP1]], [[SW1]] ], [ [[ANOTHER_CONDITION:%.*]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i1 [[CONDITIONMET_IN]]
 ;
 entry:
@@ -1021,7 +1021,7 @@ define i1 @PR24766_two_constants(i8 %x1, i8 %x2, i8 %condition) {
 ; CHECK:       sw2:
 ; CHECK-NEXT:    br label [[EPILOG]]
 ; CHECK:       epilog:
-; CHECK-NEXT:    [[CONDITIONMET:%.*]] = phi i1 [ false, [[ENTRY:%.*]] ], [ true, [[SW2]] ], [ [[CMP1]], [[SW1]] ]
+; CHECK-NEXT:    [[CONDITIONMET:%.*]] = phi i1 [ true, [[SW2]] ], [ [[CMP1]], [[SW1]] ], [ false, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i1 [[CONDITIONMET]]
 ;
 entry:
@@ -1068,7 +1068,7 @@ define i1 @PR24766_two_constants_two_var(i8 %x1, i8 %x2, i8 %condition) {
 ; CHECK:       sw3:
 ; CHECK-NEXT:    br label [[EPILOG]]
 ; CHECK:       epilog:
-; CHECK-NEXT:    [[CONDITIONMET_SHRUNK:%.*]] = phi i1 [ false, [[ENTRY:%.*]] ], [ [[CMP2]], [[SW2]] ], [ [[CMP1]], [[SW1]] ], [ true, [[SW3]] ]
+; CHECK-NEXT:    [[CONDITIONMET_SHRUNK:%.*]] = phi i1 [ true, [[SW3]] ], [ [[CMP2]], [[SW2]] ], [ [[CMP1]], [[SW1]] ], [ false, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i1 [[CONDITIONMET_SHRUNK]]
 ;
 entry:
@@ -1228,7 +1228,7 @@ define i1 @phi_knownnonzero_eq_2(i32 %n, i32 %s, ptr nocapture readonly %P) {
 ; CHECK:       if.else:
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
-; CHECK-NEXT:    [[A_0:%.*]] = phi i32 [ 2, [[IF_ELSE]] ], [ [[N]], [[ENTRY:%.*]] ], [ 2, [[IF_THEN]] ]
+; CHECK-NEXT:    [[A_0:%.*]] = phi i32 [ 2, [[IF_ELSE]] ], [ 2, [[IF_THEN]] ], [ [[N]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp eq i32 [[A_0]], 0
 ; CHECK-NEXT:    ret i1 [[CMP1]]
 ;
@@ -1262,7 +1262,7 @@ define i1 @phi_knownnonzero_ne_2(i32 %n, i32 %s, ptr nocapture readonly %P) {
 ; CHECK:       if.else:
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
-; CHECK-NEXT:    [[A_0:%.*]] = phi i32 [ 2, [[IF_ELSE]] ], [ [[N]], [[ENTRY:%.*]] ], [ 2, [[IF_THEN]] ]
+; CHECK-NEXT:    [[A_0:%.*]] = phi i32 [ 2, [[IF_ELSE]] ], [ 2, [[IF_THEN]] ], [ [[N]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp ne i32 [[A_0]], 0
 ; CHECK-NEXT:    ret i1 [[CMP1]]
 ;
@@ -1338,7 +1338,7 @@ define i1 @pr57488_icmp_of_phi(ptr %ptr.base, i64 %len) {
 ; CHECK-NEXT:    [[EXIT_COND:%.*]] = icmp eq ptr [[PTR_NEXT]], [[END]]
 ; CHECK-NEXT:    br i1 [[EXIT_COND]], label [[EXIT]], label [[LOOP]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[RES:%.*]] = phi i1 [ true, [[START]] ], [ [[AND]], [[LOOP]] ]
+; CHECK-NEXT:    [[RES:%.*]] = phi i1 [ [[AND]], [[LOOP]] ], [ true, [[START]] ]
 ; CHECK-NEXT:    ret i1 [[RES]]
 ;
 start:
@@ -1371,7 +1371,7 @@ define i32 @phi_op_self_simplify() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 1, [[ENTRY:%.*]] ], [ [[IV_ADD2:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[IV_ADD2:%.*]], [[LOOP]] ], [ 1, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[IV_ADD:%.*]] = xor i32 [[IV]], -1
 ; CHECK-NEXT:    call void @use(i32 [[IV_ADD]])
 ; CHECK-NEXT:    [[IV_ADD2]] = xor i32 [[IV]], -1
@@ -1394,7 +1394,7 @@ define i32 @phi_op_self_simplify_2(i32 %x) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = or i32 [[X:%.*]], 1
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[TMP0]], [[ENTRY:%.*]] ], [ [[PHI]], [[LOOP]] ], [ 11, [[LOOP_LATCH:%.*]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 11, [[LOOP_LATCH:%.*]] ], [ [[PHI]], [[LOOP]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[C1:%.*]] = call i1 @get.i1()
 ; CHECK-NEXT:    br i1 [[C1]], label [[LOOP_LATCH]], label [[LOOP]]
 ; CHECK:       loop.latch:
@@ -1432,7 +1432,7 @@ define i64 @inttoptr_of_phi(i1 %c, ptr %arg.ptr, ptr %arg.ptr2) {
 ; CHECK:       else:
 ; CHECK-NEXT:    br label [[JOIN]]
 ; CHECK:       join:
-; CHECK-NEXT:    [[INT_PTR_PTR:%.*]] = phi ptr [ [[ARG_PTR2_VAL_PTR]], [[IF]] ], [ [[ARG_PTR:%.*]], [[ELSE]] ]
+; CHECK-NEXT:    [[INT_PTR_PTR:%.*]] = phi ptr [ [[ARG_PTR:%.*]], [[ELSE]] ], [ [[ARG_PTR2_VAL_PTR]], [[IF]] ]
 ; CHECK-NEXT:    [[V:%.*]] = load i64, ptr [[INT_PTR_PTR]], align 8
 ; CHECK-NEXT:    ret i64 [[V]]
 ;

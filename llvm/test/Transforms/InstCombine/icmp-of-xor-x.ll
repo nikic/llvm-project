@@ -164,7 +164,7 @@ define i1 @or_slt_intmin_indirect(i8 %x, i8 %C) {
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i8 [[C:%.*]], 0
 ; CHECK-NEXT:    br i1 [[CMP]], label [[NEG:%.*]], label [[POS:%.*]]
 ; CHECK:       common.ret:
-; CHECK-NEXT:    [[COMMON_RET_OP:%.*]] = phi i1 [ [[R:%.*]], [[NEG]] ], [ false, [[POS]] ]
+; CHECK-NEXT:    [[COMMON_RET_OP:%.*]] = phi i1 [ false, [[POS]] ], [ [[R:%.*]], [[NEG]] ]
 ; CHECK-NEXT:    ret i1 [[COMMON_RET_OP]]
 ; CHECK:       neg:
 ; CHECK-NEXT:    [[XOR:%.*]] = xor i8 [[C]], [[X:%.*]]

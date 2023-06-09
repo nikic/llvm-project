@@ -922,7 +922,7 @@ define float @test55(i1 %which, float %a) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = fadd float [[A:%.*]], 1.000000e+00
 ; CHECK-NEXT:    br label [[FINAL]]
 ; CHECK:       final:
-; CHECK-NEXT:    [[A:%.*]] = phi float [ 3.000000e+00, [[ENTRY:%.*]] ], [ [[TMP0]], [[DELAY]] ]
+; CHECK-NEXT:    [[A:%.*]] = phi float [ [[TMP0]], [[DELAY]] ], [ 3.000000e+00, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret float [[A]]
 ;
 entry:

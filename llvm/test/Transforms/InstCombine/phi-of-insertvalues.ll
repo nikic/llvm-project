@@ -14,7 +14,7 @@ define { i32, i32 } @test0({ i32, i32 } %agg, i32 %val_left, i32 %val_right, i1 
 ; CHECK:       right:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[VAL_LEFT_PN:%.*]] = phi i32 [ [[VAL_LEFT:%.*]], [[LEFT]] ], [ [[VAL_RIGHT:%.*]], [[RIGHT]] ]
+; CHECK-NEXT:    [[VAL_LEFT_PN:%.*]] = phi i32 [ [[VAL_RIGHT:%.*]], [[RIGHT]] ], [ [[VAL_LEFT:%.*]], [[LEFT]] ]
 ; CHECK-NEXT:    [[R:%.*]] = insertvalue { i32, i32 } [[AGG:%.*]], i32 [[VAL_LEFT_PN]], 0
 ; CHECK-NEXT:    ret { i32, i32 } [[R]]
 ;
@@ -47,7 +47,7 @@ define { i32, i32 } @test1_extrause0({ i32, i32 } %agg, i32 %val_left, i32 %val_
 ; CHECK-NEXT:    [[I1:%.*]] = insertvalue { i32, i32 } [[AGG]], i32 [[VAL_RIGHT:%.*]], 0
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi { i32, i32 } [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi { i32, i32 } [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret { i32, i32 } [[R]]
 ;
 entry:
@@ -78,7 +78,7 @@ define { i32, i32 } @test2_extrause1({ i32, i32 } %agg, i32 %val_left, i32 %val_
 ; CHECK-NEXT:    call void @usei32i32agg({ i32, i32 } [[I1]])
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi { i32, i32 } [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi { i32, i32 } [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret { i32, i32 } [[R]]
 ;
 entry:
@@ -110,7 +110,7 @@ define { i32, i32 } @test3_extrause2({ i32, i32 } %agg, i32 %val_left, i32 %val_
 ; CHECK-NEXT:    call void @usei32i32agg({ i32, i32 } [[I1]])
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi { i32, i32 } [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi { i32, i32 } [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret { i32, i32 } [[R]]
 ;
 entry:
@@ -141,7 +141,7 @@ define { i32, i32 } @test4({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i32 
 ; CHECK:       right:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ]
+; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_LEFT:%.*]], [[LEFT]] ]
 ; CHECK-NEXT:    [[R:%.*]] = insertvalue { i32, i32 } [[AGG_LEFT_PN]], i32 [[VAL:%.*]], 0
 ; CHECK-NEXT:    ret { i32, i32 } [[R]]
 ;
@@ -171,8 +171,8 @@ define { i32, i32 } @test5({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i32 
 ; CHECK:       right:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ]
-; CHECK-NEXT:    [[VAL_LEFT_PN:%.*]] = phi i32 [ [[VAL_LEFT:%.*]], [[LEFT]] ], [ [[VAL_RIGHT:%.*]], [[RIGHT]] ]
+; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_LEFT:%.*]], [[LEFT]] ]
+; CHECK-NEXT:    [[VAL_LEFT_PN:%.*]] = phi i32 [ [[VAL_RIGHT:%.*]], [[RIGHT]] ], [ [[VAL_LEFT:%.*]], [[LEFT]] ]
 ; CHECK-NEXT:    [[R:%.*]] = insertvalue { i32, i32 } [[AGG_LEFT_PN]], i32 [[VAL_LEFT_PN]], 0
 ; CHECK-NEXT:    ret { i32, i32 } [[R]]
 ;
@@ -204,7 +204,7 @@ define { i32, i32 } @test6({ i32, i32 } %agg, i32 %val_left, i32 %val_right, i1 
 ; CHECK-NEXT:    [[I1:%.*]] = insertvalue { i32, i32 } [[AGG]], i32 [[VAL_RIGHT:%.*]], 1
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi { i32, i32 } [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi { i32, i32 } [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret { i32, i32 } [[R]]
 ;
 entry:
@@ -233,7 +233,7 @@ define {{ i32, i32 }, { i32, i32 }} @test7({{ i32, i32 }, { i32, i32 }} %agg, i3
 ; CHECK:       right:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[VAL_LEFT_PN:%.*]] = phi i32 [ [[VAL_LEFT:%.*]], [[LEFT]] ], [ [[VAL_RIGHT:%.*]], [[RIGHT]] ]
+; CHECK-NEXT:    [[VAL_LEFT_PN:%.*]] = phi i32 [ [[VAL_RIGHT:%.*]], [[RIGHT]] ], [ [[VAL_LEFT:%.*]], [[LEFT]] ]
 ; CHECK-NEXT:    [[R:%.*]] = insertvalue { { i32, i32 }, { i32, i32 } } [[AGG:%.*]], i32 [[VAL_LEFT_PN]], 0, 0
 ; CHECK-NEXT:    ret { { i32, i32 }, { i32, i32 } } [[R]]
 ;
@@ -265,7 +265,7 @@ define {{ i32, i32 }, { i32, i32 }} @test8({{ i32, i32 }, { i32, i32 }} %agg, i3
 ; CHECK-NEXT:    [[I1:%.*]] = insertvalue { { i32, i32 }, { i32, i32 } } [[AGG]], i32 [[VAL_RIGHT:%.*]], 0, 1
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi { { i32, i32 }, { i32, i32 } } [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi { { i32, i32 }, { i32, i32 } } [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret { { i32, i32 }, { i32, i32 } } [[R]]
 ;
 entry:
@@ -296,7 +296,7 @@ define { i32, i32 } @test9({ i32, i32 } %agg, i32 %val_left, i32 %val_right, i1 
 ; CHECK:       right:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[VAL_LEFT_PN:%.*]] = phi i32 [ [[VAL_LEFT:%.*]], [[ENTRY:%.*]] ], [ [[VAL_LEFT]], [[LEFT]] ], [ [[VAL_RIGHT:%.*]], [[RIGHT]] ]
+; CHECK-NEXT:    [[VAL_LEFT_PN:%.*]] = phi i32 [ [[VAL_RIGHT:%.*]], [[RIGHT]] ], [ [[VAL_LEFT:%.*]], [[LEFT]] ], [ [[VAL_LEFT]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[R:%.*]] = insertvalue { i32, i32 } [[AGG:%.*]], i32 [[VAL_LEFT_PN]], 0
 ; CHECK-NEXT:    ret { i32, i32 } [[R]]
 ;
@@ -333,7 +333,7 @@ define { i32, i32 } @test10({ i32, i32 } %agg, i32 %val_left, i32 %val_right, i1
 ; CHECK:       right:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi { i32, i32 } [ [[I0]], [[ENTRY:%.*]] ], [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi { i32, i32 } [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ], [ [[I0]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret { i32, i32 } [[R]]
 ;
 entry:

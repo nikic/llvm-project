@@ -117,7 +117,7 @@ define void @test_load_cast_combine_loop(ptr %src, ptr %dst, i32 %n) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[I_NEXT:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[I_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[I]] to i64
 ; CHECK-NEXT:    [[SRC_GEP:%.*]] = getelementptr inbounds float, ptr [[SRC:%.*]], i64 [[TMP0]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[I]] to i64

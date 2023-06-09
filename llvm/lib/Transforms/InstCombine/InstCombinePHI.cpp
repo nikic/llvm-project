@@ -1512,25 +1512,22 @@ Instruction *InstCombinerImpl::visitPHINode(PHINode &PN) {
   // the blocks in the same order. This will help identical PHIs be eliminated
   // by other passes. Other passes shouldn't depend on this for correctness
   // however.
-  PHINode *FirstPN = cast<PHINode>(PN.getParent()->begin());
-  if (&PN != FirstPN)
-    for (unsigned I = 0, E = FirstPN->getNumIncomingValues(); I != E; ++I) {
-      BasicBlock *BBA = PN.getIncomingBlock(I);
-      BasicBlock *BBB = FirstPN->getIncomingBlock(I);
-      if (BBA != BBB) {
-        Value *VA = PN.getIncomingValue(I);
-        unsigned J = PN.getBasicBlockIndex(BBB);
-        Value *VB = PN.getIncomingValue(J);
-        PN.setIncomingBlock(I, BBB);
-        PN.setIncomingValue(I, VB);
-        PN.setIncomingBlock(J, BBA);
-        PN.setIncomingValue(J, VA);
-        // NOTE: Instcombine normally would want us to "return &PN" if we
-        // modified any of the operands of an instruction.  However, since we
-        // aren't adding or removing uses (just rearranging them) we don't do
-        // this in this case.
-      }
+  for (auto [Idx, Pred] : enumerate(predecessors(PN.getParent()))) {
+    BasicBlock *BBA = PN.getIncomingBlock(Idx);
+    if (BBA != Pred) {
+      Value *VA = PN.getIncomingValue(Idx);
+      unsigned J = PN.getBasicBlockIndex(Pred);
+      Value *VB = PN.getIncomingValue(J);
+      PN.setIncomingBlock(Idx, Pred);
+      PN.setIncomingValue(Idx, VB);
+      PN.setIncomingBlock(J, BBA);
+      PN.setIncomingValue(J, VA);
+      // NOTE: Instcombine normally would want us to "return &PN" if we
+      // modified any of the operands of an instruction.  However, since we
+      // aren't adding or removing uses (just rearranging them) we don't do
+      // this in this case.
     }
+  }
 
   // Is there an identical PHI node in this basic block?
   for (PHINode &IdenticalPN : PN.getParent()->phis()) {

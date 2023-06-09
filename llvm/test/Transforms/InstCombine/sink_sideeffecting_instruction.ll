@@ -65,7 +65,7 @@ define i32 @test() {
 ; CHECK:       bb_crit_edge:
 ; CHECK-NEXT:    br label [[BB12]]
 ; CHECK:       bb12:
-; CHECK-NEXT:    [[VAR13:%.*]] = phi i32 [ [[VAR11]], [[BB10]] ], [ [[VAR7]], [[BB_CRIT_EDGE]] ]
+; CHECK-NEXT:    [[VAR13:%.*]] = phi i32 [ [[VAR7]], [[BB_CRIT_EDGE]] ], [ [[VAR11]], [[BB10]] ]
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 4, ptr nonnull [[VAR1]])
 ; CHECK-NEXT:    br label [[BB14]]
 ; CHECK:       bb14:
@@ -356,7 +356,7 @@ define i32 @sink_lifetime2(i1 %c) {
 ; CHECK-NEXT:    [[VAR3:%.*]] = call i32 @unknown(ptr nonnull [[VAR]]) #[[ATTR1]]
 ; CHECK-NEXT:    br i1 [[C:%.*]], label [[MERGE:%.*]], label [[USE_BLOCK:%.*]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[RET:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[VAR3]], [[USE_BLOCK]] ]
+; CHECK-NEXT:    [[RET:%.*]] = phi i32 [ [[VAR3]], [[USE_BLOCK]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 4, ptr nonnull [[VAR]])
 ; CHECK-NEXT:    ret i32 [[RET]]
 ; CHECK:       use_block:

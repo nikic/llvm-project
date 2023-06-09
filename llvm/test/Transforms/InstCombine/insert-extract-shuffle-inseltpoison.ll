@@ -142,8 +142,8 @@ define <4 x double> @pr25999_phis1(i1 %c, <2 x double> %a, <4 x double> %b) {
 ; CHECK-NEXT:    [[R:%.*]] = call <2 x double> @dummy(<2 x double> [[A:%.*]])
 ; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
-; CHECK-NEXT:    [[T1:%.*]] = phi <2 x double> [ [[A]], [[BB1:%.*]] ], [ [[R]], [[BB2]] ]
-; CHECK-NEXT:    [[T2:%.*]] = phi <4 x double> [ [[B:%.*]], [[BB1]] ], [ zeroinitializer, [[BB2]] ]
+; CHECK-NEXT:    [[T1:%.*]] = phi <2 x double> [ [[R]], [[BB2]] ], [ [[A]], [[BB1:%.*]] ]
+; CHECK-NEXT:    [[T2:%.*]] = phi <4 x double> [ zeroinitializer, [[BB2]] ], [ [[B:%.*]], [[BB1]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = shufflevector <2 x double> [[T1]], <2 x double> poison, <4 x i32> <i32 0, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[T4:%.*]] = shufflevector <4 x double> [[T2]], <4 x double> [[TMP0]], <4 x i32> <i32 0, i32 1, i32 4, i32 3>
 ; CHECK-NEXT:    ret <4 x double> [[T4]]
@@ -173,8 +173,8 @@ define <4 x double> @pr25999_phis2(i1 %c, <2 x double> %a, <4 x double> %b) {
 ; CHECK-NEXT:    [[R:%.*]] = call <2 x double> @dummy(<2 x double> [[A:%.*]])
 ; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
-; CHECK-NEXT:    [[T1:%.*]] = phi <2 x double> [ [[A]], [[BB1:%.*]] ], [ [[R]], [[BB2]] ]
-; CHECK-NEXT:    [[T2:%.*]] = phi <4 x double> [ [[B:%.*]], [[BB1]] ], [ zeroinitializer, [[BB2]] ]
+; CHECK-NEXT:    [[T1:%.*]] = phi <2 x double> [ [[R]], [[BB2]] ], [ [[A]], [[BB1:%.*]] ]
+; CHECK-NEXT:    [[T2:%.*]] = phi <4 x double> [ zeroinitializer, [[BB2]] ], [ [[B:%.*]], [[BB1]] ]
 ; CHECK-NEXT:    [[D:%.*]] = fadd <2 x double> [[T1]], [[T1]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = shufflevector <2 x double> [[D]], <2 x double> poison, <4 x i32> <i32 0, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[T4:%.*]] = shufflevector <4 x double> [[T2]], <4 x double> [[TMP0]], <4 x i32> <i32 0, i32 1, i32 4, i32 3>
@@ -209,7 +209,7 @@ define double @pr26354(ptr %t, i1 %B) {
 ; CHECK-NEXT:    [[I1:%.*]] = insertelement <4 x double> <double 0.000000e+00, double 0.000000e+00, double 0.000000e+00, double poison>, double [[E2]], i64 3
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[PH:%.*]] = phi <4 x double> [ undef, [[ENTRY:%.*]] ], [ [[I1]], [[IF]] ]
+; CHECK-NEXT:    [[PH:%.*]] = phi <4 x double> [ [[I1]], [[IF]] ], [ undef, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[E1:%.*]] = extractelement <2 x double> [[LD]], i64 0
 ; CHECK-NEXT:    [[E3:%.*]] = extractelement <4 x double> [[PH]], i64 1
 ; CHECK-NEXT:    [[MU:%.*]] = fmul double [[E1]], [[E3]]

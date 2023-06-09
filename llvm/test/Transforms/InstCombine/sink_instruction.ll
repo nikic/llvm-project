@@ -34,8 +34,8 @@ define i32 @test2(i32 %x) nounwind ssp {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[BB:%.*]]
 ; CHECK:       bb:
-; CHECK-NEXT:    [[X_ADDR_17:%.*]] = phi i32 [ [[X:%.*]], [[ENTRY:%.*]] ], [ [[X_ADDR_0:%.*]], [[BB2:%.*]] ]
-; CHECK-NEXT:    [[I_06:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[TMP4:%.*]], [[BB2]] ]
+; CHECK-NEXT:    [[X_ADDR_17:%.*]] = phi i32 [ [[X_ADDR_0:%.*]], [[BB2:%.*]] ], [ [[X:%.*]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[I_06:%.*]] = phi i32 [ [[TMP4:%.*]], [[BB2]] ], [ 0, [[ENTRY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i32 [[X_ADDR_17]], 0
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[BB1:%.*]], label [[BB2]]
 ; CHECK:       bb1:

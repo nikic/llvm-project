@@ -20,7 +20,7 @@ define i32 @test1(ptr %dm, i1 %tmp4, i64 %tmp9, i64 %tmp19) {
 ; CHECK-NEXT:    store i32 0, ptr [[TMP20]], align 4
 ; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
-; CHECK-NEXT:    [[TMP0:%.*]] = phi i64 [ [[TMP9]], [[BB1]] ], [ [[TMP19]], [[BB2]] ]
+; CHECK-NEXT:    [[TMP0:%.*]] = phi i64 [ [[TMP19]], [[BB2]] ], [ [[TMP9]], [[BB1]] ]
 ; CHECK-NEXT:    [[TMP24:%.*]] = getelementptr inbounds [[STRUCT2]], ptr [[TMP1]], i64 [[TMP0]], i32 1
 ; CHECK-NEXT:    [[TMP25:%.*]] = load i32, ptr [[TMP24]], align 4
 ; CHECK-NEXT:    ret i32 [[TMP25]]
@@ -84,7 +84,7 @@ define i32 @test3(ptr %dm, i1 %tmp4, i64 %tmp9, i64 %tmp19, i64 %tmp20, i64 %tmp
 ; CHECK-NEXT:    store i32 0, ptr [[TMP12]], align 4
 ; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
-; CHECK-NEXT:    [[TMP0:%.*]] = phi i64 [ [[TMP19]], [[BB1]] ], [ [[TMP20]], [[BB2]] ]
+; CHECK-NEXT:    [[TMP0:%.*]] = phi i64 [ [[TMP20]], [[BB2]] ], [ [[TMP19]], [[BB1]] ]
 ; CHECK-NEXT:    [[TMP22:%.*]] = invoke i32 @foo1(i32 11)
 ; CHECK-NEXT:    to label [[BB4:%.*]] unwind label [[BB5:%.*]]
 ; CHECK:       bb4:
@@ -142,9 +142,9 @@ define ptr @test4(i32 %value, ptr %buffer) {
 ; CHECK:       loop.header:
 ; CHECK-NEXT:    br label [[LOOP_BODY:%.*]]
 ; CHECK:       loop.body:
-; CHECK-NEXT:    [[BUFFER_PN:%.*]] = phi ptr [ [[BUFFER:%.*]], [[LOOP_HEADER]] ], [ [[LOOPPTR:%.*]], [[LOOP_BODY]] ]
-; CHECK-NEXT:    [[NEWVAL:%.*]] = phi i32 [ [[VALUE]], [[LOOP_HEADER]] ], [ [[SHR:%.*]], [[LOOP_BODY]] ]
-; CHECK-NEXT:    [[LOOPPTR]] = getelementptr inbounds i8, ptr [[BUFFER_PN]], i64 1
+; CHECK-NEXT:    [[LOOPPTR_PN:%.*]] = phi ptr [ [[LOOPPTR:%.*]], [[LOOP_BODY]] ], [ [[BUFFER:%.*]], [[LOOP_HEADER]] ]
+; CHECK-NEXT:    [[NEWVAL:%.*]] = phi i32 [ [[SHR:%.*]], [[LOOP_BODY]] ], [ [[VALUE]], [[LOOP_HEADER]] ]
+; CHECK-NEXT:    [[LOOPPTR]] = getelementptr inbounds i8, ptr [[LOOPPTR_PN]], i64 1
 ; CHECK-NEXT:    [[SHR]] = lshr i32 [[NEWVAL]], 7
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp ugt i32 [[NEWVAL]], 16383
 ; CHECK-NEXT:    br i1 [[CMP2]], label [[LOOP_BODY]], label [[LOOP_EXIT:%.*]]
@@ -197,7 +197,7 @@ define void @test5(ptr %idx, ptr %in) #0 {
 ; CHECK-NEXT:    call void @g(ptr nonnull @.str.4)
 ; CHECK-NEXT:    br label [[WHILE_COND]]
 ; CHECK:       while.cond:
-; CHECK-NEXT:    [[PTR:%.*]] = phi ptr [ [[INCDEC_PTR]], [[ENTRY:%.*]] ], [ [[INCDEC_PTR32:%.*]], [[WHILE_BODY:%.*]] ], [ [[INCDEC_PTR]], [[IF_THEN_25]] ]
+; CHECK-NEXT:    [[PTR:%.*]] = phi ptr [ [[INCDEC_PTR32:%.*]], [[WHILE_BODY:%.*]] ], [ [[INCDEC_PTR]], [[IF_THEN_25]] ], [ [[INCDEC_PTR]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[PTR]], align 1
 ; CHECK-NEXT:    [[AND:%.*]] = and i8 [[TMP2]], 64
 ; CHECK-NEXT:    [[LNOT:%.*]] = icmp eq i8 [[AND]], 0

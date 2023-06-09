@@ -15,7 +15,7 @@ define ptr @test_phi_combine_load_metadata(i1 %c, ptr dereferenceable(8) %p1, pt
 ; CHECK-NEXT:    call void @baz()
 ; CHECK-NEXT:    br label [[CONT]]
 ; CHECK:       cont:
-; CHECK-NEXT:    [[RES_IN:%.*]] = phi ptr [ [[P1:%.*]], [[T]] ], [ [[P2:%.*]], [[F]] ]
+; CHECK-NEXT:    [[RES_IN:%.*]] = phi ptr [ [[P2:%.*]], [[F]] ], [ [[P1:%.*]], [[T]] ]
 ; CHECK-NEXT:    [[RES:%.*]] = load ptr, ptr [[RES_IN]], align 8, !noundef !0
 ; CHECK-NEXT:    ret ptr [[RES]]
 ;
@@ -47,7 +47,7 @@ define ptr @test_phi_combine_load_metadata_negative(i1 %c, ptr dereferenceable(8
 ; CHECK-NEXT:    call void @baz()
 ; CHECK-NEXT:    br label [[CONT]]
 ; CHECK:       cont:
-; CHECK-NEXT:    [[RES_IN:%.*]] = phi ptr [ [[P1:%.*]], [[T]] ], [ [[P2:%.*]], [[F]] ]
+; CHECK-NEXT:    [[RES_IN:%.*]] = phi ptr [ [[P2:%.*]], [[F]] ], [ [[P1:%.*]], [[T]] ]
 ; CHECK-NEXT:    [[RES:%.*]] = load ptr, ptr [[RES_IN]], align 8
 ; CHECK-NEXT:    ret ptr [[RES]]
 ;

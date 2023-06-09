@@ -22,7 +22,7 @@ define i32 @sterix(i32, i8, i64) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = zext i1 [[TOBOOL7_NOT]] to i32
 ; CHECK-NEXT:    br label [[LOR_END]]
 ; CHECK:       lor.end:
-; CHECK-NEXT:    [[CONV8:%.*]] = phi i32 [ 1, [[ENTRY:%.*]] ], [ [[TMP3]], [[LOR_RHS]] ]
+; CHECK-NEXT:    [[CONV8:%.*]] = phi i32 [ [[TMP3]], [[LOR_RHS]] ], [ 1, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[CONV8]]
 ;
 entry:

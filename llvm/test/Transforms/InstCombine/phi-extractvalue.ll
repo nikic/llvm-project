@@ -14,7 +14,7 @@ define i32 @test0({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 %c) {
 ; CHECK:       right:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ]
+; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_LEFT:%.*]], [[LEFT]] ]
 ; CHECK-NEXT:    [[R:%.*]] = extractvalue { i32, i32 } [[AGG_LEFT_PN]], 0
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
@@ -47,7 +47,7 @@ define i32 @test1_extrause0({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 
 ; CHECK-NEXT:    [[I1:%.*]] = extractvalue { i32, i32 } [[AGG_RIGHT:%.*]], 0
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
 entry:
@@ -78,7 +78,7 @@ define i32 @test2_extrause1({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 
 ; CHECK-NEXT:    call void @usei32(i32 [[I1]])
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
 entry:
@@ -110,7 +110,7 @@ define i32 @test3_extrause2({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 
 ; CHECK-NEXT:    call void @usei32(i32 [[I1]])
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
 entry:
@@ -143,7 +143,7 @@ define i32 @test4({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 %c) {
 ; CHECK-NEXT:    [[I1:%.*]] = extractvalue { i32, i32 } [[AGG_RIGHT:%.*]], 1
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
 entry:
@@ -172,7 +172,7 @@ define i32 @test5({{ i32, i32 }, { i32, i32 }} %agg_left, {{ i32, i32 }, { i32, 
 ; CHECK:       right:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { { i32, i32 }, { i32, i32 } } [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ]
+; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { { i32, i32 }, { i32, i32 } } [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_LEFT:%.*]], [[LEFT]] ]
 ; CHECK-NEXT:    [[R:%.*]] = extractvalue { { i32, i32 }, { i32, i32 } } [[AGG_LEFT_PN]], 0, 0
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
@@ -204,7 +204,7 @@ define i32 @test6({{ i32, i32 }, { i32, i32 }} %agg_left, {{ i32, i32 }, { i32, 
 ; CHECK-NEXT:    [[I1:%.*]] = extractvalue { { i32, i32 }, { i32, i32 } } [[AGG_RIGHT:%.*]], 0, 1
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
 entry:
@@ -233,7 +233,7 @@ define i32 @test7({{ i32, i32 }, { i32, i32 }} %agg_left, {{ i32, i32 }, { i32, 
 ; CHECK-NEXT:    [[I1:%.*]] = extractvalue { { i32, i32 }, { i32, i32 } } [[AGG_RIGHT:%.*]], 1, 0
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
 entry:
@@ -262,7 +262,7 @@ define i32 @test8({{ i32, i32 }, { i32, i32 }} %agg_left, {{ i32, i32 }, { i32, 
 ; CHECK-NEXT:    [[I1:%.*]] = extractvalue { { i32, i32 }, { i32, i32 } } [[AGG_RIGHT:%.*]], 1, 1
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
 entry:
@@ -294,7 +294,7 @@ define i32 @test9({ i32, i32 } %agg_left, { i32, { i32, i32 } } %agg_right, i1 %
 ; CHECK-NEXT:    [[I1:%.*]] = extractvalue { i32, { i32, i32 } } [[AGG_RIGHT:%.*]], 0
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ]
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
 entry:
@@ -325,7 +325,7 @@ define i32 @test10({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 %c0, i1 %
 ; CHECK:       right:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_LEFT:%.*]], [[ENTRY:%.*]] ], [ [[AGG_LEFT]], [[LEFT]] ], [ [[AGG_RIGHT:%.*]], [[RIGHT]] ]
+; CHECK-NEXT:    [[AGG_LEFT_PN:%.*]] = phi { i32, i32 } [ [[AGG_RIGHT:%.*]], [[RIGHT]] ], [ [[AGG_LEFT:%.*]], [[LEFT]] ], [ [[AGG_LEFT]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[R:%.*]] = extractvalue { i32, i32 } [[AGG_LEFT_PN]], 0
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
@@ -362,7 +362,7 @@ define i32 @test11({ i32, i32 } %agg_left, { i32, i32 } %agg_right, i1 %c0, i1 %
 ; CHECK:       right:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I0]], [[ENTRY:%.*]] ], [ [[I0]], [[LEFT]] ], [ [[I1]], [[RIGHT]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[I1]], [[RIGHT]] ], [ [[I0]], [[LEFT]] ], [ [[I0]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
 entry:
@@ -393,7 +393,7 @@ define i32 @extractvalue_of_constant_phi(i1 %c) {
 ; CHECK:       else:
 ; CHECK-NEXT:    br label [[JOIN]]
 ; CHECK:       join:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 1, [[IF]] ], [ 3, [[ELSE]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 3, [[ELSE]] ], [ 1, [[IF]] ]
 ; CHECK-NEXT:    ret i32 [[PHI]]
 ;
   br i1 %c, label %if, label %else
@@ -419,7 +419,7 @@ define i32 @extractvalue_of_one_constant_phi(i1 %c, { i32, i32 } %arg) {
 ; CHECK:       else:
 ; CHECK-NEXT:    br label [[JOIN]]
 ; CHECK:       join:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[TMP1]], [[IF]] ], [ 3, [[ELSE]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 3, [[ELSE]] ], [ [[TMP1]], [[IF]] ]
 ; CHECK-NEXT:    ret i32 [[PHI]]
 ;
   br i1 %c, label %if, label %else
@@ -444,7 +444,7 @@ define i32 @extractvalue_of_constant_phi_multi_index(i1 %c) {
 ; CHECK:       else:
 ; CHECK-NEXT:    br label [[JOIN]]
 ; CHECK:       join:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 3, [[IF]] ], [ 6, [[ELSE]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 6, [[ELSE]] ], [ 3, [[IF]] ]
 ; CHECK-NEXT:    ret i32 [[PHI]]
 ;
   br i1 %c, label %if, label %else
@@ -470,7 +470,7 @@ define i32 @extractvalue_of_one_constant_phi_multi_index(i1 %c, { i32, { i32, i3
 ; CHECK:       else:
 ; CHECK-NEXT:    br label [[JOIN]]
 ; CHECK:       join:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[TMP1]], [[IF]] ], [ 6, [[ELSE]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 6, [[ELSE]] ], [ [[TMP1]], [[IF]] ]
 ; CHECK-NEXT:    ret i32 [[PHI]]
 ;
   br i1 %c, label %if, label %else
@@ -495,7 +495,7 @@ define i32 @extractvalue_of_constant_phi_multiuse(i1 %c) {
 ; CHECK:       else:
 ; CHECK-NEXT:    br label [[JOIN]]
 ; CHECK:       join:
-; CHECK-NEXT:    [[PHI:%.*]] = phi { i32, i32 } [ { i32 1, i32 2 }, [[IF]] ], [ { i32 3, i32 4 }, [[ELSE]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi { i32, i32 } [ { i32 3, i32 4 }, [[ELSE]] ], [ { i32 1, i32 2 }, [[IF]] ]
 ; CHECK-NEXT:    [[EV0:%.*]] = extractvalue { i32, i32 } [[PHI]], 0
 ; CHECK-NEXT:    [[EV1:%.*]] = extractvalue { i32, i32 } [[PHI]], 1
 ; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[EV0]], [[EV1]]

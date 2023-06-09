@@ -98,7 +98,7 @@ define void @D60846_miscompile(ptr %p) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[I:%.*]] = phi i16 [ 0, [[ENTRY:%.*]] ], [ [[I_INC:%.*]], [[COMMON:%.*]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i16 [ [[I_INC:%.*]], [[COMMON:%.*]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[IS_ZERO:%.*]] = icmp eq i16 [[I]], 0
 ; CHECK-NEXT:    br i1 [[IS_ZERO]], label [[COMMON]], label [[NON_ZERO:%.*]]
 ; CHECK:       non_zero:

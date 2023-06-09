@@ -30,7 +30,7 @@ define i64 @phis_are_neat(i1 %which) {
 ; CHECK:       second_label:
 ; CHECK-NEXT:    br label [[JOIN_LABEL]]
 ; CHECK:       join_label:
-; CHECK-NEXT:    [[TMP0:%.*]] = phi i64 [ 10, [[FIRST_LABEL]] ], [ 30, [[SECOND_LABEL]] ]
+; CHECK-NEXT:    [[TMP0:%.*]] = phi i64 [ 30, [[SECOND_LABEL]] ], [ 10, [[FIRST_LABEL]] ]
 ; CHECK-NEXT:    ret i64 [[TMP0]]
 ;
 entry:

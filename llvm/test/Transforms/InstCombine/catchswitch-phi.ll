@@ -32,7 +32,7 @@ define void @test0(i1 %c1) personality ptr @__gxx_wasm_personality_v0 {
 ; CHECK:       bb3:
 ; CHECK-NEXT:    unreachable
 ; CHECK:       bb4:
-; CHECK-NEXT:    [[TMP3:%.*]] = phi ptr [ [[TMP1]], [[BB1]] ], [ [[TMP2]], [[BB2]] ]
+; CHECK-NEXT:    [[TMP3:%.*]] = phi ptr [ [[TMP2]], [[BB2]] ], [ [[TMP1]], [[BB1]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = catchswitch within none [label %bb5] unwind label [[BB7:%.*]]
 ; CHECK:       bb5:
 ; CHECK-NEXT:    [[TMP5:%.*]] = catchpad within [[TMP4]] [ptr null]
@@ -116,7 +116,7 @@ define void @test1() personality ptr @__gxx_wasm_personality_v0 {
 ; CHECK-NEXT:    invoke void @llvm.wasm.rethrow() #[[ATTR0:[0-9]+]] [ "funclet"(token [[TMP1]]) ]
 ; CHECK-NEXT:    to label [[UNREACHABLE:%.*]] unwind label [[CATCH_DISPATCH1]]
 ; CHECK:       catch.dispatch1:
-; CHECK-NEXT:    [[AP_2:%.*]] = phi i8 [ [[AP_1]], [[CATCH_DISPATCH]] ], [ [[AP_1]], [[RETHROW]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[AP_2:%.*]] = phi i8 [ [[AP_1]], [[RETHROW]] ], [ [[AP_1]], [[CATCH_DISPATCH]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = catchswitch within none [label %catch.start1] unwind to caller
 ; CHECK:       catch.start1:
 ; CHECK-NEXT:    [[TMP3:%.*]] = catchpad within [[TMP2]] [ptr null]

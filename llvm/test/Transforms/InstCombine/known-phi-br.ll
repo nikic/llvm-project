@@ -15,7 +15,7 @@ define i64 @limit_i64_eq_7(i64 %x) {
 ; CHECK:       body:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[RES:%.*]] = phi i64 [ [[X]], [[ENTRY:%.*]] ], [ 7, [[BODY]] ]
+; CHECK-NEXT:    [[RES:%.*]] = phi i64 [ 7, [[BODY]] ], [ [[X]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i64 [[RES]]
 ;
 entry:
@@ -38,7 +38,7 @@ define i64 @limit_i64_ne_255(i64 %x) {
 ; CHECK:       body:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[RES:%.*]] = phi i64 [ [[X]], [[ENTRY:%.*]] ], [ 255, [[BODY]] ]
+; CHECK-NEXT:    [[RES:%.*]] = phi i64 [ 255, [[BODY]] ], [ [[X]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i64 [[RES]]
 ;
 entry:
@@ -63,7 +63,7 @@ define i64 @limit_i64_ule_15(i64 %x) {
 ; CHECK-NEXT:    [[MASK:%.*]] = and i64 [[X]], 15
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[X]], [[ENTRY:%.*]] ], [ [[MASK]], [[BODY]] ]
+; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[MASK]], [[BODY]] ], [ [[X]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i64 [[X_MASK]]
 ;
 entry:
@@ -88,7 +88,7 @@ define i64 @limit_i64_uge_8(i64 %x) {
 ; CHECK-NEXT:    [[MASK:%.*]] = and i64 [[X]], 7
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[X]], [[ENTRY:%.*]] ], [ [[MASK]], [[BODY]] ]
+; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[MASK]], [[BODY]] ], [ [[X]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i64 [[X_MASK]]
 ;
 entry:
@@ -113,7 +113,7 @@ define i64 @limit_i64_ult_8(i64 %x) {
 ; CHECK-NEXT:    [[MASK:%.*]] = and i64 [[X]], 7
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[X]], [[ENTRY:%.*]] ], [ [[MASK]], [[BODY]] ]
+; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[MASK]], [[BODY]] ], [ [[X]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i64 [[X_MASK]]
 ;
 entry:
@@ -138,7 +138,7 @@ define i64 @limit_i64_ugt_7(i64 %x) {
 ; CHECK-NEXT:    [[MASK:%.*]] = and i64 [[X]], 7
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[X]], [[ENTRY:%.*]] ], [ [[MASK]], [[BODY]] ]
+; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[MASK]], [[BODY]] ], [ [[X]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i64 [[X_MASK]]
 ;
 entry:
@@ -167,7 +167,7 @@ define i64 @limit_i64_ule_15_mask3(i64 %x) {
 ; CHECK-NEXT:    [[MASK:%.*]] = and i64 [[X]], 15
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[X]], [[ENTRY:%.*]] ], [ [[MASK]], [[BODY]] ]
+; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[MASK]], [[BODY]] ], [ [[X]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[RES:%.*]] = and i64 [[X_MASK]], 3
 ; CHECK-NEXT:    ret i64 [[RES]]
 ;
@@ -193,7 +193,7 @@ define i64 @limit_i64_ult_8_mask1(i64 %x) {
 ; CHECK-NEXT:    [[MASK:%.*]] = and i64 [[X]], 7
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[X]], [[ENTRY:%.*]] ], [ [[MASK]], [[BODY]] ]
+; CHECK-NEXT:    [[X_MASK:%.*]] = phi i64 [ [[MASK]], [[BODY]] ], [ [[X]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[RES:%.*]] = and i64 [[X_MASK]], 1
 ; CHECK-NEXT:    ret i64 [[RES]]
 ;

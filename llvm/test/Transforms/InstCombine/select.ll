@@ -2143,7 +2143,7 @@ define i32 @select_phi_same_condition_sink(i1 %cond, i32 %x, i32 %y, i32 %z) {
 ; CHECK-NEXT:    [[B:%.*]] = mul i32 [[X:%.*]], [[Z:%.*]]
 ; CHECK-NEXT:    br label [[MERGE]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 0, [[IF_TRUE]] ], [ [[B]], [[IF_FALSE]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[B]], [[IF_FALSE]] ], [ 0, [[IF_TRUE]] ]
 ; CHECK-NEXT:    [[A:%.*]] = add i32 [[X]], [[Y:%.*]]
 ; CHECK-NEXT:    [[S:%.*]] = select i1 [[COND]], i32 [[A]], i32 [[PHI]]
 ; CHECK-NEXT:    ret i32 [[S]]
@@ -2207,7 +2207,7 @@ define i32 @test_invoke_2_neg(i1 %cond, i32 %x, i32 %y) nounwind uwtable ssp per
 ; CHECK-NEXT:    [[RESULT:%.*]] = invoke i32 @bar()
 ; CHECK-NEXT:    to label [[MERGE]] unwind label [[LPAD:%.*]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 0, [[IF_TRUE]] ], [ [[RESULT]], [[IF_FALSE]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[RESULT]], [[IF_FALSE]] ], [ 0, [[IF_TRUE]] ]
 ; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[COND]], i32 1, i32 [[PHI]]
 ; CHECK-NEXT:    ret i32 [[SEL]]
 ; CHECK:       lpad:
@@ -3587,8 +3587,8 @@ define i32 @pr62088() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[NOT2:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ -2, [[LOOP]] ]
-; CHECK-NEXT:    [[H_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ 1, [[LOOP]] ]
+; CHECK-NEXT:    [[NOT2:%.*]] = phi i32 [ -2, [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[H_0:%.*]] = phi i32 [ 1, [[LOOP]] ], [ 0, [[ENTRY]] ]
 ; CHECK-NEXT:    [[XOR1:%.*]] = or i32 [[H_0]], [[NOT2]]
 ; CHECK-NEXT:    [[SUB5:%.*]] = sub i32 -1824888657, [[XOR1]]
 ; CHECK-NEXT:    [[XOR6:%.*]] = xor i32 [[SUB5]], -1260914025

@@ -185,7 +185,7 @@ define i37 @zext_from_legal_to_illegal_type(i32 %x) {
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[P:%.*]] = phi i32 [ [[Y]], [[T]] ], [ 3, [[F]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i32 [ 3, [[F]] ], [ [[Y]], [[T]] ]
 ; CHECK-NEXT:    [[R:%.*]] = zext i32 [[P]] to i37
 ; CHECK-NEXT:    ret i37 [[R]]
 ;
@@ -219,7 +219,7 @@ define i37 @zext_from_illegal_to_illegal_type(i32 %x) {
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[P:%.*]] = phi i3 [ [[Y]], [[T]] ], [ 3, [[F]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i3 [ 3, [[F]] ], [ [[Y]], [[T]] ]
 ; CHECK-NEXT:    [[R:%.*]] = zext i3 [[P]] to i37
 ; CHECK-NEXT:    ret i37 [[R]]
 ;
@@ -254,7 +254,7 @@ define i64 @zext_from_legal_to_legal_type(i32 %x) {
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[P:%.*]] = phi i64 [ [[TMP0]], [[T]] ], [ 3, [[F]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i64 [ 3, [[F]] ], [ [[TMP0]], [[T]] ]
 ; CHECK-NEXT:    ret i64 [[P]]
 ;
 entry:
@@ -288,7 +288,7 @@ define i64 @zext_from_illegal_to_legal_type(i32 %x) {
 ; CHECK-NEXT:    call void @bar()
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[P:%.*]] = phi i64 [ [[TMP0]], [[T]] ], [ 3, [[F]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i64 [ 3, [[F]] ], [ [[TMP0]], [[T]] ]
 ; CHECK-NEXT:    ret i64 [[P]]
 ;
 entry:
@@ -314,8 +314,8 @@ define i8 @trunc_in_loop_exit_block() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP_LATCH:%.*]] ]
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 1, [[ENTRY]] ], [ [[IV_NEXT]], [[LOOP_LATCH]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[IV_NEXT:%.*]], [[LOOP_LATCH:%.*]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[IV_NEXT]], [[LOOP_LATCH]] ], [ 1, [[ENTRY]] ]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i32 [[IV]], 100
 ; CHECK-NEXT:    br i1 [[CMP]], label [[LOOP_LATCH]], label [[EXIT:%.*]]
 ; CHECK:       loop.latch:
@@ -348,7 +348,7 @@ define i32 @zext_in_loop_and_exit_block(i8 %step, i32 %end) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV:%.*]] = phi i8 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP_LATCH:%.*]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i8 [ [[IV_NEXT:%.*]], [[LOOP_LATCH:%.*]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[IV_EXT:%.*]] = zext i8 [[IV]] to i32
 ; CHECK-NEXT:    [[CMP_NOT:%.*]] = icmp eq i32 [[IV_EXT]], [[END:%.*]]
 ; CHECK-NEXT:    br i1 [[CMP_NOT]], label [[EXIT:%.*]], label [[LOOP_LATCH]]

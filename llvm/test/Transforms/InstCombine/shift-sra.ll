@@ -39,7 +39,7 @@ define i64 @test3(i1 %X, i64 %Y, i1 %Cond) {
 ; CHECK-NEXT:    [[Y2:%.*]] = ashr i64 [[Y:%.*]], 63
 ; CHECK-NEXT:    br label [[C]]
 ; CHECK:       C:
-; CHECK-NEXT:    [[P:%.*]] = phi i64 [ [[X2]], [[T]] ], [ [[Y2]], [[F]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i64 [ [[Y2]], [[F]] ], [ [[X2]], [[T]] ]
 ; CHECK-NEXT:    ret i64 [[P]]
 ;
   br i1 %Cond, label %T, label %F
@@ -65,7 +65,7 @@ define i64 @test4(i1 %X, i64 %Y, i1 %Cond) {
 ; CHECK-NEXT:    [[Y2:%.*]] = ashr i64 [[Y:%.*]], 63
 ; CHECK-NEXT:    br label [[C]]
 ; CHECK:       C:
-; CHECK-NEXT:    [[P:%.*]] = phi i64 [ [[X2]], [[T]] ], [ [[Y2]], [[F]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i64 [ [[Y2]], [[F]] ], [ [[X2]], [[T]] ]
 ; CHECK-NEXT:    ret i64 [[P]]
 ;
   br i1 %Cond, label %T, label %F
@@ -93,7 +93,7 @@ define i32 @test5(i32 %Y, i1 %c1, i1 %c2, i1 %c3) {
 ; CHECK:       C:
 ; CHECK-NEXT:    br i1 [[C3:%.*]], label [[D]], label [[E:%.*]]
 ; CHECK:       D:
-; CHECK-NEXT:    [[P:%.*]] = phi i32 [ 0, [[A]] ], [ 0, [[B]] ], [ [[Y:%.*]], [[C]] ]
+; CHECK-NEXT:    [[P:%.*]] = phi i32 [ [[Y:%.*]], [[C]] ], [ 0, [[B]] ], [ 0, [[A]] ]
 ; CHECK-NEXT:    [[S:%.*]] = ashr i32 [[P]], 16
 ; CHECK-NEXT:    ret i32 [[S]]
 ; CHECK:       E:

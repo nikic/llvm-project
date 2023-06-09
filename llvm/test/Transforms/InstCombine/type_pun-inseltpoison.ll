@@ -124,7 +124,7 @@ define i32 @type_pun_i32_ctrl(<16 x i8> %in, i1 %c1) {
 ; CHECK-NEXT:    [[SROA_EXTRACT:%.*]] = extractelement <4 x i32> [[SROA_BC]], i64 0
 ; CHECK-NEXT:    br label [[TAIL]]
 ; CHECK:       tail:
-; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[SROA_EXTRACT1]], [[LEFT]] ], [ [[SROA_EXTRACT]], [[RIGHT]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[SROA_EXTRACT]], [[RIGHT]] ], [ [[SROA_EXTRACT1]], [[LEFT]] ]
 ; CHECK-NEXT:    ret i32 [[I]]
 ;
 entry:

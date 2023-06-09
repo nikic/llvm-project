@@ -1393,8 +1393,8 @@ define void @select_replace_phi(i32 %x) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[I_NEXT:%.*]], [[LOOP]] ]
-; CHECK-NEXT:    [[I_PREV:%.*]] = phi i32 [ -1, [[ENTRY]] ], [ [[I]], [[LOOP]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[I_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[I_PREV:%.*]] = phi i32 [ [[I]], [[LOOP]] ], [ -1, [[ENTRY]] ]
 ; CHECK-NEXT:    [[I_NEXT]] = add i32 [[I]], 1
 ; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[I]], 0
 ; CHECK-NEXT:    [[S:%.*]] = select i1 [[C]], i32 [[I_PREV]], i32 2

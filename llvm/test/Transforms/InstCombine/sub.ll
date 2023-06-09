@@ -1026,7 +1026,7 @@ define i32 @test55(i1 %which) {
 ; CHECK:       delay:
 ; CHECK-NEXT:    br label [[FINAL]]
 ; CHECK:       final:
-; CHECK-NEXT:    [[A_NEG:%.*]] = phi i32 [ -877, [[ENTRY:%.*]] ], [ 113, [[DELAY]] ]
+; CHECK-NEXT:    [[A_NEG:%.*]] = phi i32 [ 113, [[DELAY]] ], [ -877, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[A_NEG]]
 ;
 entry:
@@ -1048,7 +1048,7 @@ define <2 x i32> @test55vec(i1 %which) {
 ; CHECK:       delay:
 ; CHECK-NEXT:    br label [[FINAL]]
 ; CHECK:       final:
-; CHECK-NEXT:    [[A_NEG:%.*]] = phi <2 x i32> [ <i32 -877, i32 -877>, [[ENTRY:%.*]] ], [ <i32 113, i32 113>, [[DELAY]] ]
+; CHECK-NEXT:    [[A_NEG:%.*]] = phi <2 x i32> [ <i32 113, i32 113>, [[DELAY]] ], [ <i32 -877, i32 -877>, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret <2 x i32> [[A_NEG]]
 ;
 entry:
@@ -1070,7 +1070,7 @@ define <2 x i32> @test55vec2(i1 %which) {
 ; CHECK:       delay:
 ; CHECK-NEXT:    br label [[FINAL]]
 ; CHECK:       final:
-; CHECK-NEXT:    [[A_NEG:%.*]] = phi <2 x i32> [ <i32 -877, i32 -2167>, [[ENTRY:%.*]] ], [ <i32 113, i32 303>, [[DELAY]] ]
+; CHECK-NEXT:    [[A_NEG:%.*]] = phi <2 x i32> [ <i32 113, i32 303>, [[DELAY]] ], [ <i32 -877, i32 -2167>, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret <2 x i32> [[A_NEG]]
 ;
 entry:

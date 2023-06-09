@@ -11,7 +11,7 @@ define void @foo(ptr %arrayidx16, ptr %arrayidx29, ptr %arrayidx35, i1 %c1, i1 %
 ; CHECK-NEXT:    [[T5:%.*]] = load <256 x i32>, ptr [[ARRAYIDX16:%.*]], align 64
 ; CHECK-NEXT:    br label [[FOR_COND18:%.*]]
 ; CHECK:       for.cond18:
-; CHECK-NEXT:    [[SUB_C_SROA_0_0:%.*]] = phi <256 x i32> [ [[T5]], [[FOR_BODY14]] ], [ [[T12:%.*]], [[FOR_BODY24:%.*]] ]
+; CHECK-NEXT:    [[SUB_C_SROA_0_0:%.*]] = phi <256 x i32> [ [[T12:%.*]], [[FOR_BODY24:%.*]] ], [ [[T5]], [[FOR_BODY14]] ]
 ; CHECK-NEXT:    br i1 [[C2:%.*]], label [[FOR_BODY24]], label [[FOR_COND_CLEANUP23:%.*]]
 ; CHECK:       for.cond.cleanup23:
 ; CHECK-NEXT:    store <256 x i32> [[SUB_C_SROA_0_0]], ptr [[ARRAYIDX16]], align 64

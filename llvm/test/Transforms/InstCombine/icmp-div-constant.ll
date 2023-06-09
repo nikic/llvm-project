@@ -122,7 +122,7 @@ define i32 @icmp_div(i16 %a, i16 %c) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i1 [[CMP]] to i32
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ -1, [[ENTRY:%.*]] ], [ [[TMP0]], [[THEN]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[TMP0]], [[THEN]] ], [ -1, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[PHI]]
 ;
 entry:
@@ -177,7 +177,7 @@ define i32 @icmp_div3(i16 %a, i16 %c) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i1 [[CMP]] to i32
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ -1, [[ENTRY:%.*]] ], [ [[TMP0]], [[THEN]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[TMP0]], [[THEN]] ], [ -1, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[PHI]]
 ;
 entry:

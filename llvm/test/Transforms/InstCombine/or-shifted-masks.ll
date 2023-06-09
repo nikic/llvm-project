@@ -150,7 +150,7 @@ define i32 @multiuse4(i32 %x) local_unnamed_addr {
 ; CHECK-NEXT:    [[I9:%.*]] = or i32 [[I8]], [[I6]]
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[I10:%.*]] = phi i32 [ [[I5]], [[IF]] ], [ [[I9]], [[ELSE]] ]
+; CHECK-NEXT:    [[I10:%.*]] = phi i32 [ [[I9]], [[ELSE]] ], [ [[I5]], [[IF]] ]
 ; CHECK-NEXT:    ret i32 [[I10]]
 ;
   %i = and i32 %x, 100663296
@@ -194,7 +194,7 @@ define i32 @multiuse5(i32 %x) local_unnamed_addr {
 ; CHECK-NEXT:    [[I9:%.*]] = or i32 [[I8]], [[I6]]
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[I10:%.*]] = phi i32 [ [[I5]], [[IF]] ], [ [[I9]], [[ELSE]] ]
+; CHECK-NEXT:    [[I10:%.*]] = phi i32 [ [[I9]], [[ELSE]] ], [ [[I5]], [[IF]] ]
 ; CHECK-NEXT:    ret i32 [[I10]]
 ;
   %i = shl i32 %x, 5

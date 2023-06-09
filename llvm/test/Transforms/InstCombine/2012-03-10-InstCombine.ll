@@ -21,7 +21,7 @@ define i32 @func(ptr %c, ptr %f) nounwind uwtable readnone noinline ssp {
 ; CHECK-NEXT:    [[DOTCMP5:%.*]] = and i1 [[CMP5]], [[NOT_CMP3]]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[RETVAL_0_IN:%.*]] = phi i1 [ [[DOTCMP2]], [[IF_THEN]] ], [ [[DOTCMP5]], [[IF_ELSE]] ]
+; CHECK-NEXT:    [[RETVAL_0_IN:%.*]] = phi i1 [ [[DOTCMP5]], [[IF_ELSE]] ], [ [[DOTCMP2]], [[IF_THEN]] ]
 ; CHECK-NEXT:    [[RETVAL_0:%.*]] = zext i1 [[RETVAL_0_IN]] to i32
 ; CHECK-NEXT:    ret i32 [[RETVAL_0]]
 ;
@@ -68,7 +68,7 @@ define i32 @func_logical(ptr %c, ptr %f) nounwind uwtable readnone noinline ssp 
 ; CHECK-NEXT:    [[DOTCMP5:%.*]] = and i1 [[CMP5]], [[NOT_CMP3]]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[RETVAL_0_IN:%.*]] = phi i1 [ [[DOTCMP2]], [[IF_THEN]] ], [ [[DOTCMP5]], [[IF_ELSE]] ]
+; CHECK-NEXT:    [[RETVAL_0_IN:%.*]] = phi i1 [ [[DOTCMP5]], [[IF_ELSE]] ], [ [[DOTCMP2]], [[IF_THEN]] ]
 ; CHECK-NEXT:    [[RETVAL_0:%.*]] = zext i1 [[RETVAL_0_IN]] to i32
 ; CHECK-NEXT:    ret i32 [[RETVAL_0]]
 ;

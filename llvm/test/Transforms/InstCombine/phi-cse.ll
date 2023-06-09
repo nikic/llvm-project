@@ -11,9 +11,9 @@ define void @test0(i32 %v0, i32 %v1, i1 %c, ptr %d0, ptr %d1) {
 ; CHECK:       b1:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V0:%.*]], [[B0]] ], [ [[V1:%.*]], [[B1]] ]
-; CHECK-NEXT:    store i32 [[I1]], ptr [[D0:%.*]], align 4
-; CHECK-NEXT:    store i32 [[I1]], ptr [[D1:%.*]], align 4
+; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V1:%.*]], [[B1]] ], [ [[V0:%.*]], [[B0]] ]
+; CHECK-NEXT:    store i32 [[I0]], ptr [[D0:%.*]], align 4
+; CHECK-NEXT:    store i32 [[I0]], ptr [[D1:%.*]], align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -43,9 +43,9 @@ define void @test1(i32 %v0, i32 %v1, i1 %c, ptr %d0, ptr %d1) {
 ; CHECK:       b1:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V0:%.*]], [[B0]] ], [ [[V1:%.*]], [[B1]] ]
-; CHECK-NEXT:    store i32 [[I0]], ptr [[D0:%.*]], align 4
-; CHECK-NEXT:    store i32 [[I0]], ptr [[D1:%.*]], align 4
+; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V1:%.*]], [[B1]] ], [ [[V0:%.*]], [[B0]] ]
+; CHECK-NEXT:    store i32 [[I1]], ptr [[D0:%.*]], align 4
+; CHECK-NEXT:    store i32 [[I1]], ptr [[D1:%.*]], align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -75,8 +75,8 @@ define void @negative_test2(i32 %v0, i32 %v1, i32 %v2, i1 %c, ptr %d0, ptr %d1) 
 ; CHECK:       b1:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V0:%.*]], [[B0]] ], [ [[V1:%.*]], [[B1]] ]
-; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V0]], [[B0]] ], [ [[V2:%.*]], [[B1]] ]
+; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V1:%.*]], [[B1]] ], [ [[V0:%.*]], [[B0]] ]
+; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V2:%.*]], [[B1]] ], [ [[V0]], [[B0]] ]
 ; CHECK-NEXT:    store i32 [[I0]], ptr [[D0:%.*]], align 4
 ; CHECK-NEXT:    store i32 [[I1]], ptr [[D1:%.*]], align 4
 ; CHECK-NEXT:    ret void
@@ -106,8 +106,8 @@ define void @negative_test3(i32 %v0, i32 %v1, i32 %v2, i1 %c, ptr %d0, ptr %d1) 
 ; CHECK:       b1:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V0:%.*]], [[B0]] ], [ [[V1:%.*]], [[B1]] ]
-; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V0]], [[B0]] ], [ [[V2:%.*]], [[B1]] ]
+; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V1:%.*]], [[B1]] ], [ [[V0:%.*]], [[B0]] ]
+; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V2:%.*]], [[B1]] ], [ [[V0]], [[B0]] ]
 ; CHECK-NEXT:    store i32 [[I0]], ptr [[D0:%.*]], align 4
 ; CHECK-NEXT:    store i32 [[I1]], ptr [[D1:%.*]], align 4
 ; CHECK-NEXT:    ret void
@@ -137,9 +137,9 @@ define void @negative_test4(i32 %v0, i32 %v1, i1 %c, ptr %d0, ptr %d1) {
 ; CHECK:       b1:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V0:%.*]], [[B0]] ], [ [[V1:%.*]], [[B1]] ]
-; CHECK-NEXT:    store i32 [[I0]], ptr [[D0:%.*]], align 4
-; CHECK-NEXT:    store i32 [[I0]], ptr [[D1:%.*]], align 4
+; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V1:%.*]], [[B1]] ], [ [[V0:%.*]], [[B0]] ]
+; CHECK-NEXT:    store i32 [[I1]], ptr [[D0:%.*]], align 4
+; CHECK-NEXT:    store i32 [[I1]], ptr [[D1:%.*]], align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -169,7 +169,7 @@ define void @test5(i32 %v0, i32 %v1, i1 %c, ptr %d0, ptr %d1) {
 ; CHECK:       b1:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V0:%.*]], [[B0]] ], [ [[V1:%.*]], [[B1]] ]
+; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V1:%.*]], [[B1]] ], [ [[V0:%.*]], [[B0]] ]
 ; CHECK-NEXT:    store i32 [[I1]], ptr [[D1:%.*]], align 4
 ; CHECK-NEXT:    ret void
 ;
@@ -198,7 +198,7 @@ define void @test6(i32 %v0, i32 %v1, i1 %c, ptr %d0, ptr %d1) {
 ; CHECK:       b1:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V0:%.*]], [[B0]] ], [ [[V1:%.*]], [[B1]] ]
+; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V1:%.*]], [[B1]] ], [ [[V0:%.*]], [[B0]] ]
 ; CHECK-NEXT:    store i32 [[I0]], ptr [[D0:%.*]], align 4
 ; CHECK-NEXT:    ret void
 ;
@@ -228,10 +228,10 @@ define void @test7(i32 %v0, i32 %v1, i16 %v2, i16 %v3, i1 %c, ptr %d0, ptr %d1, 
 ; CHECK:       b1:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[IBAD:%.*]] = phi i16 [ [[V2:%.*]], [[B0]] ], [ [[V3:%.*]], [[B1]] ]
-; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V0:%.*]], [[B0]] ], [ [[V1:%.*]], [[B1]] ]
-; CHECK-NEXT:    store i32 [[I1]], ptr [[D0:%.*]], align 4
-; CHECK-NEXT:    store i32 [[I1]], ptr [[D1:%.*]], align 4
+; CHECK-NEXT:    [[IBAD:%.*]] = phi i16 [ [[V3:%.*]], [[B1]] ], [ [[V2:%.*]], [[B0]] ]
+; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V1:%.*]], [[B1]] ], [ [[V0:%.*]], [[B0]] ]
+; CHECK-NEXT:    store i32 [[I0]], ptr [[D0:%.*]], align 4
+; CHECK-NEXT:    store i32 [[I0]], ptr [[D1:%.*]], align 4
 ; CHECK-NEXT:    store i16 [[IBAD]], ptr [[D2:%.*]], align 2
 ; CHECK-NEXT:    ret void
 ;
@@ -262,10 +262,10 @@ define void @test8(i32 %v0, i32 %v1, i16 %v2, i16 %v3, i1 %c, ptr %d0, ptr %d1, 
 ; CHECK:       b1:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[IBAD:%.*]] = phi i16 [ [[V2:%.*]], [[B0]] ], [ [[V3:%.*]], [[B1]] ]
-; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V0:%.*]], [[B0]] ], [ [[V1:%.*]], [[B1]] ]
-; CHECK-NEXT:    store i32 [[I1]], ptr [[D0:%.*]], align 4
-; CHECK-NEXT:    store i32 [[I1]], ptr [[D1:%.*]], align 4
+; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V1:%.*]], [[B1]] ], [ [[V0:%.*]], [[B0]] ]
+; CHECK-NEXT:    [[IBAD:%.*]] = phi i16 [ [[V3:%.*]], [[B1]] ], [ [[V2:%.*]], [[B0]] ]
+; CHECK-NEXT:    store i32 [[I0]], ptr [[D0:%.*]], align 4
+; CHECK-NEXT:    store i32 [[I0]], ptr [[D1:%.*]], align 4
 ; CHECK-NEXT:    store i16 [[IBAD]], ptr [[D2:%.*]], align 2
 ; CHECK-NEXT:    ret void
 ;
@@ -296,10 +296,10 @@ define void @test9(i32 %v0, i32 %v1, i16 %v2, i16 %v3, i1 %c, ptr %d0, ptr %d1, 
 ; CHECK:       b1:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[I1:%.*]] = phi i32 [ [[V0:%.*]], [[B0]] ], [ [[V1:%.*]], [[B1]] ]
-; CHECK-NEXT:    [[IBAD:%.*]] = phi i16 [ [[V2:%.*]], [[B0]] ], [ [[V3:%.*]], [[B1]] ]
-; CHECK-NEXT:    store i32 [[I1]], ptr [[D0:%.*]], align 4
-; CHECK-NEXT:    store i32 [[I1]], ptr [[D1:%.*]], align 4
+; CHECK-NEXT:    [[I0:%.*]] = phi i32 [ [[V1:%.*]], [[B1]] ], [ [[V0:%.*]], [[B0]] ]
+; CHECK-NEXT:    [[IBAD:%.*]] = phi i16 [ [[V3:%.*]], [[B1]] ], [ [[V2:%.*]], [[B0]] ]
+; CHECK-NEXT:    store i32 [[I0]], ptr [[D0:%.*]], align 4
+; CHECK-NEXT:    store i32 [[I0]], ptr [[D1:%.*]], align 4
 ; CHECK-NEXT:    store i16 [[IBAD]], ptr [[D2:%.*]], align 2
 ; CHECK-NEXT:    ret void
 ;

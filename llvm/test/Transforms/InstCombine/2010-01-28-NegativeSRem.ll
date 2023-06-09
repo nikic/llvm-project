@@ -7,7 +7,7 @@ define i32 @f() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[BB1:%.*]]
 ; CHECK:       BB1:
-; CHECK-NEXT:    [[X:%.*]] = phi i32 [ -29, [[ENTRY:%.*]] ], [ 0, [[BB1]] ]
+; CHECK-NEXT:    [[X:%.*]] = phi i32 [ 0, [[BB1]] ], [ -29, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[REM:%.*]] = srem i32 [[X]], 2
 ; CHECK-NEXT:    [[T:%.*]] = icmp eq i32 [[REM]], -1
 ; CHECK-NEXT:    br i1 [[T]], label [[BB2:%.*]], label [[BB1]]

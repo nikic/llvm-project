@@ -42,7 +42,7 @@ define i32 @two_entry_phi_with_constant(i64 %x, i1 %c) {
 ; CHECK:       body:
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[TRUNC]], [[ENTRY:%.*]] ], [ 255, [[BODY]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 255, [[BODY]] ], [ [[TRUNC]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[RES:%.*]] = and i32 [[PHI]], 255
 ; CHECK-NEXT:    ret i32 [[RES]]
 ;
@@ -69,7 +69,7 @@ define i32 @two_entry_phi_non_constant(i64 %x, i64 %x2, i1 %c) {
 ; CHECK-NEXT:    [[TRUNC2:%.*]] = trunc i64 [[Y2]] to i32
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[TRUNC]], [[ENTRY:%.*]] ], [ [[TRUNC2]], [[BODY]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[TRUNC2]], [[BODY]] ], [ [[TRUNC]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[RES:%.*]] = and i32 [[PHI]], 255
 ; CHECK-NEXT:    ret i32 [[RES]]
 ;
@@ -111,7 +111,7 @@ define i32 @neg_many_branches(i64 %x) {
 ; CHECK-NEXT:    [[D:%.*]] = add nuw nsw i32 [[TRUNC]], 4
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[TRUNC]], [[ENTRY:%.*]] ], [ [[A]], [[ONE]] ], [ [[B]], [[TWO]] ], [ [[C]], [[THREE]] ], [ [[D]], [[FOUR]] ]
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[D]], [[FOUR]] ], [ [[C]], [[THREE]] ], [ [[B]], [[TWO]] ], [ [[A]], [[ONE]] ], [ [[TRUNC]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[RES:%.*]] = and i32 [[PHI]], 255
 ; CHECK-NEXT:    ret i32 [[RES]]
 ;

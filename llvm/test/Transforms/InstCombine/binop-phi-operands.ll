@@ -655,8 +655,8 @@ define i8 @mul_const_incoming0_speculatable(i1 %b, i8 %x, i8 %y) {
 ; CHECK:       if:
 ; CHECK-NEXT:    br label [[THEN]]
 ; CHECK:       then:
-; CHECK-NEXT:    [[P0:%.*]] = phi i8 [ 42, [[ENTRY:%.*]] ], [ [[X:%.*]], [[IF]] ]
-; CHECK-NEXT:    [[P1:%.*]] = phi i8 [ 17, [[ENTRY]] ], [ [[Y:%.*]], [[IF]] ]
+; CHECK-NEXT:    [[P0:%.*]] = phi i8 [ [[X:%.*]], [[IF]] ], [ 42, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[P1:%.*]] = phi i8 [ [[Y:%.*]], [[IF]] ], [ 17, [[ENTRY]] ]
 ; CHECK-NEXT:    call void @sideeffect()
 ; CHECK-NEXT:    [[R:%.*]] = mul i8 [[P0]], [[P1]]
 ; CHECK-NEXT:    ret i8 [[R]]
@@ -684,8 +684,8 @@ define i8 @udiv_const_incoming0_not_speculatable(i1 %b, i8 %x, i8 %y) {
 ; CHECK:       if:
 ; CHECK-NEXT:    br label [[THEN]]
 ; CHECK:       then:
-; CHECK-NEXT:    [[P0:%.*]] = phi i8 [ 42, [[ENTRY:%.*]] ], [ [[X:%.*]], [[IF]] ]
-; CHECK-NEXT:    [[P1:%.*]] = phi i8 [ 17, [[ENTRY]] ], [ [[Y:%.*]], [[IF]] ]
+; CHECK-NEXT:    [[P0:%.*]] = phi i8 [ [[X:%.*]], [[IF]] ], [ 42, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[P1:%.*]] = phi i8 [ [[Y:%.*]], [[IF]] ], [ 17, [[ENTRY]] ]
 ; CHECK-NEXT:    call void @sideeffect()
 ; CHECK-NEXT:    [[R:%.*]] = udiv i8 [[P0]], [[P1]]
 ; CHECK-NEXT:    ret i8 [[R]]
@@ -713,8 +713,8 @@ define i8 @udiv_const_incoming0_different_block(i1 %b, i8 %x, i8 %y) {
 ; CHECK:       if:
 ; CHECK-NEXT:    br label [[THEN]]
 ; CHECK:       then:
-; CHECK-NEXT:    [[P0:%.*]] = phi i8 [ 42, [[ENTRY:%.*]] ], [ [[X:%.*]], [[IF]] ]
-; CHECK-NEXT:    [[P1:%.*]] = phi i8 [ 17, [[ENTRY]] ], [ [[Y:%.*]], [[IF]] ]
+; CHECK-NEXT:    [[P0:%.*]] = phi i8 [ [[X:%.*]], [[IF]] ], [ 42, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[P1:%.*]] = phi i8 [ [[Y:%.*]], [[IF]] ], [ 17, [[ENTRY]] ]
 ; CHECK-NEXT:    br label [[END:%.*]]
 ; CHECK:       end:
 ; CHECK-NEXT:    [[R:%.*]] = udiv i8 [[P0]], [[P1]]
