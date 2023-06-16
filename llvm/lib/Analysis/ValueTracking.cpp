@@ -85,6 +85,15 @@ using namespace llvm::PatternMatch;
 static cl::opt<unsigned> DomConditionsMaxUses("dom-conditions-max-uses",
                                               cl::Hidden, cl::init(20));
 
+// Enable feature to leverage information about dominating
+// conditions to compute known bits.
+static cl::opt<bool> EnableDomConditions("value-tracking-dom-conditions",
+                                         cl::Hidden, cl::init(true));
+
+// How many dominating blocks should be scanned looking for dominating
+// conditions?
+static cl::opt<unsigned> DomConditionsMaxDomBlocks("dom-conditions-dom-blocks",
+                                                   cl::Hidden, cl::init(20));
 
 /// Returns the bitwidth of the given scalar or pointer type. For vector types,
 /// returns the element type's bitwidth.
@@ -6033,6 +6042,73 @@ static OverflowResult mapOverflowResult(ConstantRange::OverflowResult OR) {
   llvm_unreachable("Unknown OverflowResult");
 }
 
+// Compute value's range from the conditional expression which must be true to
+// reach this value
+static ConstantRange computeRangeFromCond(const Value *V, Value *Condition) {
+  if (match(Condition, m_LogicalAnd(m_Value(), m_Value()))) {
+    auto LHSR =
+        computeRangeFromCond(V, cast<User>(Condition)->getOperandUse(0));
+    auto RHSR =
+        computeRangeFromCond(V, cast<User>(Condition)->getOperandUse(1));
+    return LHSR.intersectWith(RHSR);
+  }
+
+  CmpInst::Predicate Pred;
+  const APInt *C;
+  if (match(Condition, m_ICmp(Pred, m_Specific(V), m_APInt(C))))
+    return ConstantRange::makeExactICmpRegion(Pred, *C);
+
+  return ConstantRange::getFull(V->getType()->getScalarSizeInBits());
+}
+
+static ConstantRange
+computeRangeFromDomConditions(const Value *V, const Instruction *CxtI,
+                              const DominatorTree &DT,
+                              ConstantRange::PreferredRangeType RangeType) {
+
+  ConstantRange CR =
+      ConstantRange::getFull(V->getType()->getScalarSizeInBits());
+  // The context instruction might be in a statically unreachable block.  If
+  // so, asking dominator queries may yield suprising results.  (e.g. the block
+  // may not have a dom tree node)
+  if (!CxtI || !DT.isReachableFromEntry(CxtI->getParent()))
+    return CR;
+
+  DomTreeNode *Node = DT.getNode(CxtI->getParent());
+  if (!Node)
+    return CR;
+
+  // Search the dom tree
+  unsigned NumBlocksExplored = 0;
+  while (Node = Node->getIDom()) {
+    // Stop searching if we've gone too far up the chain
+    if (++NumBlocksExplored > DomConditionsMaxDomBlocks)
+      break;
+
+    assert(Node->getBlock() && "Null block in the dominator tree node?");
+    const BranchInst *BI =
+        dyn_cast<BranchInst>(Node->getBlock()->getTerminator());
+    if (!BI || BI->isUnconditional())
+      continue;
+
+    // We're looking for conditions that are guaranteed to hold at the context
+    // instruction.  Finding a condition where one path dominates the context
+    // isn't enough because both the true and false cases could merge before
+    // the context instruction we're actually interested in.  Instead, we need
+    // to ensure that the taken *edge* dominates the context instruction.  We
+    // know that the edge must be reachable since we started from a reachable
+    // block.
+    // This check can be expensive so we want to execute it only for potentially
+    // profitable conditions.
+    BasicBlockEdge Edge(BI->getParent(), BI->getSuccessor(0));
+    if (Edge.isSingleEdge() && DT.dominates(Edge, CxtI->getParent())) {
+      auto Range = computeRangeFromCond(V, BI->getCondition());
+      CR = CR.intersectWith(Range, RangeType);
+    }
+  }
+  return CR;
+}
+
 /// Combine constant ranges from computeConstantRange() and computeKnownBits().
 static ConstantRange computeConstantRangeIncludingKnownBits(
     const Value *V, bool ForSigned, const DataLayout &DL, unsigned Depth,
@@ -6043,7 +6119,12 @@ static ConstantRange computeConstantRangeIncludingKnownBits(
   ConstantRange CR2 = computeConstantRange(V, ForSigned, UseInstrInfo);
   ConstantRange::PreferredRangeType RangeType =
       ForSigned ? ConstantRange::Signed : ConstantRange::Unsigned;
-  return CR1.intersectWith(CR2, RangeType);
+  CR1 = CR1.intersectWith(CR2, RangeType);
+  if (EnableDomConditions && DT)
+    CR1 = CR1.intersectWith(
+        computeRangeFromDomConditions(V, CxtI, *DT, RangeType), RangeType);
+
+  return CR1;
 }
 
 OverflowResult llvm::computeOverflowForUnsignedMul(

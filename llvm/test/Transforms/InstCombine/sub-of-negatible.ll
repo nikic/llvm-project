@@ -981,12 +981,11 @@ nonneg_bb:
 }
 define i16 @negation_of_signext_of_nonnegative__wrong_cast(i8 %x) {
 ; CHECK-LABEL: @negation_of_signext_of_nonnegative__wrong_cast(
-; CHECK-NEXT:    [[T0:%.*]] = sub i8 0, [[X:%.*]]
-; CHECK-NEXT:    [[T1:%.*]] = icmp sgt i8 [[T0]], -1
+; CHECK-NEXT:    [[NOTSUB:%.*]] = add i8 [[X:%.*]], -1
+; CHECK-NEXT:    [[T1:%.*]] = icmp slt i8 [[NOTSUB]], 0
 ; CHECK-NEXT:    br i1 [[T1]], label [[NONNEG_BB:%.*]], label [[NEG_BB:%.*]]
 ; CHECK:       nonneg_bb:
-; CHECK-NEXT:    [[T2:%.*]] = sext i8 [[T0]] to i16
-; CHECK-NEXT:    [[T3:%.*]] = sub nsw i16 0, [[T2]]
+; CHECK-NEXT:    [[T3:%.*]] = sext i8 [[X]] to i16
 ; CHECK-NEXT:    ret i16 [[T3]]
 ; CHECK:       neg_bb:
 ; CHECK-NEXT:    ret i16 0

@@ -39,7 +39,7 @@ define i32 @test2(i32 %x) nounwind ssp {
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i32 [[X_ADDR_17]], 0
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[BB1:%.*]], label [[BB2]]
 ; CHECK:       bb1:
-; CHECK-NEXT:    [[TMP1:%.*]] = add nsw i32 [[X_ADDR_17]], 1
+; CHECK-NEXT:    [[TMP1:%.*]] = add nuw nsw i32 [[X_ADDR_17]], 1
 ; CHECK-NEXT:    [[TMP2:%.*]] = sdiv i32 [[TMP1]], [[X_ADDR_17]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = tail call i32 @bar() #[[ATTR3:[0-9]+]]
 ; CHECK-NEXT:    br label [[BB2]]

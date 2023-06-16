@@ -28,7 +28,7 @@ define i64 @sum_2_at_with_int_conversion(ptr %A, ptr %B, i64 %N) {
 ; CHECK-NEXT:    [[C_PEEL:%.*]] = icmp sgt i64 [[N:%.*]], 0
 ; CHECK-NEXT:    br i1 [[C_PEEL]], label [[LOOP_PREHEADER:%.*]], label [[EXIT:%.*]]
 ; CHECK:       loop.preheader:
-; CHECK-NEXT:    [[TMP0:%.*]] = add i64 [[N]], -1
+; CHECK-NEXT:    [[TMP0:%.*]] = add nsw i64 [[N]], -1
 ; CHECK-NEXT:    [[UMIN:%.*]] = tail call i64 @llvm.umin.i64(i64 [[SUB_I6_PEEL]], i64 [[TMP0]])
 ; CHECK-NEXT:    [[TMP1:%.*]] = freeze i64 [[UMIN]]
 ; CHECK-NEXT:    [[UMIN15:%.*]] = tail call i64 @llvm.umin.i64(i64 [[TMP1]], i64 [[SUB_I]])
@@ -147,7 +147,7 @@ define i64 @sum_3_at_with_int_conversion(ptr %A, ptr %B, ptr %C, i64 %N) {
 ; CHECK-NEXT:    [[COND_PEEL:%.*]] = icmp sgt i64 [[N:%.*]], 0
 ; CHECK-NEXT:    br i1 [[COND_PEEL]], label [[LOOP_PREHEADER:%.*]], label [[EXIT:%.*]]
 ; CHECK:       loop.preheader:
-; CHECK-NEXT:    [[TMP0:%.*]] = add i64 [[N]], -1
+; CHECK-NEXT:    [[TMP0:%.*]] = add nsw i64 [[N]], -1
 ; CHECK-NEXT:    [[UMIN:%.*]] = tail call i64 @llvm.umin.i64(i64 [[SUB_I17_PEEL]], i64 [[TMP0]])
 ; CHECK-NEXT:    [[TMP1:%.*]] = freeze i64 [[UMIN]]
 ; CHECK-NEXT:    [[UMIN26:%.*]] = tail call i64 @llvm.umin.i64(i64 [[TMP1]], i64 [[SUB_I6_PEEL]])
