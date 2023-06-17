@@ -234,7 +234,7 @@ void MachineInstr::addOperand(MachineFunction &MF, const MachineOperand &Op) {
   OperandCapacity OldCap = CapOperands;
   MachineOperand *OldOperands = Operands;
   if (!OldOperands || OldCap.getSize() == getNumOperands()) {
-    CapOperands = OldOperands ? OldCap.getNext() : OldCap.get(1);
+    CapOperands = OldOperands ? OldCap.getNext() : OldCap.get(2);
     Operands = MF.allocateOperandArray(CapOperands);
     // Move the operands before the insertion point.
     if (OpNo)
