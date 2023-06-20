@@ -4182,7 +4182,8 @@ void LSRInstance::GenerateTruncates(LSRUse &LU, unsigned LUIdx, Formula Base) {
 
   SmallVector<PostIncLoopSet> Loops;
   for (auto &LF : LU.Fixups)
-    Loops.push_back(LF.PostIncLoops);
+    if (Loops.empty() || Loops.back() != LF.PostIncLoops)
+      Loops.push_back(LF.PostIncLoops);
 
   for (Type *SrcTy : Types) {
     if (SrcTy != DstTy && TTI.isTruncateFree(SrcTy, DstTy)) {
