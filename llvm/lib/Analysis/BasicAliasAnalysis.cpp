@@ -880,9 +880,7 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
       // Only look at the no-capture or byval pointer arguments.  If this
       // pointer were passed to arguments that were neither of these, then it
       // couldn't be no-capture.
-      if (!(*CI)->getType()->isPointerTy() ||
-          (!Call->doesNotCapture(OperandNo) && OperandNo < Call->arg_size() &&
-           !Call->isByValArgument(OperandNo)))
+      if (!(*CI)->getType()->isPointerTy())
         continue;
 
       // Call doesn't access memory through this operand, so we don't care
