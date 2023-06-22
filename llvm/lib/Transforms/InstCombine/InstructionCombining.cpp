@@ -447,6 +447,11 @@ bool InstCombinerImpl::SimplifyAssociativeOrCommutative(BinaryOperator &I) {
           if (IsNSW)
             I.setHasNoSignedWrap(true);
 
+          PHINode *PN;
+          Value *Start, *Step;
+          if (matchSimpleRecurrence(&I, PN, Start, Step))
+            Worklist.pushUsersToWorkList(*PN);
+
           Changed = true;
           ++NumReassoc;
           continue;
