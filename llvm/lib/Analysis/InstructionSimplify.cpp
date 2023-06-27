@@ -2717,15 +2717,12 @@ static bool haveNonOverlappingStorage(const Value *V1, const Value *V2) {
 // this optimization.
 static Constant *computePointerICmp(CmpInst::Predicate Pred, Value *LHS,
                                     Value *RHS, const SimplifyQuery &Q) {
+  assert(LHS->getType() == RHS->getType() && "Must have same types");
   const DataLayout &DL = Q.DL;
   const TargetLibraryInfo *TLI = Q.TLI;
   const DominatorTree *DT = Q.DT;
   const Instruction *CxtI = Q.CxtI;
   const InstrInfoQuery &IIQ = Q.IIQ;
-
-  // First, skip past any trivial no-ops.
-  LHS = LHS->stripPointerCasts();
-  RHS = RHS->stripPointerCasts();
 
   // A non-null pointer is not equal to a null pointer.
   if (isa<ConstantPointerNull>(RHS) && ICmpInst::isEquality(Pred) &&
@@ -2765,8 +2762,10 @@ static Constant *computePointerICmp(CmpInst::Predicate Pred, Value *LHS,
   // Even if an non-inbounds GEP occurs along the path we can still optimize
   // equality comparisons concerning the result.
   bool AllowNonInbounds = ICmpInst::isEquality(Pred);
-  APInt LHSOffset = stripAndComputeConstantOffsets(DL, LHS, AllowNonInbounds);
-  APInt RHSOffset = stripAndComputeConstantOffsets(DL, RHS, AllowNonInbounds);
+  unsigned IndexSize = DL.getIndexTypeSizeInBits(LHS->getType());
+  APInt LHSOffset(IndexSize, 0), RHSOffset(IndexSize, 0);
+  LHS = LHS->stripAndAccumulateConstantOffsets(DL, LHSOffset, AllowNonInbounds);
+  RHS = RHS->stripAndAccumulateConstantOffsets(DL, RHSOffset, AllowNonInbounds);
 
   // If LHS and RHS are related via constant offsets to the same base
   // value, we can replace it with an icmp which just compares the offsets.
