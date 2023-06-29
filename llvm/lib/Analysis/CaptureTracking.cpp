@@ -66,9 +66,11 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
   // and thus make the GEP result a poison value. Similarly, other
   // dereferenceable pointers cannot be manipulated without producing
   // poison.
+#if 0
   if (auto *GEP = dyn_cast<GetElementPtrInst>(O))
     if (GEP->isInBounds())
       return true;
+#endif
   bool CanBeNull, CanBeFreed;
   return O->getPointerDereferenceableBytes(DL, CanBeNull, CanBeFreed);
 }
