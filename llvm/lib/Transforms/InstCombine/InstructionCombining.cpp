@@ -1313,8 +1313,7 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
     // we'll push the operation across a loop backedge. This could result in
     // an infinite combine loop, and is generally non-profitable (especially
     // if the operation was originally outside the loop).
-    if (isPotentiallyReachable(PN->getParent(), NonSimplifiedBB, nullptr, &DT,
-                               LI))
+    if (isPotentiallyReachable(PN->getParent(), NonSimplifiedBB, nullptr, &DT))
       return nullptr;
   }
 
