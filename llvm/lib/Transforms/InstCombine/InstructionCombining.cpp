@@ -48,7 +48,6 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -1313,8 +1312,7 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
     // we'll push the operation across a loop backedge. This could result in
     // an infinite combine loop, and is generally non-profitable (especially
     // if the operation was originally outside the loop).
-    if (isPotentiallyReachable(PN->getParent(), NonSimplifiedBB, nullptr, &DT,
-                               LI))
+    if (isPotentiallyReachable(PN->getParent(), NonSimplifiedBB, nullptr, &DT))
       return nullptr;
   }
 
@@ -4154,7 +4152,7 @@ static bool combineInstructionsOverFunction(
     Function &F, InstructionWorklist &Worklist, AliasAnalysis *AA,
     AssumptionCache &AC, TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
     DominatorTree &DT, OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
-    ProfileSummaryInfo *PSI, unsigned MaxIterations, LoopInfo *LI) {
+    ProfileSummaryInfo *PSI, unsigned MaxIterations) {
   auto &DL = F.getParent()->getDataLayout();
 
   /// Builder - This is an IRBuilder that automatically inserts new
@@ -4198,7 +4196,7 @@ static bool combineInstructionsOverFunction(
     MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
     InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), AA, AC, TLI, TTI, DT,
-                        ORE, BFI, PSI, DL, LI);
+                        ORE, BFI, PSI, DL);
     IC.MaxArraySizeForCombine = MaxArraySize;
 
     if (!IC.run())
@@ -4227,7 +4225,6 @@ void InstCombinePass::printPipeline(
       OS, MapClassName2PassName);
   OS << '<';
   OS << "max-iterations=" << Options.MaxIterations << ";";
-  OS << (Options.UseLoopInfo ? "" : "no-") << "use-loop-info";
   OS << '>';
 }
 
@@ -4239,12 +4236,6 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
 
-  // TODO: Only use LoopInfo when the option is set. This requires that the
-  //       callers in the pass pipeline explicitly set the option.
-  auto *LI = AM.getCachedResult<LoopAnalysis>(F);
-  if (!LI && Options.UseLoopInfo)
-    LI = &AM.getResult<LoopAnalysis>(F);
-
   auto *AA = &AM.getResult<AAManager>(F);
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
   ProfileSummaryInfo *PSI =
@@ -4253,7 +4244,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, DT, ORE,
-                                       BFI, PSI, Options.MaxIterations, LI))
+                                       BFI, PSI, Options.MaxIterations))
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -4292,8 +4283,6 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
   // Optional analyses.
-  auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
-  auto *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
   ProfileSummaryInfo *PSI =
       &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
   BlockFrequencyInfo *BFI =
@@ -4303,7 +4292,7 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
 
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, DT, ORE,
                                          BFI, PSI,
-                                         InstCombineDefaultMaxIterations, LI);
+                                         InstCombineDefaultMaxIterations);
 }
 
 char InstructionCombiningPass::ID = 0;

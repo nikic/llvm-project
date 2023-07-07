@@ -67,9 +67,9 @@ public:
                    TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
                    DominatorTree &DT, OptimizationRemarkEmitter &ORE,
                    BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
-                   const DataLayout &DL, LoopInfo *LI)
+                   const DataLayout &DL)
       : InstCombiner(Worklist, Builder, MinimizeSize, AA, AC, TLI, TTI, DT, ORE,
-                     BFI, PSI, DL, LI) {}
+                     BFI, PSI, DL) {}
 
   virtual ~InstCombinerImpl() = default;
 

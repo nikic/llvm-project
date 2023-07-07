@@ -850,9 +850,7 @@ Expected<InstCombineOptions> parseInstCombineOptions(StringRef Params) {
     std::tie(ParamName, Params) = Params.split(';');
 
     bool Enable = !ParamName.consume_front("no-");
-    if (ParamName == "use-loop-info") {
-      Result.setUseLoopInfo(Enable);
-    } else if (Enable && ParamName.consume_front("max-iterations=")) {
+    if (Enable && ParamName.consume_front("max-iterations=")) {
       APInt MaxIterations;
       if (ParamName.getAsInteger(0, MaxIterations))
         return make_error<StringError>(

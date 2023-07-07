@@ -77,10 +77,6 @@ protected:
   BlockFrequencyInfo *BFI;
   ProfileSummaryInfo *PSI;
 
-  // Optional analyses. When non-null, these can both be used to do better
-  // combining and will be updated to reflect any changes.
-  LoopInfo *LI;
-
   bool MadeIRChange = false;
 
 public:
@@ -89,10 +85,10 @@ public:
                TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
                DominatorTree &DT, OptimizationRemarkEmitter &ORE,
                BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
-               const DataLayout &DL, LoopInfo *LI)
+               const DataLayout &DL)
       : TTI(TTI), Builder(Builder), Worklist(Worklist),
         MinimizeSize(MinimizeSize), AA(AA), AC(AC), TLI(TLI), DT(DT), DL(DL),
-        SQ(DL, &TLI, &DT, &AC), ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}
+        SQ(DL, &TLI, &DT, &AC), ORE(ORE), BFI(BFI), PSI(PSI) {}
 
   virtual ~InstCombiner() = default;
 
@@ -377,7 +373,6 @@ public:
   }
   BlockFrequencyInfo *getBlockFrequencyInfo() const { return BFI; }
   ProfileSummaryInfo *getProfileSummaryInfo() const { return PSI; }
-  LoopInfo *getLoopInfo() const { return LI; }
 
   // Call target specific combiners
   std::optional<Instruction *> targetInstCombineIntrinsic(IntrinsicInst &II);
