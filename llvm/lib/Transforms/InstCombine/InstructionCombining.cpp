@@ -36,6 +36,7 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -4166,6 +4167,8 @@ static bool combineInstructionsOverFunction(
         if (auto *Assume = dyn_cast<AssumeInst>(I))
           AC.registerAssumption(Assume);
       }));
+
+  ReversePostOrderTraversal<BasicBlock *> RPOT(&F.front());
 
   // Lower dbg.declare intrinsics otherwise their value may be clobbered
   // by instcombiner.
