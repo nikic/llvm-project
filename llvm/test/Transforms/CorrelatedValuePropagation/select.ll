@@ -4,8 +4,7 @@
 define i8 @simple(i1) {
 ; CHECK-LABEL: @simple(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[S:%.*]] = select i1 [[TMP0:%.*]], i8 0, i8 1
-; CHECK-NEXT:    br i1 [[TMP0]], label [[THEN:%.*]], label [[ELSE:%.*]]
+; CHECK-NEXT:    br i1 [[TMP0:%.*]], label [[THEN:%.*]], label [[ELSE:%.*]]
 ; CHECK:       then:
 ; CHECK-NEXT:    ret i8 0
 ; CHECK:       else:
@@ -212,7 +211,7 @@ exit:
 
 define i1 @test5(ptr %p, i1 %unknown) {
 ; CHECK-LABEL: @test5(
-; CHECK-NEXT:    [[PVAL:%.*]] = load i32, ptr [[P:%.*]], align 4
+; CHECK-NEXT:    [[PVAL:%.*]] = load i32, ptr [[P:%.*]], align 4, !noundef [[META0:![0-9]+]]
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp slt i32 [[PVAL]], 255
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[NEXT:%.*]], label [[EXIT:%.*]]
 ; CHECK:       next:
@@ -238,7 +237,7 @@ exit:
 
 define i1 @test6(ptr %p, i1 %unknown) {
 ; CHECK-LABEL: @test6(
-; CHECK-NEXT:    [[PVAL:%.*]] = load i32, ptr [[P:%.*]], align 4
+; CHECK-NEXT:    [[PVAL:%.*]] = load i32, ptr [[P:%.*]], align 4, !noundef [[META0]]
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp ult i32 [[PVAL]], 255
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[NEXT:%.*]], label [[EXIT:%.*]]
 ; CHECK:       next:

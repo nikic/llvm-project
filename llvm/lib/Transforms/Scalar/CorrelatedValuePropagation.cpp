@@ -95,22 +95,25 @@ STATISTIC(NumUDivURemsNarrowedExpanded,
           "Number of bound udiv's/urem's expanded");
 
 static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
-  if (S->getType()->isVectorTy()) return false;
-  if (isa<Constant>(S->getCondition())) return false;
+  if (S->getType()->isVectorTy() || isa<Constant>(S->getCondition()))
+    return false;
 
-  Constant *C = LVI->getConstant(S->getCondition(), S);
-  if (!C) return false;
+  bool Changed = false;
+  for (Use &U : make_early_inc_range(S->uses())) {
+    auto *CI = dyn_cast_or_null<ConstantInt>(
+        LVI->getConstant(S->getCondition(), cast<Instruction>(U.getUser())));
+    if (!CI)
+      continue;
 
-  ConstantInt *CI = dyn_cast<ConstantInt>(C);
-  if (!CI) return false;
+    U.set(CI->isOne() ? S->getTrueValue() : S->getFalseValue());
+    Changed = true;
+    ++NumSelects;
+  }
 
-  Value *ReplaceWith = CI->isOne() ? S->getTrueValue() : S->getFalseValue();
-  S->replaceAllUsesWith(ReplaceWith);
-  S->eraseFromParent();
+  if (Changed && S->use_empty())
+    S->eraseFromParent();
 
-  ++NumSelects;
-
-  return true;
+  return Changed;
 }
 
 /// Try to simplify a phi with constant incoming values that match the edge
