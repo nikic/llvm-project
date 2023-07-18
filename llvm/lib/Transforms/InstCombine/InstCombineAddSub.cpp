@@ -2659,10 +2659,10 @@ Instruction *InstCombinerImpl::visitFSub(BinaryOperator &I) {
     return UnaryOperator::CreateFNegFMF(FAdd, &I);
   }
 
-  if (isa<Constant>(Op0))
-    if (SelectInst *SI = dyn_cast<SelectInst>(Op1))
-      if (Instruction *NV = FoldOpIntoSelect(I, SI))
-        return NV;
+  // TODO: Handle select in op0?
+  if (SelectInst *SI = dyn_cast<SelectInst>(Op1))
+    if (Instruction *NV = FoldOpIntoSelect(I, SI))
+      return NV;
 
   // X - C --> X + (-C)
   // But don't transform constant expressions because there's an inverse fold

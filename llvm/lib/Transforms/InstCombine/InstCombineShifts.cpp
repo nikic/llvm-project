@@ -403,11 +403,9 @@ Instruction *InstCombinerImpl::commonShiftTransforms(BinaryOperator &I) {
   if (SimplifyDemandedInstructionBits(I))
     return &I;
 
-  // Try to fold constant and into select arguments.
-  if (isa<Constant>(Op0))
-    if (SelectInst *SI = dyn_cast<SelectInst>(Op1))
-      if (Instruction *R = FoldOpIntoSelect(I, SI))
-        return R;
+  // Try to fold shift into select/phi.
+  if (Instruction *R = foldBinOpIntoSelectOrPhi(I))
+    return R;
 
   if (Constant *CUI = dyn_cast<Constant>(Op1))
     if (Instruction *Res = FoldShiftByConstant(Op0, CUI, I))
@@ -787,9 +785,6 @@ Instruction *InstCombinerImpl::FoldShiftByConstant(Value *Op0, Constant *C1,
     return replaceInstUsesWith(
         I, getShiftedValue(Op0, Op1C->getZExtValue(), IsLeftShift, *this, DL));
   }
-
-  if (Instruction *FoldedShift = foldBinOpIntoSelectOrPhi(I))
-    return FoldedShift;
 
   if (!Op0->hasOneUse())
     return nullptr;

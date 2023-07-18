@@ -1663,15 +1663,13 @@ Instruction *InstCombinerImpl::visitFDiv(BinaryOperator &I) {
     return R;
 
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
-  if (isa<Constant>(Op0))
-    if (SelectInst *SI = dyn_cast<SelectInst>(Op1))
-      if (Instruction *R = FoldOpIntoSelect(I, SI))
-        return R;
+  if (SelectInst *SI = dyn_cast<SelectInst>(Op1))
+    if (Instruction *R = FoldOpIntoSelect(I, SI))
+      return R;
 
-  if (isa<Constant>(Op1))
-    if (SelectInst *SI = dyn_cast<SelectInst>(Op0))
-      if (Instruction *R = FoldOpIntoSelect(I, SI))
-        return R;
+  if (SelectInst *SI = dyn_cast<SelectInst>(Op0))
+    if (Instruction *R = FoldOpIntoSelect(I, SI))
+      return R;
 
   if (I.hasAllowReassoc() && I.hasAllowReciprocal()) {
     Value *X, *Y;

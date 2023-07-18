@@ -1483,16 +1483,17 @@ Instruction *InstCombinerImpl::foldBinopWithPhiOperands(BinaryOperator &BO) {
 }
 
 Instruction *InstCombinerImpl::foldBinOpIntoSelectOrPhi(BinaryOperator &I) {
-  if (!isa<Constant>(I.getOperand(1)))
-    return nullptr;
-
-  if (auto *Sel = dyn_cast<SelectInst>(I.getOperand(0))) {
+  if (auto *Sel = dyn_cast<SelectInst>(I.getOperand(0)))
     if (Instruction *NewSel = FoldOpIntoSelect(I, Sel))
       return NewSel;
-  } else if (auto *PN = dyn_cast<PHINode>(I.getOperand(0))) {
-    if (Instruction *NewPhi = foldOpIntoPhi(I, PN))
-      return NewPhi;
-  }
+  if (auto *Sel = dyn_cast<SelectInst>(I.getOperand(1)))
+    if (Instruction *NewSel = FoldOpIntoSelect(I, Sel))
+      return NewSel;
+
+  if (isa<Constant>(I.getOperand(1)))
+    if (auto *PN = dyn_cast<PHINode>(I.getOperand(0)))
+      if (Instruction *NewPhi = foldOpIntoPhi(I, PN))
+        return NewPhi;
   return nullptr;
 }
 
