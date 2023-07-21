@@ -2820,9 +2820,6 @@ bool isKnownNonZero(const Value *V, const APInt &DemandedElts, unsigned Depth,
     }
   }
 
-  if (!isa<Constant>(V) && isKnownNonZeroFromAssume(V, Q))
-    return true;
-
   // Some of the tests below are recursive, so bail out if we hit the limit.
   if (Depth++ >= MaxAnalysisRecursionDepth)
     return false;
@@ -2860,9 +2857,10 @@ bool isKnownNonZero(const Value *V, const APInt &DemandedElts, unsigned Depth,
     if (isKnownNonZeroFromOperator(I, DemandedElts, Depth, Q))
       return true;
 
-  if (!isa<Constant>(V) &&
-      isKnownNonNullFromDominatingCondition(V, Q.CxtI, Q.DT))
-    return true;
+  if (!isa<Constant>(V))
+    if (isKnownNonZeroFromAssume(V, Q) ||
+        isKnownNonNullFromDominatingCondition(V, Q.CxtI, Q.DT))
+      return true;
 
   return false;
 }
