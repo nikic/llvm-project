@@ -92,6 +92,8 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SimplifyLibCalls.h"
 #include "llvm/Transforms/Utils/SizeOpts.h"
+#include "llvm/Analysis/CodeMetrics.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -390,6 +392,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // FIXME: When we can selectively preserve passes, preserve the domtree.
+    AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<ProfileSummaryInfoWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<TargetPassConfig>();
@@ -425,7 +428,7 @@ private:
   }
 
   void removeAllAssertingVHReferences(Value *V);
-  bool eliminateAssumptions(Function &F);
+  bool eliminateAssumptions(Function &F, AssumptionCache &AC);
   bool eliminateFallThrough(Function &F, DominatorTree *DT = nullptr);
   bool eliminateMostlyEmptyBlocks(Function &F);
   BasicBlock *findDestBlockOfMergeableEmptyBlock(BasicBlock *BB);
@@ -489,6 +492,7 @@ char CodeGenPrepare::ID = 0;
 
 INITIALIZE_PASS_BEGIN(CodeGenPrepare, DEBUG_TYPE,
                       "Optimize for code generation", false, false)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(BasicBlockSectionsProfileReader)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
@@ -564,7 +568,8 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   // Get rid of @llvm.assume builtins before attempting to eliminate empty
   // blocks, since there might be blocks that only contain @llvm.assume calls
   // (plus arguments that we can get rid of).
-  EverMadeChange |= eliminateAssumptions(F);
+  auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+  EverMadeChange |= eliminateAssumptions(F, AC);
 
   // Eliminate blocks that contain only PHI nodes and an
   // unconditional branch.
@@ -718,23 +723,25 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   return EverMadeChange;
 }
 
-bool CodeGenPrepare::eliminateAssumptions(Function &F) {
+bool CodeGenPrepare::eliminateAssumptions(Function &F, AssumptionCache &AC) {
   bool MadeChange = false;
-  for (BasicBlock &BB : F) {
-    CurInstIterator = BB.begin();
-    while (CurInstIterator != BB.end()) {
-      Instruction *I = &*(CurInstIterator++);
-      if (auto *Assume = dyn_cast<AssumeInst>(I)) {
-        MadeChange = true;
-        Value *Operand = Assume->getOperand(0);
-        Assume->eraseFromParent();
+  SmallPtrSet<const Value *, 16> EphValues;
+  CodeMetrics::collectEphemeralValues(&F, &AC, EphValues, TLInfo);
 
-        resetIteratorIfInvalidatedWhileCalling(&BB, [&]() {
-          RecursivelyDeleteTriviallyDeadInstructions(Operand, TLInfo, nullptr);
-        });
-      }
+  for (const auto *V : EphValues) {
+    if (auto *CI = dyn_cast<Instruction>(V)) {
+      // const_cast is not a good idea, but here we know that Value is not
+      // constant but just an API collectEphemeralValues provides.
+      // Alternative would be to traverse all instructions and check whether it
+      // is in set but it is a redundant compiler time overhead.
+      auto *I = const_cast<Instruction *>(CI);
+      salvageDebugInfo(*I);
+      I->replaceAllUsesWith(PoisonValue::get(I->getType()));
+      I->eraseFromParent();
+      MadeChange = true;
     }
   }
+
   return MadeChange;
 }
 

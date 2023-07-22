@@ -23,6 +23,7 @@ class BasicBlock;
 class Loop;
 class Function;
 template <class T> class SmallPtrSetImpl;
+class TargetLibraryInfo;
 class TargetTransformInfo;
 class Value;
 
@@ -82,12 +83,14 @@ struct CodeMetrics {
   /// Collect a loop's ephemeral values (those used only by an assume
   /// or similar intrinsics in the loop).
   static void collectEphemeralValues(const Loop *L, AssumptionCache *AC,
-                                     SmallPtrSetImpl<const Value *> &EphValues);
+                                     SmallPtrSetImpl<const Value *> &EphValues,
+                                     const TargetLibraryInfo *TLI = nullptr);
 
   /// Collect a functions's ephemeral values (those used only by an
   /// assume or similar intrinsics in the function).
   static void collectEphemeralValues(const Function *L, AssumptionCache *AC,
-                                     SmallPtrSetImpl<const Value *> &EphValues);
+                                     SmallPtrSetImpl<const Value *> &EphValues,
+                                     const TargetLibraryInfo *TLI = nullptr);
 };
 
 }

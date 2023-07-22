@@ -18,60 +18,87 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/InstructionCost.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 #define DEBUG_TYPE "code-metrics"
 
 using namespace llvm;
 
-static void
-appendSpeculatableOperands(const Value *V,
-                           SmallPtrSetImpl<const Value *> &Visited,
-                           SmallVectorImpl<const Value *> &Worklist) {
-  const User *U = dyn_cast<User>(V);
+static void appendSpeculatableOperands(Value *V,
+                                       SmallPtrSetImpl<const Value *> &Visited,
+                                       SmallVectorImpl<Value *> &Worklist,
+                                       const TargetLibraryInfo *TLI) {
+  User *U = dyn_cast<User>(V);
   if (!U)
     return;
 
-  for (const Value *Operand : U->operands())
+  for (Value *Operand : U->operands())
     if (Visited.insert(Operand).second)
-      if (const auto *I = dyn_cast<Instruction>(Operand))
-        if (!I->mayHaveSideEffects() && !I->isTerminator())
+      if (auto *I = dyn_cast<Instruction>(Operand))
+        if (wouldInstructionBeTriviallyDead(I, TLI))
           Worklist.push_back(I);
 }
 
-static void completeEphemeralValues(SmallPtrSetImpl<const Value *> &Visited,
-                                    SmallVectorImpl<const Value *> &Worklist,
-                                    SmallPtrSetImpl<const Value *> &EphValues) {
-  // Note: We don't speculate PHIs here, so we'll miss instruction chains kept
-  // alive only by ephemeral values.
+static bool collectUsersOfEphemeralCandidate(
+    Value *V, SmallPtrSetImpl<const Value *> &EphValues,
+    SmallPtrSetImpl<Value *> &UsersAndV, const TargetLibraryInfo *TLI) {
+  UsersAndV.insert(V);
 
+  SmallVector<Value *, 4> Worklist;
+  Worklist.push_back(V);
+  while (!Worklist.empty()) {
+    Value *Curr = Worklist.pop_back_val();
+    for (auto *U : Curr->users()) {
+      if (EphValues.count(U) || !UsersAndV.insert(U).second)
+        continue;
+      auto *I = dyn_cast<Instruction>(U);
+      if (!I || !wouldInstructionBeTriviallyDead(I, TLI))
+        return false;
+      Worklist.push_back(I);
+    }
+  }
+  return true;
+}
+
+static void completeEphemeralValues(SmallPtrSetImpl<const Value *> &Visited,
+                                    SmallVectorImpl<Value *> &Worklist,
+                                    SmallPtrSetImpl<const Value *> &EphValues,
+                                    const TargetLibraryInfo *TLI) {
   // Walk the worklist using an index but without caching the size so we can
   // append more entries as we process the worklist. This forms a queue without
   // quadratic behavior by just leaving processed nodes at the head of the
   // worklist forever.
+  SmallPtrSet<Value *, 4> Users;
   for (int i = 0; i < (int)Worklist.size(); ++i) {
-    const Value *V = Worklist[i];
+    Value *V = Worklist[i];
+    if (EphValues.count(V))
+      continue;
 
     assert(Visited.count(V) &&
            "Failed to add a worklist entry to our visited set!");
 
     // If all uses of this value are ephemeral, then so is this value.
-    if (!all_of(V->users(), [&](const User *U) { return EphValues.count(U); }))
-      continue;
+    Users.clear();
+    if (collectUsersOfEphemeralCandidate(V, EphValues, Users, TLI)) {
+      for (auto *EphV : Users) {
+        EphValues.insert(EphV);
+        LLVM_DEBUG(dbgs() << "Ephemeral Value: " << *EphV << "\n");
+        Visited.insert(EphV);
 
-    EphValues.insert(V);
-    LLVM_DEBUG(dbgs() << "Ephemeral Value: " << *V << "\n");
-
-    // Append any more operands to consider.
-    appendSpeculatableOperands(V, Visited, Worklist);
+        // Append any more operands to consider.
+        appendSpeculatableOperands(EphV, Visited, Worklist, TLI);
+      }
+    }
   }
 }
 
 // Find all ephemeral values.
-void CodeMetrics::collectEphemeralValues(
-    const Loop *L, AssumptionCache *AC,
-    SmallPtrSetImpl<const Value *> &EphValues) {
+void
+CodeMetrics::collectEphemeralValues(const Loop *L, AssumptionCache *AC,
+                                    SmallPtrSetImpl<const Value *> &EphValues,
+                                    const TargetLibraryInfo *TLI) {
   SmallPtrSet<const Value *, 32> Visited;
-  SmallVector<const Value *, 16> Worklist;
+  SmallVector<Value *, 16> Worklist;
 
   for (auto &AssumeVH : AC->assumptions()) {
     if (!AssumeVH)
@@ -85,17 +112,18 @@ void CodeMetrics::collectEphemeralValues(
       continue;
 
     if (EphValues.insert(I).second)
-      appendSpeculatableOperands(I, Visited, Worklist);
+      appendSpeculatableOperands(I, Visited, Worklist, TLI);
   }
 
-  completeEphemeralValues(Visited, Worklist, EphValues);
+  completeEphemeralValues(Visited, Worklist, EphValues, TLI);
 }
 
-void CodeMetrics::collectEphemeralValues(
-    const Function *F, AssumptionCache *AC,
-    SmallPtrSetImpl<const Value *> &EphValues) {
+void
+CodeMetrics::collectEphemeralValues(const Function *F, AssumptionCache *AC,
+                                    SmallPtrSetImpl<const Value *> &EphValues,
+                                    const TargetLibraryInfo *TLI) {
   SmallPtrSet<const Value *, 32> Visited;
-  SmallVector<const Value *, 16> Worklist;
+  SmallVector<Value *, 16> Worklist;
 
   for (auto &AssumeVH : AC->assumptions()) {
     if (!AssumeVH)
@@ -105,10 +133,10 @@ void CodeMetrics::collectEphemeralValues(
            "Found assumption for the wrong function!");
 
     if (EphValues.insert(I).second)
-      appendSpeculatableOperands(I, Visited, Worklist);
+      appendSpeculatableOperands(I, Visited, Worklist, TLI);
   }
 
-  completeEphemeralValues(Visited, Worklist, EphValues);
+  completeEphemeralValues(Visited, Worklist, EphValues, TLI);
 }
 
 /// Fill in the current structure with information gleaned from the specified
