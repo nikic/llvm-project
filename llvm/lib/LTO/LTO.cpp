@@ -198,7 +198,7 @@ void llvm::computeLTOCacheKey(
   // added.
   llvm::sort(ImportModulesVector,
              [](const ImportModule &Lhs, const ImportModule &Rhs) -> bool {
-               return Lhs.getId() < Rhs.getId();
+               return Lhs.getHash() < Rhs.getHash();
              });
   for (const ImportModule &Entry : ImportModulesVector) {
     auto ModHash = Entry.getHash();
