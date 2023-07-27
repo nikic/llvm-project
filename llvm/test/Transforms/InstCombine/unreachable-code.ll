@@ -69,7 +69,7 @@ define i32 @br_undef(i1 %x) {
 ; CHECK:       else:
 ; CHECK-NEXT:    br label [[JOIN]]
 ; CHECK:       join:
-; CHECK-NEXT:    ret i32 undef
+; CHECK-NEXT:    ret i32 poison
 ;
   %c = xor i1 %x, undef
   br i1 %c, label %if, label %else
@@ -262,6 +262,34 @@ define void @br_into_loop(i1 %x) {
 ;
   %c = or i1 %x, true
   br i1 %c, label %loop, label %exit
+
+loop:
+  call void @dummy()
+  br label %loop
+
+exit:
+  call void @dummy()
+  ret void
+}
+
+define void @two_br_not_into_loop(i1 %x) {
+; CHECK-LABEL: define void @two_br_not_into_loop
+; CHECK-SAME: (i1 [[X:%.*]]) {
+; CHECK-NEXT:    br i1 true, label [[BB2:%.*]], label [[LOOP:%.*]]
+; CHECK:       bb2:
+; CHECK-NEXT:    br i1 true, label [[EXIT:%.*]], label [[LOOP]]
+; CHECK:       loop:
+; CHECK-NEXT:    br label [[LOOP]]
+; CHECK:       exit:
+; CHECK-NEXT:    call void @dummy()
+; CHECK-NEXT:    ret void
+;
+  %c = or i1 %x, true
+  br i1 %c, label %bb2, label %loop
+
+bb2:
+  %c2 = or i1 %x, true
+  br i1 %c2, label %exit, label %loop
 
 loop:
   call void @dummy()
