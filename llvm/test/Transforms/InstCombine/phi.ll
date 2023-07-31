@@ -71,7 +71,8 @@ define i32 @test4(i1 %b) {
 ; CHECK-NEXT:  BB0:
 ; CHECK-NEXT:    ret i32 7
 ; CHECK:       Loop:
-; CHECK-NEXT:    br i1 [[B:%.*]], label [[L2:%.*]], label [[LOOP:%.*]]
+; CHECK-NEXT:    [[B:%.*]] = phi i32 [ [[B]], [[L2:%.*]] ], [ [[B]], [[LOOP:%.*]] ]
+; CHECK-NEXT:    br i1 [[B:%.*]], label [[L2]], label [[LOOP]]
 ; CHECK:       L2:
 ; CHECK-NEXT:    br label [[LOOP]]
 ;
