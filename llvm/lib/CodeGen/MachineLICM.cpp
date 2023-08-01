@@ -314,19 +314,6 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(EarlyMachineLICM, "early-machinelicm",
                     "Early Machine Loop Invariant Code Motion", false, false)
 
-/// Test if the given loop is the outer-most loop that has a unique predecessor.
-static bool LoopIsOuterMostWithPredecessor(MachineLoop *CurLoop) {
-  // Check whether this loop even has a unique predecessor.
-  if (!CurLoop->getLoopPredecessor())
-    return false;
-  // Ok, now check to see if any of its outer loops do.
-  for (MachineLoop *L = CurLoop->getParentLoop(); L; L = L->getParentLoop())
-    if (L->getLoopPredecessor())
-      return false;
-  // None of them did, so this is the outermost with a unique predecessor.
-  return true;
-}
-
 bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
     return false;
@@ -371,13 +358,6 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
     CurLoop = Worklist.pop_back_val();
     CurPreheader = nullptr;
     ExitBlocks.clear();
-
-    // If this is done before regalloc, only visit outer-most preheader-sporting
-    // loops.
-    if (PreRegAlloc && !LoopIsOuterMostWithPredecessor(CurLoop)) {
-      Worklist.append(CurLoop->begin(), CurLoop->end());
-      continue;
-    }
 
     CurLoop->getExitBlocks(ExitBlocks);
 
@@ -778,8 +758,33 @@ void MachineLICMBase::HoistOutOfLoop(MachineDomTreeNode *HeaderN) {
     // Process the block
     SpeculationState = SpeculateUnknown;
     for (MachineInstr &MI : llvm::make_early_inc_range(*MBB)) {
-      if (!Hoist(&MI, Preheader))
+      if (!Hoist(&MI, Preheader)) {
+        // We have failed to hoist MI to outmost loop's preheader. If MI is in
+        // subloop, try to hoist it to subloop's preheader.
+        SmallVector<MachineLoop *> InnerLoopWorkList;
+        for (MachineLoop *L = MLI->getLoopFor(MI.getParent()); L != CurLoop;
+             L = L->getParentLoop())
+          InnerLoopWorkList.push_back(L);
+
+        MachineLoop *OutMostLoop = CurLoop;
+        MachineBasicBlock *OutMostLoopPreheader = CurPreheader;
+        while (!InnerLoopWorkList.empty()) {
+          CurLoop = InnerLoopWorkList.pop_back_val();
+          CurPreheader = CurLoop->getLoopPreheader();
+          if (CurPreheader) {
+            if (Hoist(&MI, CurPreheader))
+              break;
+          }
+        }
+
+        // When MI is hoisted to inner loop's preheader, we need to update reg
+        // pressure because we have already visited inner loop's preheader.
         UpdateRegPressure(&MI);
+
+        CurLoop = OutMostLoop;
+        CurPreheader = OutMostLoopPreheader;
+      }
+
       // If we have hoisted an instruction that may store, it can only be a
       // constant store.
     }
@@ -1308,9 +1313,15 @@ void MachineLICMBase::InitCSEMap(MachineBasicBlock *BB) {
 MachineInstr *
 MachineLICMBase::LookForDuplicate(const MachineInstr *MI,
                                   std::vector<MachineInstr *> &PrevMIs) {
-  for (MachineInstr *PrevMI : PrevMIs)
+  for (MachineInstr *PrevMI : PrevMIs) {
+    // PrevMI could be in inner loop's preheader so let's check PrevMI's block
+    // dominates MI's block.
+    if (!DT->dominates(PrevMI->getParent(), MI->getParent()))
+      continue;
+
     if (TII->produceSameValue(*MI, *PrevMI, (PreRegAlloc ? MRI : nullptr)))
       return PrevMI;
+  }
 
   return nullptr;
 }
