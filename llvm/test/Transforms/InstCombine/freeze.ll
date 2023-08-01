@@ -912,12 +912,11 @@ define void @fold_phi_multiple_back_edges(i32 %init, i32 %n) {
 ; CHECK-NEXT:    [[INIT_FR:%.*]] = freeze i32 [[INIT:%.*]]
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[INIT_FR]], [[ENTRY:%.*]] ], [ [[I_NEXT:%.*]], [[LOOP]] ], [ [[I_NEXT2:%.*]], [[LOOP_LATCH2:%.*]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[INIT_FR]], [[ENTRY:%.*]] ], [ [[I_NEXT:%.*]], [[LOOP]] ], [ poison, [[LOOP_LATCH2:%.*]] ]
 ; CHECK-NEXT:    [[I_NEXT]] = add i32 [[I]], 1
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq i32 [[I_NEXT]], [[N:%.*]]
 ; CHECK-NEXT:    br i1 [[COND]], label [[LOOP]], label [[LOOP_LATCH2]]
 ; CHECK:       loop.latch2:
-; CHECK-NEXT:    [[I_NEXT2]] = add i32 [[I]], 2
 ; CHECK-NEXT:    br i1 false, label [[LOOP]], label [[EXIT:%.*]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
