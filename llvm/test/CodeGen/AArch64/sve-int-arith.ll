@@ -769,20 +769,22 @@ define void @mad_in_loop(ptr %dst, ptr %src1, ptr %src2, i32 %n) {
 ; CHECK-NEXT:    cmp w3, #1
 ; CHECK-NEXT:    b.lt .LBB70_3
 ; CHECK-NEXT:  // %bb.1: // %for.body.preheader
-; CHECK-NEXT:    mov w9, w3
-; CHECK-NEXT:    mov x8, xzr
+; CHECK-NEXT:    mov w8, w3
+; CHECK-NEXT:    mov x9, xzr
 ; CHECK-NEXT:    cntw x10
 ; CHECK-NEXT:    mov z0.s, #1 // =0x1
-; CHECK-NEXT:    ptrue p0.s
-; CHECK-NEXT:    whilelo p1.s, xzr, x9
+; CHECK-NEXT:    ptrue p1.s
+; CHECK-NEXT:    whilelo p0.s, xzr, x8
 ; CHECK-NEXT:  .LBB70_2: // %vector.body
 ; CHECK-NEXT:    // =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    ld1w { z1.s }, p1/z, [x1, x8, lsl #2]
-; CHECK-NEXT:    ld1w { z2.s }, p1/z, [x2, x8, lsl #2]
-; CHECK-NEXT:    mad z1.s, p0/m, z2.s, z0.s
-; CHECK-NEXT:    st1w { z1.s }, p1, [x0, x8, lsl #2]
-; CHECK-NEXT:    add x8, x8, x10
-; CHECK-NEXT:    whilelo p1.s, x8, x9
+; CHECK-NEXT:    ld1w { z1.s }, p0/z, [x1, x9, lsl #2]
+; CHECK-NEXT:    ld1w { z2.s }, p0/z, [x2, x9, lsl #2]
+; CHECK-NEXT:    add x11, x9, x10
+; CHECK-NEXT:    add x12, x10, x9
+; CHECK-NEXT:    mad z1.s, p1/m, z2.s, z0.s
+; CHECK-NEXT:    st1w { z1.s }, p0, [x0, x9, lsl #2]
+; CHECK-NEXT:    mov x9, x11
+; CHECK-NEXT:    whilelo p0.s, x12, x8
 ; CHECK-NEXT:    b.mi .LBB70_2
 ; CHECK-NEXT:  .LBB70_3: // %for.cond.cleanup
 ; CHECK-NEXT:    ret
