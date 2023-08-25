@@ -102,6 +102,14 @@ bool GEPOperator::accumulateConstantOffset(
 bool GEPOperator::accumulateConstantOffset(
     Type *SourceType, ArrayRef<const Value *> Index, const DataLayout &DL,
     APInt &Offset, function_ref<bool(Value &, APInt &)> ExternalAnalysis) {
+  // Fast path for i8 GEPs, where we can directly return the offset.
+  if (!ExternalAnalysis && SourceType->isIntegerTy(8)) {
+    if (auto *C = dyn_cast<ConstantInt>(Index[0])) {
+      Offset += C->getValue().sextOrTrunc(Offset.getBitWidth());
+      return true;
+    }
+  }
+
   bool UsedExternalAnalysis = false;
   auto AccumulateOffset = [&](APInt Index, uint64_t Size) -> bool {
     Index = Index.sextOrTrunc(Offset.getBitWidth());
