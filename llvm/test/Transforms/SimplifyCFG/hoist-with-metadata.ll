@@ -18,6 +18,17 @@ else:
 out:
   ret void
 }
+<<<<<<<
+=======
+
+define void @hoist_range_switch(i64 %i, ptr %p) {
+; CHECK-LABEL: @hoist_range_switch(
+; CHECK-NEXT:  out:
+; CHECK-NEXT:    [[T:%.*]] = load i8, ptr [[P:%.*]], align 1, !range [[RNG1:![0-9]+]]
+; CHECK-NEXT:    ret void
+;
+  switch i64 %i, label %bb0 [
+>>>>>>>
 
 define void @hoist_both_noundef(i1 %c, ptr %p) {
 ; CHECK-LABEL: @hoist_both_noundef(
@@ -64,7 +75,11 @@ out:
 define void @hoist_dereferenceable(i1 %c, ptr %p) {
 ; CHECK-LABEL: @hoist_dereferenceable(
 ; CHECK-NEXT:  if:
+<<<<<<<
 ; CHECK-NEXT:    [[T:%.*]] = load ptr, ptr [[P:%.*]], align 8, !dereferenceable !2
+=======
+; CHECK-NEXT:    [[T:%.*]] = load i8, ptr [[P:%.*]], align 1, !noundef !2
+>>>>>>>
 ; CHECK-NEXT:    ret void
 ;
 if:
@@ -75,6 +90,17 @@ then:
 else:
   %e = load ptr, ptr %p, !dereferenceable !{i64 20}
   br label %out
+<<<<<<<
+=======
+
+define void @hoist_both_noundef_switch(i64 %i, ptr %p) {
+; CHECK-LABEL: @hoist_both_noundef_switch(
+; CHECK-NEXT:  out:
+; CHECK-NEXT:    [[T:%.*]] = load i8, ptr [[P:%.*]], align 1, !noundef !2
+; CHECK-NEXT:    ret void
+;
+  switch i64 %i, label %bb0 [
+>>>>>>>
 out:
   ret void
 }
@@ -131,6 +157,17 @@ entry:
 
 if:
   %v = load ptr, ptr %p, !nonnull !{}, !noundef !{}
+<<<<<<<
+=======
+
+define void @hoist_one_noundef_switch(i64 %i, ptr %p) {
+; CHECK-LABEL: @hoist_one_noundef_switch(
+; CHECK-NEXT:  out:
+; CHECK-NEXT:    [[T:%.*]] = load i8, ptr [[P:%.*]], align 1
+; CHECK-NEXT:    ret void
+;
+  switch i64 %i, label %bb0 [
+>>>>>>>
   br label %join
 
 join:
@@ -163,6 +200,13 @@ define void @hoist_fpmath(i1 %c, double %x) {
 ; CHECK-LABEL: @hoist_fpmath(
 ; CHECK-NEXT:  if:
 ; CHECK-NEXT:    [[T:%.*]] = fadd double [[X:%.*]], 1.000000e+00, !fpmath !5
+<<<<<<<
+=======
+define void @hoist_dereferenceable(i1 %c, ptr %p) {
+; CHECK-LABEL: @hoist_dereferenceable(
+; CHECK-NEXT:  if:
+; CHECK-NEXT:    [[T:%.*]] = load ptr, ptr [[P:%.*]], align 8, !dereferenceable !3
+>>>>>>>
 ; CHECK-NEXT:    ret void
 ;
 if:
@@ -184,7 +228,103 @@ out:
 ; CHECK: [[RNG0]] = !{i8 0, i8 1, i8 3, i8 5}
 ; CHECK: [[META1:![0-9]+]] = !{}
 ; CHECK: [[META2:![0-9]+]] = !{i64 10}
+<<<<<<<
+=======
+
+define void @hoist_dereferenceable_switch(i64 %i, ptr %p) {
+; CHECK-LABEL: @hoist_dereferenceable_switch(
+; CHECK-NEXT:  out:
+; CHECK-NEXT:    [[T:%.*]] = load ptr, ptr [[P:%.*]], align 8, !dereferenceable !3
+; CHECK-NEXT:    ret void
+;
+  switch i64 %i, label %bb0 [
+>>>>>>>
 ; CHECK: [[RNG3]] = !{i32 0, i32 10}
 ; CHECK: [[META4:![0-9]+]] = !{i64 4}
 ; CHECK: [[META5:![0-9]+]] = !{float 2.500000e+00}
+<<<<<<<
 ;.
+=======
+define void @hoist_dereferenceable_or_null(i1 %c, ptr %p) {
+; CHECK-LABEL: @hoist_dereferenceable_or_null(
+; CHECK-NEXT:  if:
+; CHECK-NEXT:    [[T:%.*]] = load ptr, ptr [[P:%.*]], align 8, !dereferenceable_or_null !3
+; CHECK-NEXT:    ret void
+;
+if:
+>>>>>>>
+<<<<<<<
+=======
+
+define void @hoist_dereferenceable_or_null_switch(i64 %i, ptr %p) {
+; CHECK-LABEL: @hoist_dereferenceable_or_null_switch(
+; CHECK-NEXT:  out:
+; CHECK-NEXT:    [[T:%.*]] = load ptr, ptr [[P:%.*]], align 8, !dereferenceable_or_null !3
+; CHECK-NEXT:    ret void
+;
+  switch i64 %i, label %bb0 [
+>>>>>>>
+<<<<<<<
+=======
+define i32 @speculate_range(i1 %c, ptr dereferenceable(8) align 8 %p) {
+; CHECK-LABEL: @speculate_range(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[V:%.*]] = load i32, ptr [[P:%.*]], align 4, !range [[RNG4:![0-9]+]]
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[C:%.*]], i32 [[V]], i32 0
+; CHECK-NEXT:    ret i32 [[SPEC_SELECT]]
+;
+>>>>>>>
+<<<<<<<
+=======
+define ptr @speculate_nonnull(i1 %c, ptr dereferenceable(8) align 8 %p) {
+; CHECK-LABEL: @speculate_nonnull(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[V:%.*]] = load ptr, ptr [[P:%.*]], align 8, !nonnull !2
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[C:%.*]], ptr [[V]], ptr null
+; CHECK-NEXT:    ret ptr [[SPEC_SELECT]]
+;
+>>>>>>>
+<<<<<<<
+=======
+define ptr @speculate_align(i1 %c, ptr dereferenceable(8) align 8 %p) {
+; CHECK-LABEL: @speculate_align(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[V:%.*]] = load ptr, ptr [[P:%.*]], align 8, !align !5
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[C:%.*]], ptr [[V]], ptr null
+; CHECK-NEXT:    ret ptr [[SPEC_SELECT]]
+;
+>>>>>>>
+<<<<<<<
+=======
+define void @hoist_fpmath(i1 %c, double %x) {
+; CHECK-LABEL: @hoist_fpmath(
+; CHECK-NEXT:  if:
+; CHECK-NEXT:    [[T:%.*]] = fadd double [[X:%.*]], 1.000000e+00, !fpmath !6
+; CHECK-NEXT:    ret void
+;
+if:
+>>>>>>>
+<<<<<<<
+=======
+
+define void @hoist_fpmath_switch(i64 %i, double %x) {
+; CHECK-LABEL: @hoist_fpmath_switch(
+; CHECK-NEXT:  out:
+; CHECK-NEXT:    [[T:%.*]] = fadd double [[X:%.*]], 1.000000e+00, !fpmath !6
+; CHECK-NEXT:    ret void
+;
+  switch i64 %i, label %bb0 [
+>>>>>>>
+<<<<<<<
+=======
+!3 = !{ i8 7, i8 9 }
+;.
+; CHECK: [[RNG0]] = !{i8 0, i8 1, i8 3, i8 5}
+; CHECK: [[RNG1]] = !{i8 0, i8 1, i8 3, i8 5, i8 7, i8 9}
+; CHECK: [[META2:![0-9]+]] = !{}
+; CHECK: [[META3:![0-9]+]] = !{i64 10}
+; CHECK: [[RNG4]] = !{i32 0, i32 10}
+; CHECK: [[META5:![0-9]+]] = !{i64 4}
+; CHECK: [[META6:![0-9]+]] = !{float 2.500000e+00}
+;.
+>>>>>>>

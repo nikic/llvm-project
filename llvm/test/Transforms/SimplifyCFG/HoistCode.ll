@@ -16,6 +16,18 @@ F:              ; preds = %0
   store i32 7, ptr %P
   ret void
 }
+<<<<<<<
+=======
+
+define void @foo_switch(i64 %C, ptr %P) {
+; CHECK-LABEL: @foo_switch(
+; CHECK-NEXT:  common.ret:
+; CHECK-NEXT:    store i32 7, ptr [[P:%.*]], align 4
+; CHECK-NEXT:    ret void
+;
+  switch i64 %C, label %bb0 [
+  i64 1, label %bb1
+>>>>>>>
 
 define float @PR39535min(float %x) {
 ; CHECK-LABEL: @PR39535min(
