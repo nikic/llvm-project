@@ -327,8 +327,8 @@ ConstantRange::makeGuaranteedNoWrapRegion(Instruction::BinaryOps BinOp,
       return makeExactMulNUWRegion(Other.getUnsignedMax());
 
     // Avoid one makeExactMulNSWRegion() call for the common case of constants.
-    if (const APInt *C = Other.getSingleElement())
-      return makeExactMulNSWRegion(*C);
+    if (Other.isAllNonNegative())
+      return makeExactMulNSWRegion(Other.getSignedMax());
 
     return makeExactMulNSWRegion(Other.getSignedMin())
         .intersectWith(makeExactMulNSWRegion(Other.getSignedMax()));
