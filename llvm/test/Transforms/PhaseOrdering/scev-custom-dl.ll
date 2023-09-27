@@ -19,7 +19,7 @@ entry:
 for.cond:                                         ; preds = %for.inc, %entry
   %p.addr.0 = phi ptr [ %p, %entry ], [ %add.ptr1, %for.inc ]
   %i.0 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
-  %cmp = icmp ne i32 %i.0, 64
+  %cmp = icmp ne i32 %i.0, 128
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
@@ -48,7 +48,7 @@ entry:
 for.cond:                                         ; preds = %for.inc, %entry
   %p.addr.0 = phi ptr [ %p, %entry ], [ %add.ptr1, %for.inc ]
   %i.0 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
-  %cmp = icmp ne i32 %i.0, 64
+  %cmp = icmp ne i32 %i.0, 128
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
@@ -66,17 +66,17 @@ for.end:                                          ; preds = %for.cond
   ret void
 }
 
-@array = weak global [101 x i32] zeroinitializer, align 32		; <ptr> [#uses=1]
+@array = weak global [201 x i32] zeroinitializer, align 32		; <ptr> [#uses=1]
 
-; CHECK: Loop %bb: backedge-taken count is 100
+; CHECK: Loop %bb: backedge-taken count is 200
 
 define void @test_range_ref1a(i32 %x) {
 entry:
 	br label %bb
 
 bb:		; preds = %bb, %entry
-	%i.01.0 = phi i32 [ 100, %entry ], [ %tmp4, %bb ]		; <i32> [#uses=2]
-	%tmp1 = getelementptr [101 x i32], ptr @array, i32 0, i32 %i.01.0		; <ptr> [#uses=1]
+	%i.01.0 = phi i32 [ 200, %entry ], [ %tmp4, %bb ]		; <i32> [#uses=2]
+	%tmp1 = getelementptr [201 x i32], ptr @array, i32 0, i32 %i.01.0		; <ptr> [#uses=1]
 	store i32 %x, ptr %tmp1
 	%tmp4 = add i32 %i.01.0, -1		; <i32> [#uses=2]
 	%tmp7 = icmp sgt i32 %tmp4, -1		; <i1> [#uses=1]

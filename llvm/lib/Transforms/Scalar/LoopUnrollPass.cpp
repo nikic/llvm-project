@@ -23,14 +23,17 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/CodeMetrics.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/LoopUnrollAnalyzer.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
@@ -662,12 +665,76 @@ static std::optional<EstimatedUnrollCost> analyzeLoopUnrollCost(
            unsigned(*RolledDynamicCost.getValue())}};
 }
 
+/// Whether this instruction is expected to fold to a (non-expression) constant
+/// if all its arguments are constants.
+static bool isFoldableInst(const Instruction *I) {
+  switch (I->getOpcode()) {
+  case Instruction::ExtractElement:
+  case Instruction::InsertElement:
+  case Instruction::ShuffleVector:
+  case Instruction::ExtractValue:
+  case Instruction::InsertValue:
+  case Instruction::ICmp:
+  case Instruction::FCmp:
+  case Instruction::Select:
+  case Instruction::Freeze:
+    return true;
+  case Instruction::Call: {
+    auto *CB = cast<CallBase>(I);
+    const Function *F = CB->getCalledFunction();
+    return F && canConstantFoldCallTo(CB, F) && !CB->mayHaveSideEffects();
+  }
+  default:
+    return isa<BinaryOperator>(I) || isa<UnaryOperator>(I) ||
+           isa<CastInst>(I) || isa<CmpInst>(I);
+  }
+}
+
+static bool
+isFoldedInst(const Instruction *I, const Loop *L,
+             const SmallPtrSetImpl<const Instruction *> &FoldedInsts) {
+  // A simple recurrence with constant start and constant step will
+  // be constant folded for all iterations. This is the base case.
+  if (auto *PN = dyn_cast<PHINode>(I)) {
+    BinaryOperator *BO;
+    Value *Start, *Step;
+    if (PN->getParent() == L->getHeader() &&
+        matchSimpleRecurrence(PN, BO, Start, Step) && isa<Constant>(Start) &&
+        isa<Constant>(Step))
+      return true;
+  }
+
+  // Short-circuit case with no foldable recurrences.
+  if (FoldedInsts.empty())
+    return false;
+
+  return isFoldableInst(I) &&
+         all_of(I->operands(), [&](Value *Op) {
+           if (isa<Constant>(Op))
+             return true;
+           auto *I = dyn_cast<Instruction>(Op);
+           return I && FoldedInsts.contains(I);
+         });
+}
+
 UnrollCostEstimator::UnrollCostEstimator(
-    const Loop *L, const TargetTransformInfo &TTI,
+    const Loop *L, const TargetTransformInfo &TTI, const LoopInfo &LI,
     const SmallPtrSetImpl<const Value *> &EphValues, unsigned BEInsns) {
+  // Instructions that will be constant folded if the loop is fully unrolled.
+  SmallPtrSet<const Instruction *, 32> FoldedInsts;
+
   CodeMetrics Metrics;
-  for (BasicBlock *BB : L->blocks())
-    Metrics.analyzeBasicBlock(BB, TTI, EphValues);
+  LoopBlocksRPO RPOT(const_cast<Loop *>(L));
+  RPOT.perform(&LI);
+  for (BasicBlock *BB : RPOT)
+    Metrics.analyzeBasicBlock(BB, TTI, EphValues, /*PrepareForLTO*/ false,
+                              [&](const Instruction *I, InstructionCost Cost) {
+                                if (isFoldedInst(I, L, FoldedInsts)) {
+                                  FoldedInsts.insert(I);
+                                  FullUnrollBonus += Cost;
+                                }
+                              });
+
   NumInlineCandidates = Metrics.NumInlineCandidates;
   NotDuplicatable = Metrics.notDuplicatable;
   Convergent = Metrics.convergent;
@@ -693,6 +760,22 @@ uint64_t UnrollCostEstimator::getUnrolledLoopSize(
     return static_cast<uint64_t>(LS - UP.BEInsns) * CountOverwrite + UP.BEInsns;
   else
     return static_cast<uint64_t>(LS - UP.BEInsns) * UP.Count + UP.BEInsns;
+}
+
+uint64_t UnrollCostEstimator::getFullyUnrolledLoopSize(
+    const TargetTransformInfo::UnrollingPreferences &UP) const {
+  unsigned LS = *LoopSize.getValue();
+  assert(LS > *FullUnrollBonus.getValue() &&
+         "Loop size should be larger than unroll bonus ");
+  LS -= *FullUnrollBonus.getValue();
+  // BEInsns is defined as one higher to account for the remove loop exit check.
+  // However, we already count it towards the FullUnrollBonus.
+  assert(UP.BEInsns > 0 && "BEInsns shouldn't be zero");
+  unsigned BEInsns = UP.BEInsns - 1;
+  // Make sure we don't get a loop size of zero.
+  if (LS > BEInsns)
+    LS -= BEInsns;
+  return static_cast<uint64_t>(LS) * UP.Count;
 }
 
 // Returns the loop hint metadata node with the given name (for example,
@@ -792,7 +875,7 @@ static std::optional<unsigned> shouldFullUnroll(
 
   // When computing the unrolled size, note that BEInsns are not replicated
   // like the rest of the loop body.
-  if (UCE.getUnrolledLoopSize(UP) < UP.Threshold)
+  if (UCE.getFullyUnrolledLoopSize(UP) < UP.Threshold)
     return FullUnrollTripCount;
 
   // The loop isn't that small, but we still can fully unroll it if that
@@ -1173,7 +1256,7 @@ tryToUnrollLoop(Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE,
   SmallPtrSet<const Value *, 32> EphValues;
   CodeMetrics::collectEphemeralValues(L, &AC, EphValues);
 
-  UnrollCostEstimator UCE(L, TTI, EphValues, UP.BEInsns);
+  UnrollCostEstimator UCE(L, TTI, *LI, EphValues, UP.BEInsns);
   if (!UCE.canUnroll()) {
     LLVM_DEBUG(dbgs() << "  Not unrolling loop which contains instructions"
                       << " which cannot be duplicated or have invalid cost.\n");

@@ -15,13 +15,15 @@
 #define LLVM_ANALYSIS_CODEMETRICS_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/Support/InstructionCost.h"
 
 namespace llvm {
 class AssumptionCache;
 class BasicBlock;
-class Loop;
 class Function;
+class Instruction;
+class Loop;
 template <class T> class SmallPtrSetImpl;
 class TargetTransformInfo;
 class Value;
@@ -75,9 +77,11 @@ struct CodeMetrics {
   unsigned NumRets = 0;
 
   /// Add information about a block to the current state.
-  void analyzeBasicBlock(const BasicBlock *BB, const TargetTransformInfo &TTI,
-                         const SmallPtrSetImpl<const Value *> &EphValues,
-                         bool PrepareForLTO = false);
+  void analyzeBasicBlock(
+      const BasicBlock *BB, const TargetTransformInfo &TTI,
+      const SmallPtrSetImpl<const Value *> &EphValues,
+      bool PrepareForLTO = false,
+      function_ref<void(const Instruction *, InstructionCost)> Fn = nullptr);
 
   /// Collect a loop's ephemeral values (those used only by an assume
   /// or similar intrinsics in the loop).
@@ -90,6 +94,6 @@ struct CodeMetrics {
                                      SmallPtrSetImpl<const Value *> &EphValues);
 };
 
-}
+} // namespace llvm
 
 #endif

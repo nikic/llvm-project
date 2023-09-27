@@ -121,6 +121,7 @@ TargetTransformInfo::UnrollingPreferences gatherUnrollingPreferences(
 /// evaluate all iterations.
 class UnrollCostEstimator {
   InstructionCost LoopSize;
+  InstructionCost FullUnrollBonus;
   bool NotDuplicatable;
 
 public:
@@ -128,6 +129,7 @@ public:
   bool Convergent;
 
   UnrollCostEstimator(const Loop *L, const TargetTransformInfo &TTI,
+                      const LoopInfo &LI,
                       const SmallPtrSetImpl<const Value *> &EphValues,
                       unsigned BEInsns);
 
@@ -141,6 +143,9 @@ public:
   uint64_t
   getUnrolledLoopSize(const TargetTransformInfo::UnrollingPreferences &UP,
                       unsigned CountOverwrite = 0) const;
+
+  uint64_t getFullyUnrolledLoopSize(
+      const TargetTransformInfo::UnrollingPreferences &UP) const;
 };
 
 bool computeUnrollCount(Loop *L, const TargetTransformInfo &TTI,

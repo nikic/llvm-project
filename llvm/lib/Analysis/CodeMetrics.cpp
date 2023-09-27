@@ -115,7 +115,8 @@ void CodeMetrics::collectEphemeralValues(
 /// block.
 void CodeMetrics::analyzeBasicBlock(
     const BasicBlock *BB, const TargetTransformInfo &TTI,
-    const SmallPtrSetImpl<const Value *> &EphValues, bool PrepareForLTO) {
+    const SmallPtrSetImpl<const Value *> &EphValues, bool PrepareForLTO,
+    function_ref<void(const Instruction *, InstructionCost)> Fn) {
   ++NumBlocks;
   InstructionCost NumInstsBeforeThisBB = NumInsts;
   for (const Instruction &I : *BB) {
@@ -177,7 +178,11 @@ void CodeMetrics::analyzeBasicBlock(
       if (InvI->cannotDuplicate())
         notDuplicatable = true;
 
-    NumInsts += TTI.getInstructionCost(&I, TargetTransformInfo::TCK_CodeSize);
+    InstructionCost Cost =
+        TTI.getInstructionCost(&I, TargetTransformInfo::TCK_CodeSize);
+    NumInsts += Cost;
+    if (Fn)
+      Fn(&I, Cost);
   }
 
   if (isa<ReturnInst>(BB->getTerminator()))
