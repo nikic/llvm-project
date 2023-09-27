@@ -762,17 +762,17 @@ UnrollCostEstimator::UnrollCostEstimator(
 uint64_t UnrollCostEstimator::getUnrolledLoopSize(
     const TargetTransformInfo::UnrollingPreferences &UP,
     unsigned CountOverwrite) const {
-  unsigned LS = *LoopSize.getValue() + *UnrollPenalty.getValue();
+  unsigned LS = *LoopSize.getValue();
   assert(LS >= UP.BEInsns && "LoopSize should not be less than BEInsns!");
-  if (CountOverwrite)
-    return static_cast<uint64_t>(LS - UP.BEInsns) * CountOverwrite + UP.BEInsns;
-  else
-    return static_cast<uint64_t>(LS - UP.BEInsns) * UP.Count + UP.BEInsns;
+  unsigned Count = CountOverwrite ? CountOverwrite : UP.Count;
+  return static_cast<uint64_t>(LS - UP.BEInsns) * Count +
+         static_cast<uint64_t>(*UnrollPenalty.getValue()) * (Count - 1) +
+         UP.BEInsns;
 }
 
 uint64_t UnrollCostEstimator::getFullyUnrolledLoopSize(
     const TargetTransformInfo::UnrollingPreferences &UP) const {
-  unsigned LS = *LoopSize.getValue() + *UnrollPenalty.getValue();
+  unsigned LS = *LoopSize.getValue();
   assert(LS > *FullUnrollBonus.getValue() &&
          "Loop size should be larger than unroll bonus ");
   LS -= *FullUnrollBonus.getValue();
@@ -783,7 +783,8 @@ uint64_t UnrollCostEstimator::getFullyUnrolledLoopSize(
   // Make sure we don't get a loop size of zero.
   if (LS > BEInsns)
     LS -= BEInsns;
-  return static_cast<uint64_t>(LS) * UP.Count;
+  return static_cast<uint64_t>(LS) * UP.Count +
+         static_cast<uint64_t>(*UnrollPenalty.getValue()) * (UP.Count - 1);
 }
 
 // Returns the loop hint metadata node with the given name (for example,
