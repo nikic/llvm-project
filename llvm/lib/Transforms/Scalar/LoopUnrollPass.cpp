@@ -727,20 +727,12 @@ UnrollCostEstimator::UnrollCostEstimator(
   LoopBlocksRPO RPOT(const_cast<Loop *>(L));
   RPOT.perform(&LI);
   for (BasicBlock *BB : RPOT) {
-    bool InInnerLoop = LI.getLoopFor(BB) != L;
     Metrics.analyzeBasicBlock(
         BB, TTI, EphValues, /*PrepareForLTO*/ false,
         [&](const Instruction *I, InstructionCost Cost) {
           if (isFoldedInst(I, L, FoldedInsts)) {
             FoldedInsts.insert(I);
             FullUnrollBonus += Cost;
-            return;
-          }
-
-          // Double the cost of instructions in inner
-          // loops.
-          if (InInnerLoop) {
-            UnrollPenalty += Cost;
             return;
           }
 
