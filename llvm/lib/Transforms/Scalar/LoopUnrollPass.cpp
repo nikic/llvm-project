@@ -726,14 +726,22 @@ UnrollCostEstimator::UnrollCostEstimator(
   CodeMetrics Metrics;
   LoopBlocksRPO RPOT(const_cast<Loop *>(L));
   RPOT.perform(&LI);
-  for (BasicBlock *BB : RPOT)
+  for (BasicBlock *BB : RPOT) {
+    bool InInnerLoop = LI.getLoopFor(BB) != L;
     Metrics.analyzeBasicBlock(BB, TTI, EphValues, /*PrepareForLTO*/ false,
                               [&](const Instruction *I, InstructionCost Cost) {
                                 if (isFoldedInst(I, L, FoldedInsts)) {
                                   FoldedInsts.insert(I);
                                   FullUnrollBonus += Cost;
+                                  return;
                                 }
+
+                                // Double the cost of instructions in inner
+                                // loops.
+                                if (InInnerLoop)
+                                  UnrollPenalty += Cost;
                               });
+  }
 
   NumInlineCandidates = Metrics.NumInlineCandidates;
   NotDuplicatable = Metrics.notDuplicatable;
@@ -754,7 +762,7 @@ UnrollCostEstimator::UnrollCostEstimator(
 uint64_t UnrollCostEstimator::getUnrolledLoopSize(
     const TargetTransformInfo::UnrollingPreferences &UP,
     unsigned CountOverwrite) const {
-  unsigned LS = *LoopSize.getValue();
+  unsigned LS = *LoopSize.getValue() + *UnrollPenalty.getValue();
   assert(LS >= UP.BEInsns && "LoopSize should not be less than BEInsns!");
   if (CountOverwrite)
     return static_cast<uint64_t>(LS - UP.BEInsns) * CountOverwrite + UP.BEInsns;
@@ -764,7 +772,7 @@ uint64_t UnrollCostEstimator::getUnrolledLoopSize(
 
 uint64_t UnrollCostEstimator::getFullyUnrolledLoopSize(
     const TargetTransformInfo::UnrollingPreferences &UP) const {
-  unsigned LS = *LoopSize.getValue();
+  unsigned LS = *LoopSize.getValue() + *UnrollPenalty.getValue();
   assert(LS > *FullUnrollBonus.getValue() &&
          "Loop size should be larger than unroll bonus ");
   LS -= *FullUnrollBonus.getValue();

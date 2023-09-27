@@ -121,7 +121,10 @@ TargetTransformInfo::UnrollingPreferences gatherUnrollingPreferences(
 /// evaluate all iterations.
 class UnrollCostEstimator {
   InstructionCost LoopSize;
+  // Per-iteration bonus for full unrolling.
   InstructionCost FullUnrollBonus;
+  // Per-iteration penalty for unrolling.
+  InstructionCost UnrollPenalty;
   bool NotDuplicatable;
 
 public:
