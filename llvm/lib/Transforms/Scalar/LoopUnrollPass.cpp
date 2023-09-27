@@ -755,7 +755,7 @@ UnrollCostEstimator::UnrollCostEstimator(
                 return;
 
               // Penalize branches.
-              UnrollPenalty += 1;
+              UnrollPenalty += 2;
             }
           }
         });
