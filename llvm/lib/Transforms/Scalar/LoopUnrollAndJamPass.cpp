@@ -323,8 +323,8 @@ tryToUnrollAndJamLoop(Loop *L, DominatorTree &DT, LoopInfo *LI,
   SmallPtrSet<const Value *, 32> EphValues;
   CodeMetrics::collectEphemeralValues(L, &AC, EphValues);
   Loop *SubLoop = L->getSubLoops()[0];
-  UnrollCostEstimator InnerUCE(SubLoop, TTI, EphValues, UP.BEInsns);
-  UnrollCostEstimator OuterUCE(L, TTI, EphValues, UP.BEInsns);
+  UnrollCostEstimator InnerUCE(SubLoop, TTI, *LI, EphValues, UP.BEInsns);
+  UnrollCostEstimator OuterUCE(L, TTI, *LI, EphValues, UP.BEInsns);
 
   if (!InnerUCE.canUnroll() || !OuterUCE.canUnroll()) {
     LLVM_DEBUG(dbgs() << "  Not unrolling loop which contains instructions"
