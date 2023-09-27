@@ -728,19 +728,37 @@ UnrollCostEstimator::UnrollCostEstimator(
   RPOT.perform(&LI);
   for (BasicBlock *BB : RPOT) {
     bool InInnerLoop = LI.getLoopFor(BB) != L;
-    Metrics.analyzeBasicBlock(BB, TTI, EphValues, /*PrepareForLTO*/ false,
-                              [&](const Instruction *I, InstructionCost Cost) {
-                                if (isFoldedInst(I, L, FoldedInsts)) {
-                                  FoldedInsts.insert(I);
-                                  FullUnrollBonus += Cost;
-                                  return;
-                                }
+    Metrics.analyzeBasicBlock(
+        BB, TTI, EphValues, /*PrepareForLTO*/ false,
+        [&](const Instruction *I, InstructionCost Cost) {
+          if (isFoldedInst(I, L, FoldedInsts)) {
+            FoldedInsts.insert(I);
+            FullUnrollBonus += Cost;
+            return;
+          }
 
-                                // Double the cost of instructions in inner
-                                // loops.
-                                if (InInnerLoop)
-                                  UnrollPenalty += Cost;
-                              });
+          // Double the cost of instructions in inner
+          // loops.
+          if (InInnerLoop) {
+            UnrollPenalty += Cost;
+            return;
+          }
+
+          if (auto *BI = dyn_cast<BranchInst>(I)) {
+            if (BI->isConditional()) {
+              // Ignore conditions that get folded.
+              auto *CondI = dyn_cast<Instruction>(BI->getCondition());
+              if (CondI && FoldedInsts.contains(CondI))
+                return;
+
+              if (L->isLoopExiting(BB) || BB == L->getLoopLatch())
+                return;
+
+              // Penalize branches.
+              UnrollPenalty += 1;
+            }
+          }
+        });
   }
 
   NumInlineCandidates = Metrics.NumInlineCandidates;
