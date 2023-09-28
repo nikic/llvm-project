@@ -167,11 +167,11 @@ static cl::opt<bool> UnrollRevisitChildLoops(
              "clones) were already visited."));
 
 static cl::opt<unsigned> UnrollThresholdAggressive(
-    "unroll-threshold-aggressive", cl::init(300), cl::Hidden,
+    "unroll-threshold-aggressive", cl::init(270), cl::Hidden,
     cl::desc("Threshold (max size of unrolled loop) to use in aggressive (O3) "
              "optimizations"));
 static cl::opt<unsigned>
-    UnrollThresholdDefault("unroll-threshold-default", cl::init(150),
+    UnrollThresholdDefault("unroll-threshold-default", cl::init(135),
                            cl::Hidden,
                            cl::desc("Default threshold (max size of unrolled "
                                     "loop), used in all but O3 optimizations"));
