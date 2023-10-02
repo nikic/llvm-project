@@ -53,6 +53,8 @@ template <typename T, size_t PageSize = 1024 / sizeof(T)> class PagedVector {
   /// constructed and elements of the page are stored contiguously.
   PointerIntPair<BumpPtrAllocator *, 1, bool> Allocator;
 
+  T *allocPage() const;
+
 public:
   using value_type = T;
 
@@ -84,12 +86,8 @@ public:
     assert(Index / PageSize < PageToDataPtrs.size());
     T *&PagePtr = PageToDataPtrs[Index / PageSize];
     // If the page was not yet allocated, allocate it.
-    if (!PagePtr) {
-      PagePtr = Allocator.getPointer()->template Allocate<T>(PageSize);
-      // We need to invoke the default constructor on all the elements of the
-      // page.
-      std::uninitialized_value_construct_n(PagePtr, PageSize);
-    }
+    if (!PagePtr)
+      PagePtr = allocPage();
     // Dereference the element in the page.
     return PagePtr[Index % PageSize];
   }
@@ -262,5 +260,15 @@ public:
     return {materialized_begin(), materialized_end()};
   }
 };
+
+template <typename T, size_t PageSize>
+T *PagedVector<T, PageSize>::allocPage() const {
+  T *PagePtr = Allocator.getPointer()->template Allocate<T>(PageSize);
+  // We need to invoke the default constructor on all the elements of the
+  // page.
+  std::uninitialized_value_construct_n(PagePtr, PageSize);
+  return PagePtr;
+}
+
 } // namespace llvm
 #endif // LLVM_ADT_PAGEDVECTOR_H
