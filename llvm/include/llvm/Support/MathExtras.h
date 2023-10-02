@@ -358,7 +358,7 @@ constexpr inline uint64_t NextPowerOf2(uint64_t A) {
 
 /// Returns the power of two which is greater than or equal to the given value.
 /// Essentially, it is a ceil operation across the domain of powers of two.
-inline uint64_t PowerOf2Ceil(uint64_t A) {
+constexpr inline uint64_t PowerOf2Ceil(uint64_t A) {
   if (!A)
     return 0;
   return NextPowerOf2(A - 1);
