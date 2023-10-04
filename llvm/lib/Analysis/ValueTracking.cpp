@@ -8854,11 +8854,16 @@ ConstantRange llvm::computeConstantRange(const Value *V, bool ForSigned,
   } else if (auto *II = dyn_cast<IntrinsicInst>(V))
     CR = getRangeForIntrinsic(*II);
   else if (auto *SI = dyn_cast<SelectInst>(V)) {
+    ConstantRange CRTrue = computeConstantRange(
+        SI->getTrueValue(), ForSigned, UseInstrInfo, AC, CtxI, DT, Depth + 1);
+    ConstantRange CRFalse = computeConstantRange(
+        SI->getFalseValue(), ForSigned, UseInstrInfo, AC, CtxI, DT, Depth + 1);
+    CR = CRTrue.unionWith(CRFalse);
+    // TODO: Return ConstantRange.
     APInt Lower = APInt(BitWidth, 0);
     APInt Upper = APInt(BitWidth, 0);
-    // TODO: Return ConstantRange.
     setLimitsForSelectPattern(*SI, Lower, Upper, IIQ);
-    CR = ConstantRange::getNonEmpty(Lower, Upper);
+    CR = CR.intersectWith(ConstantRange::getNonEmpty(Lower, Upper));
   } else if (isa<FPToUIInst>(V) || isa<FPToSIInst>(V)) {
     APInt Lower = APInt(BitWidth, 0);
     APInt Upper = APInt(BitWidth, 0);
