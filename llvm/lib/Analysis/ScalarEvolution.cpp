@@ -13787,7 +13787,11 @@ void ScalarEvolution::forgetBackedgeTakenCounts(const Loop *L,
 }
 
 void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs) {
-  SmallPtrSet<const SCEV *, 8> ToForget(SCEVs.begin(), SCEVs.end());
+  SmallPtrSet<const SCEV *, 8> ToForget;
+  for (const SCEV *S : SCEVs)
+    if (isa<SCEVUnknown>(S) || isa<SCEVAddRecExpr>(S))
+      ToForget.insert(S);
+
   SmallVector<const SCEV *, 8> Worklist(ToForget.begin(), ToForget.end());
 
   while (!Worklist.empty()) {
