@@ -629,6 +629,12 @@ class ReleaseWorkflow:
         print(sys.stdin.readlines())
         return False
 
+class CompileTimeBot:
+    def __init__(self, pr_number: int):
+        self.pr_numer = pr_number
+
+    def run(self) -> bool:
+        pass
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -688,6 +694,9 @@ llvmbot_git_config_parser = subparsers.add_parser(
     help="Set the default user and email for the git repo in LLVM_PROJECT_DIR to llvmbot",
 )
 
+compile_time_bot_parser = subparsers.add_parser("compile-time-bot")
+compile_time_bot_parser.add_argument("--pr-number", type=int, required=True)
+
 args = parser.parse_args()
 
 if args.command == "issue-subscriber":
@@ -720,3 +729,6 @@ elif args.command == "release-workflow":
             sys.exit(1)
 elif args.command == "setup-llvmbot-git":
     setup_llvmbot_git()
+elif args.command == "compile-time-bots":
+    compile_time_bot = CompileTimeBot(args.pr_number)
+    compile_time_bot.run()

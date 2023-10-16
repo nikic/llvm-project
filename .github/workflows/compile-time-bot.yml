@@ -1,0 +1,31 @@
+name: Compile Time Bot
+
+on:
+  issue_comment:
+    types:
+      - created
+
+jobs:
+  compile-time-bot:
+    if: >-
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@llvm-compile-time-bot test')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch LLVM sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Environment
+        run: |
+          pip install -r ./llvm/utils/git/requirements.txt
+
+      - name: Run Action
+        run: |
+          printf "%s" "$COMMENT_BODY" |
+          ./llvm/utils/git/github-automation.py \
+          --repo "$GITHUB_REPOSITORY" \
+          compile-time-bot \
+          --pr-number ${{ github.event.issue.number }}
+          #--token ${{ secrets.RELEASE_WORKFLOW_PUSH_SECRET }} \
