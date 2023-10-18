@@ -3110,7 +3110,7 @@ static void getUnsignedMonotonicValues(SmallPtrSetImpl<Value *> &Res, Value *V,
     return;
 
   // Can be increased if useful.
-  if (++Depth > 1)
+  if (++Depth > 2)
     return;
 
   Value *X, *Y;
@@ -3140,8 +3140,8 @@ static Value *simplifyICmpUsingMonotonicValues(ICmpInst::Predicate Pred,
 
   // We have LHS uge GreaterValues and LowerValues uge RHS. If any of the
   // GreaterValues and LowerValues are the same, it follows that LHS uge RHS.
-  SmallPtrSet<Value *, 4> GreaterValues;
-  SmallPtrSet<Value *, 4> LowerValues;
+  SmallPtrSet<Value *, 8> GreaterValues;
+  SmallPtrSet<Value *, 8> LowerValues;
   getUnsignedMonotonicValues(GreaterValues, LHS, /*Greater*/ true);
   getUnsignedMonotonicValues(LowerValues, RHS, /*Greater*/ false);
   for (Value *GV : GreaterValues)
