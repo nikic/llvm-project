@@ -447,10 +447,9 @@ define i1 @_gep_phi1(ptr noundef %str1) {
 ; CHECK-NEXT:    [[CMP3_NOT_I:%.*]] = icmp eq i8 [[TMP1]], 0
 ; CHECK-NEXT:    br i1 [[CMP3_NOT_I]], label [[WHILE_END_I:%.*]], label [[WHILE_COND_I]]
 ; CHECK:       while.end.i:
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp ne ptr [[TEST_0_I]], [[STR1]]
 ; CHECK-NEXT:    br label [[_Z3FOOPKC_EXIT]]
 ; CHECK:       _Z3fooPKc.exit:
-; CHECK-NEXT:    [[RETVAL_0_I:%.*]] = phi i1 [ [[TMP2]], [[WHILE_END_I]] ], [ false, [[LOR_LHS_FALSE_I]] ], [ false, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[RETVAL_0_I:%.*]] = phi i1 [ true, [[WHILE_END_I]] ], [ false, [[LOR_LHS_FALSE_I]] ], [ false, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    ret i1 [[RETVAL_0_I]]
 ;
 entry:
