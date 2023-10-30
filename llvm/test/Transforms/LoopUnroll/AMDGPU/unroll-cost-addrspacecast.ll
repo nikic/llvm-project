@@ -50,7 +50,7 @@ for.end:
 }
 
 ; CHECK-LABEL: @test_func_addrspacecast_cost_nonfree(
-; CHECK: br i1 %exitcond
+; CHECK-NOT: br i1 %exitcond
 define amdgpu_kernel void @test_func_addrspacecast_cost_nonfree(ptr addrspace(3) noalias nocapture %out, ptr addrspace(3) noalias nocapture %in) #0 {
 entry:
   br label %for.body
