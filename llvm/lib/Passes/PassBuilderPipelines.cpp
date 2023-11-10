@@ -1258,7 +1258,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   FPM.addPass(VectorCombinePass());
 
   if (!IsFullLTO) {
-    FPM.addPass(InstCombinePass());
     // Unroll small loops to hide loop backedge latency and saturate any
     // parallel execution resources of an out-of-order processor. We also then
     // need to clean up redundancies and loop invariant code.
