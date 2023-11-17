@@ -16,11 +16,15 @@ define i32 @test_asr(i32 %a, i32 %b) {
 ; CHECK-NEXT:    [[C:%.*]] = icmp slt i32 [[A]], 0
 ; CHECK-NEXT:    br i1 [[C]], label [[BB2:%.*]], label [[BB3:%.*]]
 ; CHECK:       bb2:
+; CHECK-NEXT:    [[NOT:%.*]] = xor i32 [[A]], -1
+; CHECK-NEXT:    [[D:%.*]] = lshr i32 [[NOT]], [[B]]
+; CHECK-NEXT:    [[NOT2:%.*]] = xor i32 [[D]], -1
 ; CHECK-NEXT:    br label [[BB4:%.*]]
 ; CHECK:       bb3:
+; CHECK-NEXT:    [[E:%.*]] = lshr i32 [[A]], [[B]]
 ; CHECK-NEXT:    br label [[BB4]]
 ; CHECK:       bb4:
-; CHECK-NEXT:    [[F:%.*]] = ashr i32 [[A]], [[B]]
+; CHECK-NEXT:    [[F:%.*]] = phi i32 [ [[NOT2]], [[BB2]] ], [ [[E]], [[BB3]] ]
 ; CHECK-NEXT:    ret i32 [[F]]
 ;
 entry:
