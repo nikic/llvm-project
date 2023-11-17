@@ -561,6 +561,10 @@ Value *llvm::getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI) {
   if (Callee == nullptr || IsNoBuiltinCall)
     return nullptr;
 
+  // Don't bother with the TLI lookup if it can't be a free anyway.
+  if (!Callee->getFunctionType()->getReturnType()->isVoidTy())
+    return nullptr;
+
   LibFunc TLIFn;
   if (TLI && TLI->getLibFunc(*Callee, TLIFn) && TLI->has(TLIFn) &&
       isLibFreeFunction(Callee, TLIFn)) {
