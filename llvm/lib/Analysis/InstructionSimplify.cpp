@@ -5001,7 +5001,7 @@ static Value *simplifyGEPInst(Type *SrcTy, Value *Ptr,
     }
   }
 
-  if (!IsScalableVec && Q.DL.getTypeAllocSize(LastType) == 1 &&
+  if (!IsScalableVec && LastType->isIntegerTy(8) &&
       all_of(Indices.drop_back(1),
              [](Value *Idx) { return match(Idx, m_Zero()); })) {
     unsigned IdxWidth =
