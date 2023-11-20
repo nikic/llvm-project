@@ -324,7 +324,9 @@ define i8 @rem_euclid_non_const_pow2(i8 %0, i8 %1) {
 
 define i32 @rem_euclid_pow2_true_arm_folded(i32 %n) {
 ; CHECK-LABEL: @rem_euclid_pow2_true_arm_folded(
-; CHECK-NEXT:    [[RES:%.*]] = and i32 [[N:%.*]], 1
+; CHECK-NEXT:    [[REM:%.*]] = srem i32 [[N:%.*]], 2
+; CHECK-NEXT:    [[NEG:%.*]] = icmp eq i32 [[REM]], -1
+; CHECK-NEXT:    [[RES:%.*]] = select i1 [[NEG]], i32 1, i32 [[REM]]
 ; CHECK-NEXT:    ret i32 [[RES]]
 ;
   %rem = srem i32 %n, 2
@@ -335,7 +337,9 @@ define i32 @rem_euclid_pow2_true_arm_folded(i32 %n) {
 
 define i32 @rem_euclid_pow2_false_arm_folded(i32 %n) {
 ; CHECK-LABEL: @rem_euclid_pow2_false_arm_folded(
-; CHECK-NEXT:    [[RES:%.*]] = and i32 [[N:%.*]], 1
+; CHECK-NEXT:    [[REM:%.*]] = srem i32 [[N:%.*]], 2
+; CHECK-NEXT:    [[NONNEG_NOT:%.*]] = icmp eq i32 [[REM]], -1
+; CHECK-NEXT:    [[RES:%.*]] = select i1 [[NONNEG_NOT]], i32 1, i32 [[REM]]
 ; CHECK-NEXT:    ret i32 [[RES]]
 ;
   %rem = srem i32 %n, 2

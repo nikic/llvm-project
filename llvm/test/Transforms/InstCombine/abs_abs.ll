@@ -305,7 +305,10 @@ define <2 x i32> @abs_abs_x03_vec(<2 x i32> %x, <2 x i32> %y) {
 ; CHECK-LABEL: @abs_abs_x03_vec(
 ; CHECK-NEXT:    [[A:%.*]] = sub nsw <2 x i32> [[X:%.*]], [[Y:%.*]]
 ; CHECK-NEXT:    [[COND:%.*]] = call <2 x i32> @llvm.abs.v2i32(<2 x i32> [[A]], i1 false)
-; CHECK-NEXT:    ret <2 x i32> [[COND]]
+; CHECK-NEXT:    [[CMP1_NOT:%.*]] = icmp eq <2 x i32> [[A]], <i32 -2147483648, i32 -2147483648>
+; CHECK-NEXT:    [[SUB16:%.*]] = sub nsw <2 x i32> zeroinitializer, [[COND]]
+; CHECK-NEXT:    [[COND18:%.*]] = select <2 x i1> [[CMP1_NOT]], <2 x i32> [[SUB16]], <2 x i32> [[COND]]
+; CHECK-NEXT:    ret <2 x i32> [[COND18]]
 ;
   %a = sub nsw <2 x i32> %x, %y
   %b = sub nsw <2 x i32> %y, %x
@@ -1174,8 +1177,8 @@ define i32 @nabs_abs_x18(i32 %x, i32 %y) {
 ; CHECK-LABEL: @nabs_abs_x18(
 ; CHECK-NEXT:    [[A:%.*]] = sub nsw i32 [[X:%.*]], [[Y:%.*]]
 ; CHECK-NEXT:    [[COND:%.*]] = call i32 @llvm.abs.i32(i32 [[A]], i1 false)
-; CHECK-NEXT:    [[COND18:%.*]] = sub i32 0, [[COND]]
-; CHECK-NEXT:    ret i32 [[COND18]]
+; CHECK-NEXT:    [[SUB16:%.*]] = sub i32 0, [[COND]]
+; CHECK-NEXT:    ret i32 [[SUB16]]
 ;
   %a = sub nsw i32 %x, %y
   %b = sub nsw i32 %y, %x
@@ -1208,7 +1211,9 @@ define <2 x i32> @nabs_abs_x02_vec(<2 x i32> %x, <2 x i32> %y) {
 ; CHECK-LABEL: @nabs_abs_x02_vec(
 ; CHECK-NEXT:    [[A:%.*]] = sub nsw <2 x i32> [[X:%.*]], [[Y:%.*]]
 ; CHECK-NEXT:    [[COND:%.*]] = call <2 x i32> @llvm.abs.v2i32(<2 x i32> [[A]], i1 false)
-; CHECK-NEXT:    [[COND18:%.*]] = sub <2 x i32> zeroinitializer, [[COND]]
+; CHECK-NEXT:    [[CMP1_NOT:%.*]] = icmp eq <2 x i32> [[A]], <i32 -2147483648, i32 -2147483648>
+; CHECK-NEXT:    [[SUB16:%.*]] = sub nsw <2 x i32> zeroinitializer, [[COND]]
+; CHECK-NEXT:    [[COND18:%.*]] = select <2 x i1> [[CMP1_NOT]], <2 x i32> [[COND]], <2 x i32> [[SUB16]]
 ; CHECK-NEXT:    ret <2 x i32> [[COND18]]
 ;
   %a = sub nsw <2 x i32> %x, %y

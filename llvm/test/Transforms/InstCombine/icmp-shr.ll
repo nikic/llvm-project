@@ -1082,7 +1082,7 @@ define i1 @lshr_not_pow2_ugt(i8 %x) {
 
 define i1 @lshr_pow2_ugt1(i8 %x) {
 ; CHECK-LABEL: @lshr_pow2_ugt1(
-; CHECK-NEXT:    [[R:%.*]] = icmp ult i8 [[X:%.*]], 7
+; CHECK-NEXT:    [[R:%.*]] = icmp ne i8 [[X:%.*]], 7
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %s = lshr i8 128, %x

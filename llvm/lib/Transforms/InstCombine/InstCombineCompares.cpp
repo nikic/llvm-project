@@ -1364,74 +1364,74 @@ Instruction *InstCombinerImpl::foldICmpWithConstant(ICmpInst &Cmp) {
 
 /// Canonicalize icmp instructions based on dominating conditions.
 Instruction *InstCombinerImpl::foldICmpWithDominatingICmp(ICmpInst &Cmp) {
+  // We already checked simple implication in InstSimplify, only handle complex
+  // cases here.
+  const APInt *C;
+  if (!match(Cmp.getOperand(1), m_APInt(C)))
+    return nullptr;
+
+  CmpInst::Predicate Pred = Cmp.getPredicate();
+  ConstantRange CR = ConstantRange::makeExactICmpRegion(Pred, *C);
+
+  Value *X = Cmp.getOperand(0);
+  ConstantRange InputCR = computeConstantRange(X, Cmp.isSigned());
+
   // This is a cheap/incomplete check for dominance - just match a single
   // predecessor with a conditional branch.
   BasicBlock *CmpBB = Cmp.getParent();
   BasicBlock *DomBB = CmpBB->getSinglePredecessor();
-  if (!DomBB)
-    return nullptr;
+  if (DomBB) {
+    Value *DomCond;
+    BasicBlock *TrueBB, *FalseBB;
+    if (match(DomBB->getTerminator(),
+              m_Br(m_Value(DomCond), TrueBB, FalseBB))) {
+      assert((TrueBB == CmpBB || FalseBB == CmpBB) &&
+             "Predecessor block does not point to successor?");
 
-  Value *DomCond;
-  BasicBlock *TrueBB, *FalseBB;
-  if (!match(DomBB->getTerminator(), m_Br(m_Value(DomCond), TrueBB, FalseBB)))
-    return nullptr;
-
-  assert((TrueBB == CmpBB || FalseBB == CmpBB) &&
-         "Predecessor block does not point to successor?");
-
-  // The branch should get simplified. Don't bother simplifying this condition.
-  if (TrueBB == FalseBB)
-    return nullptr;
-
-  // We already checked simple implication in InstSimplify, only handle complex
-  // cases here.
-
-  CmpInst::Predicate Pred = Cmp.getPredicate();
-  Value *X = Cmp.getOperand(0), *Y = Cmp.getOperand(1);
-  ICmpInst::Predicate DomPred;
-  const APInt *C, *DomC;
-  if (match(DomCond, m_ICmp(DomPred, m_Specific(X), m_APInt(DomC))) &&
-      match(Y, m_APInt(C))) {
-    // We have 2 compares of a variable with constants. Calculate the constant
-    // ranges of those compares to see if we can transform the 2nd compare:
-    // DomBB:
-    //   DomCond = icmp DomPred X, DomC
-    //   br DomCond, CmpBB, FalseBB
-    // CmpBB:
-    //   Cmp = icmp Pred X, C
-    ConstantRange CR = ConstantRange::makeExactICmpRegion(Pred, *C);
-    ConstantRange DominatingCR =
-        (CmpBB == TrueBB) ? ConstantRange::makeExactICmpRegion(DomPred, *DomC)
-                          : ConstantRange::makeExactICmpRegion(
-                                CmpInst::getInversePredicate(DomPred), *DomC);
-    ConstantRange Intersection = DominatingCR.intersectWith(CR);
-    ConstantRange Difference = DominatingCR.difference(CR);
-    if (Intersection.isEmptySet())
-      return replaceInstUsesWith(Cmp, Builder.getFalse());
-    if (Difference.isEmptySet())
-      return replaceInstUsesWith(Cmp, Builder.getTrue());
-
-    // Canonicalizing a sign bit comparison that gets used in a branch,
-    // pessimizes codegen by generating branch on zero instruction instead
-    // of a test and branch. So we avoid canonicalizing in such situations
-    // because test and branch instruction has better branch displacement
-    // than compare and branch instruction.
-    bool UnusedBit;
-    bool IsSignBit = isSignBitCheck(Pred, *C, UnusedBit);
-    if (Cmp.isEquality() || (IsSignBit && hasBranchUse(Cmp)))
-      return nullptr;
-
-    // Avoid an infinite loop with min/max canonicalization.
-    // TODO: This will be unnecessary if we canonicalize to min/max intrinsics.
-    if (Cmp.hasOneUse() &&
-        match(Cmp.user_back(), m_MaxOrMin(m_Value(), m_Value())))
-      return nullptr;
-
-    if (const APInt *EqC = Intersection.getSingleElement())
-      return new ICmpInst(ICmpInst::ICMP_EQ, X, Builder.getInt(*EqC));
-    if (const APInt *NeC = Difference.getSingleElement())
-      return new ICmpInst(ICmpInst::ICMP_NE, X, Builder.getInt(*NeC));
+      // The branch should get simplified. Don't bother simplifying this
+      // condition.
+      if (TrueBB != FalseBB) {
+        ICmpInst::Predicate DomPred;
+        const APInt *DomC;
+        if (match(DomCond, m_ICmp(DomPred, m_Specific(X), m_APInt(DomC))))
+          InputCR = InputCR.intersectWith(
+              (CmpBB == TrueBB)
+                  ? ConstantRange::makeExactICmpRegion(DomPred, *DomC)
+                  : ConstantRange::makeExactICmpRegion(
+                        CmpInst::getInversePredicate(DomPred), *DomC));
+      }
+    }
   }
+
+  ConstantRange Intersection = InputCR.intersectWith(CR);
+  ConstantRange Difference = InputCR.difference(CR);
+  if (Intersection.isEmptySet())
+    return replaceInstUsesWith(Cmp, Builder.getFalse());
+  if (Difference.isEmptySet())
+    return replaceInstUsesWith(Cmp, Builder.getTrue());
+
+  // Canonicalizing a sign bit comparison that gets used in a branch,
+  // pessimizes codegen by generating branch on zero instruction instead
+  // of a test and branch. So we avoid canonicalizing in such situations
+  // because test and branch instruction has better branch displacement
+  // than compare and branch instruction.
+  bool UnusedBit;
+  bool IsSignBit = isSignBitCheck(Pred, *C, UnusedBit);
+  if (Cmp.isEquality() || (IsSignBit && hasBranchUse(Cmp)))
+    return nullptr;
+
+  // Avoid an infinite loop with min/max canonicalization.
+  // TODO: This will be unnecessary if we canonicalize to min/max intrinsics.
+  if (Cmp.hasOneUse() &&
+      match(Cmp.user_back(), m_MaxOrMin(m_Value(), m_Value())))
+    return nullptr;
+
+  if (const APInt *EqC = Intersection.getSingleElement())
+    return new ICmpInst(ICmpInst::ICMP_EQ, X,
+                        ConstantInt::get(X->getType(), *EqC));
+  if (const APInt *NeC = Difference.getSingleElement())
+    return new ICmpInst(ICmpInst::ICMP_NE, X,
+                        ConstantInt::get(X->getType(), *NeC));
 
   return nullptr;
 }

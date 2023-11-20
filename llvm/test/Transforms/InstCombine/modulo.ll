@@ -4,7 +4,10 @@
 ; PR21929
 define i32 @modulo2(i32 %x) {
 ; CHECK-LABEL: @modulo2(
-; CHECK-NEXT:    [[RET_I:%.*]] = and i32 [[X:%.*]], 1
+; CHECK-NEXT:    [[REM_I:%.*]] = srem i32 [[X:%.*]], 2
+; CHECK-NEXT:    [[CMP_I:%.*]] = icmp eq i32 [[REM_I]], -1
+; CHECK-NEXT:    [[ADD_I:%.*]] = select i1 [[CMP_I]], i32 2, i32 0
+; CHECK-NEXT:    [[RET_I:%.*]] = add nsw i32 [[ADD_I]], [[REM_I]]
 ; CHECK-NEXT:    ret i32 [[RET_I]]
 ;
   %rem.i = srem i32 %x, 2
@@ -16,7 +19,10 @@ define i32 @modulo2(i32 %x) {
 
 define <2 x i32> @modulo2_vec(<2 x i32> %x) {
 ; CHECK-LABEL: @modulo2_vec(
-; CHECK-NEXT:    [[RET_I:%.*]] = and <2 x i32> [[X:%.*]], <i32 1, i32 1>
+; CHECK-NEXT:    [[REM_I:%.*]] = srem <2 x i32> [[X:%.*]], <i32 2, i32 2>
+; CHECK-NEXT:    [[CMP_I:%.*]] = icmp eq <2 x i32> [[REM_I]], <i32 -1, i32 -1>
+; CHECK-NEXT:    [[ADD_I:%.*]] = select <2 x i1> [[CMP_I]], <2 x i32> <i32 2, i32 2>, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[RET_I:%.*]] = add nsw <2 x i32> [[ADD_I]], [[REM_I]]
 ; CHECK-NEXT:    ret <2 x i32> [[RET_I]]
 ;
   %rem.i = srem <2 x i32> %x, <i32 2, i32 2>

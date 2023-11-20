@@ -5,8 +5,8 @@ target datalayout = "n32"
 
 define i1 @is_rem2_neg_i8(i8 %x) {
 ; CHECK-LABEL: @is_rem2_neg_i8(
-; CHECK-NEXT:    [[TMP1:%.*]] = and i8 [[X:%.*]], -127
-; CHECK-NEXT:    [[R:%.*]] = icmp eq i8 [[TMP1]], -127
+; CHECK-NEXT:    [[S:%.*]] = srem i8 [[X:%.*]], 2
+; CHECK-NEXT:    [[R:%.*]] = icmp eq i8 [[S]], -1
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %s = srem i8 %x, 2
@@ -118,8 +118,8 @@ define i32 @icmp_div(i16 %a, i16 %c) {
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i16 [[A:%.*]], 0
 ; CHECK-NEXT:    br i1 [[TOBOOL]], label [[THEN:%.*]], label [[EXIT:%.*]]
 ; CHECK:       then:
-; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i16 [[C:%.*]], 0
-; CHECK-NEXT:    [[TMP0:%.*]] = sext i1 [[CMP]] to i32
+; CHECK-NEXT:    [[CMP_NOT:%.*]] = icmp eq i16 [[C:%.*]], 0
+; CHECK-NEXT:    [[TMP0:%.*]] = sext i1 [[CMP_NOT]] to i32
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ -1, [[ENTRY:%.*]] ], [ [[TMP0]], [[THEN]] ]
@@ -173,8 +173,8 @@ define i32 @icmp_div3(i16 %a, i16 %c) {
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i16 [[A:%.*]], 0
 ; CHECK-NEXT:    br i1 [[TOBOOL]], label [[THEN:%.*]], label [[EXIT:%.*]]
 ; CHECK:       then:
-; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i16 [[C:%.*]], 0
-; CHECK-NEXT:    [[TMP0:%.*]] = sext i1 [[CMP]] to i32
+; CHECK-NEXT:    [[CMP_NOT:%.*]] = icmp eq i16 [[C:%.*]], 0
+; CHECK-NEXT:    [[TMP0:%.*]] = sext i1 [[CMP_NOT]] to i32
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ -1, [[ENTRY:%.*]] ], [ [[TMP0]], [[THEN]] ]
