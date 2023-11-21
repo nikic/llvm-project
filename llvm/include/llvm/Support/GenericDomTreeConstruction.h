@@ -65,7 +65,7 @@ struct SemiNCAInfo {
     unsigned DFSNum = 0;
     unsigned Parent = 0;
     unsigned Semi = 0;
-    NodePtr Label = nullptr;
+    unsigned Label = 0;
     NodePtr IDom = nullptr;
     SmallVector<NodePtr, 2> ReverseChildren;
   };
@@ -189,8 +189,7 @@ struct SemiNCAInfo {
 
       // Visited nodes always have positive DFS numbers.
       if (BBInfo.DFSNum != 0) continue;
-      BBInfo.DFSNum = BBInfo.Semi = ++LastNum;
-      BBInfo.Label = BB;
+      BBInfo.DFSNum = BBInfo.Semi = BBInfo.Label = ++LastNum;
       NumToNode.push_back(BB);
 
       constexpr bool Direction = IsReverse != IsPostDom;  // XOR.
@@ -237,9 +236,9 @@ struct SemiNCAInfo {
   //
   // For each vertex V, its Label points to the vertex with the minimal sdom(U)
   // (Semi) in its path from V (included) to NodeToInfo[V].Parent (excluded).
-  NodePtr eval(NodePtr V, unsigned LastLinked,
-               SmallVectorImpl<InfoRec *> &Stack,
-               ArrayRef<InfoRec *> NumToInfo) {
+  unsigned eval(NodePtr V, unsigned LastLinked,
+                SmallVectorImpl<InfoRec *> &Stack,
+                ArrayRef<InfoRec *> NumToInfo) {
     InfoRec *VInfo = &NodeToInfo[V];
     if (VInfo->Parent < LastLinked)
       return VInfo->Label;
@@ -254,11 +253,11 @@ struct SemiNCAInfo {
     // Path compression. Point each vertex's Parent to the root and update its
     // Label if any of its ancestors (PInfo->Label) has a smaller Semi.
     const InfoRec *PInfo = VInfo;
-    const InfoRec *PLabelInfo = &NodeToInfo[PInfo->Label];
+    const InfoRec *PLabelInfo = NumToInfo[PInfo->Label];
     do {
       VInfo = Stack.pop_back_val();
       VInfo->Parent = PInfo->Parent;
-      const InfoRec *VLabelInfo = &NodeToInfo[VInfo->Label];
+      const InfoRec *VLabelInfo = NumToInfo[VInfo->Label];
       if (PLabelInfo->Semi < VLabelInfo->Semi)
         VInfo->Label = PInfo->Label;
       else
@@ -297,7 +296,7 @@ struct SemiNCAInfo {
         if (TN && TN->getLevel() < MinLevel)
           continue;
 
-        unsigned SemiU = NodeToInfo[eval(N, i + 1, EvalStack, NumToInfo)].Semi;
+        unsigned SemiU = NumToInfo[eval(N, i + 1, EvalStack, NumToInfo)]->Semi;
         if (SemiU < WInfo.Semi) WInfo.Semi = SemiU;
       }
     }
@@ -327,8 +326,7 @@ struct SemiNCAInfo {
     assert(NumToNode.size() == 1 && "SNCAInfo must be freshly constructed");
 
     auto &BBInfo = NodeToInfo[nullptr];
-    BBInfo.DFSNum = BBInfo.Semi = 1;
-    BBInfo.Label = nullptr;
+    BBInfo.DFSNum = BBInfo.Semi = BBInfo.Label = 1;
 
     NumToNode.push_back(nullptr);  // NumToNode[1] = nullptr;
   }
