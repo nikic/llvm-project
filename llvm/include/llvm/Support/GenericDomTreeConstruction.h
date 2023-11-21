@@ -238,7 +238,8 @@ struct SemiNCAInfo {
   // For each vertex V, its Label points to the vertex with the minimal sdom(U)
   // (Semi) in its path from V (included) to NodeToInfo[V].Parent (excluded).
   NodePtr eval(NodePtr V, unsigned LastLinked,
-               SmallVectorImpl<InfoRec *> &Stack) {
+               SmallVectorImpl<InfoRec *> &Stack,
+               ArrayRef<InfoRec *> NumToInfo) {
     InfoRec *VInfo = &NodeToInfo[V];
     if (VInfo->Parent < LastLinked)
       return VInfo->Label;
@@ -247,7 +248,7 @@ struct SemiNCAInfo {
     assert(Stack.empty());
     do {
       Stack.push_back(VInfo);
-      VInfo = &NodeToInfo[NumToNode[VInfo->Parent]];
+      VInfo = NumToInfo[VInfo->Parent];
     } while (VInfo->Parent >= LastLinked);
 
     // Path compression. Point each vertex's Parent to the root and update its
@@ -270,18 +271,20 @@ struct SemiNCAInfo {
   // This function requires DFS to be run before calling it.
   void runSemiNCA(DomTreeT &DT, const unsigned MinLevel = 0) {
     const unsigned NextDFSNum(NumToNode.size());
+    SmallVector<InfoRec *, 8> NumToInfo = {nullptr};
+    NumToInfo.reserve(NextDFSNum);
     // Initialize IDoms to spanning tree parents.
     for (unsigned i = 1; i < NextDFSNum; ++i) {
       const NodePtr V = NumToNode[i];
       auto &VInfo = NodeToInfo[V];
       VInfo.IDom = NumToNode[VInfo.Parent];
+      NumToInfo.push_back(&VInfo);
     }
 
     // Step #1: Calculate the semidominators of all vertices.
     SmallVector<InfoRec *, 32> EvalStack;
     for (unsigned i = NextDFSNum - 1; i >= 2; --i) {
-      NodePtr W = NumToNode[i];
-      auto &WInfo = NodeToInfo[W];
+      auto &WInfo = *NumToInfo[i];
 
       // Initialize the semi dominator to point to the parent node.
       WInfo.Semi = WInfo.Parent;
@@ -294,7 +297,7 @@ struct SemiNCAInfo {
         if (TN && TN->getLevel() < MinLevel)
           continue;
 
-        unsigned SemiU = NodeToInfo[eval(N, i + 1, EvalStack)].Semi;
+        unsigned SemiU = NodeToInfo[eval(N, i + 1, EvalStack, NumToInfo)].Semi;
         if (SemiU < WInfo.Semi) WInfo.Semi = SemiU;
       }
     }
@@ -304,8 +307,7 @@ struct SemiNCAInfo {
     // Note that the parents were stored in IDoms and later got invalidated
     // during path compression in Eval.
     for (unsigned i = 2; i < NextDFSNum; ++i) {
-      const NodePtr W = NumToNode[i];
-      auto &WInfo = NodeToInfo[W];
+      auto &WInfo = *NumToInfo[i];
       const unsigned SDomNum = NodeToInfo[NumToNode[WInfo.Semi]].DFSNum;
       NodePtr WIDomCandidate = WInfo.IDom;
       while (NodeToInfo[WIDomCandidate].DFSNum > SDomNum)
