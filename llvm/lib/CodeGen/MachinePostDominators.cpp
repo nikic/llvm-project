@@ -13,11 +13,20 @@
 
 #include "llvm/CodeGen/MachinePostDominators.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Support/GenericDomTreeConstruction.h"
 
 using namespace llvm;
 
 namespace llvm {
 template class DominatorTreeBase<MachineBasicBlock, true>; // PostDomTreeBase
+
+namespace DomTreeBuilder {
+using MachinePostDomTree = DominatorTreeBase<MachineBasicBlock, true>;
+using MachinePostDomTreeGraphDiff = GraphDiff<MachineBasicBlock *, true>;
+template void ApplyUpdates<MachinePostDomTree>(MachinePostDomTree &DT,
+                                               MachinePostDomTreeGraphDiff &,
+                                               MachinePostDomTreeGraphDiff *);
+}
 
 extern bool VerifyMachineDomInfo;
 } // namespace llvm

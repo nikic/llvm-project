@@ -18,6 +18,7 @@
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/GenericDomTreeConstruction.h"
 
 using namespace llvm;
 
@@ -37,6 +38,17 @@ static cl::opt<bool, true> VerifyMachineDomInfoX(
 namespace llvm {
 template class DomTreeNodeBase<MachineBasicBlock>;
 template class DominatorTreeBase<MachineBasicBlock, false>; // DomTreeBase
+
+namespace DomTreeBuilder {
+using MachineDomTreeGraphDiff = GraphDiff<MachineBasicBlock *, false>;
+template void Calculate<MachineDomTree>(MachineDomTree &DT);
+template void ApplyUpdates<MachineDomTree>(MachineDomTree &DT,
+                                           MachineDomTreeGraphDiff &,
+                                           MachineDomTreeGraphDiff *);
+template void InsertEdge<MachineDomTree>(MachineDomTree &DT,
+                                         MachineBasicBlock *From,
+                                         MachineBasicBlock *To);
+}
 }
 
 char MachineDominatorTree::ID = 0;
