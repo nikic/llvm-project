@@ -181,7 +181,7 @@ struct SemiNCAInfo {
                   const NodeOrderMap *SuccOrder = nullptr) {
     assert(V);
     SmallVector<NodePtr, 64> WorkList = {V};
-    if (NodeToInfo.count(V) != 0) NodeToInfo[V].Parent = AttachToNum;
+    NodeToInfo[V].Parent = AttachToNum;
 
     while (!WorkList.empty()) {
       const NodePtr BB = WorkList.pop_back_val();
@@ -306,6 +306,7 @@ struct SemiNCAInfo {
     for (unsigned i = 2; i < NextDFSNum; ++i) {
       const NodePtr W = NumToNode[i];
       auto &WInfo = NodeToInfo[W];
+      assert(WInfo.Semi != 0);
       const unsigned SDomNum = NodeToInfo[NumToNode[WInfo.Semi]].DFSNum;
       NodePtr WIDomCandidate = WInfo.IDom;
       while (NodeToInfo[WIDomCandidate].DFSNum > SDomNum)
@@ -552,7 +553,7 @@ struct SemiNCAInfo {
 
     addVirtualRoot();
     unsigned Num = 1;
-    for (const NodePtr Root : DT.Roots) Num = runDFS(Root, Num, DC, 0);
+    for (const NodePtr Root : DT.Roots) Num = runDFS(Root, Num, DC, 1);
   }
 
   static void CalculateFromScratch(DomTreeT &DT, BatchUpdatePtr BUI) {
