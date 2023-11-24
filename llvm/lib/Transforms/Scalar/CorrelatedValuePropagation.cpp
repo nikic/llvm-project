@@ -265,6 +265,7 @@ static bool processPHI(PHINode *P, LazyValueInfo *LVI, DominatorTree *DT,
 }
 
 static bool processMemAccess(Instruction *I, LazyValueInfo *LVI) {
+  return false;
   Value *Pointer = nullptr;
   if (LoadInst *L = dyn_cast<LoadInst>(I))
     Pointer = L->getPointerOperand();
