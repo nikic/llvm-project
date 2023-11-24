@@ -1853,20 +1853,7 @@ bool InlineCostCallAnalyzer::isColdCallSite(CallBase &Call,
   if (PSI && PSI->hasProfileSummary())
     return PSI->isColdCallSite(Call, CallerBFI);
 
-  // Otherwise we need BFI to be available.
-  if (!CallerBFI)
-    return false;
-
-  // Determine if the callsite is cold relative to caller's entry. We could
-  // potentially cache the computation of scaled entry frequency, but the added
-  // complexity is not worth it unless this scaling shows up high in the
-  // profiles.
-  const BranchProbability ColdProb(ColdCallSiteRelFreq, 100);
-  auto CallSiteBB = Call.getParent();
-  auto CallSiteFreq = CallerBFI->getBlockFreq(CallSiteBB);
-  auto CallerEntryFreq =
-      CallerBFI->getBlockFreq(&(Call.getCaller()->getEntryBlock()));
-  return CallSiteFreq < CallerEntryFreq * ColdProb;
+  return Call.hasFnAttr(Attribute::Cold);
 }
 
 std::optional<int>
