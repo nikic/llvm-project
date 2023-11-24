@@ -16,6 +16,7 @@
 #include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/CrossTU/CrossTranslationUnit.h"
+#include "clang/Frontend/ASTUnit.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"

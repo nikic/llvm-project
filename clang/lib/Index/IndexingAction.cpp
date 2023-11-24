@@ -8,6 +8,7 @@
 
 #include "clang/Index/IndexingAction.h"
 #include "IndexingContext.h"
+#include "clang/Frontend/ASTUnit.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/Frontend/MultiplexConsumer.h"

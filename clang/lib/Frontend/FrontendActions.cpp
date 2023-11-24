@@ -14,6 +14,7 @@
 #include "clang/Basic/Module.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/ASTConsumers.h"
+#include "clang/Frontend/ASTUnit.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/MultiplexConsumer.h"

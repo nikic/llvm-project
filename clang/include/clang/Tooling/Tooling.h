@@ -53,6 +53,7 @@ namespace clang {
 class CompilerInstance;
 class CompilerInvocation;
 class DiagnosticConsumer;
+class DiagnosticOptions;
 class DiagnosticsEngine;
 
 namespace driver {

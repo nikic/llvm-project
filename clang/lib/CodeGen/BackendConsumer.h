@@ -11,6 +11,7 @@
 
 #include "clang/CodeGen/BackendUtil.h"
 #include "clang/CodeGen/CodeGenAction.h"
+#include "clang/Frontend/ASTUnit.h"
 
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/Support/Timer.h"

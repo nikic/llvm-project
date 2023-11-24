@@ -144,6 +144,10 @@ public:
 
 } // end anonymous namespace
 
+std::unique_ptr<ASTUnit> FrontendAction::takeCurrentASTUnit() {
+  return std::move(CurrentASTUnit);
+}
+
 FrontendAction::FrontendAction() : Instance(nullptr) {}
 
 FrontendAction::~FrontendAction() {}

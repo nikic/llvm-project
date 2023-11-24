@@ -14,6 +14,7 @@
 #include "clang/Tooling/ASTDiff/ASTDiff.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
+#include "clang/Frontend/ASTUnit.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
