@@ -3641,20 +3641,97 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
       continue;
     }
 
-    case OPC_EmitNode:     case OPC_MorphNodeTo:
-    case OPC_EmitNode0:    case OPC_EmitNode1:    case OPC_EmitNode2:
-    case OPC_MorphNodeTo0: case OPC_MorphNodeTo1: case OPC_MorphNodeTo2: {
+    case OPC_EmitNode:
+    case OPC_MorphNodeTo:
+    case OPC_EmitNode0:
+    case OPC_EmitNode1:
+    case OPC_EmitNode2:
+    case OPC_MorphNodeTo0:
+    case OPC_MorphNodeTo1:
+    case OPC_MorphNodeTo2:
+    case OPC_EmitNode0None:
+    case OPC_EmitNode1None:
+    case OPC_EmitNode2None:
+    case OPC_MorphNodeTo0None:
+    case OPC_MorphNodeTo1None:
+    case OPC_MorphNodeTo2None:
+    case OPC_EmitNode0Chain:
+    case OPC_EmitNode1Chain:
+    case OPC_EmitNode2Chain:
+    case OPC_MorphNodeTo0Chain:
+    case OPC_MorphNodeTo1Chain:
+    case OPC_MorphNodeTo2Chain:
+    case OPC_EmitNode0GlueInput:
+    case OPC_EmitNode1GlueInput:
+    case OPC_EmitNode2GlueInput:
+    case OPC_MorphNodeTo0GlueInput:
+    case OPC_MorphNodeTo1GlueInput:
+    case OPC_MorphNodeTo2GlueInput:
+    case OPC_EmitNode0GlueOutput:
+    case OPC_EmitNode1GlueOutput:
+    case OPC_EmitNode2GlueOutput:
+    case OPC_MorphNodeTo0GlueOutput:
+    case OPC_MorphNodeTo1GlueOutput:
+    case OPC_MorphNodeTo2GlueOutput:
+    case OPC_EmitNode0MemRefs:
+    case OPC_EmitNode1MemRefs:
+    case OPC_EmitNode2MemRefs:
+    case OPC_MorphNodeTo0MemRefs:
+    case OPC_MorphNodeTo1MemRefs:
+    case OPC_MorphNodeTo2MemRefs: {
       uint16_t TargetOpc = MatcherTable[MatcherIndex++];
       TargetOpc |= (unsigned short)MatcherTable[MatcherIndex++] << 8;
-      unsigned EmitNodeInfo = MatcherTable[MatcherIndex++];
+      unsigned EmitNodeInfo;
+      if (Opcode >= OPC_EmitNode0None && Opcode <= OPC_MorphNodeTo2MemRefs) {
+        if (Opcode >= OPC_EmitNode0Chain && Opcode <= OPC_MorphNodeTo2Chain)
+          EmitNodeInfo = OPFL_Chain;
+        else if (Opcode >= OPC_EmitNode0GlueInput &&
+                 Opcode <= OPC_MorphNodeTo2GlueInput)
+          EmitNodeInfo = OPFL_GlueInput;
+        else if (Opcode >= OPC_EmitNode0GlueOutput &&
+                 Opcode <= OPC_MorphNodeTo2GlueOutput)
+          EmitNodeInfo = OPFL_GlueOutput;
+        else if (Opcode >= OPC_EmitNode0MemRefs &&
+                 Opcode <= OPC_MorphNodeTo2MemRefs)
+          EmitNodeInfo = OPFL_MemRefs;
+        else
+          EmitNodeInfo = OPFL_None;
+      } else
+        EmitNodeInfo = MatcherTable[MatcherIndex++];
       // Get the result VT list.
       unsigned NumVTs;
       // If this is one of the compressed forms, get the number of VTs based
       // on the Opcode. Otherwise read the next byte from the table.
       if (Opcode >= OPC_MorphNodeTo0 && Opcode <= OPC_MorphNodeTo2)
         NumVTs = Opcode - OPC_MorphNodeTo0;
+      else if (Opcode >= OPC_MorphNodeTo0None && Opcode <= OPC_MorphNodeTo2None)
+        NumVTs = Opcode - OPC_MorphNodeTo0None;
+      else if (Opcode >= OPC_MorphNodeTo0Chain &&
+               Opcode <= OPC_MorphNodeTo2Chain)
+        NumVTs = Opcode - OPC_MorphNodeTo0Chain;
+      else if (Opcode >= OPC_MorphNodeTo0GlueInput &&
+               Opcode <= OPC_MorphNodeTo2GlueInput)
+        NumVTs = Opcode - OPC_MorphNodeTo0GlueInput;
+      else if (Opcode >= OPC_MorphNodeTo0GlueOutput &&
+               Opcode <= OPC_MorphNodeTo2GlueOutput)
+        NumVTs = Opcode - OPC_MorphNodeTo0GlueOutput;
+      else if (Opcode >= OPC_MorphNodeTo0MemRefs &&
+               Opcode <= OPC_MorphNodeTo2MemRefs)
+        NumVTs = Opcode - OPC_MorphNodeTo0MemRefs;
       else if (Opcode >= OPC_EmitNode0 && Opcode <= OPC_EmitNode2)
         NumVTs = Opcode - OPC_EmitNode0;
+      else if (Opcode >= OPC_EmitNode0None && Opcode <= OPC_EmitNode2None)
+        NumVTs = Opcode - OPC_EmitNode0None;
+      else if (Opcode >= OPC_EmitNode0Chain && Opcode <= OPC_EmitNode2Chain)
+        NumVTs = Opcode - OPC_EmitNode0Chain;
+      else if (Opcode >= OPC_EmitNode0GlueInput &&
+               Opcode <= OPC_EmitNode2GlueInput)
+        NumVTs = Opcode - OPC_EmitNode0GlueInput;
+      else if (Opcode >= OPC_EmitNode0GlueOutput &&
+               Opcode <= OPC_EmitNode2GlueOutput)
+        NumVTs = Opcode - OPC_EmitNode0GlueOutput;
+      else if (Opcode >= OPC_EmitNode0MemRefs && Opcode <= OPC_EmitNode2MemRefs)
+        NumVTs = Opcode - OPC_EmitNode0MemRefs;
       else
         NumVTs = MatcherTable[MatcherIndex++];
       SmallVector<EVT, 4> VTs;
@@ -3727,8 +3804,18 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
 
       // Create the node.
       MachineSDNode *Res = nullptr;
-      bool IsMorphNodeTo = Opcode == OPC_MorphNodeTo ||
-                     (Opcode >= OPC_MorphNodeTo0 && Opcode <= OPC_MorphNodeTo2);
+      bool IsMorphNodeTo =
+          Opcode == OPC_MorphNodeTo ||
+          (Opcode >= OPC_MorphNodeTo0 && Opcode <= OPC_MorphNodeTo2) ||
+          (Opcode >= OPC_MorphNodeTo0None && Opcode <= OPC_MorphNodeTo2None) ||
+          (Opcode >= OPC_MorphNodeTo0Chain &&
+           Opcode <= OPC_MorphNodeTo2Chain) ||
+          (Opcode >= OPC_MorphNodeTo0GlueInput &&
+           Opcode <= OPC_MorphNodeTo2GlueInput) ||
+          (Opcode >= OPC_MorphNodeTo0GlueOutput &&
+           Opcode <= OPC_MorphNodeTo2GlueOutput) ||
+          (Opcode >= OPC_MorphNodeTo0MemRefs &&
+           Opcode <= OPC_MorphNodeTo2MemRefs);
       if (!IsMorphNodeTo) {
         // If this is a normal EmitNode command, just create the new node and
         // add the results to the RecordedNodes list.

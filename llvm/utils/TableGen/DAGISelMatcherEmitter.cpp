@@ -799,19 +799,49 @@ EmitMatcher(const Matcher *N, const unsigned Indent, unsigned CurrentIdx,
     const EmitNodeMatcherCommon *EN = cast<EmitNodeMatcherCommon>(N);
     OS << (isa<EmitNodeMatcher>(EN) ? "OPC_EmitNode" : "OPC_MorphNodeTo");
     bool CompressVTs = EN->getNumVTs() < 3;
-    if (CompressVTs)
+    bool CompressNodeInfo = false;
+    if (CompressVTs) {
       OS << EN->getNumVTs();
+      if (!EN->hasChain() && !EN->hasInGlue() && !EN->hasOutGlue() &&
+          !EN->hasMemRefs() && EN->getNumFixedArityOperands() == -1) {
+        CompressNodeInfo = true;
+        OS << "None";
+      } else if (EN->hasChain() && !EN->hasInGlue() && !EN->hasOutGlue() &&
+                 !EN->hasMemRefs() && EN->getNumFixedArityOperands() == -1) {
+        CompressNodeInfo = true;
+        OS << "Chain";
+      } else if (!EN->hasChain() && EN->hasInGlue() && !EN->hasOutGlue() &&
+                 !EN->hasMemRefs() && EN->getNumFixedArityOperands() == -1) {
+        CompressNodeInfo = true;
+        OS << "GlueInput";
+      } else if (!EN->hasChain() && !EN->hasInGlue() && EN->hasOutGlue() &&
+                 !EN->hasMemRefs() && EN->getNumFixedArityOperands() == -1) {
+        CompressNodeInfo = true;
+        OS << "GlueOutput";
+      } else if (!EN->hasChain() && !EN->hasInGlue() && !EN->hasOutGlue() &&
+                 EN->hasMemRefs() && EN->getNumFixedArityOperands() == -1) {
+        CompressNodeInfo = true;
+        OS << "MemRefs";
+      }
+    }
 
     const CodeGenInstruction &CGI = EN->getInstruction();
     OS << ", TARGET_VAL(" << CGI.Namespace << "::" << CGI.TheDef->getName()
-       << "), 0";
+       << ")";
 
-    if (EN->hasChain())   OS << "|OPFL_Chain";
-    if (EN->hasInGlue())  OS << "|OPFL_GlueInput";
-    if (EN->hasOutGlue()) OS << "|OPFL_GlueOutput";
-    if (EN->hasMemRefs()) OS << "|OPFL_MemRefs";
-    if (EN->getNumFixedArityOperands() != -1)
-      OS << "|OPFL_Variadic" << EN->getNumFixedArityOperands();
+    if (!CompressNodeInfo) {
+      OS << ", 0";
+      if (EN->hasChain())
+        OS << "|OPFL_Chain";
+      if (EN->hasInGlue())
+        OS << "|OPFL_GlueInput";
+      if (EN->hasOutGlue())
+        OS << "|OPFL_GlueOutput";
+      if (EN->hasMemRefs())
+        OS << "|OPFL_MemRefs";
+      if (EN->getNumFixedArityOperands() != -1)
+        OS << "|OPFL_Variadic" << EN->getNumFixedArityOperands();
+    }
     OS << ",\n";
 
     OS.indent(FullIndexWidth + Indent+4);
@@ -854,8 +884,8 @@ EmitMatcher(const Matcher *N, const unsigned Indent, unsigned CurrentIdx,
     } else
       OS << '\n';
 
-    return 5 + !CompressVTs + EN->getNumVTs() + NumOperandBytes +
-           NumCoveredBytes;
+    return 4 + !CompressVTs + !CompressNodeInfo + EN->getNumVTs() +
+           NumOperandBytes + NumCoveredBytes;
   }
   case Matcher::CompleteMatch: {
     const CompleteMatchMatcher *CM = cast<CompleteMatchMatcher>(N);
