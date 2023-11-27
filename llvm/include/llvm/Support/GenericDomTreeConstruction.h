@@ -67,7 +67,7 @@ struct SemiNCAInfo {
     unsigned Semi = 0;
     unsigned Label = 0;
     NodePtr IDom = nullptr;
-    SmallVector<unsigned, 2> ReverseChildren;
+    SmallVector<unsigned, 4> ReverseChildren;
   };
 
   // Number to node mapping is 1-based. Initialize the mapping to start with
