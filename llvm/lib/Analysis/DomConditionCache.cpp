@@ -40,19 +40,14 @@ static void findAffectedValues(Value *Cond,
   if (match(Cond, m_ICmp(Pred, m_Value(A), m_Constant(C)))) {
     AddAffected(A);
 
-    if (Pred == ICmpInst::ICMP_EQ) {
+    if (ICmpInst::isEquality(Pred)) {
       Value *X;
       // (X & C) or (X | C) or (X ^ C).
       // (X << C) or (X >>_s C) or (X >>_u C).
       if (match(A, m_BitwiseLogic(m_Value(X), m_ConstantInt())) ||
           match(A, m_Shift(m_Value(X), m_ConstantInt())))
         AddAffected(X);
-    } else if (Pred == ICmpInst::ICMP_NE) {
-      Value *X;
-      // Handle (X & pow2 != 0).
-      if (match(A, m_And(m_Value(X), m_Power2())) && match(C, m_Zero()))
-        AddAffected(X);
-    } else if (Pred == ICmpInst::ICMP_ULT) {
+    } else {
       Value *X;
       // Handle (A + C1) u< C2, which is the canonical form of A > C3 && A < C4,
       // and recognized by LVI at least.
