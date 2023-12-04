@@ -39,7 +39,7 @@ define i1 @invert_fcmp(float %X, float %Y) {
 
 define i1 @not_not_cmp(i32 %a, i32 %b) {
 ; CHECK-LABEL: @not_not_cmp(
-; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[B:%.*]], [[A:%.*]]
+; CHECK-NEXT:    [[CMP:%.*]] = icmp sgt i32 [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %nota = xor i32 %a, -1
@@ -50,7 +50,7 @@ define i1 @not_not_cmp(i32 %a, i32 %b) {
 
 define <2 x i1> @not_not_cmp_vector(<2 x i32> %a, <2 x i32> %b) {
 ; CHECK-LABEL: @not_not_cmp_vector(
-; CHECK-NEXT:    [[CMP:%.*]] = icmp ugt <2 x i32> [[B:%.*]], [[A:%.*]]
+; CHECK-NEXT:    [[CMP:%.*]] = icmp ult <2 x i32> [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    ret <2 x i1> [[CMP]]
 ;
   %nota = xor <2 x i32> %a, <i32 -1, i32 -1>
