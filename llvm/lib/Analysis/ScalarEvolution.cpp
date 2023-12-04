@@ -11655,10 +11655,21 @@ bool ScalarEvolution::isImpliedCondBalancedTypes(
            P1 == CmpInst::getFlippedSignednessPredicate(P2);
   };
   if (IsSignFlippedPredicate(Pred, FoundPred)) {
+    // Try to make the isKnownNonNegative() etc queries below more precise by
+    // applying loop guards for the given context instruction.
+    const SCEV *FoundRHSGuarded = FoundRHS;
+    const SCEV *FoundLHSGuarded = FoundLHS;
+    Loop *L = CtxI ? LI.getLoopFor(CtxI->getParent()) : nullptr;
+    if (L) {
+      FoundRHSGuarded = applyLoopGuards(FoundRHS, L);
+      FoundLHSGuarded = applyLoopGuards(FoundLHS, L);
+    }
+
     // Unsigned comparison is the same as signed comparison when both the
     // operands are non-negative or negative.
-    if ((isKnownNonNegative(FoundLHS) && isKnownNonNegative(FoundRHS)) ||
-        (isKnownNegative(FoundLHS) && isKnownNegative(FoundRHS)))
+    if ((isKnownNonNegative(FoundLHSGuarded) &&
+         isKnownNonNegative(FoundRHSGuarded)) ||
+        (isKnownNegative(FoundLHSGuarded) && isKnownNegative(FoundRHSGuarded)))
       return isImpliedCondOperands(Pred, LHS, RHS, FoundLHS, FoundRHS, CtxI);
     // Create local copies that we can freely swap and canonicalize our
     // conditions to "le/lt".
