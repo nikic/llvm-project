@@ -11667,9 +11667,9 @@ bool ScalarEvolution::isImpliedCondBalancedTypes(
 
     // Unsigned comparison is the same as signed comparison when both the
     // operands are non-negative or negative.
-    if ((isKnownNonNegative(FoundLHSGuarded) &&
-         isKnownNonNegative(FoundRHSGuarded)) ||
-        (isKnownNegative(FoundLHSGuarded) && isKnownNegative(FoundRHSGuarded)))
+    if ((isKnownNonNegative(FoundLHS) &&
+         isKnownNonNegative(FoundRHS)) ||
+        (isKnownNegative(FoundLHS) && isKnownNegative(FoundRHS)))
       return isImpliedCondOperands(Pred, LHS, RHS, FoundLHS, FoundRHS, CtxI);
     // Create local copies that we can freely swap and canonicalize our
     // conditions to "le/lt".
