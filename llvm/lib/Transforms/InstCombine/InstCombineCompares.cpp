@@ -6113,13 +6113,19 @@ Instruction *InstCombinerImpl::foldICmpUsingKnownBits(ICmpInst &I) {
   KnownBits Op0Known(BitWidth);
   KnownBits Op1Known(BitWidth);
 
+  SQ.DC = nullptr;
   if (SimplifyDemandedBits(&I, 0,
                            getDemandedBitsLHSMask(I, BitWidth),
-                           Op0Known, 0))
+                           Op0Known, 0)) {
+    SQ.DC = &DC;
     return &I;
+  }
 
-  if (SimplifyDemandedBits(&I, 1, APInt::getAllOnes(BitWidth), Op1Known, 0))
+  if (SimplifyDemandedBits(&I, 1, APInt::getAllOnes(BitWidth), Op1Known, 0)) {
+    SQ.DC = &DC;
     return &I;
+  }
+  SQ.DC = &DC;
 
   // Given the known and unknown bits, compute a range that the LHS could be
   // in.  Compute the Min, Max and RHS values based on the known bits. For the
