@@ -203,14 +203,6 @@ struct SemiNCAInfo {
             });
 
       for (const NodePtr Succ : Successors) {
-        const auto SIT = NodeToInfo.find(Succ);
-        // Don't visit nodes more than once but remember to collect
-        // ReverseChildren.
-        if (SIT != NodeToInfo.end() && SIT->second.DFSNum != 0) {
-          if (Succ != BB) SIT->second.ReverseChildren.push_back(LastNum);
-          continue;
-        }
-
         if (!Condition(BB, Succ)) continue;
 
         WorkList.push_back({Succ, LastNum});
