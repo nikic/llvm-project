@@ -139,7 +139,7 @@ static cl::opt<unsigned> MaxSinkNumUsers(
     cl::desc("Maximum number of undroppable users for instruction sinking"));
 
 static cl::opt<unsigned>
-MaxArraySize("instcombine-maxarray-size", cl::init(1024),
+MaxArraySize("instcombine-maxarray-size", cl::init(512),
              cl::desc("Maximum array size considered when doing a combine"));
 
 // FIXME: Remove this flag when it is no longer necessary to convert
