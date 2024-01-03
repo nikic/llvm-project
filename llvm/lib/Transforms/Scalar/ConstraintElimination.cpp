@@ -968,24 +968,35 @@ void State::addInfoForInductions(BasicBlock &BB) {
     return;
 
   if (!StepOffset.isOne()) {
-    auto *UpperGEP = dyn_cast<GetElementPtrInst>(B);
-    if (!UpperGEP || UpperGEP->getPointerOperand() != StartValue ||
-        !UpperGEP->isInBounds())
-      return;
+    if (B->getType()->isPointerTy()) {
+      auto *UpperGEP = dyn_cast<GetElementPtrInst>(B);
+      if (!UpperGEP || UpperGEP->getPointerOperand() != StartValue ||
+          !UpperGEP->isInBounds()) {
+        return;
+      }
 
-    MapVector<Value *, APInt> UpperVariableOffsets;
-    APInt UpperConstantOffset(StepOffset.getBitWidth(), 0);
-    const DataLayout &DL = BB.getModule()->getDataLayout();
-    if (!UpperGEP->collectOffset(DL, StepOffset.getBitWidth(),
-                                 UpperVariableOffsets, UpperConstantOffset))
-      return;
-    // All variable offsets and the constant offset have to be a multiple of the
-    // step.
-    if (!UpperConstantOffset.urem(StepOffset).isZero() ||
-        any_of(UpperVariableOffsets, [&StepOffset](const auto &P) {
-          return !P.second.urem(StepOffset).isZero();
-        }))
-      return;
+      MapVector<Value *, APInt> UpperVariableOffsets;
+      APInt UpperConstantOffset(StepOffset.getBitWidth(), 0);
+      const DataLayout &DL = BB.getModule()->getDataLayout();
+      if (!UpperGEP->collectOffset(DL, StepOffset.getBitWidth(),
+                                   UpperVariableOffsets, UpperConstantOffset))
+        return;
+      // All variable offsets and the constant offset have to be a multiple of
+      // the step.
+      if (!UpperConstantOffset.urem(StepOffset).isZero() ||
+          any_of(UpperVariableOffsets, [&StepOffset](const auto &P) {
+            return !P.second.urem(StepOffset).isZero();
+          }))
+        return;
+    } else {
+      auto *StartValueC = dyn_cast<Constant>(StartValue);
+      if (!StartValueC || !StartValueC->isNullValue())
+        return;
+
+      // Check whether B is known to be a multiple of StepOffset.
+      if (!SE.getConstantMultiple(SE.getSCEV(B)).urem(StepOffset).isZero())
+        return;
+    }
   }
 
   // AR may wrap. Add PN >= StartValue conditional on StartValue <= B which
