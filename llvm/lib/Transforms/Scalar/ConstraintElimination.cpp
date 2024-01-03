@@ -968,32 +968,11 @@ void State::addInfoForInductions(BasicBlock &BB) {
     return;
 
   if (!StepOffset.isOne()) {
-    if (B->getType()->isPointerTy()) {
-      auto *UpperGEP = dyn_cast<GetElementPtrInst>(B);
-      if (!UpperGEP || UpperGEP->getPointerOperand() != StartValue ||
-          !UpperGEP->isInBounds()) {
-        return;
-      }
-
-      MapVector<Value *, APInt> UpperVariableOffsets;
-      APInt UpperConstantOffset(StepOffset.getBitWidth(), 0);
-      const DataLayout &DL = BB.getModule()->getDataLayout();
-      if (!UpperGEP->collectOffset(DL, StepOffset.getBitWidth(),
-                                   UpperVariableOffsets, UpperConstantOffset))
-        return;
-      // All variable offsets and the constant offset have to be a multiple of
-      // the step.
-      if (!UpperConstantOffset.urem(StepOffset).isZero() ||
-          any_of(UpperVariableOffsets, [&StepOffset](const auto &P) {
-            return !P.second.urem(StepOffset).isZero();
-          }))
-        return;
-    } else {
-      // Check whether B-Start is known to be a multiple of StepOffset.
-      const SCEV *BMinusStart = SE.getMinusSCEV(SE.getSCEV(B), StartSCEV);
-      if (!SE.getConstantMultiple(BMinusStart).urem(StepOffset).isZero())
-        return;
-    }
+    // Check whether B-Start is known to be a multiple of StepOffset.
+    const SCEV *BMinusStart = SE.getMinusSCEV(SE.getSCEV(B), StartSCEV);
+    if (isa<SCEVCouldNotCompute>(BMinusStart) ||
+        !SE.getConstantMultiple(BMinusStart).urem(StepOffset).isZero())
+      return;
   }
 
   // AR may wrap. Add PN >= StartValue conditional on StartValue <= B which
