@@ -502,7 +502,7 @@ public:
   /// Collect the offset of this GEP as a map of Values to their associated
   /// APInt multipliers, as well as a total Constant Offset.
   bool collectOffset(const DataLayout &DL, unsigned BitWidth,
-                     MapVector<Value *, APInt> &VariableOffsets,
+                     SmallMapVector<Value *, APInt, 1> &VariableOffsets,
                      APInt &ConstantOffset) const;
 };
 
