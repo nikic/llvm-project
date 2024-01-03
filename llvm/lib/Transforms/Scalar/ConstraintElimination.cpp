@@ -989,12 +989,9 @@ void State::addInfoForInductions(BasicBlock &BB) {
           }))
         return;
     } else {
-      auto *StartValueC = dyn_cast<Constant>(StartValue);
-      if (!StartValueC || !StartValueC->isNullValue())
-        return;
-
-      // Check whether B is known to be a multiple of StepOffset.
-      if (!SE.getConstantMultiple(SE.getSCEV(B)).urem(StepOffset).isZero())
+      // Check whether B-Start is known to be a multiple of StepOffset.
+      const SCEV *BMinusStart = SE.getMinusSCEV(SE.getSCEV(B), StartSCEV);
+      if (!SE.getConstantMultiple(BMinusStart).urem(StepOffset).isZero())
         return;
     }
   }
