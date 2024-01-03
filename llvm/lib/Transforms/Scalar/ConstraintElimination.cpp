@@ -1053,7 +1053,8 @@ void State::addInfoFor(BasicBlock &BB) {
       break;
     }
 
-    GuaranteedToExecute &= isGuaranteedToTransferExecutionToSuccessor(&I);
+    GuaranteedToExecute =
+        GuaranteedToExecute && isGuaranteedToTransferExecutionToSuccessor(&I);
   }
 
   if (auto *Switch = dyn_cast<SwitchInst>(BB.getTerminator())) {
