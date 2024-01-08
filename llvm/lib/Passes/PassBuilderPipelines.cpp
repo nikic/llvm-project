@@ -86,6 +86,7 @@
 #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
 #include "llvm/Transforms/Scalar/DivRemPairs.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
+#include "llvm/Transforms/Scalar/ExpandMemCmp.h"
 #include "llvm/Transforms/Scalar/Float2Int.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
@@ -111,6 +112,7 @@
 #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Scalar/LowerMatrixIntrinsics.h"
 #include "llvm/Transforms/Scalar/MemCpyOptimizer.h"
+#include "llvm/Transforms/Scalar/MergeICmps.h"
 #include "llvm/Transforms/Scalar/MergedLoadStoreMotion.h"
 #include "llvm/Transforms/Scalar/NewGVN.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
@@ -1429,6 +1431,11 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // LoopSink pass needs to be a very late IR pass to avoid undoing LICM
   // result too early.
   OptimizePM.addPass(LoopSinkPass());
+
+  // Detect anc convert memcpm like idioms to the call, and expand when
+  // profitable
+  OptimizePM.addPass(MergeICmpsPass());
+  OptimizePM.addPass(ExpandMemCmpPass(TM));
 
   // And finally clean up LCSSA form before generating code.
   OptimizePM.addPass(InstSimplifyPass());

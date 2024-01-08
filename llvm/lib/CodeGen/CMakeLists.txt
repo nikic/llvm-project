@@ -71,7 +71,6 @@ add_llvm_component_library(LLVMCodeGen
   ExecutionDomainFix.cpp
   ExpandLargeDivRem.cpp
   ExpandLargeFpConvert.cpp
-  ExpandMemCmp.cpp
   ExpandPostRAPseudos.cpp
   ExpandReductions.cpp
   ExpandVectorPredication.cpp
