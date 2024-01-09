@@ -82,6 +82,8 @@ class ValueLatticeElement {
   /// Number of times a constant range has been extended with widening enabled.
   unsigned NumRangeExtensions : 8;
 
+  bool IsSpeculative = false;
+
   /// The union either stores a pointer to a constant or a constant range,
   /// associated to the lattice element. We have to ensure that Range is
   /// initialized or destroyed when changing state to or from constantrange.
@@ -150,7 +152,8 @@ public:
   ~ValueLatticeElement() { destroy(); }
 
   ValueLatticeElement(const ValueLatticeElement &Other)
-      : Tag(Other.Tag), NumRangeExtensions(0) {
+      : Tag(Other.Tag), NumRangeExtensions(0),
+        IsSpeculative(Other.IsSpeculative) {
     switch (Other.Tag) {
     case constantrange:
     case constantrange_including_undef:
@@ -169,7 +172,8 @@ public:
   }
 
   ValueLatticeElement(ValueLatticeElement &&Other)
-      : Tag(Other.Tag), NumRangeExtensions(0) {
+      : Tag(Other.Tag), NumRangeExtensions(0),
+        IsSpeculative(Other.IsSpeculative) {
     switch (Other.Tag) {
     case constantrange:
     case constantrange_including_undef:
@@ -251,6 +255,9 @@ public:
                                     (UndefAllowed || Range.isSingleElement()));
   }
   bool isOverdefined() const { return Tag == overdefined; }
+
+  bool isSpeculative() const { return IsSpeculative; }
+  void setIsSpeculative() { IsSpeculative = true; }
 
   Constant *getConstant() const {
     assert(isConstant() && "Cannot get the constant of a non-constant!");
