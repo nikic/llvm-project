@@ -8,20 +8,52 @@ define void @test(i16 %arg) {
 ; CHECK-LABEL: define void @test
 ; CHECK-SAME: (i16 [[ARG:%.*]]) {
 ; CHECK-NEXT:  start:
-; CHECK-NEXT:    br label [[BB8THREAD_PRE_SPLIT1:%.*]]
-; CHECK:       bb8thread-pre-split1:
-; CHECK-NEXT:    [[LOAD_PR_PR:%.*]] = load i16, ptr null, align 2
-; CHECK-NEXT:    br label [[BB8:%.*]]
+; CHECK-NEXT:    br label [[BB5:%.*]]
+; CHECK:       bb20:
+; CHECK-NEXT:    ret void
+; CHECK:       bb5:
+; CHECK-NEXT:    [[_11_0:%.*]] = phi ptr [ [[_11_5:%.*]], [[BB16:%.*]] ], [ null, [[BB10:%.*]] ], [ null, [[BB8:%.*]] ], [ null, [[BB10]] ], [ null, [[START:%.*]] ]
+; CHECK-NEXT:    br label [[BB8]]
 ; CHECK:       bb8:
-; CHECK-NEXT:    [[LOAD_PR:%.*]] = phi i16 [ [[LOAD_PR_PR]], [[BB8THREAD_PRE_SPLIT1]] ], [ [[LOAD_PR]], [[BB8]] ]
+; CHECK-NEXT:    [[LOAD_PR:%.*]] = load i16, ptr null, align 2
 ; CHECK-NEXT:    [[I:%.*]] = icmp eq i16 [[LOAD_PR]], 0
-; CHECK-NEXT:    br i1 [[I]], label [[BB10:%.*]], label [[BB8]]
+; CHECK-NEXT:    br i1 [[I]], label [[BB9:%.*]], label [[BB5]]
+; CHECK:       bb9:
+; CHECK-NEXT:    br label [[BB13:%.*]]
 ; CHECK:       bb10:
-; CHECK-NEXT:    [[I1:%.*]] = getelementptr { i128, i8 }, ptr null, i64 0, i32 1
+; CHECK-NEXT:    [[_2_7:%.*]] = phi ptr [ [[_11_0]], [[BB14:%.*]] ], [ [[_11_0]], [[BB13]] ]
+; CHECK-NEXT:    [[I1:%.*]] = getelementptr { i128, i8 }, ptr [[_11_0]], i64 0, i32 1
 ; CHECK-NEXT:    store i8 0, ptr [[I1]], align 8
-; CHECK-NEXT:    [[I2:%.*]] = load i128, ptr null, align 8
+; CHECK-NEXT:    [[I2:%.*]] = load i128, ptr [[_2_7]], align 8
 ; CHECK-NEXT:    [[I3:%.*]] = icmp eq i128 [[I2]], 0
-; CHECK-NEXT:    br i1 [[I3]], label [[BB8THREAD_PRE_SPLIT1]], label [[BB8THREAD_PRE_SPLIT1]]
+; CHECK-NEXT:    br i1 [[I3]], label [[BB5]], label [[BB5]]
+; CHECK:       bb13:
+; CHECK-NEXT:    br label [[BB10]]
+; CHECK:       bb14:
+; CHECK-NEXT:    switch i16 [[ARG]], label [[BB20:%.*]] [
+; CHECK-NEXT:      i16 0, label [[BB13]]
+; CHECK-NEXT:      i16 2, label [[BB10]]
+; CHECK-NEXT:      i16 1, label [[BB15:%.*]]
+; CHECK-NEXT:    ]
+; CHECK:       bb15:
+; CHECK-NEXT:    switch i16 [[ARG]], label [[BB16]] [
+; CHECK-NEXT:      i16 1, label [[BB8]]
+; CHECK-NEXT:      i16 0, label [[BB17:%.*]]
+; CHECK-NEXT:    ]
+; CHECK:       bb16:
+; CHECK-NEXT:    [[_11_5]] = phi ptr [ null, [[BB15]] ], [ null, [[BB19:%.*]] ]
+; CHECK-NEXT:    br label [[BB5]]
+; CHECK:       bb17:
+; CHECK-NEXT:    switch i16 [[ARG]], label [[BB20]] [
+; CHECK-NEXT:      i16 0, label [[BB20]]
+; CHECK-NEXT:      i16 1, label [[BB19]]
+; CHECK-NEXT:    ]
+; CHECK:       bb19:
+; CHECK-NEXT:    switch i16 [[ARG]], label [[BB16]] [
+; CHECK-NEXT:      i16 0, label [[BB14]]
+; CHECK-NEXT:      i16 1, label [[BB20]]
+; CHECK-NEXT:      i16 6570, label [[BB17]]
+; CHECK-NEXT:    ]
 ;
 start:
   br label %bb5

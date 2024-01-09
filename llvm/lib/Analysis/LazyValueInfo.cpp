@@ -372,18 +372,29 @@ class LazyValueInfoImpl {
   SmallVector<std::pair<BasicBlock*, Value*>, 8> BlockValueStack;
 
   /// Keeps track of which block-value pairs are in BlockValueStack.
-  DenseSet<std::pair<BasicBlock*, Value*> > BlockValueSet;
+  DenseMap<std::pair<BasicBlock*, Value*>, bool> BlockValueSet;
 
-  /// Push BV onto BlockValueStack unless it's already in there.
-  /// Returns true on success.
-  bool pushBlockValue(const std::pair<BasicBlock *, Value *> &BV) {
-    if (!BlockValueSet.insert(BV).second)
-      return false;  // It's already in the stack.
+  bool isSameValueCycle(BasicBlock *BB, Value *Val) const {
+    for (auto [StackBB, StackVal] : reverse(BlockValueStack)) {
+      if (StackBB == BB && StackVal == Val)
+        return true;
+      if (StackVal != Val)
+        return false;
+    }
+    llvm_unreachable("Not a cycle?");
+  }
 
-    LLVM_DEBUG(dbgs() << "PUSH: " << *BV.second << " in "
-                      << BV.first->getName() << "\n");
-    BlockValueStack.push_back(BV);
-    return true;
+  std::optional<ValueLatticeElement> getCachedValueInfo(Value *Val,
+                                                        BasicBlock *BB) const {
+    if (std::optional<ValueLatticeElement> Res =
+          TheCache.getCachedValueInfo(Val, BB)) {
+      if (!Res->isSpeculative())
+        return Res;
+      auto It = BlockValueSet.find({BB, Val});
+      if (It == BlockValueSet.end() || It->second)
+        return Res;
+    }
+    return std::nullopt;
   }
 
   AssumptionCache *AC;  ///< A pointer to the cache of @llvm.assume calls.
@@ -573,16 +584,34 @@ LazyValueInfoImpl::getBlockValue(Value *Val, BasicBlock *BB,
     return ValueLatticeElement::get(VC);
 
   if (std::optional<ValueLatticeElement> OptLatticeVal =
-          TheCache.getCachedValueInfo(Val, BB)) {
+          getCachedValueInfo(Val, BB)) {
     intersectAssumeOrGuardBlockValueConstantRange(Val, *OptLatticeVal, CxtI);
     return OptLatticeVal;
   }
 
-  // We have hit a cycle, assume overdefined.
-  if (!pushBlockValue({ BB, Val }))
+  // We have hit a cycle.
+  auto Res = BlockValueSet.try_emplace({BB, Val}, false);
+  if (!Res.second) {
+    // TODO
+    if (isSameValueCycle(BB, Val)) {
+      for (auto &Pair : reverse(BlockValueStack)) {
+        if (Pair.first == BB && Pair.second == Val)
+          break;
+        // Mark as speculative.
+        BlockValueSet.find({BB, Val})->second = true;
+      }
+      LLVM_DEBUG(dbgs() << "SPECULATE: " << *Val << " in " << BB->getName()
+                        << "\n");
+      return ValueLatticeElement::getSpeculative();
+    }
+
+    // In all other cases, assume overdefined.
     return ValueLatticeElement::getOverdefined();
+  }
 
   // Yet to be resolved.
+  LLVM_DEBUG(dbgs() << "PUSH: " << *Val << " in " << BB->getName() << "\n");
+  BlockValueStack.push_back({BB, Val});
   return std::nullopt;
 }
 
@@ -605,8 +634,7 @@ static ValueLatticeElement getFromRangeMetadata(Instruction *BBI) {
 
 bool LazyValueInfoImpl::solveBlockValue(Value *Val, BasicBlock *BB) {
   assert(!isa<Constant>(Val) && "Value should not be constant");
-  assert(!TheCache.getCachedValueInfo(Val, BB) &&
-         "Value should not be in cache");
+  assert(!getCachedValueInfo(Val, BB) && "Value should not be in cache");
 
   // Hold off inserting this value into the Cache in case we have to return
   // false and come back later.
@@ -728,7 +756,14 @@ LazyValueInfoImpl::solveBlockValueNonLocal(Value *Val, BasicBlock *BB) {
       // Explore that input, then return here
       return std::nullopt;
 
-    Result.mergeIn(*EdgeResult);
+    if (Result.isSpeculative()) {
+      Result = *EdgeResult;
+    } else if (EdgeResult->isSpeculative()) {
+      if (Result.isUnknown())
+        Result = *EdgeResult;
+    } else {
+      Result.mergeIn(*EdgeResult);
+    }
 
     // If we hit overdefined, exit early.  The BlockVals entry is already set
     // to overdefined.
@@ -1489,6 +1524,14 @@ LazyValueInfoImpl::getEdgeValue(Value *Val, BasicBlock *BBFrom,
   if (Constant *VC = dyn_cast<Constant>(Val))
     return ValueLatticeElement::get(VC);
 
+  std::optional<ValueLatticeElement> OptInBlock =
+      getBlockValue(Val, BBFrom, BBFrom->getTerminator());
+  if (!OptInBlock)
+    return std::nullopt;
+  ValueLatticeElement &InBlock = *OptInBlock;
+  if (InBlock.isSpeculative())
+    return InBlock;
+
   std::optional<ValueLatticeElement> LocalResult =
       getEdgeValueLocal(Val, BBFrom, BBTo, /*UseBlockValue*/ true);
   if (!LocalResult)
@@ -1497,12 +1540,6 @@ LazyValueInfoImpl::getEdgeValue(Value *Val, BasicBlock *BBFrom,
   if (hasSingleValue(*LocalResult))
     // Can't get any more precise here
     return LocalResult;
-
-  std::optional<ValueLatticeElement> OptInBlock =
-      getBlockValue(Val, BBFrom, BBFrom->getTerminator());
-  if (!OptInBlock)
-    return std::nullopt;
-  ValueLatticeElement &InBlock = *OptInBlock;
 
   // We can use the context instruction (generically the ultimate instruction
   // the calling pass is trying to simplify) here, even though the result of

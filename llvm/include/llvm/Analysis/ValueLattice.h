@@ -76,6 +76,9 @@ class ValueLatticeElement {
     /// We can not precisely model the dynamic values this value might take.
     /// No transitions are allowed after reaching overdefined.
     overdefined,
+
+    /// TODO
+    speculative,
   };
 
   ValueLatticeElementTy Tag : 8;
@@ -98,6 +101,7 @@ class ValueLatticeElement {
     case undef:
     case constant:
     case notconstant:
+    case speculative:
       break;
     case constantrange_including_undef:
     case constantrange:
@@ -164,6 +168,7 @@ public:
     case overdefined:
     case unknown:
     case undef:
+    case speculative:
       break;
     }
   }
@@ -183,6 +188,7 @@ public:
     case overdefined:
     case unknown:
     case undef:
+    case speculative:
       break;
     }
     Other.Tag = unknown;
@@ -234,6 +240,12 @@ public:
     return Res;
   }
 
+  static ValueLatticeElement getSpeculative() {
+    ValueLatticeElement Res;
+    Res.Tag = speculative;
+    return Res;
+  }
+
   bool isUndef() const { return Tag == undef; }
   bool isUnknown() const { return Tag == unknown; }
   bool isUnknownOrUndef() const { return Tag == unknown || Tag == undef; }
@@ -251,6 +263,7 @@ public:
                                     (UndefAllowed || Range.isSingleElement()));
   }
   bool isOverdefined() const { return Tag == overdefined; }
+  bool isSpeculative() const { return Tag == speculative; }
 
   Constant *getConstant() const {
     assert(isConstant() && "Cannot get the constant of a non-constant!");
@@ -384,9 +397,9 @@ public:
   /// true if this object has been changed.
   bool mergeIn(const ValueLatticeElement &RHS,
                MergeOptions Opts = MergeOptions()) {
-    if (RHS.isUnknown() || isOverdefined())
+    if (RHS.isUnknown() || isOverdefined() || isSpeculative())
       return false;
-    if (RHS.isOverdefined()) {
+    if (RHS.isOverdefined() || RHS.isSpeculative()) {
       markOverdefined();
       return true;
     }

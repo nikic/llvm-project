@@ -59,6 +59,8 @@ raw_ostream &operator<<(raw_ostream &OS, const ValueLatticeElement &Val) {
     return OS << "undef";
   if (Val.isOverdefined())
     return OS << "overdefined";
+  if (Val.isSpeculative())
+    return OS << "speculative";
 
   if (Val.isNotConstant())
     return OS << "notconstant<" << *Val.getNotConstant() << ">";
