@@ -18,7 +18,7 @@ entry:
 ; CHECK: Alias sets for function 'test_readonly_arg'
 ; CHECK-NEXT: Alias Set Tracker: 2 alias sets for 2 pointer values.
 ; CHECK-NEXT: AliasSet[0x{{[0-9a-f]+}}, 1] must alias, Mod       Pointers: (ptr %d, unknown before-or-after)
-; CHECK-NEXT: AliasSet[0x{{[0-9a-f]+}}, 1] must alias, Ref       Pointers: (ptr %s, unknown before-or-after)
+; CHECK-NEXT: AliasSet[0x{{[0-9a-f]+}}, 1] must alias, Ref       Pointers: (ptr %s, unknown before-or-after), (ptr %s, LocationSize::precise(1))
 define i8 @test_readonly_arg(ptr noalias %s, ptr noalias %d) {
 entry:
   call void @my_memcpy(ptr %d, ptr %s, i64 1)
@@ -39,8 +39,8 @@ entry:
 
 ; CHECK: Alias sets for function 'test5':
 ; CHECK-NEXT: Alias Set Tracker: 2 alias sets for 2 pointer values.
-; CHECK-NEXT: AliasSet[0x{{[0-9a-f]+}}, 1] must alias, Mod/Ref Pointers: (ptr %a, unknown before-or-after)
-; CHECK-NEXT: AliasSet[0x{{[0-9a-f]+}}, 1] must alias, Mod Pointers: (ptr %b, unknown before-or-after)
+; CHECK-NEXT: AliasSet[0x{{[0-9a-f]+}}, 1] must alias, Mod/Ref Pointers: (ptr %a, LocationSize::precise(1)), (ptr %a, unknown before-or-after)
+; CHECK-NEXT: AliasSet[0x{{[0-9a-f]+}}, 1] must alias, Mod Pointers: (ptr %b, unknown before-or-after), (ptr %b, LocationSize::precise(1))
 define void @test5(ptr noalias %a, ptr noalias %b) {
 entry:
   store i8 1, ptr %a, align 1
@@ -51,8 +51,8 @@ entry:
 
 ; CHECK: Alias sets for function 'test_argcollapse':
 ; CHECK-NEXT: Alias Set Tracker: 2 alias sets for 2 pointer values.
-; CHECK-NEXT: AliasSet[0x{{[0-9a-f]+}}, 1] must alias, Mod/Ref Pointers: (ptr %a, unknown before-or-after)
-; CHECK-NEXT: AliasSet[0x{{[0-9a-f]+}}, 1] must alias, Mod/Ref Pointers: (ptr %b, unknown before-or-after)
+; CHECK-NEXT: AliasSet[0x{{[0-9a-f]+}}, 1] must alias, Mod/Ref Pointers: (ptr %a, LocationSize::precise(1)), (ptr %a, unknown before-or-after)
+; CHECK-NEXT: AliasSet[0x{{[0-9a-f]+}}, 1] must alias, Mod/Ref Pointers: (ptr %b, unknown before-or-after), (ptr %b, LocationSize::precise(1))
 define void @test_argcollapse(ptr noalias %a, ptr noalias %b) {
 entry:
   store i8 1, ptr %a, align 1
