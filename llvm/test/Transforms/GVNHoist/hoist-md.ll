@@ -157,6 +157,35 @@ return:                                           ; preds = %if.end, %if.then
   ret ptr %retval.0
 }
 
+; TODO: We might want to disable GVN if MMRAs differ.
+define void @test6(i1 %b, ptr %x) {
+; CHECK-LABEL: define void @test6
+; CHECK-SAME: (i1 [[B:%.*]], ptr [[X:%.*]]) {
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    store i32 2, ptr [[X]], align 4, !mmra [[META4:![0-9]+]]
+; CHECK-NEXT:    br i1 [[B]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
+; CHECK:       if.then:
+; CHECK-NEXT:    br label [[IF_END:%.*]]
+; CHECK:       if.else:
+; CHECK-NEXT:    br label [[IF_END]]
+; CHECK:       if.end:
+; CHECK-NEXT:    ret void
+;
+entry:
+  br i1 %b, label %if.then, label %if.else
+
+if.then:                                          ; preds = %entry
+  store i32 2, ptr %x, align 4, !mmra !13
+  br label %if.end
+
+if.else:                                          ; preds = %entry
+  store i32 2, ptr %x, align 4, !mmra !14
+  br label %if.end
+
+if.end:                                           ; preds = %if.else, %if.then
+  ret void
+}
+
 !1 = !{!2, !2, i64 0}
 !2 = !{!"int", !3, i64 0}
 !3 = !{!"omnipotent char", !4, i64 0}
@@ -166,9 +195,19 @@ return:                                           ; preds = %if.end, %if.then
 !7 = !{i32 0, i32 2}
 !8 = !{i32 3, i32 4}
 !9 = !{}
+
+!10 = !{!"foo", !"bar"}
+!11 = !{!"foo", !"bux"}
+!12 = !{!"bar", !"baz"}
+!13 = !{!10, !11}
+!14 = !{!11, !12}
+
 ;.
-; CHECK: [[TBAA0]] = !{!1, !1, i64 0}
-; CHECK: [[META1:![0-9]+]] = !{!"omnipotent char", !2, i64 0}
-; CHECK: [[META2:![0-9]+]] = !{!"Simple C++ TBAA"}
+; CHECK: [[TBAA0]] = !{[[META1:![0-9]+]], [[META1]], i64 0}
+; CHECK: [[META1]] = !{!"omnipotent char", [[META2:![0-9]+]], i64 0}
+; CHECK: [[META2]] = !{!"Simple C++ TBAA"}
 ; CHECK: [[RNG3]] = !{i32 0, i32 2, i32 3, i32 4}
+; CHECK: [[META4]] = !{[[META5:![0-9]+]], [[META6:![0-9]+]]}
+; CHECK: [[META5]] = !{!"foo", !"bar"}
+; CHECK: [[META6]] = !{!"foo", !"bux"}
 ;.

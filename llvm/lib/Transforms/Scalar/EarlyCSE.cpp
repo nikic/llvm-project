@@ -36,6 +36,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/MemoryModelRelaxationAnnotations.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Type.h"
@@ -362,6 +363,11 @@ static bool isEqualImpl(SimpleValue LHS, SimpleValue RHS) {
 
   if (LHSI->getOpcode() != RHSI->getOpcode())
     return false;
+
+  // Avoid aggressively combining MMRAs.
+  if (MMRAMetadata(*LHSI) != MMRAMetadata(*RHSI))
+    return false;
+
   if (LHSI->isIdenticalToWhenDefined(RHSI)) {
     // Convergent calls implicitly depend on the set of threads that is
     // currently executing, so conservatively return false if they are in
@@ -1585,6 +1591,10 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
           LLVM_DEBUG(dbgs() << "Skipping due to debug counter\n");
           continue;
         }
+        if (MMRAMetadata(Inst) != MMRAMetadata(*InVal.DefInst)) {
+          LLVM_DEBUG(dbgs() << "Skipping due to MMRAs being different\n");
+          continue;
+        }
         if (InVal.IsLoad)
           if (auto *I = dyn_cast<Instruction>(Op))
             combineMetadataForCSE(I, &Inst, false);
@@ -1630,6 +1640,10 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
                           << "  to: " << *InVal.first << '\n');
         if (!DebugCounter::shouldExecute(CSECounter)) {
           LLVM_DEBUG(dbgs() << "Skipping due to debug counter\n");
+          continue;
+        }
+        if (MMRAMetadata(Inst) != MMRAMetadata(*InVal.first)) {
+          LLVM_DEBUG(dbgs() << "Skipping due to MMRAs being different\n");
           continue;
         }
         if (!Inst.use_empty())

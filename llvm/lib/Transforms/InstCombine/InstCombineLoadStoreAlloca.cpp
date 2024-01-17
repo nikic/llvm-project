@@ -20,6 +20,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/MemoryModelRelaxationAnnotations.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -1520,7 +1521,8 @@ bool InstCombinerImpl::mergeStoreIntoSuccessor(StoreInst &SI) {
     auto *SIVTy = SI.getValueOperand()->getType();
     auto *OSVTy = OtherStore->getValueOperand()->getType();
     return CastInst::isBitOrNoopPointerCastable(OSVTy, SIVTy, DL) &&
-           SI.hasSameSpecialState(OtherStore);
+           SI.hasSameSpecialState(OtherStore) &&
+           MMRAMetadata(SI) == MMRAMetadata(*OtherStore);
   };
 
   // If the other block ends in an unconditional branch, check for the 'if then

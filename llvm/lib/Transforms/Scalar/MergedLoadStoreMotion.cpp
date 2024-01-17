@@ -80,6 +80,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/MemoryModelRelaxationAnnotations.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
@@ -196,10 +197,11 @@ StoreInst *MergedLoadStoreMotion::canSinkFromBlock(BasicBlock *BB1,
         !isStoreSinkBarrierInRange(*Store1->getNextNode(), BB1->back(), Loc1) &&
         !isStoreSinkBarrierInRange(*Store0->getNextNode(), BB0->back(), Loc0) &&
         Store0->hasSameSpecialState(Store1) &&
-        CastInst::isBitOrNoopPointerCastable(
-            Store0->getValueOperand()->getType(),
-            Store1->getValueOperand()->getType(),
-            Store0->getModule()->getDataLayout()))
+        MMRAMetadata(*Store0) == MMRAMetadata(*Store1) &
+            CastInst::isBitOrNoopPointerCastable(
+                Store0->getValueOperand()->getType(),
+                Store1->getValueOperand()->getType(),
+                Store0->getModule()->getDataLayout()))
       return Store1;
   }
   return nullptr;
@@ -367,7 +369,7 @@ bool MergedLoadStoreMotion::run(Function &F, AliasAnalysis &AA) {
 
   // Merge unconditional branches, allowing PRE to catch more
   // optimization opportunities.
-  // This loop doesn't care about newly inserted/split blocks 
+  // This loop doesn't care about newly inserted/split blocks
   // since they never will be diamond heads.
   for (BasicBlock &BB : make_early_inc_range(F))
     // Hoist equivalent loads and sink stores

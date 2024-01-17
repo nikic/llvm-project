@@ -132,7 +132,8 @@ struct ReplacementIRBuilder : IRBuilder<InstSimplifyFolder> {
   explicit ReplacementIRBuilder(Instruction *I, const DataLayout &DL)
       : IRBuilder(I->getContext(), DL) {
     SetInsertPoint(I);
-    this->CollectMetadataToCopy(I, {LLVMContext::MD_pcsections});
+    this->CollectMetadataToCopy(
+        I, {LLVMContext::MD_pcsections, LLVMContext::MD_mmra});
   }
 };
 
