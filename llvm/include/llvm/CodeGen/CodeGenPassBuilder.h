@@ -27,7 +27,6 @@
 #include "llvm/CodeGen/CallBrPrepare.h"
 #include "llvm/CodeGen/CodeGenPrepare.h"
 #include "llvm/CodeGen/DwarfEHPrepare.h"
-#include "llvm/CodeGen/ExpandMemCmp.h"
 #include "llvm/CodeGen/ExpandReductions.h"
 #include "llvm/CodeGen/GCMetadata.h"
 #include "llvm/CodeGen/GlobalMerge.h"
@@ -625,16 +624,6 @@ void CodeGenPassBuilder<Derived>::addIRPasses(AddIRPass &addPass) const {
     // FIXME: use -stop-after so we could remove PrintLSR
     if (Opt.PrintLSR)
       addPass(PrintFunctionPass(dbgs(), "\n\n*** Code after LSR ***\n"));
-  }
-
-  if (getOptLevel() != CodeGenOptLevel::None) {
-    // The MergeICmpsPass tries to create memcmp calls by grouping sequences of
-    // loads and compares. ExpandMemCmpPass then tries to expand those calls
-    // into optimally-sized loads and compares. The transforms are enabled by a
-    // target lowering hook.
-    if (!Opt.DisableMergeICmps)
-      addPass(MergeICmpsPass());
-    addPass(ExpandMemCmpPass(&TM));
   }
 
   // Run GC lowering passes for builtin collectors
