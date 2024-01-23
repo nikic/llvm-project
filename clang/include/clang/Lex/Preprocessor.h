@@ -2836,11 +2836,11 @@ public:
         !SourceMgr.isInMainFile(Identifier.getLocation()))
       emitRestrictExpansionWarning(Identifier);
 
-    if (Identifier.getIdentifierInfo()->getName() == "INFINITY")
-      if (getLangOpts().NoHonorInfs)
+    if (getLangOpts().NoHonorInfs)
+      if (Identifier.getIdentifierInfo()->getName() == "INFINITY")
         emitRestrictInfNaNWarning(Identifier, 0);
-    if (Identifier.getIdentifierInfo()->getName() == "NAN")
-      if (getLangOpts().NoHonorNaNs)
+    if (getLangOpts().NoHonorNaNs)
+      if (Identifier.getIdentifierInfo()->getName() == "NAN")
         emitRestrictInfNaNWarning(Identifier, 1);
   }
 
