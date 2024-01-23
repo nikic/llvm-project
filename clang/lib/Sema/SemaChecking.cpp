@@ -12928,15 +12928,15 @@ static bool IsStdFunction(const FunctionDecl *FDecl,
 void Sema::CheckInfNaNFunction(const CallExpr *Call,
                                const FunctionDecl *FDecl) {
   FPOptions FPO = Call->getFPFeaturesInEffect(getLangOpts());
-  if ((IsStdFunction(FDecl, "isnan") || IsStdFunction(FDecl, "isunordered") ||
-       (Call->getBuiltinCallee() == Builtin::BI__builtin_nanf)) &&
-      FPO.getNoHonorNaNs())
+  if (FPO.getNoHonorNaNs() &&
+      (IsStdFunction(FDecl, "isnan") || IsStdFunction(FDecl, "isunordered") ||
+       (Call->getBuiltinCallee() == Builtin::BI__builtin_nanf)))
     Diag(Call->getBeginLoc(), diag::warn_fp_nan_inf_when_disabled)
         << 1 << 0 << Call->getSourceRange();
-  else if ((IsStdFunction(FDecl, "isinf") ||
+  else if (FPO.getNoHonorInfs() &&
+           (IsStdFunction(FDecl, "isinf") ||
             (IsStdFunction(FDecl, "isfinite") ||
-             (FDecl->getIdentifier() && FDecl->getName() == "infinity"))) &&
-           FPO.getNoHonorInfs())
+             (FDecl->getIdentifier() && FDecl->getName() == "infinity"))))
     Diag(Call->getBeginLoc(), diag::warn_fp_nan_inf_when_disabled)
         << 0 << 0 << Call->getSourceRange();
 }
