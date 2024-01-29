@@ -1582,6 +1582,17 @@ hoistLockstepIdenticalDPValues(Instruction *TI, Instruction *I1,
   }
 }
 
+// Hash instructions based on following factors:
+// 1- Instruction Opcode
+// 2- Instruction type
+// 3- Instruction operands
+llvm::hash_code getHash(Instruction *Instr) {
+  std::vector<Value *> operands(Instr->op_begin(), Instr->op_end());
+  return llvm::hash_combine(
+      Instr->getOpcode(), Instr->getType(),
+      hash_combine_range(operands.begin(), operands.end()));
+}
+
 /// Hoist any common code in the successor blocks up into the block. This
 /// function guarantees that BB dominates all successors. If EqTermsOnly is
 /// given, only perform hoisting in case both blocks only contain a terminator.
@@ -1589,12 +1600,11 @@ hoistLockstepIdenticalDPValues(Instruction *TI, Instruction *I1,
 /// added.
 bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
                                                    bool EqTermsOnly) {
-  // This does very trivial matching, with limited scanning, to find identical
-  // instructions in the two blocks. In particular, we don't want to get into
-  // O(N1*N2*...) situations here where Ni are the sizes of these successors. As
-  // such, we currently just scan for obviously identical instructions in an
-  // identical order, possibly separated by the same number of non-identical
-  // instructions.
+  // We first sort successors based on the number of instructions each block
+  // holds. Then for each successor we make a hashmap from its instructions,
+  // except for the first successor. After that, we iterate over the
+  // instructions of the first successor. If we find identical instructions from
+  // every other successor, we hoist all of them into the predeccessor.
   unsigned int SuccSize = succ_size(BB);
   if (SuccSize < 2)
     return false;
@@ -1608,15 +1618,38 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
 
   auto *TI = BB->getTerminator();
 
+  SmallVector<BasicBlock *, 8> SuccessorBBs;
+  for (auto *Succ : successors(BB)) {
+    BasicBlock::iterator SuccItr = Succ->begin();
+    // If we find an unreachable instruction at the beginning of a basic block,
+    // we can still hoist instructions from the rest of the basic blocks.
+    if (isa<UnreachableInst>(*SuccItr))
+      continue;
+    SuccessorBBs.push_back(Succ);
+  }
+
+  // Find the smallest BB because we always want to iterate over instructions
+  // of the smallest Successor.
+  auto *SmallestBB = *std::min_element(SuccessorBBs.begin(), SuccessorBBs.end(),
+                                       [](BasicBlock *BB1, BasicBlock *BB2) {
+                                         return BB1->size() < BB2->size();
+                                       });
+  std::iter_swap(
+      SuccessorBBs.begin(),
+      std::find(SuccessorBBs.begin(), SuccessorBBs.end(), SmallestBB));
+
   // The second of pair is a SkipFlags bitmask.
   using SuccIterPair = std::pair<BasicBlock::iterator, unsigned>;
   SmallVector<SuccIterPair, 8> SuccIterPairs;
-  for (auto *Succ : successors(BB)) {
+  for (auto *Succ : SuccessorBBs) {
     BasicBlock::iterator SuccItr = Succ->begin();
     if (isa<PHINode>(*SuccItr))
       return false;
     SuccIterPairs.push_back(SuccIterPair(SuccItr, 0));
   }
+
+  if (SuccIterPairs.size() < 2)
+    return false;
 
   // Check if only hoisting terminators is allowed. This does not add new
   // instructions to the hoist location.
@@ -1635,87 +1668,137 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
   // many instructions we skip, serving as a compilation time control as well as
   // preventing excessive increase of life ranges.
   unsigned NumSkipped = 0;
-  // If we find an unreachable instruction at the beginning of a basic block, we
-  // can still hoist instructions from the rest of the basic blocks.
-  if (SuccIterPairs.size() > 2) {
-    erase_if(SuccIterPairs,
-             [](const auto &Pair) { return isa<UnreachableInst>(Pair.first); });
-    if (SuccIterPairs.size() < 2)
-      return false;
-  }
 
   bool Changed = false;
+  auto *SuccIterPairBegin = SuccIterPairs.begin();
+  SuccIterPairBegin++;
+  auto OtherSuccIterPairRange =
+      iterator_range(SuccIterPairBegin, SuccIterPairs.end());
+  auto OtherSuccIterRange = make_first_range(OtherSuccIterPairRange);
+  using InstrFlagPair = std::pair<Instruction *, unsigned>;
+  SmallVector<DenseMap<llvm::hash_code, InstrFlagPair>, 2> OtherSuccessorsHash;
 
+  for (auto BBItrPair : OtherSuccIterRange) {
+    // Fill the hashmap for every other successor
+    DenseMap<llvm::hash_code, InstrFlagPair> hashMap;
+    unsigned skipFlag = 0;
+    Instruction *I = nullptr;
+    do {
+      I = &*BBItrPair;
+      skipFlag |= skippedInstrFlags(I);
+      hashMap[getHash(I)] = InstrFlagPair(I, skipFlag);
+      BBItrPair++;
+    } while (!I->isTerminator());
+    OtherSuccessorsHash.push_back(hashMap);
+  }
+
+  // Keep track of instructions skipped in the first successor
+  unsigned SkipFlagsBB1 = 0;
+  bool SameLevelHoist = true;
   for (;;) {
     auto *SuccIterPairBegin = SuccIterPairs.begin();
     auto &BB1ItrPair = *SuccIterPairBegin++;
     auto OtherSuccIterPairRange =
         iterator_range(SuccIterPairBegin, SuccIterPairs.end());
-    auto OtherSuccIterRange = make_first_range(OtherSuccIterPairRange);
-
     Instruction *I1 = &*BB1ItrPair.first;
-
+    
     // Skip debug info if it is not identical.
-    bool AllDbgInstsAreIdentical = all_of(OtherSuccIterRange, [I1](auto &Iter) {
+    bool IdenticalDebugs = all_of(OtherSuccIterRange, [I1](auto &Iter) {
       Instruction *I2 = &*Iter;
       return I1->isIdenticalToWhenDefined(I2);
     });
-    if (!AllDbgInstsAreIdentical) {
+    if (!IdenticalDebugs) {
       while (isa<DbgInfoIntrinsic>(I1))
         I1 = &*++BB1ItrPair.first;
-      for (auto &SuccIter : OtherSuccIterRange) {
-        Instruction *I2 = &*SuccIter;
-        while (isa<DbgInfoIntrinsic>(I2))
-          I2 = &*++SuccIter;
+    }
+    
+    bool HasIdenticalInst = true;
+
+    // Check if there are identical instructions in all other successors
+    for (auto &map : OtherSuccessorsHash) {
+      Instruction *I2 = map[getHash(I1)].first;
+      // We might face with same hash values for different instructions.
+      // If that happens, ignore the instruction.
+      if (!I2 || !I1->isIdenticalToWhenDefined(I2)) {
+        HasIdenticalInst = false;
+        break;
       }
     }
 
-    bool AllInstsAreIdentical = true;
-    bool HasTerminator = I1->isTerminator();
-    for (auto &SuccIter : OtherSuccIterRange) {
-      Instruction *I2 = &*SuccIter;
-      HasTerminator |= I2->isTerminator();
-      if (AllInstsAreIdentical && !I1->isIdenticalToWhenDefined(I2))
-        AllInstsAreIdentical = false;
+    if (!HasIdenticalInst) {
+      if (NumSkipped >= HoistCommonSkipLimit)
+        return Changed;
+      SkipFlagsBB1 |= skippedInstrFlags(I1);
+      if (SameLevelHoist) {
+        for (auto &SuccIterPair : OtherSuccIterPairRange) {
+          Instruction *I = &*SuccIterPair.first++;
+          SuccIterPair.second |= skippedInstrFlags(I);
+        }
+      }
+      ++NumSkipped;
+      if (I1->isTerminator())
+        return Changed;
+      ++BB1ItrPair.first;
+      continue;
     }
 
     SmallVector<Instruction *, 8> OtherInsts;
-    for (auto &SuccIter : OtherSuccIterRange)
-      OtherInsts.push_back(&*SuccIter);
+    if (SameLevelHoist) { 
+      for (auto &SuccIterPair : OtherSuccIterPairRange)
+        OtherInsts.push_back(&*(SuccIterPair.first));
+    } else {
+      for (auto &map : OtherSuccessorsHash)
+        OtherInsts.push_back(map[getHash(I1)].first);
+    }
 
     // If we are hoisting the terminator instruction, don't move one (making a
     // broken BB), instead clone it, and remove BI.
-    if (HasTerminator) {
+    if (I1->isTerminator()) {
       // Even if BB, which contains only one unreachable instruction, is ignored
       // at the beginning of the loop, we can hoist the terminator instruction.
       // If any instructions remain in the block, we cannot hoist terminators.
-      if (NumSkipped || !AllInstsAreIdentical) {
+      if (NumSkipped) {
         hoistLockstepIdenticalDPValues(TI, I1, OtherInsts);
         return Changed;
       }
-
-      return hoistSuccIdenticalTerminatorToSwitchOrIf(TI, I1, OtherInsts) ||
-             Changed;
+      SmallVector<Instruction *, 8> Insts;
+      for (auto &map : OtherSuccessorsHash) {
+        Instruction *I2 = map[getHash(I1)].first;
+        // BB holding I2 should only contain the branch instruction
+        auto itr = I2->getParent()->instructionsWithoutDebug();
+        if (&*itr.begin() != I2)
+          return Changed;
+        Insts.push_back(I2);
+      }
+      return hoistSuccIdenticalTerminatorToSwitchOrIf(TI, I1, Insts) || Changed;
     }
 
-    if (AllInstsAreIdentical) {
-      unsigned SkipFlagsBB1 = BB1ItrPair.second;
-      AllInstsAreIdentical =
-          isSafeToHoistInstr(I1, SkipFlagsBB1) &&
-          all_of(OtherSuccIterPairRange, [=](const auto &Pair) {
-            Instruction *I2 = &*Pair.first;
-            unsigned SkipFlagsBB2 = Pair.second;
-            // Even if the instructions are identical, it may not
-            // be safe to hoist them if we have skipped over
-            // instructions with side effects or their operands
-            // weren't hoisted.
-            return isSafeToHoistInstr(I2, SkipFlagsBB2) &&
-                   shouldHoistCommonInstructions(I1, I2, TTI);
-          });
+    bool SafeToHoist = isSafeToHoistInstr(I1, SkipFlagsBB1);
+    unsigned index = 0;
+    for (auto &SuccIterPair : OtherSuccIterPairRange) {
+      Instruction *I2 = OtherSuccessorsHash[index][getHash(I1)].first;
+      // If instructions of all successors are at the same level, use the
+      // skipFlag of its BB, i.e., SameLevelHoist. Otherwise, use the skipFlag
+      // that was calculated initially for this instruction in the hashmap
+      if (SameLevelHoist && I2 == (&*(SuccIterPair.first))) {
+        SafeToHoist = SafeToHoist &&
+                      isSafeToHoistInstr(I2, SuccIterPair.second) &&
+                      shouldHoistCommonInstructions(I1, I2, TTI);
+      } else {
+        unsigned skipFlag = OtherSuccessorsHash[index][getHash(I1)].second;
+        SafeToHoist = SafeToHoist && isSafeToHoistInstr(I2, skipFlag) &&
+                      shouldHoistCommonInstructions(I1, I2, TTI);
+        SameLevelHoist = false;
+      }
+      index++;
     }
 
-    if (AllInstsAreIdentical) {
+    if (SafeToHoist) {
       BB1ItrPair.first++;
+      if (SameLevelHoist) {
+        for (auto &SuccIterPair : OtherSuccIterPairRange)
+          SuccIterPair.first++;
+      }
       if (isa<DbgInfoIntrinsic>(I1)) {
         // The debug location is an integral part of a debug info intrinsic
         // and can't be separated from it or replaced.  Instead of attempting
@@ -1725,8 +1808,8 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
         // leave any that were not hoisted behind (by calling moveBefore
         // rather than moveBeforePreserving).
         I1->moveBefore(TI);
-        for (auto &SuccIter : OtherSuccIterRange) {
-          auto *I2 = &*SuccIter++;
+        for (auto &map : OtherSuccessorsHash) {
+          Instruction *I2 = map[getHash(I1)].first;
           assert(isa<DbgInfoIntrinsic>(I2));
           I2->moveBefore(TI);
         }
@@ -1739,16 +1822,41 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
         // leave any that were not hoisted behind (by calling moveBefore
         // rather than moveBeforePreserving).
         I1->moveBefore(TI);
-        for (auto &SuccIter : OtherSuccIterRange) {
-          Instruction *I2 = &*SuccIter++;
+        for (auto &map : OtherSuccessorsHash) {
+          Instruction *I2 = map[getHash(I1)].first;
           assert(I2 != I1);
-          if (!I2->use_empty())
+          // Update hashcode of all instructions using I2
+          if (!I2->use_empty()) {
+            SmallVector<llvm::hash_code, 8> PrevHashCodes;
+            SmallVector<llvm::Instruction *, 8> PrevUsers;
+            // Once the uses of I1 are replaced, the hash value computed for
+            // those users are not valid anymore so we gather users and then
+            // recompute the hash codes for them. We need to do this only for
+            // the instructions located in the same block as I2 because we
+            // initially only hashed those instructions.
+            for (auto *user : I2->users()) {
+              if (auto *I = dyn_cast<Instruction>(user)) {
+                if (I->getParent() != I2->getParent())
+                  continue;
+                PrevHashCodes.push_back(getHash(I));
+                PrevUsers.push_back(I);
+              }
+            }
             I2->replaceAllUsesWith(I1);
+            unsigned index = 0;
+            for (auto &PrevHash : PrevHashCodes) {
+              auto NewHash = getHash(PrevUsers[index]);
+              map.insert({NewHash, map[PrevHash]});
+              map.erase(PrevHash);
+              index++;
+            }
+          }
           I1->andIRFlags(I2);
           combineMetadataForCSE(I1, I2, true);
           // I1 and I2 are being combined into a single instruction.  Its debug
           // location is the merged locations of the original instructions.
           I1->applyMergedLocation(I1->getDebugLoc(), I2->getDebugLoc());
+          map.erase(getHash(I1));
           I2->eraseFromParent();
         }
       }
@@ -1764,9 +1872,13 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
       // We are about to skip over a pair of non-identical instructions. Record
       // if any have characteristics that would prevent reordering instructions
       // across them.
-      for (auto &SuccIterPair : SuccIterPairs) {
-        Instruction *I = &*SuccIterPair.first++;
-        SuccIterPair.second |= skippedInstrFlags(I);
+      BB1ItrPair.first++;
+      SkipFlagsBB1 |= skippedInstrFlags(I1);
+      if (SameLevelHoist) {
+        for (auto &SuccIterPair : OtherSuccIterPairRange) { // update flags
+          Instruction *I = &*SuccIterPair.first++;
+          SuccIterPair.second |= skippedInstrFlags(I);
+        }
       }
       ++NumSkipped;
     }
@@ -1786,11 +1898,8 @@ bool SimplifyCFGOpt::hoistSuccIdenticalTerminatorToSwitchOrIf(
   // Use only for an if statement.
   auto *I2 = *OtherSuccTIs.begin();
   auto *BB2 = I2->getParent();
-  if (BI) {
+  if (BI) 
     assert(OtherSuccTIs.size() == 1);
-    assert(BI->getSuccessor(0) == I1->getParent());
-    assert(BI->getSuccessor(1) == I2->getParent());
-  }
 
   // In the case of an if statement, we try to hoist an invoke.
   // FIXME: Can we define a safety predicate for CallBr?
@@ -3647,7 +3756,7 @@ static bool FoldTwoEntryPHINode(PHINode *PN, const TargetTransformInfo &TTI,
     // Change the PHI node into a select instruction.
     Value *TrueVal = PN->getIncomingValueForBlock(IfTrue);
     Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
-
+    
     Value *Sel = Builder.CreateSelect(IfCond, TrueVal, FalseVal, "", DomBI);
     PN->replaceAllUsesWith(Sel);
     Sel->takeName(PN);
