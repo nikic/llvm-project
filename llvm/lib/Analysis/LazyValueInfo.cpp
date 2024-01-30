@@ -573,8 +573,12 @@ LazyValueInfoImpl::getBlockValue(Value *Val, BasicBlock *BB, Instruction *CxtI,
 
   if (std::optional<ValueLatticeElement> OptLatticeVal =
           TheCache.getCachedValueInfo(Val, BB)) {
-    if (!AllowSpeculative && OptLatticeVal->isSpeculative())
-      *OptLatticeVal = ValueLatticeElement::getOverdefined();
+    if (OptLatticeVal->isSpeculative()) {
+      if (!AllowSpeculative)
+        *OptLatticeVal = ValueLatticeElement::getOverdefined();
+      return OptLatticeVal;
+    }
+
     intersectAssumeOrGuardBlockValueConstantRange(Val, *OptLatticeVal, CxtI);
     return OptLatticeVal;
   }
