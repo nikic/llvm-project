@@ -24,7 +24,7 @@ namespace {
 TEST(ConstantsTest, Integer_i1) {
   LLVMContext Context;
   IntegerType *Int1 = IntegerType::get(Context, 1);
-  Constant *One = ConstantInt::get(Int1, 1, true);
+  Constant *One = ConstantInt::get(Int1, 1);
   Constant *Zero = ConstantInt::get(Int1, 0);
   Constant *NegOne = ConstantInt::get(Int1, static_cast<uint64_t>(-1), true);
   EXPECT_EQ(NegOne, ConstantInt::getSigned(Int1, -1));
@@ -102,9 +102,6 @@ TEST(ConstantsTest, IntSigns) {
   EXPECT_EQ(-50, ConstantInt::get(Int8Ty, 206)->getSExtValue());
   EXPECT_EQ(-50, ConstantInt::getSigned(Int8Ty, -50)->getSExtValue());
   EXPECT_EQ(206U, ConstantInt::getSigned(Int8Ty, -50)->getZExtValue());
-
-  // Overflow is handled by truncation.
-  EXPECT_EQ(0x3b, ConstantInt::get(Int8Ty, 0x13b)->getSExtValue());
 }
 
 TEST(ConstantsTest, PointerCast) {
