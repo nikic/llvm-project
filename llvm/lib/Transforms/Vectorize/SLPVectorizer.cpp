@@ -14134,29 +14134,11 @@ class HorizontalReduction {
       return Builder.CreateBinOp((Instruction::BinaryOps)RdxOpcode, LHS, RHS,
                                  Name);
     case RecurKind::FMax:
-      if (IsConstant)
-        return ConstantFP::get(LHS->getType(),
-                               maxnum(cast<ConstantFP>(LHS)->getValueAPF(),
-                                      cast<ConstantFP>(RHS)->getValueAPF()));
-      return Builder.CreateBinaryIntrinsic(Intrinsic::maxnum, LHS, RHS);
     case RecurKind::FMin:
-      if (IsConstant)
-        return ConstantFP::get(LHS->getType(),
-                               minnum(cast<ConstantFP>(LHS)->getValueAPF(),
-                                      cast<ConstantFP>(RHS)->getValueAPF()));
-      return Builder.CreateBinaryIntrinsic(Intrinsic::minnum, LHS, RHS);
     case RecurKind::FMaximum:
-      if (IsConstant)
-        return ConstantFP::get(LHS->getType(),
-                               maximum(cast<ConstantFP>(LHS)->getValueAPF(),
-                                      cast<ConstantFP>(RHS)->getValueAPF()));
-      return Builder.CreateBinaryIntrinsic(Intrinsic::maximum, LHS, RHS);
     case RecurKind::FMinimum:
-      if (IsConstant)
-        return ConstantFP::get(LHS->getType(),
-                               minimum(cast<ConstantFP>(LHS)->getValueAPF(),
-                                      cast<ConstantFP>(RHS)->getValueAPF()));
-      return Builder.CreateBinaryIntrinsic(Intrinsic::minimum, LHS, RHS);
+      return Builder.CreateBinaryIntrinsic(getMinMaxReductionIntrinsicOp(Kind),
+                                           LHS, RHS);
     case RecurKind::SMax:
       if (IsConstant || UseSelect) {
         Value *Cmp = Builder.CreateICmpSGT(LHS, RHS, Name);
