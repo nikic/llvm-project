@@ -68,6 +68,12 @@ static cl::opt<unsigned> TailDupIndirectBranchSize(
              "end with indirect branches."), cl::init(20),
     cl::Hidden);
 
+static cl::opt<unsigned> TailDupIndirectBranchSuccSize(
+    "tail-dup-indirect-succ-size",
+    cl::desc("Maximum successors to consider tail duplicating blocks that "
+             "end with indirect branches."),
+    cl::init(8), cl::Hidden);
+
 static cl::opt<bool>
     TailDupVerify("tail-dup-verify",
                   cl::desc("Verify sanity of PHI instructions during taildup"),
@@ -598,7 +604,8 @@ bool TailDuplicator::shouldTailDuplicate(bool IsSimple,
   if (!TailBB.empty())
     HasIndirectbr = TailBB.back().isIndirectBranch();
 
-  if (HasIndirectbr && PreRegAlloc)
+  if (HasIndirectbr && PreRegAlloc &&
+      TailBB.succ_size() <= TailDupIndirectBranchSuccSize)
     MaxDuplicateCount = TailDupIndirectBranchSize;
 
   // Check the instructions in the block to determine whether tail-duplication
