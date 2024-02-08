@@ -706,21 +706,40 @@ static void computeKnownBitsFromCmp(const Value *V, CmpInst::Predicate Pred,
   }
 }
 
-static void computeKnownBitsFromCond(const Value *V, Value *Cond,
-                                     KnownBits &Known, unsigned Depth,
-                                     const SimplifyQuery &SQ, bool Invert) {
+using InformationFn = function_ref<void(const Value *, bool)>;
+
+static void computeInformationFromCond(const Value *V, Value *Cond,
+                                       unsigned Depth, const SimplifyQuery &SQ,
+                                       InformationFn Fn, bool Invert) {
   Value *A, *B;
   if (Depth < MaxAnalysisRecursionDepth &&
       (Invert ? match(Cond, m_LogicalOr(m_Value(A), m_Value(B)))
               : match(Cond, m_LogicalAnd(m_Value(A), m_Value(B))))) {
-    computeKnownBitsFromCond(V, A, Known, Depth + 1, SQ, Invert);
-    computeKnownBitsFromCond(V, B, Known, Depth + 1, SQ, Invert);
+    computeInformationFromCond(V, A, Depth + 1, SQ, Fn, Invert);
+    computeInformationFromCond(V, B, Depth + 1, SQ, Fn, Invert);
   }
 
-  if (auto *Cmp = dyn_cast<ICmpInst>(Cond))
-    computeKnownBitsFromCmp(
-        V, Invert ? Cmp->getInversePredicate() : Cmp->getPredicate(),
-        Cmp->getOperand(0), Cmp->getOperand(1), Known, SQ);
+  Fn(Cond, Invert);
+}
+
+static void computeInformationFromDominatingConditions(const Value *V,
+                                                       unsigned Depth,
+                                                       const SimplifyQuery &Q,
+                                                       InformationFn Fn) {
+  if (Q.DC && Q.DT) {
+    // Handle dominating conditions.
+    for (BranchInst *BI : Q.DC->conditionsFor(V)) {
+      BasicBlockEdge Edge0(BI->getParent(), BI->getSuccessor(0));
+      if (Q.DT->dominates(Edge0, Q.CxtI->getParent()))
+        computeInformationFromCond(V, BI->getCondition(), Depth, Q, Fn,
+                                   /*Invert*/ false);
+
+      BasicBlockEdge Edge1(BI->getParent(), BI->getSuccessor(1));
+      if (Q.DT->dominates(Edge1, Q.CxtI->getParent()))
+        computeInformationFromCond(V, BI->getCondition(), Depth, Q, Fn,
+                                   /*Invert*/ true);
+    }
+  }
 }
 
 void llvm::computeKnownBitsFromContext(const Value *V, KnownBits &Known,
@@ -728,23 +747,16 @@ void llvm::computeKnownBitsFromContext(const Value *V, KnownBits &Known,
   if (!Q.CxtI)
     return;
 
-  if (Q.DC && Q.DT) {
-    // Handle dominating conditions.
-    for (BranchInst *BI : Q.DC->conditionsFor(V)) {
-      BasicBlockEdge Edge0(BI->getParent(), BI->getSuccessor(0));
-      if (Q.DT->dominates(Edge0, Q.CxtI->getParent()))
-        computeKnownBitsFromCond(V, BI->getCondition(), Known, Depth, Q,
-                                 /*Invert*/ false);
+  computeInformationFromDominatingConditions(
+      V, Depth, Q, [&Known, &Q, V](const Value *Cond, bool Invert) {
+        if (auto *Cmp = dyn_cast<ICmpInst>(Cond))
+          computeKnownBitsFromCmp(
+              V, Invert ? Cmp->getInversePredicate() : Cmp->getPredicate(),
+              Cmp->getOperand(0), Cmp->getOperand(1), Known, Q);
+      });
 
-      BasicBlockEdge Edge1(BI->getParent(), BI->getSuccessor(1));
-      if (Q.DT->dominates(Edge1, Q.CxtI->getParent()))
-        computeKnownBitsFromCond(V, BI->getCondition(), Known, Depth, Q,
-                                 /*Invert*/ true);
-    }
-
-    if (Known.hasConflict())
-      Known.resetAll();
-  }
+  if (Known.hasConflict())
+    Known.resetAll();
 
   if (!Q.AC)
     return;
