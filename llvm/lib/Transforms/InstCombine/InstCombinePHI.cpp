@@ -1378,6 +1378,47 @@ static Value *simplifyUsingControlFlow(InstCombiner &Self, PHINode &PN,
   return nullptr;
 }
 
+// Fold  iv = phi(start, iv.next = iv2.next + start)
+// where iv2 = phi(iv2.start, iv2.next = iv2 + iv2.step)
+// to    iv = iv2 + start
+static Value *foldDependentIVs(PHINode &PN, IRBuilderBase &Builder) {
+  BasicBlock *BB = PN.getParent();
+  if (PN.getNumIncomingValues() != 2)
+    return nullptr;
+
+  Value *Start;
+  Instruction *IvNext;
+  BinaryOperator *Iv2Next;
+  auto MatchOuterIV = [&](Value *V1, Value *V2) {
+    if (match(V2, m_c_Add(m_Specific(V1), m_BinOp(Iv2Next))) ||
+        match(V2, m_PtrAdd(m_Specific(V1), m_BinOp(Iv2Next)))) {
+      Start = V1;
+      IvNext = cast<Instruction>(V2);
+      return true;
+    }
+    return false;
+  };
+
+  if (!MatchOuterIV(PN.getIncomingValue(0), PN.getIncomingValue(1)) &&
+      !MatchOuterIV(PN.getIncomingValue(1), PN.getIncomingValue(0)))
+    return nullptr;
+
+  PHINode *Iv2;
+  Value *Iv2Start, *Iv2Step;
+  if (!matchSimpleRecurrence(Iv2Next, Iv2, Iv2Start, Iv2Step) ||
+      Iv2->getParent() != BB || !match(Iv2Start, m_Zero()))
+    return nullptr;
+
+  Builder.SetInsertPoint(&*BB, BB->getFirstInsertionPt());
+  if (Start->getType()->isPtrOrPtrVectorTy())
+    return Builder.CreatePtrAdd(Start, Iv2, "",
+                                cast<GEPOperator>(IvNext)->isInBounds());
+
+  auto *OBO = cast<OverflowingBinaryOperator>(IvNext);
+  return Builder.CreateAdd(Start, Iv2, "", OBO->hasNoUnsignedWrap(),
+                           OBO->hasNoSignedWrap());
+}
+
 // PHINode simplification
 //
 Instruction *InstCombinerImpl::visitPHINode(PHINode &PN) {
@@ -1594,6 +1635,9 @@ Instruction *InstCombinerImpl::visitPHINode(PHINode &PN) {
   // Ultimately, try to replace this Phi with a dominating condition.
   if (auto *V = simplifyUsingControlFlow(*this, PN, DT))
     return replaceInstUsesWith(PN, V);
+
+  if (Value *Res = foldDependentIVs(PN, Builder))
+    return replaceInstUsesWith(PN, Res);
 
   return nullptr;
 }

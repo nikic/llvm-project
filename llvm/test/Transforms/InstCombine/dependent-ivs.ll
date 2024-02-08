@@ -7,11 +7,10 @@ define void @int_iv_nuw(i64 %base, i64 %end) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV2:%.*]] = phi i64 [ [[IV2_NEXT:%.*]], [[LOOP]] ], [ [[BASE]], [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[IV2:%.*]] = add nuw i64 [[IV]], [[BASE]]
 ; CHECK-NEXT:    call void @use.i64(i64 [[IV2]])
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 4
-; CHECK-NEXT:    [[IV2_NEXT]] = add nuw i64 [[IV_NEXT]], [[BASE]]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[IV_NEXT]], [[END]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
@@ -39,11 +38,10 @@ define void @int_iv_nsw(i64 %base, i64 %end) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV2:%.*]] = phi i64 [ [[IV2_NEXT:%.*]], [[LOOP]] ], [ [[BASE]], [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[IV2:%.*]] = add nsw i64 [[IV]], [[BASE]]
 ; CHECK-NEXT:    call void @use.i64(i64 [[IV2]])
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 4
-; CHECK-NEXT:    [[IV2_NEXT]] = add nsw i64 [[IV_NEXT]], [[BASE]]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[IV_NEXT]], [[END]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
@@ -72,11 +70,10 @@ define void @int_iv_commuted(i64 %base, i64 %end) {
 ; CHECK-NEXT:    [[BASE2:%.*]] = mul i64 [[BASE]], 42
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV2:%.*]] = phi i64 [ [[IV2_NEXT:%.*]], [[LOOP]] ], [ [[BASE2]], [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[IV2:%.*]] = add i64 [[BASE2]], [[IV]]
 ; CHECK-NEXT:    call void @use.i64(i64 [[IV2]])
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 4
-; CHECK-NEXT:    [[IV2_NEXT]] = add i64 [[BASE2]], [[IV_NEXT]]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[IV_NEXT]], [[END]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
@@ -105,11 +102,10 @@ define void @int_iv_vector(<2 x i64> %base) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV2:%.*]] = phi <2 x i64> [ [[IV2_NEXT:%.*]], [[LOOP]] ], [ [[BASE]], [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi <2 x i64> [ [[IV_NEXT:%.*]], [[LOOP]] ], [ zeroinitializer, [[ENTRY]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi <2 x i64> [ [[IV_NEXT:%.*]], [[LOOP]] ], [ zeroinitializer, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[IV2:%.*]] = add <2 x i64> [[IV]], [[BASE]]
 ; CHECK-NEXT:    call void @use.v2i64(<2 x i64> [[IV2]])
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw <2 x i64> [[IV]], <i64 4, i64 4>
-; CHECK-NEXT:    [[IV2_NEXT]] = add <2 x i64> [[IV_NEXT]], [[BASE]]
 ; CHECK-NEXT:    [[CMP:%.*]] = call i1 @get.i1()
 ; CHECK-NEXT:    br i1 [[CMP]], label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
@@ -137,12 +133,11 @@ define void @int_iv_loop_variant_step(i64 %base, i64 %end) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV2:%.*]] = phi i64 [ [[IV2_NEXT:%.*]], [[LOOP]] ], [ [[BASE]], [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[IV2:%.*]] = add nuw i64 [[IV]], [[BASE]]
 ; CHECK-NEXT:    call void @use.i64(i64 [[IV2]])
 ; CHECK-NEXT:    [[STEP:%.*]] = call i64 @get.i64()
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], [[STEP]]
-; CHECK-NEXT:    [[IV2_NEXT]] = add nuw i64 [[IV_NEXT]], [[BASE]]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[IV_NEXT]], [[END]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
@@ -171,11 +166,10 @@ define void @ptr_iv_inbounds(ptr %base, i64 %end) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV_PTR:%.*]] = phi ptr [ [[IV_PTR_NEXT:%.*]], [[LOOP]] ], [ [[BASE]], [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[IV_PTR:%.*]] = getelementptr inbounds i8, ptr [[BASE]], i64 [[IV]]
 ; CHECK-NEXT:    call void @use.p0(ptr [[IV_PTR]])
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 4
-; CHECK-NEXT:    [[IV_PTR_NEXT]] = getelementptr inbounds i8, ptr [[BASE]], i64 [[IV_NEXT]]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[IV_NEXT]], [[END]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
@@ -203,11 +197,10 @@ define void @ptr_iv_no_inbounds(ptr %base, i64 %end) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV_PTR:%.*]] = phi ptr [ [[IV_PTR_NEXT:%.*]], [[LOOP]] ], [ [[BASE]], [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[IV_PTR:%.*]] = getelementptr i8, ptr [[BASE]], i64 [[IV]]
 ; CHECK-NEXT:    call void @use.p0(ptr [[IV_PTR]])
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 4
-; CHECK-NEXT:    [[IV_PTR_NEXT]] = getelementptr i8, ptr [[BASE]], i64 [[IV_NEXT]]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[IV_NEXT]], [[END]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
@@ -235,11 +228,10 @@ define void @ptr_iv_vector(<2 x ptr> %base, i64 %end) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV_PTR:%.*]] = phi <2 x ptr> [ [[IV_PTR_NEXT:%.*]], [[LOOP]] ], [ [[BASE]], [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[IV_PTR:%.*]] = getelementptr inbounds i8, <2 x ptr> [[BASE]], i64 [[IV]]
 ; CHECK-NEXT:    call void @use.v2p0(<2 x ptr> [[IV_PTR]])
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 4
-; CHECK-NEXT:    [[IV_PTR_NEXT]] = getelementptr inbounds i8, <2 x ptr> [[BASE]], i64 [[IV_NEXT]]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[IV_NEXT]], [[END]]
 ; CHECK-NEXT:    br i1 [[CMP]], label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
@@ -267,11 +259,10 @@ define void @ptr_iv_vector2(<2 x ptr> %base) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[IV_PTR:%.*]] = phi <2 x ptr> [ [[IV_PTR_NEXT:%.*]], [[LOOP]] ], [ [[BASE]], [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[IV:%.*]] = phi <2 x i64> [ [[IV_NEXT:%.*]], [[LOOP]] ], [ zeroinitializer, [[ENTRY]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi <2 x i64> [ [[IV_NEXT:%.*]], [[LOOP]] ], [ zeroinitializer, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[IV_PTR:%.*]] = getelementptr i8, <2 x ptr> [[BASE]], <2 x i64> [[IV]]
 ; CHECK-NEXT:    call void @use.v2p0(<2 x ptr> [[IV_PTR]])
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw <2 x i64> [[IV]], <i64 4, i64 4>
-; CHECK-NEXT:    [[IV_PTR_NEXT]] = getelementptr i8, <2 x ptr> [[BASE]], <2 x i64> [[IV_NEXT]]
 ; CHECK-NEXT:    [[CMP:%.*]] = call i1 @get.i1()
 ; CHECK-NEXT:    br i1 [[CMP]], label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
