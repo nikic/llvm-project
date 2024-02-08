@@ -706,8 +706,8 @@ static void computeKnownBitsFromCmp(const Value *V, CmpInst::Predicate Pred,
   }
 }
 
-using InformationFn = function_ref<void(const Value *, bool)>;
 
+template <typename InformationFn>
 static void computeInformationFromCond(const Value *V, Value *Cond,
                                        unsigned Depth, const SimplifyQuery &SQ,
                                        InformationFn Fn, bool Invert) {
@@ -722,6 +722,7 @@ static void computeInformationFromCond(const Value *V, Value *Cond,
   Fn(Cond, Invert);
 }
 
+template <typename InformationFn>
 static void computeInformationFromDominatingConditions(const Value *V,
                                                        unsigned Depth,
                                                        const SimplifyQuery &Q,
