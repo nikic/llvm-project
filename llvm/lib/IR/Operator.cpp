@@ -190,6 +190,13 @@ bool GEPOperator::collectOffset(
   assert(BitWidth == DL.getIndexSizeInBits(getPointerAddressSpace()) &&
          "The offset bit width does not match DL specification.");
 
+  if (getSourceElementType()->isIntegerTy(8)) {
+    if (auto *CI = dyn_cast<ConstantInt>(*idx_begin())) {
+      ConstantOffset += CI->getValue().sextOrTrunc(BitWidth);
+      return true;
+    }
+  }
+
   auto CollectConstantOffset = [&](APInt Index, uint64_t Size) {
     Index = Index.sextOrTrunc(BitWidth);
     APInt IndexedSize = APInt(BitWidth, Size);
