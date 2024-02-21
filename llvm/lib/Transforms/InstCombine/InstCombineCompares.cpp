@@ -437,7 +437,7 @@ static bool canRewriteGEPAsOffset(Value *Start, Value *Base,
     SetVector<PHINode *> PHIs;
 
     while (!WorkList.empty()) {
-      if (Explored.size() >= 100)
+      if (Explored.size() >= 32)
         return false;
 
       Value *V = WorkList.back();
