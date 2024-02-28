@@ -138,7 +138,7 @@ for.end:                                          ; preds = %for.cond.cleanup
 
 define void @cond_select_loop(ptr noalias nocapture noundef readonly %a, ptr noalias nocapture noundef readonly %b, ptr noalias nocapture noundef writeonly %c) {
 ; CHECK-LABEL: define void @cond_select_loop(
-; CHECK-SAME: ptr noalias nocapture noundef readonly [[A:%.*]], ptr noalias nocapture noundef readonly [[B:%.*]], ptr noalias nocapture noundef writeonly [[C:%.*]]) local_unnamed_addr #[[ATTR1:[0-9]+]] {
+; CHECK-SAME: ptr noalias nocapture noundef readonly [[A:%.*]], ptr noalias nocapture noundef readonly [[B:%.*]], ptr noalias nocapture noundef writeonly initialized((0,4)) [[C:%.*]]) local_unnamed_addr #[[ATTR1:[0-9]+]] {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:

@@ -31,6 +31,7 @@
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/MemoryLocation.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -606,30 +607,18 @@ struct GraphTraits<ArgumentGraph *> : public GraphTraits<ArgumentGraphNode *> {
 
 } // end namespace llvm
 
-/// Returns Attribute::None, Attribute::ReadOnly or Attribute::ReadNone.
-static Attribute::AttrKind
-determinePointerAccessAttrs(Argument *A,
-                            const SmallPtrSet<Argument *, 8> &SCCNodes) {
+void getArgumentUses(Argument *A, const SmallPtrSet<Argument *, 8> &SCCNodes,
+                     SmallVector<Instruction *, 16> *Reads,
+                     SmallVector<Instruction *, 16> *Writes,
+                     SmallVector<Instruction *, 16> *SpecialUses) {
   SmallVector<Use *, 32> Worklist;
   SmallPtrSet<Use *, 32> Visited;
-
-  // inalloca arguments are always clobbered by the call.
-  if (A->hasInAllocaAttr() || A->hasPreallocatedAttr())
-    return Attribute::None;
-
-  bool IsRead = false;
-  bool IsWrite = false;
-
   for (Use &U : A->uses()) {
     Visited.insert(&U);
     Worklist.push_back(&U);
   }
 
   while (!Worklist.empty()) {
-    if (IsWrite && IsRead)
-      // No point in searching further..
-      return Attribute::None;
-
     Use *U = Worklist.pop_back_val();
     Instruction *I = cast<Instruction>(U->getUser());
 
@@ -649,7 +638,7 @@ determinePointerAccessAttrs(Argument *A,
     case Instruction::Invoke: {
       CallBase &CB = cast<CallBase>(*I);
       if (CB.isCallee(U)) {
-        IsRead = true;
+        Reads->push_back(I);
         // Note that indirect calls do not capture, see comment in
         // CaptureTracking for context
         continue;
@@ -668,12 +657,13 @@ determinePointerAccessAttrs(Argument *A,
           if (Visited.insert(&UU).second)
             Worklist.push_back(&UU);
       } else if (!CB.doesNotCapture(UseIndex)) {
-        if (!CB.onlyReadsMemory())
+        if (!CB.onlyReadsMemory()) {
           // If the callee can save a copy into other memory, then simply
           // scanning uses of the call is insufficient.  We have no way
           // of tracking copies of the pointer through memory to see
           // if a reloaded copy is written to, thus we must give up.
-          return Attribute::None;
+          SpecialUses->push_back(I);
+        }
         // Push users for processing once we finish this one
         if (!I->getType()->isVoidTy())
           for (Use &UU : I->uses())
@@ -698,12 +688,12 @@ determinePointerAccessAttrs(Argument *A,
       if (CB.doesNotAccessMemory(UseIndex)) {
         /* nop */
       } else if (!isModSet(ArgMR) || CB.onlyReadsMemory(UseIndex)) {
-        IsRead = true;
+        Reads->push_back(I);
       } else if (!isRefSet(ArgMR) ||
                  CB.dataOperandHasImpliedAttr(UseIndex, Attribute::WriteOnly)) {
-        IsWrite = true;
+        Writes->push_back(I);
       } else {
-        return Attribute::None;
+        SpecialUses->push_back(I);
       }
       break;
     }
@@ -711,23 +701,29 @@ determinePointerAccessAttrs(Argument *A,
     case Instruction::Load:
       // A volatile load has side effects beyond what readonly can be relied
       // upon.
-      if (cast<LoadInst>(I)->isVolatile())
-        return Attribute::None;
+      if (cast<LoadInst>(I)->isVolatile()) {
+        SpecialUses->push_back(I);
+        continue;
+      }
 
-      IsRead = true;
+      Reads->push_back(I);
       break;
 
     case Instruction::Store:
-      if (cast<StoreInst>(I)->getValueOperand() == *U)
+      if (cast<StoreInst>(I)->getValueOperand() == *U) {
         // untrackable capture
-        return Attribute::None;
+        SpecialUses->push_back(I);
+        continue;
+      }
 
       // A volatile store has side effects beyond what writeonly can be relied
       // upon.
-      if (cast<StoreInst>(I)->isVolatile())
-        return Attribute::None;
+      if (cast<StoreInst>(I)->isVolatile()) {
+        SpecialUses->push_back(I);
+        continue;
+      }
 
-      IsWrite = true;
+      Writes->push_back(I);
       break;
 
     case Instruction::ICmp:
@@ -735,18 +731,205 @@ determinePointerAccessAttrs(Argument *A,
       break;
 
     default:
-      return Attribute::None;
+      SpecialUses->push_back(I);
+    }
+  }
+}
+
+bool dominateOrComesBefore(DominatorTree &DT, const Instruction *I1,
+                           const Instruction *I2) {
+  if (I1->getParent() == I2->getParent()) {
+    const BasicBlock *BB = I1->getParent();
+    int I1Idx = std::numeric_limits<int>::max();
+    int I2Idx = std::numeric_limits<int>::max();
+    int i = 0;
+    for (const Instruction &I : *BB) {
+      if (&I == I1) {
+        I1Idx = i;
+      } else if (&I == I2) {
+        I2Idx = i;
+      }
+      ++i;
+    }
+    if (I1Idx > I2Idx) {
+      return false;
+    }
+  } else if (!DT.properlyDominates(I1->getParent(), I2->getParent())) {
+    return false;
+  }
+  return true;
+}
+
+bool postDominatesEntry(PostDominatorTree &PDT, const Instruction *I) {
+  const BasicBlock *EntryBB = &(I->getFunction()->getEntryBlock());
+  if (I->getParent() == EntryBB) {
+    // I is in the EntryBB; it must post-dom entry.
+    return true;
+  } else if (PDT.properlyDominates(I->getParent(), EntryBB)) {
+    return true;
+  }
+  return false;
+}
+
+/// Get the memory intervals that `W` writes to. If `W` is a CallInst, the
+/// intervals can be a list of const ranges.
+SmallVector<std::pair<int64_t, int64_t>, 16>
+getWriteIntervals(Instruction *W, Argument *Arg, const TargetLibraryInfo &TLI,
+                  const DataLayout &DL) {
+  auto FinalizeIntervalFunc =
+      [&W](std::optional<MemoryLocation> MemLoc,
+           int WriteOff = 0) -> SmallVector<std::pair<int64_t, int64_t>, 16> {
+    if (!MemLoc.has_value())
+      return {};
+    if (MemLoc->Size.isPrecise() && !MemLoc->Size.isScalable()) {
+      return {std::make_pair(WriteOff, WriteOff + MemLoc->Size.getValue())};
+    }
+    return {};
+  };
+
+  if (auto *CB = dyn_cast<CallBase>(W)) {
+    std::optional<unsigned int> ArgIdx = std::nullopt;
+    for (unsigned int i = 0; i < CB->arg_size(); i++) {
+      if (CB->getArgOperand(i) == Arg)
+        ArgIdx = i;
+    }
+    if (!ArgIdx.has_value())
+      return {};
+
+    // Propagate the "initialized" attr from callee to caller.
+    auto Callee = CB->getCalledFunction();
+    if (Callee) {
+      Argument *CalleeArg = Callee->getArg(ArgIdx.value());
+      if (CalleeArg && CalleeArg->hasAttribute(Attribute::Initialized)) {
+        return CalleeArg->getAttribute(Attribute::Initialized)
+            .getValueAsRanges();
+      }
+    }
+    return FinalizeIntervalFunc(
+        MemoryLocation::getForArgument(CB, ArgIdx.value(), TLI));
+  }
+
+  int64_t WriteOff = 0;
+  if (auto *Store = dyn_cast<StoreInst>(W)) {
+    GetPointerBaseWithConstantOffset(Store->getPointerOperand(), WriteOff, DL);
+  }
+  return FinalizeIntervalFunc(MemoryLocation::getOrNone(W), WriteOff);
+}
+
+/// Get the memory intervals that `Writes` write to, then merge intervals and
+/// return in ascending order.
+SmallVector<std::pair<int64_t, int64_t>, 16>
+getWriteIntervals(const SmallVector<Instruction *, 16> Writes, Argument *Arg,
+                  const TargetLibraryInfo &TLI, const DataLayout &DL) {
+  // Write intervals: end --> start.
+  std::map<int64_t, int64_t> IntervalMapping;
+
+  for (Instruction *Write : Writes) {
+    for (auto &[Start, End] : getWriteIntervals(Write, Arg, TLI, DL)) {
+      auto WII = IntervalMapping.lower_bound(Start);
+      // Find any intervals ending at or after Start, and start before End.
+      // IntervalIter.start <= End && IntervalIter.end >= Start
+      if (WII != IntervalMapping.end() && WII->second <= End) {
+        Start = std::min(Start, WII->second);
+        End = std::max(End, WII->first);
+        WII = IntervalMapping.erase(WII);
+
+        while (WII != IntervalMapping.end() && WII->second <= End) {
+          assert(WII->second > Start && "unexpected interval");
+          End = std::max(End, WII->first);
+          WII = IntervalMapping.erase(WII);
+        }
+      }
+      IntervalMapping[End] = Start;
     }
   }
 
-  if (IsWrite && IsRead)
+  SmallVector<std::pair<int64_t, int64_t>, 16> IntervalsInOrder;
+  for (auto &[End, Start] : IntervalMapping) {
+    IntervalsInOrder.push_back(std::make_pair(Start, End));
+  }
+  return IntervalsInOrder;
+}
+
+/// Get initialization intervals. Initializations are writes that dominates
+/// reads and post-dominates entry.
+SmallVector<std::pair<int64_t, int64_t>, 16>
+getInitIntervals(const SmallVector<Instruction *, 16> &Writes,
+                 const SmallVector<Instruction *, 16> &Reads, Argument *Arg,
+                 DominatorTree &DT, PostDominatorTree &PDT,
+                 const TargetLibraryInfo &TLI, const DataLayout &DL) {
+  if (Writes.empty())
+    return {};
+
+  // Step1: Find Writes that post-dominates entry.
+  SmallVector<Instruction *, 16> WritesPostDomEntry;
+  std::for_each(Writes.begin(), Writes.end(),
+                [&PDT, &WritesPostDomEntry](Instruction *Write) {
+                  if (postDominatesEntry(PDT, Write)) {
+                    WritesPostDomEntry.push_back(Write);
+                  }
+                });
+  if (WritesPostDomEntry.empty())
+    return {};
+
+  // Step2: Check whether writes dominate reads.
+  SmallVector<Instruction *, 16> Inits;
+  for (Instruction *Write : WritesPostDomEntry) {
+    if (std::all_of(Reads.begin(), Reads.end(),
+                    [&DT, &Write](Instruction *Read) {
+                      return dominateOrComesBefore(DT, Write, Read);
+                    })) {
+      Inits.push_back(Write);
+    }
+  }
+  if (Inits.empty())
+    return {};
+
+  return getWriteIntervals(Inits, Arg, TLI, DL);
+}
+
+/// Returns Attribute::None, Attribute::ReadOnly, Attribute::WriteOnly or
+/// Attribute::ReadNone.
+static Attribute::AttrKind
+determinePointerAccessAttrs(Argument *A, SmallVector<Instruction *, 16> &Reads,
+                            SmallVector<Instruction *, 16> &Writes,
+                            SmallVector<Instruction *, 16> &SpecialUses) {
+  // inalloca arguments are always clobbered by the call.
+  if (A->hasInAllocaAttr() || A->hasPreallocatedAttr())
     return Attribute::None;
-  else if (IsRead)
-    return Attribute::ReadOnly;
-  else if (IsWrite)
-    return Attribute::WriteOnly;
-  else
-    return Attribute::ReadNone;
+
+  if (!SpecialUses.empty())
+    return Attribute::None;
+
+  Attribute::AttrKind AccessAttr = Attribute::None;
+  if (!Writes.empty() && !Reads.empty()) {
+    AccessAttr = Attribute::None;
+  } else if (!Reads.empty()) {
+    AccessAttr = Attribute::ReadOnly;
+  } else if (!Writes.empty()) {
+    AccessAttr = Attribute::WriteOnly;
+  } else {
+    AccessAttr = Attribute::ReadNone;
+  }
+  return AccessAttr;
+}
+
+/// Compute the argument initialized attribute.
+static SmallVector<std::pair<int64_t, int64_t>, 16>
+determinePointerInitAttrs(Argument *A, SmallVector<Instruction *, 16> &Reads,
+                          SmallVector<Instruction *, 16> &Writes,
+                          SmallVector<Instruction *, 16> &SpecialUses,
+                          DominatorTree &DT, PostDominatorTree &PDT,
+                          const TargetLibraryInfo &TLI, const DataLayout &DL) {
+  // inalloca arguments are always clobbered by the call.
+  // TODO: "initialized" attribute needs this???
+  if (A->hasInAllocaAttr() || A->hasPreallocatedAttr())
+    return {};
+
+  SmallVector<Instruction *, 16> ReadsAndSpecialUses;
+  ReadsAndSpecialUses.append(Reads.begin(), Reads.end());
+  ReadsAndSpecialUses.append(SpecialUses.begin(), SpecialUses.end());
+  return getInitIntervals(Writes, ReadsAndSpecialUses, A, DT, PDT, TLI, DL);
 }
 
 /// Deduce returned attributes for the SCC.
@@ -866,9 +1049,24 @@ static bool addAccessAttr(Argument *A, Attribute::AttrKind R) {
   return true;
 }
 
+static bool addInitAttr(Argument *A,
+                        SmallVector<std::pair<int64_t, int64_t>, 16> &Inits) {
+  assert(A && "Argument must not be null.");
+  assert(!Inits.empty() && "Inits must not be empty.");
+
+  // Remove the attribute if the argument already has.
+  if (A->hasAttribute(Attribute::Initialized))
+    A->removeAttr(Attribute::Initialized);
+
+  A->addAttr(Attribute::get(A->getContext(), Attribute::Initialized, Inits));
+  // TODO: add statistic num.
+  return true;
+}
+
 /// Deduce nocapture attributes for the SCC.
 static void addArgumentAttrs(const SCCNodeSet &SCCNodes,
-                             SmallSet<Function *, 8> &Changed) {
+                             SmallSet<Function *, 8> &Changed,
+                             FunctionAnalysisManager &FAM) {
   ArgumentGraph AG;
 
   // Check each function in turn, determining which pointer arguments are not
@@ -897,6 +1095,10 @@ static void addArgumentAttrs(const SCCNodeSet &SCCNodes,
       continue;
     }
 
+    DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(*F);
+    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(*F);
+    const TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(*F);
+    const DataLayout &DL = F->getParent()->getDataLayout();
     for (Argument &A : F->args()) {
       if (!A.getType()->isPointerTy())
         continue;
@@ -931,10 +1133,19 @@ static void addArgumentAttrs(const SCCNodeSet &SCCNodes,
         // functions in the SCC.
         SmallPtrSet<Argument *, 8> Self;
         Self.insert(&A);
-        Attribute::AttrKind R = determinePointerAccessAttrs(&A, Self);
+        SmallVector<Instruction *, 16> Reads, Writes, SpecialUses;
+        getArgumentUses(&A, Self, &Reads, &Writes, &SpecialUses);
+
+        Attribute::AttrKind R =
+            determinePointerAccessAttrs(&A, Reads, Writes, SpecialUses);
         if (R != Attribute::None)
           if (addAccessAttr(&A, R))
             Changed.insert(F);
+
+        auto Inits = determinePointerInitAttrs(&A, Reads, Writes, SpecialUses,
+                                               DT, PDT, TLI, DL);
+        if (!Inits.empty() && addInitAttr(&A, Inits))
+          Changed.insert(F);
       }
     }
   }
@@ -961,11 +1172,26 @@ static void addArgumentAttrs(const SCCNodeSet &SCCNodes,
         Changed.insert(A->getParent());
 
         // Infer the access attributes given the new nocapture one
+        Function *F = A->getParent();
+        DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(*F);
+        PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(*F);
+        const TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(*F);
+        const DataLayout &DL = F->getParent()->getDataLayout();
+
         SmallPtrSet<Argument *, 8> Self;
         Self.insert(&*A);
-        Attribute::AttrKind R = determinePointerAccessAttrs(&*A, Self);
+        SmallVector<Instruction *, 16> Reads, Writes, SpecialUses;
+        getArgumentUses(A, Self, &Reads, &Writes, &SpecialUses);
+
+        Attribute::AttrKind R =
+            determinePointerAccessAttrs(&*A, Reads, Writes, SpecialUses);
         if (R != Attribute::None)
           addAccessAttr(A, R);
+
+        auto Inits = determinePointerInitAttrs(A, Reads, Writes, SpecialUses,
+                                               DT, PDT, TLI, DL);
+        if (!Inits.empty())
+          addInitAttr(A, Inits);
       }
       continue;
     }
@@ -1029,12 +1255,46 @@ static void addArgumentAttrs(const SCCNodeSet &SCCNodes,
       return Attribute::None;
     };
 
+    auto meetInitAttr =
+        [](SmallVector<std::pair<int64_t, int64_t>, 16> &InitsA,
+           SmallVector<std::pair<int64_t, int64_t>, 16> &InitsB) {
+          SmallVector<std::pair<int64_t, int64_t>, 16> Intersection;
+          // Intersect two interval lists.
+          for (size_t i = 0, j = 0; i < InitsA.size() && j < InitsB.size();) {
+            int64_t Start = std::max(InitsA[i].first, InitsB[j].first);
+            int64_t End = std::min(InitsA[i].second, InitsB[j].second);
+            if (Start <= End)
+              Intersection.push_back(std::make_pair(Start, End));
+
+            if (InitsA[i].second < InitsB[j].second)
+              i++;
+            else
+              j++;
+          }
+          return Intersection;
+        };
+
     Attribute::AttrKind AccessAttr = Attribute::ReadNone;
+    SmallVector<std::pair<int64_t, int64_t>, 16> InitAttr;
     for (ArgumentGraphNode *N : ArgumentSCC) {
       Argument *A = N->Definition;
-      Attribute::AttrKind K = determinePointerAccessAttrs(A, ArgumentSCCNodes);
+      Function *F = A->getParent();
+      DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(*F);
+      PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(*F);
+      const TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(*F);
+      const DataLayout &DL = F->getParent()->getDataLayout();
+
+      SmallVector<Instruction *, 16> Reads, Writes, SpecialUses;
+      getArgumentUses(A, ArgumentSCCNodes, &Reads, &Writes, &SpecialUses);
+
+      Attribute::AttrKind K =
+          determinePointerAccessAttrs(A, Reads, Writes, SpecialUses);
       AccessAttr = meetAccessAttr(AccessAttr, K);
-      if (AccessAttr == Attribute::None)
+      auto NewInitAttr = determinePointerInitAttrs(
+          A, Reads, Writes, SpecialUses, DT, PDT, TLI, DL);
+      InitAttr = meetInitAttr(InitAttr, NewInitAttr);
+
+      if (AccessAttr == Attribute::None && InitAttr.empty())
         break;
     }
 
@@ -1042,6 +1302,14 @@ static void addArgumentAttrs(const SCCNodeSet &SCCNodes,
       for (ArgumentGraphNode *N : ArgumentSCC) {
         Argument *A = N->Definition;
         if (addAccessAttr(A, AccessAttr))
+          Changed.insert(A->getParent());
+      }
+    }
+
+    if (!InitAttr.empty()) {
+      for (ArgumentGraphNode *N : ArgumentSCC) {
+        Argument *A = N->Definition;
+        if (addInitAttr(A, InitAttr))
           Changed.insert(A->getParent());
       }
     }
@@ -1809,7 +2077,7 @@ static SCCNodesResult createSCCNodeSet(ArrayRef<Function *> Functions) {
 template <typename AARGetterT>
 static SmallSet<Function *, 8>
 deriveAttrsInPostOrder(ArrayRef<Function *> Functions, AARGetterT &&AARGetter,
-                       bool ArgAttrsOnly) {
+                       FunctionAnalysisManager &FAM, bool ArgAttrsOnly) {
   SCCNodesResult Nodes = createSCCNodeSet(Functions);
 
   // Bail if the SCC only contains optnone functions.
@@ -1818,13 +2086,13 @@ deriveAttrsInPostOrder(ArrayRef<Function *> Functions, AARGetterT &&AARGetter,
 
   SmallSet<Function *, 8> Changed;
   if (ArgAttrsOnly) {
-    addArgumentAttrs(Nodes.SCCNodes, Changed);
+    addArgumentAttrs(Nodes.SCCNodes, Changed, FAM);
     return Changed;
   }
 
   addArgumentReturnedAttrs(Nodes.SCCNodes, Changed);
   addMemoryAttrs(Nodes.SCCNodes, AARGetter, Changed);
-  addArgumentAttrs(Nodes.SCCNodes, Changed);
+  addArgumentAttrs(Nodes.SCCNodes, Changed, FAM);
   inferConvergent(Nodes.SCCNodes, Changed);
   addNoReturnAttrs(Nodes.SCCNodes, Changed);
   addWillReturn(Nodes.SCCNodes, Changed);
@@ -1880,7 +2148,7 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
   }
 
   auto ChangedFunctions =
-      deriveAttrsInPostOrder(Functions, AARGetter, ArgAttrsOnly);
+      deriveAttrsInPostOrder(Functions, AARGetter, FAM, ArgAttrsOnly);
   if (ChangedFunctions.empty())
     return PreservedAnalyses::all();
 

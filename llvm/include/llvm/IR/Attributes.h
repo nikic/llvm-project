@@ -93,6 +93,8 @@ public:
 
   static const unsigned NumIntAttrKinds = LastIntAttr - FirstIntAttr + 1;
   static const unsigned NumTypeAttrKinds = LastTypeAttr - FirstTypeAttr + 1;
+  static const unsigned NumConstRangeListAttrKinds =
+      LastConstRangeListAttr - FirstConstRangeListAttr + 1;
 
   static bool isEnumAttrKind(AttrKind Kind) {
     return Kind >= FirstEnumAttr && Kind <= LastEnumAttr;
@@ -102,6 +104,9 @@ public:
   }
   static bool isTypeAttrKind(AttrKind Kind) {
     return Kind >= FirstTypeAttr && Kind <= LastTypeAttr;
+  }
+  static bool isConstRangeListAttrKind(AttrKind Kind) {
+    return Kind >= FirstConstRangeListAttr && Kind <= LastConstRangeListAttr;
   }
 
   static bool canUseAsFnAttr(AttrKind Kind);
@@ -125,6 +130,8 @@ public:
   static Attribute get(LLVMContext &Context, StringRef Kind,
                        StringRef Val = StringRef());
   static Attribute get(LLVMContext &Context, AttrKind Kind, Type *Ty);
+  static Attribute get(LLVMContext &Context, AttrKind Kind,
+                       SmallVector<std::pair<int64_t, int64_t>, 16> &Ranges);
 
   /// Return a uniquified Attribute object that has the specific
   /// alignment set.
@@ -180,6 +187,9 @@ public:
   /// Return true if the attribute is a type attribute.
   bool isTypeAttribute() const;
 
+  /// Return true if the attribute is a const range list attribute.
+  bool isConstRangeListAttribute() const;
+
   /// Return true if the attribute is any kind of attribute.
   bool isValid() const { return pImpl; }
 
@@ -212,6 +222,10 @@ public:
   /// Return the attribute's value as a Type. This requires the attribute to be
   /// a type attribute.
   Type *getValueAsType() const;
+
+  /// Return the attribute's value as a const range list. This requires the
+  /// attribute to be a const range list attribute.
+  SmallVector<std::pair<int64_t, int64_t>, 16> getValueAsRanges() const;
 
   /// Returns the alignment field of an attribute as a byte alignment
   /// value.
@@ -1152,6 +1166,11 @@ public:
 
   /// Add a type attribute with the given type.
   AttrBuilder &addTypeAttr(Attribute::AttrKind Kind, Type *Ty);
+
+  /// Add a const range list attribute with the given ranges.
+  AttrBuilder &
+  addConstRangeListAttr(Attribute::AttrKind Kind,
+                        SmallVector<std::pair<int64_t, int64_t>, 16> &Ranges);
 
   /// This turns a byval type into the form used internally in Attribute.
   AttrBuilder &addByValAttr(Type *Ty);

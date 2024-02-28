@@ -8,7 +8,7 @@ struct Foo {
 void use_foo(struct Foo *f);
 void test_sign_ext(struct Foo *f, int * __ptr32 __sptr i) {
 // X64-LABEL: define dso_local void @test_sign_ext({{.*}}ptr addrspace(270) noundef %i)
-// X86-LABEL: define dso_local void @test_sign_ext(ptr noundef %f, ptr noundef %i)
+// X86-LABEL: define dso_local void @test_sign_ext(ptr noundef initialized((8,16)) %f, ptr noundef %i)
 // X64: %{{.+}} = addrspacecast ptr addrspace(270) %i to ptr
 // X86: %{{.+}} = addrspacecast ptr %i to ptr addrspace(272)
   f->p64 = i;
@@ -23,7 +23,7 @@ void test_zero_ext(struct Foo *f, int * __ptr32 __uptr i) {
   use_foo(f);
 }
 void test_trunc(struct Foo *f, int * __ptr64 i) {
-// X64-LABEL: define dso_local void @test_trunc(ptr noundef %f, ptr noundef %i)
+// X64-LABEL: define dso_local void @test_trunc(ptr noundef initialized((0,4)) %f, ptr noundef %i)
 // X86-LABEL: define dso_local void @test_trunc({{.*}}ptr addrspace(272) noundef %i)
 // X64: %{{.+}} = addrspacecast ptr %i to ptr addrspace(270)
 // X86: %{{.+}} = addrspacecast ptr addrspace(272) %i to ptr

@@ -5,7 +5,7 @@ int get_dummy_id(int D);
 kernel void bar(global int *A);
 
 kernel void foo(global int *A)
-// CHECK: define{{.*}} spir_kernel void @foo(ptr addrspace(1) noundef align 4 %A)
+// CHECK: define{{.*}} spir_kernel void @foo(ptr addrspace(1) noundef align 4 initialized((0,4)) %A)
 {
   int id = get_dummy_id(0);
   // CHECK: %{{[a-z0-9_]+}} = tail call spir_func i32 @get_dummy_id(i32 noundef 0)

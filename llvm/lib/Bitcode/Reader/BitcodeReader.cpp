@@ -2103,6 +2103,8 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::CoroDestroyOnlyWhenComplete;
   case bitc::ATTR_KIND_DEAD_ON_UNWIND:
     return Attribute::DeadOnUnwind;
+  case bitc::ATTR_KIND_INITIALIZED:
+    return Attribute::Initialized;
   }
 }
 
@@ -2272,6 +2274,22 @@ Error BitcodeReader::parseAttributeGroupBlock() {
             return error("Not a type attribute");
 
           B.addTypeAttr(Kind, HasType ? getTypeByID(Record[++i]) : nullptr);
+        } else if (Record[i] == 7 || Record[i] == 8) {
+          Attribute::AttrKind Kind;
+          if (Error Err = parseAttrKind(Record[++i], &Kind))
+            return Err;
+          if (!Attribute::isConstRangeListAttrKind(Kind))
+            return error("Not a const range list attribute");
+
+          SmallVector<std::pair<int64_t, int64_t>, 16> Ranges;
+          int RangeSize = Record[++i];
+          for (int Idx = 0; Idx < RangeSize; ++Idx) {
+            int Start = Record[++i];
+            int End = Record[++i];
+            Ranges.push_back(std::make_pair(Start, End));
+          }
+
+          B.addConstRangeListAttr(Kind, Ranges);
         } else {
           return error("Invalid attribute group entry");
         }

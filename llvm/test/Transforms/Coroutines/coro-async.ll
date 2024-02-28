@@ -116,7 +116,7 @@ define void @my_async_function_pa(ptr %ctxt, ptr %task, ptr %actor) {
 ; CHECK: @my_async_function_pa_fp = constant <{ i32, i32 }> <{ {{.*}}, i32 176 }
 ; CHECK: @my_async_function2_fp = constant <{ i32, i32 }> <{ {{.*}}, i32 176 }
 
-; CHECK-LABEL: define swiftcc void @my_async_function(ptr swiftasync %async.ctxt, ptr %task, ptr %actor)
+; CHECK-LABEL: define swiftcc void @my_async_function(ptr swiftasync initialized((144,160)) %async.ctxt, ptr %task, ptr %actor)
 ; CHECK-O0-LABEL: define swiftcc void @my_async_function(ptr swiftasync %async.ctxt, ptr %task, ptr %actor)
 ; CHECK-SAME: !dbg ![[SP1:[0-9]+]] {
 ; CHECK: coro.return:
@@ -215,7 +215,7 @@ entry:
   unreachable
 }
 
-; CHECK-LABEL: define swiftcc void @my_async_function2(ptr %task, ptr %actor, ptr %async.ctxt)
+; CHECK-LABEL: define swiftcc void @my_async_function2(ptr %task, ptr %actor, ptr initialized((144,152)) %async.ctxt)
 ; CHECK-SAME: #[[FRAMEPOINTER:[0-9]+]]
 ; CHECK-SAME: !dbg ![[SP3:[0-9]+]]
 ; CHECK: store ptr %async.ctxt,
@@ -249,7 +249,7 @@ define swiftcc void @top_level_caller(ptr %ctxt, ptr %task, ptr %actor) {
   ret void
 }
 
-; CHECK-LABEL: define swiftcc void @top_level_caller(ptr %ctxt, ptr %task, ptr %actor)
+; CHECK-LABEL: define swiftcc void @top_level_caller(ptr initialized((144,160)) %ctxt, ptr %task, ptr %actor)
 ; CHECK: store ptr @my_async_functionTQ0_
 ; CHECK: store ptr %ctxt
 ; CHECK: tail call swiftcc void @asyncSuspend
@@ -410,7 +410,7 @@ entry:
   unreachable
 }
 
-; CHECK-LABEL: define swiftcc void @polymorphic_suspend_return(ptr swiftasync %async.ctxt, ptr %task, ptr %actor)
+; CHECK-LABEL: define swiftcc void @polymorphic_suspend_return(ptr swiftasync initialized((144,160)) %async.ctxt, ptr %task, ptr %actor)
 ; CHECK-LABEL: define internal swiftcc void @polymorphic_suspend_return.resume.0(ptr {{.*}}swiftasync{{.*}} %0, ptr {{.*}}swiftself{{.*}} %1, ptr {{.*}}%2, ptr {{.*}}%3)
 ; CHECK: }
 

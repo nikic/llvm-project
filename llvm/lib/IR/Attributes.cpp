@@ -165,6 +165,29 @@ Attribute Attribute::get(LLVMContext &Context, Attribute::AttrKind Kind,
   return Attribute(PA);
 }
 
+Attribute Attribute::get(LLVMContext &Context, Attribute::AttrKind Kind,
+                         SmallVector<std::pair<int64_t, int64_t>, 16> &Ranges) {
+  assert(Attribute::isConstRangeListAttrKind(Kind) &&
+         "Not a const range list attribute");
+  LLVMContextImpl *pImpl = Context.pImpl;
+  FoldingSetNodeID ID;
+  ID.AddInteger(Kind);
+  ID.AddRanges(Ranges);
+
+  void *InsertPoint;
+  AttributeImpl *PA = pImpl->AttrsSet.FindNodeOrInsertPos(ID, InsertPoint);
+
+  if (!PA) {
+    // If we didn't find any existing attributes of the same shape then create a
+    // new one and insert it.
+    PA = new (pImpl->Alloc) ConstRangeListAttributeImpl(Kind, Ranges);
+    pImpl->AttrsSet.InsertNode(PA, InsertPoint);
+  }
+
+  // Return the Attribute that we found or created.
+  return Attribute(PA);
+}
+
 Attribute Attribute::getWithAlignment(LLVMContext &Context, Align A) {
   assert(A <= llvm::Value::MaximumAlignment && "Alignment too large.");
   return get(Context, Alignment, A.value());
@@ -287,9 +310,14 @@ bool Attribute::isTypeAttribute() const {
   return pImpl && pImpl->isTypeAttribute();
 }
 
+bool Attribute::isConstRangeListAttribute() const {
+  return pImpl && pImpl->isConstRangeListAttribute();
+}
+
 Attribute::AttrKind Attribute::getKindAsEnum() const {
   if (!pImpl) return None;
-  assert((isEnumAttribute() || isIntAttribute() || isTypeAttribute()) &&
+  assert((isEnumAttribute() || isIntAttribute() || isTypeAttribute() ||
+          isConstRangeListAttribute()) &&
          "Invalid attribute type to get the kind as an enum!");
   return pImpl->getKindAsEnum();
 }
@@ -329,6 +357,14 @@ Type *Attribute::getValueAsType() const {
   return pImpl->getValueAsType();
 }
 
+SmallVector<std::pair<int64_t, int64_t>, 16>
+Attribute::getValueAsRanges() const {
+  if (!pImpl)
+    return {};
+  assert(isConstRangeListAttribute() &&
+         "Invalid attribute type to get the value as a const range list!");
+  return pImpl->getValueAsRanges();
+}
 
 bool Attribute::hasAttribute(AttrKind Kind) const {
   return (pImpl && pImpl->hasAttribute(Kind)) || (!pImpl && Kind == None);
@@ -562,6 +598,23 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
     return Result;
   }
 
+  if (hasAttribute(Attribute::Initialized)) {
+    auto Ranges = getValueAsRanges();
+    if (Ranges.empty())
+      return "";
+
+    std::string Result = "initialized(";
+    raw_string_ostream OS(Result);
+    for (size_t i = 0; i < Ranges.size(); i++) {
+      auto [Start, End] = Ranges[i];
+      OS << "(" << Start << "," << End << ")";
+      if (i != Ranges.size() - 1)
+        OS << ",";
+    }
+    OS << ")";
+    return Result;
+  }
+
   // Convert target-dependent attributes to strings of the form:
   //
   //   "kind"
@@ -651,7 +704,8 @@ bool AttributeImpl::hasAttribute(StringRef Kind) const {
 }
 
 Attribute::AttrKind AttributeImpl::getKindAsEnum() const {
-  assert(isEnumAttribute() || isIntAttribute() || isTypeAttribute());
+  assert(isEnumAttribute() || isIntAttribute() || isTypeAttribute() ||
+         isConstRangeListAttribute());
   return static_cast<const EnumAttributeImpl *>(this)->getEnumKind();
 }
 
@@ -678,6 +732,13 @@ StringRef AttributeImpl::getValueAsString() const {
 Type *AttributeImpl::getValueAsType() const {
   assert(isTypeAttribute());
   return static_cast<const TypeAttributeImpl *>(this)->getTypeValue();
+}
+
+SmallVector<std::pair<int64_t, int64_t>, 16>
+AttributeImpl::getValueAsRanges() const {
+  assert(isConstRangeListAttribute());
+  return static_cast<const ConstRangeListAttributeImpl *>(this)
+      ->getRangesValue();
 }
 
 bool AttributeImpl::operator<(const AttributeImpl &AI) const {
@@ -1861,6 +1922,12 @@ AttrBuilder &AttrBuilder::addTypeAttr(Attribute::AttrKind Kind, Type *Ty) {
   return addAttribute(Attribute::get(Ctx, Kind, Ty));
 }
 
+AttrBuilder &AttrBuilder::addConstRangeListAttr(
+    Attribute::AttrKind Kind,
+    SmallVector<std::pair<int64_t, int64_t>, 16> &Ranges) {
+  return addAttribute(Attribute::get(Ctx, Kind, Ranges));
+}
+
 AttrBuilder &AttrBuilder::addByValAttr(Type *Ty) {
   return addTypeAttr(Attribute::ByVal, Ty);
 }
@@ -1963,7 +2030,8 @@ AttributeMask AttributeFuncs::typeIncompatible(Type *Ty,
           .addAttribute(Attribute::Dereferenceable)
           .addAttribute(Attribute::DereferenceableOrNull)
           .addAttribute(Attribute::Writable)
-          .addAttribute(Attribute::DeadOnUnwind);
+          .addAttribute(Attribute::DeadOnUnwind)
+          .addAttribute(Attribute::Initialized);
     if (ASK & ASK_UNSAFE_TO_DROP)
       Incompatible.addAttribute(Attribute::Nest)
           .addAttribute(Attribute::SwiftError)

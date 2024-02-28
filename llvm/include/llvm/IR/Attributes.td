@@ -38,6 +38,9 @@ class IntAttr<string S, list<AttrProperty> P> : Attr<S, P>;
 /// Type attribute.
 class TypeAttr<string S, list<AttrProperty> P> : Attr<S, P>;
 
+/// Const range list attribute.
+class ConstRangeListAttr<string S, list<AttrProperty> P>: Attr<S, P>;
+
 /// StringBool attribute.
 class StrBoolAttr<string S> : Attr<S, []>;
 
@@ -308,6 +311,9 @@ def WillReturn : EnumAttr<"willreturn", [FnAttr]>;
 
 /// Pointer argument is writable.
 def Writable : EnumAttr<"writable", [ParamAttr]>;
+
+/// Pointer argument memory [%p+LoN, %p+HiN) is initialized.
+def Initialized : ConstRangeListAttr<"initialized", [ParamAttr]>;
 
 /// Function only writes to memory.
 def WriteOnly : EnumAttr<"writeonly", [ParamAttr]>;

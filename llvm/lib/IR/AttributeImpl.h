@@ -46,6 +46,7 @@ protected:
     IntAttrEntry,
     StringAttrEntry,
     TypeAttrEntry,
+    ConstRangeListAttrEntry,
   };
 
   AttributeImpl(AttrEntryKind KindID) : KindID(KindID) {}
@@ -59,6 +60,9 @@ public:
   bool isIntAttribute() const { return KindID == IntAttrEntry; }
   bool isStringAttribute() const { return KindID == StringAttrEntry; }
   bool isTypeAttribute() const { return KindID == TypeAttrEntry; }
+  bool isConstRangeListAttribute() const {
+    return KindID == ConstRangeListAttrEntry;
+  }
 
   bool hasAttribute(Attribute::AttrKind A) const;
   bool hasAttribute(StringRef Kind) const;
@@ -72,6 +76,8 @@ public:
 
   Type *getValueAsType() const;
 
+  SmallVector<std::pair<int64_t, int64_t>, 16> getValueAsRanges() const;
+
   /// Used when sorting the attributes.
   bool operator<(const AttributeImpl &AI) const;
 
@@ -82,8 +88,10 @@ public:
       Profile(ID, getKindAsEnum(), getValueAsInt());
     else if (isStringAttribute())
       Profile(ID, getKindAsString(), getValueAsString());
-    else
+    else if (isTypeAttribute())
       Profile(ID, getKindAsEnum(), getValueAsType());
+    else
+      Profile(ID, getKindAsEnum(), getValueAsRanges());
   }
 
   static void Profile(FoldingSetNodeID &ID, Attribute::AttrKind Kind) {
@@ -107,6 +115,13 @@ public:
                       Type *Ty) {
     ID.AddInteger(Kind);
     ID.AddPointer(Ty);
+  }
+
+  static void
+  Profile(FoldingSetNodeID &ID, Attribute::AttrKind Kind,
+          const SmallVector<std::pair<int64_t, int64_t>, 16> &Ranges) {
+    ID.AddInteger(Kind);
+    ID.AddRanges(Ranges);
   }
 };
 
@@ -194,6 +209,20 @@ public:
       : EnumAttributeImpl(TypeAttrEntry, Kind), Ty(Ty) {}
 
   Type *getTypeValue() const { return Ty; }
+};
+
+class ConstRangeListAttributeImpl : public EnumAttributeImpl {
+  SmallVector<std::pair<int64_t, int64_t>, 16> Ranges;
+
+public:
+  ConstRangeListAttributeImpl(
+      Attribute::AttrKind Kind,
+      SmallVector<std::pair<int64_t, int64_t>, 16> &Ranges)
+      : EnumAttributeImpl(ConstRangeListAttrEntry, Kind), Ranges(Ranges) {}
+
+  SmallVector<std::pair<int64_t, int64_t>, 16> getRangesValue() const {
+    return Ranges;
+  }
 };
 
 class AttributeBitSet {
