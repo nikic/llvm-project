@@ -1847,9 +1847,9 @@ bool LLParser::parseUInt64(uint64_t &Val) {
 /// parseInt64
 ///   ::= int64_t
 bool LLParser::parseInt64(int64_t &Val) {
-  if (Lex.getKind() != lltok::APSInt || !Lex.getAPSIntVal().isSigned())
+  if (Lex.getKind() != lltok::APSInt)
     return tokError("expected signed integer");
-  Val = Lex.getAPSIntVal().getSExtValue();
+  Val = Lex.getAPSIntVal().extend(64).getSExtValue();
   Lex.Lex();
   return false;
 }
