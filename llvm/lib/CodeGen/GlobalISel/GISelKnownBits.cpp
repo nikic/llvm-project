@@ -565,7 +565,9 @@ void GISelKnownBits::computeKnownBitsImpl(Register R, KnownBits &Known,
     KnownBits ExtKnown = KnownBits::makeConstant(APInt(BitWidth, BitWidth));
     KnownBits ShiftKnown = KnownBits::computeForAddSub(
         /*Add=*/false, /*NSW=*/false, /* NUW=*/false, ExtKnown, WidthKnown);
-    Known = KnownBits::ashr(KnownBits::shl(Known, ShiftKnown), ShiftKnown);
+    Known = KnownBits::ashr(KnownBits::shl(Known, ShiftKnown), ShiftKnown,
+                            /*ShAmtNonZero=*/false,
+                            /*Exact*/ true);
     break;
   }
   case TargetOpcode::G_UADDO:
