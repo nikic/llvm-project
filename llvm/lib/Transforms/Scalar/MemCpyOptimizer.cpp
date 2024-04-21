@@ -399,6 +399,9 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
       // If this is a store, see if we can merge it in.
       if (!NextStore->isSimple()) break;
 
+      if (AA->isNoAlias(NextStore->getPointerOperand(), StartPtr))
+        continue;
+
       Value *StoredVal = NextStore->getValueOperand();
 
       // Don't convert stores of non-integral pointer types to memsets (which
@@ -420,6 +423,7 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
       // Check to see if this store is to a constant offset from the start ptr.
       std::optional<int64_t> Offset =
           NextStore->getPointerOperand()->getPointerOffsetFrom(StartPtr, DL);
+
       if (!Offset)
         break;
 
@@ -427,13 +431,19 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
     } else {
       auto *MSI = cast<MemSetInst>(BI);
 
-      if (MSI->isVolatile() || ByteVal != MSI->getValue() ||
-          !isa<ConstantInt>(MSI->getLength()))
+      if (MSI->isVolatile())
+        break;
+
+      if (AA->isNoAlias(MSI->getDest(), StartPtr))
+        continue;
+
+      if (ByteVal != MSI->getValue() || !isa<ConstantInt>(MSI->getLength()))
         break;
 
       // Check to see if this store is to a constant offset from the start ptr.
       std::optional<int64_t> Offset =
           MSI->getDest()->getPointerOffsetFrom(StartPtr, DL);
+
       if (!Offset)
         break;
 
