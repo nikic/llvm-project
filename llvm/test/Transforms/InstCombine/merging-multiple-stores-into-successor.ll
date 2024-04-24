@@ -34,9 +34,9 @@ define void @_Z4testv() {
 ; CHECK-NEXT:    store i16 [[I4]], ptr @arr_4, align 2
 ; CHECK-NEXT:    [[I8:%.*]] = sext i16 [[I4]] to i32
 ; CHECK-NEXT:    store i32 [[I8]], ptr @arr_3, align 4
-; CHECK-NEXT:    store i32 [[STOREMERGE]], ptr getelementptr inbounds ([0 x i32], ptr @arr_2, i64 0, i64 1), align 4
-; CHECK-NEXT:    store i16 [[I4]], ptr getelementptr inbounds ([0 x i16], ptr @arr_4, i64 0, i64 1), align 2
-; CHECK-NEXT:    store i32 [[I8]], ptr getelementptr inbounds ([8 x i32], ptr @arr_3, i64 0, i64 1), align 4
+; CHECK-NEXT:    store i32 [[STOREMERGE]], ptr getelementptr inbounds (i8, ptr @arr_2, i64 4), align 4
+; CHECK-NEXT:    store i16 [[I4]], ptr getelementptr inbounds (i8, ptr @arr_4, i64 2), align 2
+; CHECK-NEXT:    store i32 [[I8]], ptr getelementptr inbounds (i8, ptr @arr_3, i64 4), align 4
 ; CHECK-NEXT:    ret void
 ;
 bb:
@@ -107,10 +107,10 @@ define i32 @diff_types_diff_width_no_merge(i1 %cond, i32 %a, i64 %b) {
 ; CHECK-NEXT:    [[ALLOCA:%.*]] = alloca i64, align 8
 ; CHECK-NEXT:    br i1 [[COND:%.*]], label [[A:%.*]], label [[B:%.*]]
 ; CHECK:       A:
-; CHECK-NEXT:    store i32 [[A:%.*]], ptr [[ALLOCA]], align 4
+; CHECK-NEXT:    store i32 [[A]], ptr [[ALLOCA]], align 4
 ; CHECK-NEXT:    br label [[SINK:%.*]]
 ; CHECK:       B:
-; CHECK-NEXT:    store i64 [[B:%.*]], ptr [[ALLOCA]], align 4
+; CHECK-NEXT:    store i64 [[B]], ptr [[ALLOCA]], align 4
 ; CHECK-NEXT:    br label [[SINK]]
 ; CHECK:       sink:
 ; CHECK-NEXT:    [[VAL:%.*]] = load i32, ptr [[ALLOCA]], align 4
@@ -136,10 +136,10 @@ define <4 x i32> @vec_no_merge(i1 %cond, <2 x i32> %a, <4 x i32> %b) {
 ; CHECK-NEXT:    [[ALLOCA:%.*]] = alloca i64, align 8
 ; CHECK-NEXT:    br i1 [[COND:%.*]], label [[A:%.*]], label [[B:%.*]]
 ; CHECK:       A:
-; CHECK-NEXT:    store <2 x i32> [[A:%.*]], ptr [[ALLOCA]], align 8
+; CHECK-NEXT:    store <2 x i32> [[A]], ptr [[ALLOCA]], align 8
 ; CHECK-NEXT:    br label [[SINK:%.*]]
 ; CHECK:       B:
-; CHECK-NEXT:    store <4 x i32> [[B:%.*]], ptr [[ALLOCA]], align 16
+; CHECK-NEXT:    store <4 x i32> [[B]], ptr [[ALLOCA]], align 16
 ; CHECK-NEXT:    br label [[SINK]]
 ; CHECK:       sink:
 ; CHECK-NEXT:    [[VAL:%.*]] = load <4 x i32>, ptr [[ALLOCA]], align 16
@@ -197,10 +197,10 @@ define %struct.tup @multi_elem_struct_no_merge(i1 %cond, %struct.tup %a, half %b
 ; CHECK-NEXT:    [[ALLOCA:%.*]] = alloca i64, align 8
 ; CHECK-NEXT:    br i1 [[COND:%.*]], label [[A:%.*]], label [[B:%.*]]
 ; CHECK:       A:
-; CHECK-NEXT:    store [[STRUCT_TUP:%.*]] [[A:%.*]], ptr [[ALLOCA]], align 4
+; CHECK-NEXT:    store [[STRUCT_TUP:%.*]] [[A]], ptr [[ALLOCA]], align 4
 ; CHECK-NEXT:    br label [[SINK:%.*]]
 ; CHECK:       B:
-; CHECK-NEXT:    store half [[B:%.*]], ptr [[ALLOCA]], align 2
+; CHECK-NEXT:    store half [[B]], ptr [[ALLOCA]], align 2
 ; CHECK-NEXT:    br label [[SINK]]
 ; CHECK:       sink:
 ; CHECK-NEXT:    [[VAL:%.*]] = load [[STRUCT_TUP]], ptr [[ALLOCA]], align 4
