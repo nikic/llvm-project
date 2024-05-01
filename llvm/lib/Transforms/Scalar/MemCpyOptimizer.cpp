@@ -68,7 +68,7 @@ static cl::opt<bool> EnableMemCpyOptWithoutLibcalls(
     cl::desc("Enable memcpyopt even when libcalls are disabled"));
 
 static cl::opt<size_t> MaxMemsetRanges(
-    "memcpyopt-max-memset-ranges", cl::Hidden, cl::init(16),
+    "memcpyopt-max-memset-ranges", cl::Hidden, cl::init(4),
     cl::desc("Maximum number of memset ranges to consider for merging at"
              " the same time"));
 
