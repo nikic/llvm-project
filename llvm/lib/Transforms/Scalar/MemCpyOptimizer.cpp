@@ -170,7 +170,6 @@ public:
   /// The byte value of memset.
   Value *ByteVal;
 
-  MemsetRanges() {}
   MemsetRanges(const DataLayout *DL, Instruction *I, Value *StartPtr,
                Value *ByteVal)
       : DL(DL), StartInst(I), StartPtr(StartPtr),
@@ -470,7 +469,7 @@ static Value *getWrittenPtr(Instruction *I) {
     return SI->getPointerOperand();
   if (auto *MSI = dyn_cast<MemSetInst>(I))
     return MSI->getDest();
-  static_assert("Only support store and memset");
+  llvm_unreachable("Only support store and memset");
   return nullptr;
 }
 
@@ -479,7 +478,7 @@ static Value *getWrittenPtr(Instruction *I) {
 /// memory. If it sees enough consecutive ones, it attempts to merge them
 /// together into a memcpy/memset.
 bool MemCpyOptPass::tryMergingIntoMemset(BasicBlock *BB) {
-  MapVector<Value *, MemsetRanges> ObjToRanges;
+  MapVector<Value *, std::unique_ptr<MemsetRanges>> ObjToRanges;
   const DataLayout &DL = BB->getModule()->getDataLayout();
   MemoryUseOrDef *MemInsertPoint = nullptr;
   BatchAAResults BAA(*AA);
@@ -491,8 +490,8 @@ bool MemCpyOptPass::tryMergingIntoMemset(BasicBlock *BB) {
     return false;
 
   auto FlushRelated = [&](Instruction *I) {
-    ObjToRanges.remove_if([&](std::pair<Value *, MemsetRanges> &Entry) {
-      auto &Ranges = Entry.second;
+    ObjToRanges.remove_if([&](auto &Entry) {
+      auto &Ranges = *Entry.second;
       bool ShouldFlush =
           isModOrRefSet(BAA.getModRefInfo(I, Ranges.StartPtrLocation));
       if (ShouldFlush)
@@ -521,7 +520,7 @@ bool MemCpyOptPass::tryMergingIntoMemset(BasicBlock *BB) {
     if (I->isVolatile() || I->isAtomic()) {
       // Flush all MemsetRanges if reaching a fence.
       for (auto &[Obj, Ranges] : ObjToRanges)
-        MadeChanged |= Ranges.flush(MSSAU, I, MemInsertPoint);
+        MadeChanged |= Ranges->flush(MSSAU, I, MemInsertPoint);
       ObjToRanges.clear();
       continue;
     }
@@ -540,7 +539,7 @@ bool MemCpyOptPass::tryMergingIntoMemset(BasicBlock *BB) {
     // If this is a store, see if we can merge it in.
     auto *RangesIter = ObjToRanges.find(Obj);
     if (RangesIter != ObjToRanges.end()) {
-      MemsetRanges &Ranges = RangesIter->second;
+      MemsetRanges &Ranges = *RangesIter->second;
 
       if (!ByteVal) {
         MadeChanged |= Ranges.flush(MSSAU, I, MemInsertPoint);
@@ -557,7 +556,7 @@ bool MemCpyOptPass::tryMergingIntoMemset(BasicBlock *BB) {
       // For unmergable stores/memsets, we create a new MemsetRanges.
       if (!Offset || Ranges.ByteVal != ByteVal) {
         MadeChanged |= Ranges.flush(MSSAU, I, MemInsertPoint);
-        ObjToRanges[Obj] = MemsetRanges(&DL, I, WrittenPtr, ByteVal);
+        *RangesIter->second = MemsetRanges(&DL, I, WrittenPtr, ByteVal);
         continue;
       }
 
@@ -568,12 +567,13 @@ bool MemCpyOptPass::tryMergingIntoMemset(BasicBlock *BB) {
 
       // Create a new MemsetRanges.
       if (ByteVal)
-        ObjToRanges.insert({Obj, MemsetRanges(&DL, I, WrittenPtr, ByteVal)});
+        ObjToRanges.try_emplace(
+            Obj, std::make_unique<MemsetRanges>(&DL, I, WrittenPtr, ByteVal));
     }
   }
 
   for (auto &[Obj, Ranges] : ObjToRanges)
-    MadeChanged |= Ranges.flush(MSSAU, &BB->back(), MemInsertPoint);
+    MadeChanged |= Ranges->flush(MSSAU, &BB->back(), MemInsertPoint);
 
   return MadeChanged;
 }
