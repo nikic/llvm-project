@@ -67,6 +67,11 @@ static cl::opt<bool> EnableMemCpyOptWithoutLibcalls(
     "enable-memcpyopt-without-libcalls", cl::Hidden,
     cl::desc("Enable memcpyopt even when libcalls are disabled"));
 
+static cl::opt<size_t> MaxMemsetRanges(
+    "memcpyopt-max-memset-ranges", cl::Hidden, cl::init(16),
+    cl::desc("Maximum number of memset ranges to consider for merging at"
+             " the same time"));
+
 STATISTIC(NumMemCpyInstr, "Number of memcpy instructions deleted");
 STATISTIC(NumMemSetInfer, "Number of memsets inferred");
 STATISTIC(NumMoveToCpy, "Number of memmoves converted to memcpy");
@@ -566,9 +571,17 @@ bool MemCpyOptPass::tryMergingIntoMemset(BasicBlock *BB) {
       FlushRelated(I);
 
       // Create a new MemsetRanges.
-      if (ByteVal)
+      if (ByteVal) {
+        if (ObjToRanges.size() == MaxMemsetRanges) {
+          // Flush earliest object to free up space.
+          auto It = ObjToRanges.begin();
+          It->second->flush(MSSAU, I, MemInsertPoint);
+          ObjToRanges.erase(It);
+        }
+
         ObjToRanges.try_emplace(
             Obj, std::make_unique<MemsetRanges>(&DL, I, WrittenPtr, ByteVal));
+      }
     }
   }
 
