@@ -130,14 +130,35 @@ static const Loop *getOutermostLoop(const LoopInfo *LI, const BasicBlock *BB) {
   return L ? L->getOutermostLoop() : nullptr;
 }
 
-bool llvm::isPotentiallyReachableFromMany(
-    SmallVectorImpl<BasicBlock *> &Worklist, const BasicBlock *StopBB,
-    const SmallPtrSetImpl<BasicBlock *> *ExclusionSet, const DominatorTree *DT,
-    const LoopInfo *LI) {
-  // When the stop block is unreachable, it's dominated from everywhere,
+template <class StopT, bool IsManyStop>
+static bool isReachableImpl(SmallVectorImpl<BasicBlock *> &Worklist,
+                            const StopT *StopBBOrSet,
+                            const SmallPtrSetImpl<BasicBlock *> *ExclusionSet,
+                            const DominatorTree *DT, const LoopInfo *LI) {
+  const BasicBlock *StopBB;
+  const SmallPtrSetImpl<const BasicBlock *> *StopSet;
+
+  // SmallPtrSetImpl is incompatible with LLVM's casting functions.
+  if constexpr (IsManyStop)
+    StopSet =
+        static_cast<const SmallPtrSetImpl<const BasicBlock *> *>(StopBBOrSet);
+  else
+    StopBB = static_cast<const BasicBlock *>(StopBBOrSet);
+
+  // When a stop block is unreachable, it's dominated from everywhere,
   // regardless of whether there's a path between the two blocks.
-  if (DT && !DT->isReachableFromEntry(StopBB))
-    DT = nullptr;
+  SmallPtrSet<const BasicBlock *, 2> StopBBReachable;
+  if (DT) {
+    if constexpr (IsManyStop) {
+      for (auto *BB : *StopSet) {
+        if (DT->isReachableFromEntry(BB))
+          StopBBReachable.insert(BB);
+      }
+    } else {
+      if (!DT->isReachableFromEntry(StopBB))
+        DT = nullptr;
+    }
+  }
 
   // We can't skip directly from a block that dominates the stop block if the
   // exclusion block is potentially in between.
@@ -155,7 +176,19 @@ bool llvm::isPotentiallyReachableFromMany(
     }
   }
 
-  const Loop *StopLoop = LI ? getOutermostLoop(LI, StopBB) : nullptr;
+  const Loop *StopLoop = nullptr;
+  SmallPtrSet<const Loop *, 2> StopLoops;
+
+  if (LI) {
+    if constexpr (IsManyStop) {
+      for (auto *StopSetBB : *StopSet) {
+        if (const Loop *L = getOutermostLoop(LI, StopSetBB))
+          StopLoops.insert(L);
+      }
+    } else {
+      StopLoop = getOutermostLoop(LI, StopBB);
+    }
+  }
 
   unsigned Limit = DefaultMaxBBsToExplore;
   SmallPtrSet<const BasicBlock*, 32> Visited;
@@ -163,12 +196,26 @@ bool llvm::isPotentiallyReachableFromMany(
     BasicBlock *BB = Worklist.pop_back_val();
     if (!Visited.insert(BB).second)
       continue;
-    if (BB == StopBB)
-      return true;
+    if constexpr (IsManyStop) {
+      if (StopSet->contains(BB))
+        return true;
+    } else {
+      if (BB == StopBB)
+        return true;
+    }
     if (ExclusionSet && ExclusionSet->count(BB))
       continue;
-    if (DT && DT->dominates(BB, StopBB))
-      return true;
+    if (DT) {
+      if constexpr (IsManyStop) {
+        if (llvm::any_of(*StopSet, [&](const BasicBlock *StopBB) {
+              return StopBBReachable.contains(BB) && DT->dominates(BB, StopBB);
+            }))
+          return true;
+      } else {
+        if (DT->dominates(BB, StopBB))
+          return true;
+      }
+    }
 
     const Loop *Outer = nullptr;
     if (LI) {
@@ -179,8 +226,13 @@ bool llvm::isPotentiallyReachableFromMany(
       // excluded block. Clear Outer so we process BB's successors.
       if (LoopsWithHoles.count(Outer))
         Outer = nullptr;
-      if (StopLoop && Outer == StopLoop)
-        return true;
+      if constexpr (IsManyStop) {
+        if (StopLoops.contains(Outer))
+          return true;
+      } else {
+        if (StopLoop && Outer == StopLoop)
+          return true;
+      }
     }
 
     if (!--Limit) {
@@ -202,6 +254,23 @@ bool llvm::isPotentiallyReachableFromMany(
   // We have exhausted all possible paths and are certain that 'To' can not be
   // reached from 'From'.
   return false;
+}
+
+bool llvm::isPotentiallyReachableFromMany(
+    SmallVectorImpl<BasicBlock *> &Worklist, const BasicBlock *StopBB,
+    const SmallPtrSetImpl<BasicBlock *> *ExclusionSet, const DominatorTree *DT,
+    const LoopInfo *LI) {
+  return isReachableImpl<BasicBlock, false>(Worklist, StopBB, ExclusionSet, DT,
+                                            LI);
+}
+
+bool llvm::isManyPotentiallyReachableFromMany(
+    SmallVectorImpl<BasicBlock *> &Worklist,
+    const SmallPtrSetImpl<const BasicBlock *> &StopSet,
+    const SmallPtrSetImpl<BasicBlock *> *ExclusionSet, const DominatorTree *DT,
+    const LoopInfo *LI) {
+  return isReachableImpl<SmallPtrSetImpl<const BasicBlock *>, true>(
+      Worklist, &StopSet, ExclusionSet, DT, LI);
 }
 
 bool llvm::isPotentiallyReachable(
