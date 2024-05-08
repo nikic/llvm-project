@@ -167,9 +167,11 @@ bool llvm::isManyPotentiallyReachableFromMany(
     }
   }
 
-  llvm::DenseMap<const BasicBlock *, const Loop *> StopLoops;
-  for (auto *StopBB : StopSet)
-    StopLoops[StopBB] = LI ? getOutermostLoop(LI, StopBB) : nullptr;
+  SmallPtrSet<const Loop *, 4> StopLoops;
+  if (LI)
+    for (auto *StopBB : StopSet)
+      if (const Loop *L = getOutermostLoop(LI, StopBB))
+        StopLoops.insert(L);
 
   unsigned Limit = DefaultMaxBBsToExplore;
   SmallPtrSet<const BasicBlock*, 32> Visited;
@@ -195,10 +197,7 @@ bool llvm::isManyPotentiallyReachableFromMany(
       // excluded block. Clear Outer so we process BB's successors.
       if (LoopsWithHoles.count(Outer))
         Outer = nullptr;
-      if (llvm::any_of(StopSet, [&](const BasicBlock *StopBB) {
-            const Loop *StopLoop = StopLoops[StopBB];
-            return StopLoop && StopLoop == Outer;
-          }))
+      if (StopLoops.contains(Outer))
         return true;
     }
 
