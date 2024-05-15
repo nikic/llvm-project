@@ -856,10 +856,8 @@ Constant *CastGEPIndices(Type *SrcElemTy, ArrayRef<Constant *> Ops,
   if (!Any)
     return nullptr;
 
-  // TODO(gep_nowrap): Preserve NUSW/NUW here.
   Constant *C = ConstantExpr::getGetElementPtr(SrcElemTy, Ops[0], NewIdxs,
-                                               InBounds, /*NUSW=*/InBounds,
-                                               /*NUW=*/false, InRange);
+                                               InBounds, InRange);
   return ConstantFoldConstant(C, DL, TLI);
 }
 
@@ -982,9 +980,7 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
     NewIdxs.push_back(ConstantInt::get(
         Type::getIntNTy(Ptr->getContext(), Index.getBitWidth()), Index));
 
-  // TODO(gep_nowrap): Preserve NUSW/NUW.
   return ConstantExpr::getGetElementPtr(SrcElemTy, Ptr, NewIdxs, InBounds,
-                                        /*NUSW=*/InBounds, /*NUW=*/false,
                                         InRange);
 }
 
@@ -1033,8 +1029,7 @@ Constant *ConstantFoldInstOperandsImpl(const Value *InstOrCE, unsigned Opcode,
       return C;
 
     return ConstantExpr::getGetElementPtr(
-        SrcElemTy, Ops[0], Ops.slice(1), GEP->isInBounds(),
-        GEP->hasNoUnsignedSignedWrap(), GEP->hasNoUnsignedWrap(),
+        SrcElemTy, Ops[0], Ops.slice(1), GEP->getNoWrapFlags(),
         GEP->getInRange());
   }
 

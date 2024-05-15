@@ -1711,7 +1711,6 @@ Constant *llvm::ConstantFoldGetElementPtr(Type *PointeeTy, Constant *C,
     for (unsigned i = 0, e = Idxs.size(); i != e; ++i)
       if (!NewIdxs[i]) NewIdxs[i] = cast<Constant>(Idxs[i]);
     return ConstantExpr::getGetElementPtr(PointeeTy, C, NewIdxs, InBounds,
-                                          /*NUSW=*/InBounds, /*NUW=*/false,
                                           InRange);
   }
 
@@ -1722,9 +1721,8 @@ Constant *llvm::ConstantFoldGetElementPtr(Type *PointeeTy, Constant *C,
       if (!GV->hasExternalWeakLinkage() && GV->getValueType() == PointeeTy &&
           isInBoundsIndices(Idxs))
         // TODO(gep_nowrap): Can also set NUW here.
-        return ConstantExpr::getGetElementPtr(PointeeTy, C, Idxs,
-                                              /*InBounds=*/true, /*NUSW=*/true,
-                                              /*NUW=*/false, InRange);
+        return ConstantExpr::getGetElementPtr(
+            PointeeTy, C, Idxs, GEPNoWrapFlags::inBounds(), InRange);
 
   return nullptr;
 }
