@@ -351,6 +351,16 @@ static unsigned countToEliminateCompares(Loop &L, unsigned MaxPeelCount,
     MaxPeelCount =
         std::min((unsigned)SC->getAPInt().getLimitedValue() - 1, MaxPeelCount);
 
+  auto PeelWhilePredicateIsKnown =
+      [&](unsigned &PeelCount, const SCEV *&IterVal, const SCEV *BoundSCEV,
+          const SCEV *Step, ICmpInst::Predicate Pred) {
+        while (PeelCount < MaxPeelCount &&
+               SE.isKnownPredicate(Pred, IterVal, BoundSCEV)) {
+          IterVal = SE.getAddExpr(IterVal, Step);
+          ++PeelCount;
+        }
+      };
+
   const unsigned MaxDepth = 4;
   std::function<void(Value *, unsigned)> ComputePeelCount =
       [&](Value *Condition, unsigned Depth) -> void {
@@ -411,21 +421,7 @@ static unsigned countToEliminateCompares(Loop &L, unsigned MaxPeelCount,
       Pred = ICmpInst::getInversePredicate(Pred);
 
     const SCEV *Step = LeftAR->getStepRecurrence(SE);
-    const SCEV *NextIterVal = SE.getAddExpr(IterVal, Step);
-    auto PeelOneMoreIteration = [&IterVal, &NextIterVal, &SE, Step,
-                                 &NewPeelCount]() {
-      IterVal = NextIterVal;
-      NextIterVal = SE.getAddExpr(IterVal, Step);
-      NewPeelCount++;
-    };
-
-    auto CanPeelOneMoreIteration = [&NewPeelCount, &MaxPeelCount]() {
-      return NewPeelCount < MaxPeelCount;
-    };
-
-    while (CanPeelOneMoreIteration() &&
-           SE.isKnownPredicate(Pred, IterVal, RightSCEV))
-      PeelOneMoreIteration();
+    PeelWhilePredicateIsKnown(NewPeelCount, IterVal, RightSCEV, Step, Pred);
 
     // With *that* peel count, does the predicate !Pred become known in the
     // first iteration of the loop body after peeling?
@@ -436,23 +432,60 @@ static unsigned countToEliminateCompares(Loop &L, unsigned MaxPeelCount,
     // However, for equality comparisons, that isn't always sufficient to
     // eliminate the comparsion in loop body, we may need to peel one more
     // iteration. See if that makes !Pred become unknown again.
+    const SCEV *NextIterVal = SE.getAddExpr(IterVal, Step);
     if (ICmpInst::isEquality(Pred) &&
         !SE.isKnownPredicate(ICmpInst::getInversePredicate(Pred), NextIterVal,
                              RightSCEV) &&
         !SE.isKnownPredicate(Pred, IterVal, RightSCEV) &&
         SE.isKnownPredicate(Pred, NextIterVal, RightSCEV)) {
-      if (!CanPeelOneMoreIteration())
+      if (NewPeelCount >= MaxPeelCount)
         return; // Need to peel one more iteration, but can't. Give up.
-      PeelOneMoreIteration(); // Great!
+      ++NewPeelCount; // Great!
     }
 
     DesiredPeelCount = std::max(DesiredPeelCount, NewPeelCount);
+  };
+
+  auto ComputePeelCountMinMax = [&](MinMaxIntrinsic *MinMax) {
+    Value *LHS = MinMax->getLHS(), *RHS = MinMax->getRHS();
+    const SCEV *BoundSCEV, *IterSCEV;
+    if (L.isLoopInvariant(LHS)) {
+      BoundSCEV = SE.getSCEV(LHS);
+      IterSCEV = SE.getSCEV(RHS);
+    } else if (L.isLoopInvariant(RHS)) {
+      BoundSCEV = SE.getSCEV(RHS);
+      IterSCEV = SE.getSCEV(LHS);
+    } else
+      return;
+    const auto *AddRec = dyn_cast<SCEVAddRecExpr>(IterSCEV);
+    // For simplicity, we support only affine recurrences.
+    if (!AddRec || !AddRec->isAffine() || AddRec->getLoop() != &L)
+      return;
+    const SCEV *Step = AddRec->getStepRecurrence(SE);
+    bool IsSigned = MinMax->isSigned();
+    // To minimize number of peeled iterations, we use strict relational
+    // predicates here.
+    ICmpInst::Predicate Pred;
+    if (SE.isKnownPositive(Step))
+      Pred = IsSigned ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT;
+    else if (SE.isKnownNegative(Step))
+      Pred = IsSigned ? ICmpInst::ICMP_SGT : ICmpInst::ICMP_UGT;
+    else
+      return;
+    // Check that AddRec is not wrapping.
+    if (!(IsSigned ? AddRec->hasNoSignedWrap() : AddRec->hasNoUnsignedWrap()))
+      return;
+    const SCEV *IterVal = AddRec->evaluateAtIteration(
+        SE.getConstant(AddRec->getType(), DesiredPeelCount), SE);
+    PeelWhilePredicateIsKnown(DesiredPeelCount, IterVal, BoundSCEV, Step, Pred);
   };
 
   for (BasicBlock *BB : L.blocks()) {
     for (Instruction &I : *BB) {
       if (SelectInst *SI = dyn_cast<SelectInst>(&I))
         ComputePeelCount(SI->getCondition(), 0);
+      if (MinMaxIntrinsic *MinMax = dyn_cast<MinMaxIntrinsic>(&I))
+        ComputePeelCountMinMax(MinMax);
     }
 
     auto *BI = dyn_cast<BranchInst>(BB->getTerminator());
