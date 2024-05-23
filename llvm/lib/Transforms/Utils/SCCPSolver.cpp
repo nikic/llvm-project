@@ -1312,7 +1312,9 @@ void SCCPInstVisitor::visitCastInst(CastInst &I) {
 
     ConstantRange Res =
         OpRange.castOp(I.getOpcode(), DL.getTypeSizeInBits(DestTy));
-    mergeInValue(LV, &I, ValueLatticeElement::getRange(Res));
+    mergeInValue(LV, &I,
+                 ValueLatticeElement::getRange(
+                     Res, OpSt.isConstantRangeIncludingUndef()));
   } else
     markOverdefined(&I);
 }
@@ -1333,7 +1335,9 @@ void SCCPInstVisitor::handleExtractOfWithOverflow(ExtractValueInst &EVI,
   ConstantRange RR = getConstantRange(R, Ty);
   if (Idx == 0) {
     ConstantRange Res = LR.binaryOp(WO->getBinaryOp(), RR);
-    mergeInValue(&EVI, ValueLatticeElement::getRange(Res));
+    mergeInValue(&EVI, ValueLatticeElement::getRange(
+                           Res, L.isConstantRangeIncludingUndef() ||
+                                    R.isConstantRangeIncludingUndef()));
   } else {
     assert(Idx == 1 && "Index can only be 0 or 1");
     ConstantRange NWRegion = ConstantRange::makeGuaranteedNoWrapRegion(
@@ -1543,7 +1547,9 @@ void SCCPInstVisitor::visitBinaryOperator(Instruction &I) {
     R = A.overflowingBinaryOp(BO->getOpcode(), B, OBO->getNoWrapKind());
   else
     R = A.binaryOp(BO->getOpcode(), B);
-  mergeInValue(&I, ValueLatticeElement::getRange(R));
+  mergeInValue(&I, ValueLatticeElement::getRange(
+                       R, V1State.isConstantRangeIncludingUndef() ||
+                              V2State.isConstantRangeIncludingUndef()));
 
   // TODO: Currently we do not exploit special values that produce something
   // better than overdefined with an overdefined operand for vector or floating
@@ -1859,16 +1865,19 @@ void SCCPInstVisitor::handleCallResult(CallBase &CB) {
       // Do this even if we don't know a range for all operands, as we may
       // still know something about the result range, e.g. of abs(x).
       SmallVector<ConstantRange, 2> OpRanges;
+      bool MayIncludeUndef = false;
       for (Value *Op : II->args()) {
         const ValueLatticeElement &State = getValueState(Op);
         if (State.isUnknownOrUndef())
           return;
         OpRanges.push_back(getConstantRange(State, Op->getType()));
+        MayIncludeUndef |= State.isConstantRangeIncludingUndef();
       }
 
       ConstantRange Result =
           ConstantRange::intrinsic(II->getIntrinsicID(), OpRanges);
-      return (void)mergeInValue(II, ValueLatticeElement::getRange(Result));
+      return (void)mergeInValue(
+          II, ValueLatticeElement::getRange(Result, MayIncludeUndef));
     }
   }
 
