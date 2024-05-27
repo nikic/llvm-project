@@ -511,6 +511,7 @@ bool SimplifyIndvar::eliminateTrunc(TruncInst *TI) {
     ICmpInst *ICI = dyn_cast<ICmpInst>(U);
     if (!ICI) return false;
     assert(L->contains(ICI->getParent()) && "LCSSA form broken?");
+    //    assert(L->contains(ICI->getParent()) && "LCSSA form broken?");
     if (!(ICI->getOperand(0) == TI && L->isLoopInvariant(ICI->getOperand(1))) &&
         !(ICI->getOperand(1) == TI && L->isLoopInvariant(ICI->getOperand(0))))
       return false;
@@ -840,9 +841,9 @@ bool SimplifyIndvar::strengthenRightShift(BinaryOperator *BO,
 
 /// Add all uses of Def to the current IV's worklist.
 static void pushIVUsers(
-  Instruction *Def, Loop *L,
-  SmallPtrSet<Instruction*,16> &Simplified,
-  SmallVectorImpl< std::pair<Instruction*,Instruction*> > &SimpleIVUsers) {
+    Instruction *Def, Loop *L, DominatorTree *DT,
+    SmallPtrSet<Instruction *, 16> &Simplified,
+    SmallVectorImpl<std::pair<Instruction *, Instruction *>> &SimpleIVUsers) {
 
   for (User *U : Def->users()) {
     Instruction *UI = cast<Instruction>(U);
@@ -854,9 +855,9 @@ static void pushIVUsers(
     if (UI == Def)
       continue;
 
-    // Only change the current Loop, do not change the other parts (e.g. other
-    // Loops).
-    if (!L->contains(UI))
+    // Avoid adding Defs that SCEV expand to themselves, e.g. the LoopPhis
+    // of the outter loops.
+    if (!DT->dominates(L->getHeader(), UI->getParent()))
       continue;
 
     // Do not push the same instruction more than once.
@@ -913,7 +914,7 @@ void SimplifyIndvar::simplifyUsers(PHINode *CurrIV, IVVisitor *V) {
   // Push users of the current LoopPhi. In rare cases, pushIVUsers may be
   // called multiple times for the same LoopPhi. This is the proper thing to
   // do for loop header phis that use each other.
-  pushIVUsers(CurrIV, L, Simplified, SimpleIVUsers);
+  pushIVUsers(CurrIV, L, DT, Simplified, SimpleIVUsers);
 
   while (!SimpleIVUsers.empty()) {
     std::pair<Instruction*, Instruction*> UseOper =
@@ -942,7 +943,8 @@ void SimplifyIndvar::simplifyUsers(PHINode *CurrIV, IVVisitor *V) {
     if ((isa<PtrToIntInst>(UseInst)) || (isa<TruncInst>(UseInst)))
       for (Use &U : UseInst->uses()) {
         Instruction *User = cast<Instruction>(U.getUser());
-        if (replaceIVUserWithLoopInvariant(User))
+        if (DT->dominates(L->getHeader(), User->getParent()) &&
+            replaceIVUserWithLoopInvariant(User))
           break; // done replacing
       }
 
@@ -960,7 +962,7 @@ void SimplifyIndvar::simplifyUsers(PHINode *CurrIV, IVVisitor *V) {
       continue;
 
     if (eliminateIVUser(UseInst, IVOperand)) {
-      pushIVUsers(IVOperand, L, Simplified, SimpleIVUsers);
+      pushIVUsers(IVOperand, L, DT, Simplified, SimpleIVUsers);
       continue;
     }
 
@@ -968,14 +970,14 @@ void SimplifyIndvar::simplifyUsers(PHINode *CurrIV, IVVisitor *V) {
       if (strengthenBinaryOp(BO, IVOperand)) {
         // re-queue uses of the now modified binary operator and fall
         // through to the checks that remain.
-        pushIVUsers(IVOperand, L, Simplified, SimpleIVUsers);
+        pushIVUsers(IVOperand, L, DT, Simplified, SimpleIVUsers);
       }
     }
 
     // Try to use integer induction for FPToSI of float induction directly.
     if (replaceFloatIVWithIntegerIV(UseInst)) {
       // Re-queue the potentially new direct uses of IVOperand.
-      pushIVUsers(IVOperand, L, Simplified, SimpleIVUsers);
+      pushIVUsers(IVOperand, L, DT, Simplified, SimpleIVUsers);
       continue;
     }
 
@@ -985,7 +987,7 @@ void SimplifyIndvar::simplifyUsers(PHINode *CurrIV, IVVisitor *V) {
       continue;
     }
     if (isSimpleIVUser(UseInst, L, SE)) {
-      pushIVUsers(UseInst, L, Simplified, SimpleIVUsers);
+      pushIVUsers(UseInst, L, DT, Simplified, SimpleIVUsers);
     }
   }
 }
