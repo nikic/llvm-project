@@ -10490,6 +10490,8 @@ ScalarEvolution::ExitLimit ScalarEvolution::howFarToZero(const SCEV *V,
 
   // Specialize step for this loop so we get context sensative facts below.
   const SCEV *StepWLG = applyLoopGuards(Step, L);
+  if (!isKnownNonZero(Step))
+    return getCouldNotCompute();
 
   // For positive steps (counting up until unsigned overflow):
   //   N = -Start/Step (as unsigned)
@@ -10536,13 +10538,6 @@ ScalarEvolution::ExitLimit ScalarEvolution::howFarToZero(const SCEV *V,
   // will have undefined behavior due to wrapping.
   if (ControlsOnlyExit && AddRec->hasNoSelfWrap() &&
       loopHasNoAbnormalExits(AddRec->getLoop())) {
-
-    // If the stride is zero, the loop must be infinite.  Most loops are
-    // finite by assumption, in which case the step being zero implies UB
-    // must execute if the loop is entered.
-    if (!loopIsFiniteByAssumption(L) && !isKnownNonZero(Step))
-      return getCouldNotCompute();
-
     const SCEV *Exact =
         getUDivExpr(Distance, CountDown ? getNegativeSCEV(Step) : Step);
     const SCEV *ConstantMax = getCouldNotCompute();
