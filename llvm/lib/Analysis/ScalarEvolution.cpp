@@ -10496,8 +10496,8 @@ ScalarEvolution::ExitLimit ScalarEvolution::howFarToZero(const SCEV *V,
   // For negative steps (counting down to zero):
   //   N = Start/-Step
   // First compute the unsigned distance from zero in the direction of Step.
-  bool CountDown = isKnownNegative(StepWLG);
-  if (!CountDown && !isKnownNonNegative(StepWLG))
+  bool CountDown = isKnownNegative(Step);
+  if (!CountDown && !isKnownNonNegative(Step))
     return getCouldNotCompute();
 
   const SCEV *Distance = CountDown ? Start : getNegativeSCEV(Start);
@@ -10540,7 +10540,7 @@ ScalarEvolution::ExitLimit ScalarEvolution::howFarToZero(const SCEV *V,
     // If the stride is zero, the loop must be infinite.  Most loops are
     // finite by assumption, in which case the step being zero implies UB
     // must execute if the loop is entered.
-    if (!loopIsFiniteByAssumption(L) && !isKnownNonZero(StepWLG))
+    if (!loopIsFiniteByAssumption(L) && !isKnownNonZero(Step))
       return getCouldNotCompute();
 
     const SCEV *Exact =
