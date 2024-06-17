@@ -4018,5 +4018,31 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
   if (CondVal->getType() == SI.getType() && isKnownInversion(FalseVal, TrueVal))
     return BinaryOperator::CreateXor(CondVal, FalseVal);
 
+  if (SelType->isIntOrIntVectorTy()) {
+    // Try to simplify select arms based on KnownBits implied by the condition.
+    CondContext CC(CondVal);
+    findValuesAffectedByCondition(CondVal, /*IsAssume=*/false, [&](Value *V) {
+      CC.AffectedValues.insert(V);
+    });
+#if 0
+    SimplifyQuery Q = SQ.getWithInstruction(&SI).getWithCondContext(CC);
+
+    if (!isa<Constant>(TrueVal)) {
+      KnownBits Known = llvm::computeKnownBits(TrueVal, /*Depth=*/0, Q);
+      if (Known.isConstant())
+        return replaceOperand(SI, 1,
+                              ConstantInt::get(SelType, Known.getConstant()));
+    }
+
+    CC.Invert = true;
+    if (!isa<Constant>(FalseVal)) {
+      KnownBits Known = llvm::computeKnownBits(FalseVal, /*Depth=*/0, Q);
+      if (Known.isConstant())
+        return replaceOperand(SI, 2,
+                              ConstantInt::get(SelType, Known.getConstant()));
+    }
+#endif
+  }
+
   return nullptr;
 }
