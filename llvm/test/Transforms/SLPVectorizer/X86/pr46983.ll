@@ -107,7 +107,7 @@ define void @store_i64(ptr nocapture %0, i32 %1, i32 %2) {
 ; CHECK-NEXT:    [[TMP9:%.*]] = lshr <4 x i64> [[TMP8]], <i64 15, i64 15, i64 15, i64 15>
 ; CHECK-NEXT:    [[TMP10:%.*]] = trunc <4 x i64> [[TMP9]] to <4 x i32>
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp ult <4 x i32> [[TMP10]], <i32 255, i32 255, i32 255, i32 255>
-; CHECK-NEXT:    [[TMP12:%.*]] = and <4 x i64> [[TMP9]], <i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295>
+; CHECK-NEXT:    [[TMP12:%.*]] = and <4 x i64> [[TMP9]], <i64 255, i64 255, i64 255, i64 255>
 ; CHECK-NEXT:    [[TMP13:%.*]] = select <4 x i1> [[TMP11]], <4 x i64> [[TMP12]], <4 x i64> <i64 255, i64 255, i64 255, i64 255>
 ; CHECK-NEXT:    store <4 x i64> [[TMP13]], ptr [[TMP0]], align 8, !tbaa [[TBAA5]]
 ; CHECK-NEXT:    ret void

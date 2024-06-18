@@ -1222,8 +1222,8 @@ define i32 @select_replace_nested_extra_use(i32 %x, i32 %y, i32 %z) {
 ; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[X:%.*]], 0
 ; CHECK-NEXT:    [[SUB:%.*]] = sub i32 [[Y:%.*]], [[X]]
 ; CHECK-NEXT:    call void @use.i32(i32 [[SUB]])
-; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[SUB]], [[Z:%.*]]
-; CHECK-NEXT:    [[S:%.*]] = select i1 [[C]], i32 [[ADD]], i32 [[Y]]
+; CHECK-NEXT:    [[ADD:%.*]] = select i1 [[C]], i32 [[Z:%.*]], i32 0
+; CHECK-NEXT:    [[S:%.*]] = add i32 [[ADD]], [[Y]]
 ; CHECK-NEXT:    ret i32 [[S]]
 ;
   %c = icmp eq i32 %x, 0
@@ -1253,8 +1253,7 @@ define i32 @select_replace_nested_no_simplify(i32 %x, i32 %y, i32 %z) {
 define i32 @select_replace_deeply_nested(i32 %x, i32 %y, i32 %z) {
 ; CHECK-LABEL: @select_replace_deeply_nested(
 ; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[X:%.*]], 0
-; CHECK-NEXT:    [[SUB:%.*]] = sub i32 [[Y:%.*]], [[X]]
-; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[SUB]], [[Z:%.*]]
+; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[Y:%.*]], [[Z:%.*]]
 ; CHECK-NEXT:    [[SHL:%.*]] = shl i32 [[ADD]], 1
 ; CHECK-NEXT:    [[S:%.*]] = select i1 [[C]], i32 [[SHL]], i32 [[Y]]
 ; CHECK-NEXT:    ret i32 [[S]]

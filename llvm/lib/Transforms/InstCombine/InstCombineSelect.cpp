@@ -4026,20 +4026,33 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
     });
     SimplifyQuery Q = SQ.getWithInstruction(&SI).getWithCondContext(CC);
     if (!CC.AffectedValues.empty()) {
-      if (!isa<Constant>(TrueVal)) {
-        KnownBits Known = llvm::computeKnownBits(TrueVal, /*Depth=*/0, Q);
-        if (Known.isConstant())
-          return replaceOperand(SI, 1,
-                                ConstantInt::get(SelType, Known.getConstant()));
-      }
+      bool NotUndef = isGuaranteedNotToBeUndef(CondVal);
+      auto SimplifyOp =
+          [&](unsigned OpNum) -> Instruction * {
+            Value *V = SI.getOperand(OpNum);
+            if (isa<Constant>(V))
+              return nullptr;
 
+            if (NotUndef) {
+              KnownBits Known = llvm::computeKnownBits(V, /*Depth=*/0, Q);
+              if (Known.isConstant())
+                return replaceOperand(
+                    SI, OpNum, ConstantInt::get(SelType, Known.getConstant()));
+            } else {
+              unsigned BitWidth = SelType->getScalarSizeInBits();
+              KnownBits Known(BitWidth);
+              if (SimplifyDemandedBits(&SI, OpNum, APInt::getAllOnes(BitWidth),
+                                       Known, /*Depth=*/0, Q))
+                return &SI;
+            }
+            return nullptr;
+          };
+
+      if (Instruction *Res = SimplifyOp(1))
+        return Res;
       CC.Invert = true;
-      if (!isa<Constant>(FalseVal)) {
-        KnownBits Known = llvm::computeKnownBits(FalseVal, /*Depth=*/0, Q);
-        if (Known.isConstant())
-          return replaceOperand(SI, 2,
-                                ConstantInt::get(SelType, Known.getConstant()));
-      }
+      if (Instruction *Res = SimplifyOp(2))
+        return Res;
     }
   }
 

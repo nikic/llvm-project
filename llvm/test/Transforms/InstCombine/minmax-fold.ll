@@ -114,13 +114,11 @@ define i32 @t8(i64 %a, i32 %b) {
   ret i32 %7
 }
 
-; Ensure this doesn't get converted to a min/max.
 define i64 @t9(i32 %a) {
 ; CHECK-LABEL: @t9(
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp sgt i32 [[A:%.*]], -1
-; CHECK-NEXT:    [[TMP2:%.*]] = sext i32 [[A]] to i64
-; CHECK-NEXT:    [[TMP3:%.*]] = select i1 [[TMP1]], i64 [[TMP2]], i64 4294967295
-; CHECK-NEXT:    ret i64 [[TMP3]]
+; CHECK-NEXT:    [[NARROW:%.*]] = call i32 @llvm.smax.i32(i32 [[A:%.*]], i32 -1)
+; CHECK-NEXT:    [[TMP1:%.*]] = zext i32 [[NARROW]] to i64
+; CHECK-NEXT:    ret i64 [[TMP1]]
 ;
   %1 = icmp sgt i32 %a, -1
   %2 = sext i32 %a to i64
@@ -1360,11 +1358,11 @@ define i8 @PR14613_smax(i8 %x) {
 
 define i8 @PR46271(<2 x i8> %x) {
 ; CHECK-LABEL: @PR46271(
-; CHECK-NEXT:    [[TMP3:%.*]] = xor <2 x i8> [[X:%.*]], <i8 poison, i8 -1>
+; CHECK-NEXT:    [[TMP1:%.*]] = xor <2 x i8> [[X:%.*]], <i8 poison, i8 -1>
 ; CHECK-NEXT:    [[A_INV:%.*]] = icmp slt <2 x i8> [[X]], zeroinitializer
-; CHECK-NEXT:    [[TMP1:%.*]] = select <2 x i1> [[A_INV]], <2 x i8> <i8 poison, i8 0>, <2 x i8> [[TMP3]]
-; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <2 x i8> [[TMP1]], i64 1
-; CHECK-NEXT:    ret i8 [[TMP2]]
+; CHECK-NEXT:    [[NOT:%.*]] = select <2 x i1> [[A_INV]], <2 x i8> <i8 poison, i8 0>, <2 x i8> [[TMP1]]
+; CHECK-NEXT:    [[R:%.*]] = extractelement <2 x i8> [[NOT]], i64 1
+; CHECK-NEXT:    ret i8 [[R]]
 ;
   %a = icmp sgt <2 x i8> %x, <i8 -1, i8 -1>
   %b = select <2 x i1> %a, <2 x i8> %x, <2 x i8> <i8 poison, i8 -1>
