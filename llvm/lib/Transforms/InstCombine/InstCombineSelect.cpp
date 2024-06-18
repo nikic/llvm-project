@@ -4024,7 +4024,6 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
     findValuesAffectedByCondition(CondVal, /*IsAssume=*/false, [&](Value *V) {
       CC.AffectedValues.insert(V);
     });
-#if 0
     SimplifyQuery Q = SQ.getWithInstruction(&SI).getWithCondContext(CC);
 
     if (!isa<Constant>(TrueVal)) {
@@ -4041,7 +4040,6 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
         return replaceOperand(SI, 2,
                               ConstantInt::get(SelType, Known.getConstant()));
     }
-#endif
   }
 
   return nullptr;
