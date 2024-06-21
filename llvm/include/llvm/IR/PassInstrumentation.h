@@ -185,7 +185,7 @@ private:
   SmallVector<llvm::unique_function<AnalysesClearedFunc>, 4>
       AnalysesClearedCallbacks;
 
-  StringMap<std::string> ClassToPassName;
+  StringMap<StringRef> ClassToPassName;
 };
 
 /// This class provides instrumentation entry points for the Pass Manager,

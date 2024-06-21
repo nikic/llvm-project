@@ -19,7 +19,7 @@ namespace llvm {
 
 void PassInstrumentationCallbacks::addClassToPassName(StringRef ClassName,
                                                       StringRef PassName) {
-  ClassToPassName.try_emplace(ClassName, PassName.str());
+  ClassToPassName.try_emplace(ClassName, PassName);
 }
 
 StringRef
