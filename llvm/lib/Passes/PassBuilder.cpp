@@ -331,9 +331,7 @@ namespace {
 /// it. This should be updated if new pass instrumentation wants to use the map.
 /// We currently only use this for --print-before/after.
 bool shouldPopulateClassToPassNames() {
-  return PrintPipelinePasses || !printBeforePasses().empty() ||
-         !printAfterPasses().empty() || !isFilterPassesEmpty() ||
-         TargetPassConfig::hasLimitedCodeGenPipeline();
+  return true;
 }
 
 // A pass for testing -print-on-crash.
