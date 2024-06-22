@@ -63,7 +63,7 @@ SmallPtrSetImplBase::insert_imp_big(const void *Ptr) {
 }
 
 const void * const *SmallPtrSetImplBase::FindBucketFor(const void *Ptr) const {
-  unsigned Bucket = DenseMapInfo<void *>::getHashValue(Ptr) & (CurArraySize-1);
+  unsigned Bucket = densemap::detail::mix((uintptr_t)Ptr) & (CurArraySize-1);
   unsigned ArraySize = CurArraySize;
   unsigned ProbeAmt = 1;
   const void *const *Array = CurArray;
