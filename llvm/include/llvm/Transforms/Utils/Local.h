@@ -428,6 +428,11 @@ void copyMetadataForLoad(LoadInst &Dest, const LoadInst &Source);
 /// its original position.
 void patchReplacementInstruction(Instruction *I, Value *Repl);
 
+/// Handle undef values when replacing a load \p I with the loaded value
+/// \p Repl. If \p Repl is undef, this will introduce a non-terminator
+/// unreachable for !noundef loads.
+Value *handleLoadOfUndef(Instruction &I, Value *Repl);
+
 // Replace each use of 'From' with 'To', if that use does not belong to basic
 // block where 'From' is defined. Returns the number of replacements made.
 unsigned replaceNonLocalUsesWith(Instruction *From, Value *To);

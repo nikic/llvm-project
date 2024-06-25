@@ -1585,6 +1585,7 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
           LLVM_DEBUG(dbgs() << "Skipping due to debug counter\n");
           continue;
         }
+        Op = handleLoadOfUndef(Inst, Op);
         if (InVal.IsLoad)
           if (auto *I = dyn_cast<Instruction>(Op))
             combineMetadataForCSE(I, &Inst, false);

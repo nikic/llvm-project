@@ -144,7 +144,7 @@ define ptr @no_store_single_load_noundef() {
 ; CHECK-LABEL: @no_store_single_load_noundef(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    store i1 true, ptr poison, align 1
-; CHECK-NEXT:    ret ptr undef
+; CHECK-NEXT:    ret ptr poison
 ;
 entry:
   %buf = alloca ptr
@@ -158,10 +158,10 @@ define ptr @no_store_multiple_loads_noundef(i1 %c) {
 ; CHECK-NEXT:    br i1 [[C:%.*]], label [[IF:%.*]], label [[ELSE:%.*]]
 ; CHECK:       if:
 ; CHECK-NEXT:    store i1 true, ptr poison, align 1
-; CHECK-NEXT:    ret ptr undef
+; CHECK-NEXT:    ret ptr poison
 ; CHECK:       else:
 ; CHECK-NEXT:    store i1 true, ptr poison, align 1
-; CHECK-NEXT:    ret ptr undef
+; CHECK-NEXT:    ret ptr poison
 ;
 entry:
   %buf = alloca ptr
@@ -180,7 +180,7 @@ define ptr @no_store_single_load_nonnull_noundef() {
 ; CHECK-LABEL: @no_store_single_load_nonnull_noundef(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    store i1 true, ptr poison, align 1
-; CHECK-NEXT:    ret ptr undef
+; CHECK-NEXT:    ret ptr poison
 ;
 entry:
   %buf = alloca ptr
@@ -194,10 +194,10 @@ define ptr @no_store_multiple_loads_nonnull_noundef(i1 %c) {
 ; CHECK-NEXT:    br i1 [[C:%.*]], label [[IF:%.*]], label [[ELSE:%.*]]
 ; CHECK:       if:
 ; CHECK-NEXT:    store i1 true, ptr poison, align 1
-; CHECK-NEXT:    ret ptr undef
+; CHECK-NEXT:    ret ptr poison
 ; CHECK:       else:
 ; CHECK-NEXT:    store i1 true, ptr poison, align 1
-; CHECK-NEXT:    ret ptr undef
+; CHECK-NEXT:    ret ptr poison
 ;
 entry:
   %buf = alloca ptr

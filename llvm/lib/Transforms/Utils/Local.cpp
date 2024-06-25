@@ -3450,6 +3450,19 @@ void llvm::patchReplacementInstruction(Instruction *I, Value *Repl) {
   combineMetadataForCSE(ReplInst, I, false);
 }
 
+Value *llvm::handleLoadOfUndef(Instruction &I, Value *Repl) {
+  if (isa<UndefValue>(Repl) && I.hasMetadata(LLVMContext::MD_noundef)) {
+    // Insert non-terminator unreachable.
+    LLVMContext &Ctx = I.getContext();
+    new StoreInst(ConstantInt::getTrue(Ctx),
+                  PoisonValue::get(PointerType::getUnqual(Ctx)),
+                  /*isVolatile=*/false, Align(1), &I);
+    return PoisonValue::get(Repl->getType());
+  }
+
+  return Repl;
+}
+
 template <typename RootType, typename ShouldReplaceFn>
 static unsigned replaceDominatedUsesWith(Value *From, Value *To,
                                          const RootType &Root,

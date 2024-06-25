@@ -453,21 +453,14 @@ static void addAssumeNonNull(AssumptionCache *AC, LoadInst *LI) {
 static void convertMetadataToAssumes(LoadInst *LI, Value *Val,
                                      const DataLayout &DL, AssumptionCache *AC,
                                      const DominatorTree *DT) {
-  if (isa<UndefValue>(Val) && LI->hasMetadata(LLVMContext::MD_noundef)) {
-    // Insert non-terminator unreachable.
-    LLVMContext &Ctx = LI->getContext();
-    new StoreInst(ConstantInt::getTrue(Ctx),
-                  PoisonValue::get(PointerType::getUnqual(Ctx)),
-                  /*isVolatile=*/false, Align(1), LI);
-    return;
-  }
-
   // If the load was marked as nonnull we don't want to lose that information
   // when we erase this Load. So we preserve it with an assume. As !nonnull
   // returns poison while assume violations are immediate undefined behavior,
   // we can only do this if the value is known non-poison.
+  // Skip this for undef values, because they have already been converted to
+  // non-terminator unreachable.
   if (AC && LI->getMetadata(LLVMContext::MD_nonnull) &&
-      LI->getMetadata(LLVMContext::MD_noundef) &&
+      LI->getMetadata(LLVMContext::MD_noundef) && !isa<UndefValue>(Val) &&
       !isKnownNonZero(Val, SimplifyQuery(DL, DT, AC, LI)))
     addAssumeNonNull(AC, LI);
 }
@@ -567,6 +560,7 @@ rewriteSingleStoreAlloca(AllocaInst *AI, AllocaInfo &Info, LargeBlockInfo &LBI,
     if (ReplVal == LI)
       ReplVal = PoisonValue::get(LI->getType());
 
+    ReplVal = handleLoadOfUndef(*LI, ReplVal);
     convertMetadataToAssumes(LI, ReplVal, DL, AC, &DT);
     LI->replaceAllUsesWith(ReplVal);
     LI->eraseFromParent();
@@ -676,6 +670,7 @@ promoteSingleBlockAlloca(AllocaInst *AI, const AllocaInfo &Info,
       ReplVal = std::prev(I)->second->getOperand(0);
     }
 
+    ReplVal = handleLoadOfUndef(*LI, ReplVal);
     convertMetadataToAssumes(LI, ReplVal, DL, AC, &DT);
 
     // If the replacement value is the load, this must occur in unreachable
@@ -1162,6 +1157,7 @@ NextIteration:
         continue;
 
       Value *V = IncomingVals[AI->second];
+      V = handleLoadOfUndef(*LI, V);
       convertMetadataToAssumes(LI, V, SQ.DL, AC, &DT);
 
       // Anything using the load now uses the current value.

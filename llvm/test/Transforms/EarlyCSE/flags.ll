@@ -106,7 +106,8 @@ define ptr @store_to_load_forward(ptr %p, ptr %p2) {
 define i32 @load_undef_noundef(ptr %p) {
 ; CHECK-LABEL: @load_undef_noundef(
 ; CHECK-NEXT:    store i32 undef, ptr [[P:%.*]], align 4
-; CHECK-NEXT:    ret i32 undef
+; CHECK-NEXT:    store i1 true, ptr poison, align 1
+; CHECK-NEXT:    ret i32 poison
 ;
   store i32 undef, ptr %p
   %v = load i32, ptr %p, !noundef !{}
