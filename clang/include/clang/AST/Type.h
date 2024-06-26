@@ -4969,8 +4969,8 @@ class FunctionProtoType final
           FunctionProtoType, QualType, SourceLocation,
           FunctionType::FunctionTypeExtraBitfields,
           FunctionType::FunctionTypeArmAttributes, FunctionType::ExceptionType,
-          Expr *, FunctionDecl *, FunctionType::ExtParameterInfo,
-          FunctionEffect, EffectConditionExpr, Qualifiers> {
+          Expr *, FunctionDecl *, FunctionType::ExtParameterInfo, Qualifiers,
+          FunctionEffect, EffectConditionExpr> {
   friend class ASTContext; // ASTContext creates these.
   friend TrailingObjects;
 
@@ -5138,6 +5138,10 @@ private:
 
   unsigned numTrailingObjects(OverloadToken<EffectConditionExpr>) const {
     return getNumFunctionEffectConditions();
+  }
+
+  unsigned numTrailingObjects(OverloadToken<Qualifiers>) const {
+    return hasExtQualifiers();
   }
 
   /// Determine whether there are any argument types that
