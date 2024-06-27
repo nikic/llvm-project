@@ -42,7 +42,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/IR/Analysis.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/PassManagerInternal.h"
 #include "llvm/Support/TypeName.h"
 #include <cassert>
@@ -57,6 +56,7 @@
 
 namespace llvm {
 
+class Function;
 class Module;
 
 // Forward declare the analysis manager template.
