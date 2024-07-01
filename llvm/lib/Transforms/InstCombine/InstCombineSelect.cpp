@@ -4052,14 +4052,17 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
     });
     SimplifyQuery Q = SQ.getWithInstruction(&SI).getWithCondContext(CC);
     if (!CC.AffectedValues.empty()) {
-      bool NotUndef = isGuaranteedNotToBeUndef(CondVal);
+      std::optional<bool> NotUndef;
       auto SimplifyOp = [&](unsigned OpNum) -> Instruction * {
         Value *V = SI.getOperand(OpNum);
         if (isa<Constant>(V) ||
             !hasAffectedValue(V, CC.AffectedValues, /*Depth=*/0))
           return nullptr;
 
-        if (NotUndef) {
+        if (!NotUndef)
+          NotUndef = isGuaranteedNotToBeUndef(CondVal);
+
+        if (*NotUndef) {
           unsigned BitWidth = SelType->getScalarSizeInBits();
           KnownBits Known(BitWidth);
           if (SimplifyDemandedBits(&SI, OpNum, APInt::getAllOnes(BitWidth),
