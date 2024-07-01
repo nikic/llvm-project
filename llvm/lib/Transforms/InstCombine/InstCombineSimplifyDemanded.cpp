@@ -1115,6 +1115,8 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     Known.Zero.setLowBits(Log2(Alignment));
   }
 
+  computeKnownBitsFromContext(I, Known, Depth, Q);
+
   // If the client is only demanding bits that we know, return the known
   // constant. We can't directly simplify pointers as a constant because of
   // pointer provenance.
