@@ -1128,7 +1128,8 @@ NextIteration:
         // on the phi node generated at this stage, fabs folding does not
         // happen. So, we try to infer nsz flag from the function attributes to
         // enable this fabs folding.
-        if (isa<FPMathOperator>(APN) &&
+        if (APN->getNumOperands() == getNumPreds(BB) &&
+            isa<FPMathOperator>(APN) &&
             BB->getParent()
                 ->getFnAttribute("no-signed-zeros-fp-math")
                 .getValueAsBool())
