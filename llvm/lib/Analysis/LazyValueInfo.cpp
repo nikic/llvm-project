@@ -1778,45 +1778,8 @@ ConstantRange LazyValueInfo::getConstantRangeOnEdge(Value *V,
 static Constant *getPredicateResult(CmpInst::Predicate Pred, Constant *C,
                                     const ValueLatticeElement &Val,
                                     const DataLayout &DL) {
-  // If we know the value is a constant, evaluate the conditional.
-  if (Val.isConstant())
-    return ConstantFoldCompareInstOperands(Pred, Val.getConstant(), C, DL);
-
-  Type *ResTy = CmpInst::makeCmpResultType(C->getType());
-  if (Val.isConstantRange()) {
-    ConstantInt *CI = dyn_cast<ConstantInt>(C);
-    if (!CI)
-      return nullptr;
-
-    const ConstantRange &CR = Val.getConstantRange();
-    ConstantRange RHS(CI->getValue());
-    if (CR.icmp(Pred, RHS))
-      return ConstantInt::getTrue(ResTy);
-    if (CR.icmp(CmpInst::getInversePredicate(Pred), RHS))
-      return ConstantInt::getFalse(ResTy);
-    return nullptr;
-  }
-
-  if (Val.isNotConstant()) {
-    // If this is an equality comparison, we can try to fold it knowing that
-    // "V != C1".
-    if (Pred == ICmpInst::ICMP_EQ) {
-      // !C1 == C -> false iff C1 == C.
-      Constant *Res = ConstantFoldCompareInstOperands(
-          ICmpInst::ICMP_NE, Val.getNotConstant(), C, DL);
-      if (Res && Res->isNullValue())
-        return ConstantInt::getFalse(ResTy);
-    } else if (Pred == ICmpInst::ICMP_NE) {
-      // !C1 != C -> true iff C1 == C.
-      Constant *Res = ConstantFoldCompareInstOperands(
-          ICmpInst::ICMP_NE, Val.getNotConstant(), C, DL);
-      if (Res && Res->isNullValue())
-        return ConstantInt::getTrue(ResTy);
-    }
-    return nullptr;
-  }
-
-  return nullptr;
+  Type *Ty = CmpInst::makeCmpResultType(C->getType());
+  return Val.getCompare(Pred, Ty, ValueLatticeElement::get(C), DL);
 }
 
 /// Determine whether the specified value comparison with a constant is known to
