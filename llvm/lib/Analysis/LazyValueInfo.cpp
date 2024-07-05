@@ -200,7 +200,7 @@ class LazyValueInfoCache {
 
 public:
   void insertResult(Value *Val, BasicBlock *BB,
-                    const ValueLatticeElement &Result) {
+                    ValueLatticeElement Result) {
     BlockCacheEntry *Entry = getOrCreateBlockEntry(BB);
 
     // Insert over-defined values into their own cache to reduce memory
@@ -208,7 +208,7 @@ public:
     if (Result.isOverdefined())
       Entry->OverDefined.insert(Val);
     else
-      Entry->LatticeElements.insert({Val, Result});
+      Entry->LatticeElements.try_emplace(Val, std::move(Result));
 
     addValueHandle(Val);
   }
@@ -621,7 +621,7 @@ bool LazyValueInfoImpl::solveBlockValue(Value *Val, BasicBlock *BB) {
     // Work pushed, will revisit
     return false;
 
-  TheCache.insertResult(Val, BB, *Res);
+  TheCache.insertResult(Val, BB, std::move(*Res));
   return true;
 }
 
