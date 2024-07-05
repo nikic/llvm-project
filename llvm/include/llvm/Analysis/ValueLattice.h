@@ -202,7 +202,15 @@ public:
 
   static ValueLatticeElement get(Constant *C) {
     ValueLatticeElement Res;
-    Res.markConstant(C);
+    if (isa<UndefValue>(C)) {
+      Res.Tag = undef;
+    } else if (auto *CI = dyn_cast<ConstantInt>(C)) {
+      Res.Tag = constantrange;
+      new (&Res.Range) ConstantRange(CI->getValue());
+    } else {
+      Res.Tag = constant;
+      Res.ConstVal = C;
+    }
     return Res;
   }
   static ValueLatticeElement getNot(Constant *C) {
