@@ -498,8 +498,8 @@ static void createMemSetLoop(Instruction *InsertBefore, Value *DstAddr,
 template <typename T>
 static bool canOverlap(MemTransferBase<T> *Memcpy, ScalarEvolution *SE) {
   if (SE) {
-    auto *SrcSCEV = SE->getSCEV(Memcpy->getRawSource());
-    auto *DestSCEV = SE->getSCEV(Memcpy->getRawDest());
+    auto *SrcSCEV = SE->getSCEV(Memcpy->getSource());
+    auto *DestSCEV = SE->getSCEV(Memcpy->getDest());
     if (SE->isKnownPredicateAt(CmpInst::ICMP_NE, SrcSCEV, DestSCEV, Memcpy))
       return false;
   }
@@ -513,8 +513,8 @@ void llvm::expandMemCpyAsLoop(MemCpyInst *Memcpy,
   if (ConstantInt *CI = dyn_cast<ConstantInt>(Memcpy->getLength())) {
     createMemCpyLoopKnownSize(
         /* InsertBefore */ Memcpy,
-        /* SrcAddr */ Memcpy->getRawSource(),
-        /* DstAddr */ Memcpy->getRawDest(),
+        /* SrcAddr */ Memcpy->getSource(),
+        /* DstAddr */ Memcpy->getDest(),
         /* CopyLen */ CI,
         /* SrcAlign */ Memcpy->getSourceAlign().valueOrOne(),
         /* DestAlign */ Memcpy->getDestAlign().valueOrOne(),
@@ -525,8 +525,8 @@ void llvm::expandMemCpyAsLoop(MemCpyInst *Memcpy,
   } else {
     createMemCpyLoopUnknownSize(
         /* InsertBefore */ Memcpy,
-        /* SrcAddr */ Memcpy->getRawSource(),
-        /* DstAddr */ Memcpy->getRawDest(),
+        /* SrcAddr */ Memcpy->getSource(),
+        /* DstAddr */ Memcpy->getDest(),
         /* CopyLen */ Memcpy->getLength(),
         /* SrcAlign */ Memcpy->getSourceAlign().valueOrOne(),
         /* DestAlign */ Memcpy->getDestAlign().valueOrOne(),
@@ -540,8 +540,8 @@ void llvm::expandMemCpyAsLoop(MemCpyInst *Memcpy,
 bool llvm::expandMemMoveAsLoop(MemMoveInst *Memmove,
                                const TargetTransformInfo &TTI) {
   Value *CopyLen = Memmove->getLength();
-  Value *SrcAddr = Memmove->getRawSource();
-  Value *DstAddr = Memmove->getRawDest();
+  Value *SrcAddr = Memmove->getSource();
+  Value *DstAddr = Memmove->getDest();
   Align SrcAlign = Memmove->getSourceAlign().valueOrOne();
   Align DstAlign = Memmove->getDestAlign().valueOrOne();
   bool SrcIsVolatile = Memmove->isVolatile();
@@ -592,7 +592,7 @@ bool llvm::expandMemMoveAsLoop(MemMoveInst *Memmove,
 
 void llvm::expandMemSetAsLoop(MemSetInst *Memset) {
   createMemSetLoop(/* InsertBefore */ Memset,
-                   /* DstAddr */ Memset->getRawDest(),
+                   /* DstAddr */ Memset->getDest(),
                    /* CopyLen */ Memset->getLength(),
                    /* SetValue */ Memset->getValue(),
                    /* Alignment */ Memset->getDestAlign().valueOrOne(),
@@ -605,8 +605,8 @@ void llvm::expandAtomicMemCpyAsLoop(AtomicMemCpyInst *AtomicMemcpy,
   if (ConstantInt *CI = dyn_cast<ConstantInt>(AtomicMemcpy->getLength())) {
     createMemCpyLoopKnownSize(
         /* InsertBefore */ AtomicMemcpy,
-        /* SrcAddr */ AtomicMemcpy->getRawSource(),
-        /* DstAddr */ AtomicMemcpy->getRawDest(),
+        /* SrcAddr */ AtomicMemcpy->getSource(),
+        /* DstAddr */ AtomicMemcpy->getDest(),
         /* CopyLen */ CI,
         /* SrcAlign */ AtomicMemcpy->getSourceAlign().valueOrOne(),
         /* DestAlign */ AtomicMemcpy->getDestAlign().valueOrOne(),
@@ -618,8 +618,8 @@ void llvm::expandAtomicMemCpyAsLoop(AtomicMemCpyInst *AtomicMemcpy,
   } else {
     createMemCpyLoopUnknownSize(
         /* InsertBefore */ AtomicMemcpy,
-        /* SrcAddr */ AtomicMemcpy->getRawSource(),
-        /* DstAddr */ AtomicMemcpy->getRawDest(),
+        /* SrcAddr */ AtomicMemcpy->getSource(),
+        /* DstAddr */ AtomicMemcpy->getDest(),
         /* CopyLen */ AtomicMemcpy->getLength(),
         /* SrcAlign */ AtomicMemcpy->getSourceAlign().valueOrOne(),
         /* DestAlign */ AtomicMemcpy->getDestAlign().valueOrOne(),

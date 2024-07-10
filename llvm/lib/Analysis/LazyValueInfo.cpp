@@ -688,9 +688,9 @@ static void AddNonNullPointersByInstruction(
     ConstantInt *Len = dyn_cast<ConstantInt>(MI->getLength());
     if (!Len || Len->isZero()) return;
 
-    AddNonNullPointer(MI->getRawDest(), PtrSet);
+    AddNonNullPointer(MI->getDest(), PtrSet);
     if (MemTransferInst *MTI = dyn_cast<MemTransferInst>(MI))
-      AddNonNullPointer(MTI->getRawSource(), PtrSet);
+      AddNonNullPointer(MTI->getSource(), PtrSet);
   }
 }
 

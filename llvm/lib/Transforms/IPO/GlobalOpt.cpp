@@ -321,7 +321,7 @@ static bool CleanupConstantGlobalUsers(GlobalVariable *GV,
       // Store must be unreachable or storing Init into the global.
       EraseFromParent(SI);
     } else if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(U)) { // memset/cpy/mv
-      if (getUnderlyingObject(MI->getRawDest()) == GV)
+      if (getUnderlyingObject(MI->getDest()) == GV)
         EraseFromParent(MI);
     } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
       if (II->getIntrinsicID() == Intrinsic::threadlocal_address)

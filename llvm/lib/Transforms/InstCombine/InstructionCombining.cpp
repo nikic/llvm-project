@@ -3177,7 +3177,7 @@ static bool isAllocSiteRemovable(Instruction *AI,
           case Intrinsic::memcpy:
           case Intrinsic::memset: {
             MemIntrinsic *MI = cast<MemIntrinsic>(II);
-            if (MI->isVolatile() || MI->getRawDest() != PI)
+            if (MI->isVolatile() || MI->getDest() != PI)
               return false;
             [[fallthrough]];
           }

@@ -401,8 +401,8 @@ void PointerReplacer::replace(Instruction *I) {
     NewSI->takeName(SI);
     WorkMap[SI] = NewSI;
   } else if (auto *MemCpy = dyn_cast<MemTransferInst>(I)) {
-    auto *DestV = MemCpy->getRawDest();
-    auto *SrcV = MemCpy->getRawSource();
+    auto *DestV = MemCpy->getDest();
+    auto *SrcV = MemCpy->getSource();
 
     if (auto *DestReplace = getReplacement(DestV))
       DestV = DestReplace;

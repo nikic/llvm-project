@@ -6549,39 +6549,37 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
   }
   case Intrinsic::memcpy_element_unordered_atomic: {
     const AtomicMemCpyInst &MI = cast<AtomicMemCpyInst>(I);
-    SDValue Dst = getValue(MI.getRawDest());
-    SDValue Src = getValue(MI.getRawSource());
+    SDValue Dst = getValue(MI.getDest());
+    SDValue Src = getValue(MI.getSource());
     SDValue Length = getValue(MI.getLength());
 
     Type *LengthTy = MI.getLength()->getType();
     unsigned ElemSz = MI.getElementSizeInBytes();
     bool isTC = I.isTailCall() && isInTailCallPosition(I, DAG.getTarget());
-    SDValue MC =
-        DAG.getAtomicMemcpy(getRoot(), sdl, Dst, Src, Length, LengthTy, ElemSz,
-                            isTC, MachinePointerInfo(MI.getRawDest()),
-                            MachinePointerInfo(MI.getRawSource()));
+    SDValue MC = DAG.getAtomicMemcpy(
+        getRoot(), sdl, Dst, Src, Length, LengthTy, ElemSz, isTC,
+        MachinePointerInfo(MI.getDest()), MachinePointerInfo(MI.getSource()));
     updateDAGForMaybeTailCall(MC);
     return;
   }
   case Intrinsic::memmove_element_unordered_atomic: {
     auto &MI = cast<AtomicMemMoveInst>(I);
-    SDValue Dst = getValue(MI.getRawDest());
-    SDValue Src = getValue(MI.getRawSource());
+    SDValue Dst = getValue(MI.getDest());
+    SDValue Src = getValue(MI.getSource());
     SDValue Length = getValue(MI.getLength());
 
     Type *LengthTy = MI.getLength()->getType();
     unsigned ElemSz = MI.getElementSizeInBytes();
     bool isTC = I.isTailCall() && isInTailCallPosition(I, DAG.getTarget());
-    SDValue MC =
-        DAG.getAtomicMemmove(getRoot(), sdl, Dst, Src, Length, LengthTy, ElemSz,
-                             isTC, MachinePointerInfo(MI.getRawDest()),
-                             MachinePointerInfo(MI.getRawSource()));
+    SDValue MC = DAG.getAtomicMemmove(
+        getRoot(), sdl, Dst, Src, Length, LengthTy, ElemSz, isTC,
+        MachinePointerInfo(MI.getDest()), MachinePointerInfo(MI.getSource()));
     updateDAGForMaybeTailCall(MC);
     return;
   }
   case Intrinsic::memset_element_unordered_atomic: {
     auto &MI = cast<AtomicMemSetInst>(I);
-    SDValue Dst = getValue(MI.getRawDest());
+    SDValue Dst = getValue(MI.getDest());
     SDValue Val = getValue(MI.getValue());
     SDValue Length = getValue(MI.getLength());
 
@@ -6590,7 +6588,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     bool isTC = I.isTailCall() && isInTailCallPosition(I, DAG.getTarget());
     SDValue MC =
         DAG.getAtomicMemset(getRoot(), sdl, Dst, Val, Length, LengthTy, ElemSz,
-                            isTC, MachinePointerInfo(MI.getRawDest()));
+                            isTC, MachinePointerInfo(MI.getDest()));
     updateDAGForMaybeTailCall(MC);
     return;
   }

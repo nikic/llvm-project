@@ -103,7 +103,7 @@ static Type *getPromotedType(Type *Ty) {
 /// TODO: This should probably be integrated with visitAllocSites, but that
 /// requires a deeper change to allow either unread or unwritten objects.
 static bool hasUndefSource(AnyMemTransferInst *MI) {
-  auto *Src = MI->getRawSource();
+  auto *Src = MI->getSource();
   while (isa<GetElementPtrInst>(Src) || isa<BitCastInst>(Src)) {
     if (!Src->hasOneUse())
       return false;
@@ -113,14 +113,14 @@ static bool hasUndefSource(AnyMemTransferInst *MI) {
 }
 
 Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
-  Align DstAlign = getKnownAlignment(MI->getRawDest(), DL, MI, &AC, &DT);
+  Align DstAlign = getKnownAlignment(MI->getDest(), DL, MI, &AC, &DT);
   MaybeAlign CopyDstAlign = MI->getDestAlign();
   if (!CopyDstAlign || *CopyDstAlign < DstAlign) {
     MI->setDestAlignment(DstAlign);
     return MI;
   }
 
-  Align SrcAlign = getKnownAlignment(MI->getRawSource(), DL, MI, &AC, &DT);
+  Align SrcAlign = getKnownAlignment(MI->getSource(), DL, MI, &AC, &DT);
   MaybeAlign CopySrcAlign = MI->getSourceAlign();
   if (!CopySrcAlign || *CopySrcAlign < SrcAlign) {
     MI->setSourceAlignment(SrcAlign);

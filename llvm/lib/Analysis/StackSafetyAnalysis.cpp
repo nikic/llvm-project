@@ -341,10 +341,10 @@ ConstantRange StackSafetyLocalAnalysis::getAccessRange(Value *Addr, Value *Base,
 ConstantRange StackSafetyLocalAnalysis::getMemIntrinsicAccessRange(
     const MemIntrinsic *MI, const Use &U, Value *Base) {
   if (const auto *MTI = dyn_cast<MemTransferInst>(MI)) {
-    if (MTI->getRawSource() != U && MTI->getRawDest() != U)
+    if (MTI->getSource() != U && MTI->getDest() != U)
       return ConstantRange::getEmpty(PointerSize);
   } else {
-    if (MI->getRawDest() != U)
+    if (MI->getDest() != U)
       return ConstantRange::getEmpty(PointerSize);
   }
 
@@ -493,9 +493,9 @@ void StackSafetyLocalAnalysis::analyzeAllUses(Value *Ptr,
           auto AccessRange = getMemIntrinsicAccessRange(MI, UI, Ptr);
           bool Safe = false;
           if (const auto *MTI = dyn_cast<MemTransferInst>(MI)) {
-            if (MTI->getRawSource() != UI && MTI->getRawDest() != UI)
+            if (MTI->getSource() != UI && MTI->getDest() != UI)
               Safe = true;
-          } else if (MI->getRawDest() != UI) {
+          } else if (MI->getDest() != UI) {
             Safe = true;
           }
           Safe = Safe || isSafeAccess(UI, AI, MI->getLength());

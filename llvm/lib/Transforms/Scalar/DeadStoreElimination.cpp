@@ -630,7 +630,7 @@ static bool tryToShorten(Instruction *DeadI, int64_t &DeadStart,
   DeadIntrinsic->setLength(TrimmedLength);
   DeadIntrinsic->setDestAlignment(PrefAlign);
 
-  Value *OrigDest = DeadIntrinsic->getRawDest();
+  Value *OrigDest = DeadIntrinsic->getDest();
   if (!IsOverwriteEnd) {
     Value *Indices[1] = {
         ConstantInt::get(DeadWriteLength->getType(), ToRemoveSize)};

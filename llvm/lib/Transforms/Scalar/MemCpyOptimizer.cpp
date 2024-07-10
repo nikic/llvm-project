@@ -1186,19 +1186,19 @@ bool MemCpyOptPass::processMemCpyMemCpyDependence(MemCpyInst *M,
   IRBuilder<> Builder(M);
   Instruction *NewM;
   if (UseMemMove)
-    NewM = Builder.CreateMemMove(M->getRawDest(), M->getDestAlign(),
-                                 MDep->getRawSource(), MDep->getSourceAlign(),
+    NewM = Builder.CreateMemMove(M->getDest(), M->getDestAlign(),
+                                 MDep->getSource(), MDep->getSourceAlign(),
                                  M->getLength(), M->isVolatile());
   else if (isa<MemCpyInlineInst>(M)) {
     // llvm.memcpy may be promoted to llvm.memcpy.inline, but the converse is
     // never allowed since that would allow the latter to be lowered as a call
     // to an external function.
-    NewM = Builder.CreateMemCpyInline(
-        M->getRawDest(), M->getDestAlign(), MDep->getRawSource(),
-        MDep->getSourceAlign(), M->getLength(), M->isVolatile());
+    NewM = Builder.CreateMemCpyInline(M->getDest(), M->getDestAlign(),
+                                      MDep->getSource(), MDep->getSourceAlign(),
+                                      M->getLength(), M->isVolatile());
   } else
-    NewM = Builder.CreateMemCpy(M->getRawDest(), M->getDestAlign(),
-                                MDep->getRawSource(), MDep->getSourceAlign(),
+    NewM = Builder.CreateMemCpy(M->getDest(), M->getDestAlign(),
+                                MDep->getSource(), MDep->getSourceAlign(),
                                 M->getLength(), M->isVolatile());
   NewM->copyMetadata(*M, LLVMContext::MD_DIAssignID);
 
@@ -1253,7 +1253,7 @@ bool MemCpyOptPass::processMemSetMemCpyDependence(MemCpyInst *MemCpy,
     return false;
 
   // Use the same i8* dest as the memcpy, killing the memset dest if different.
-  Value *Dest = MemCpy->getRawDest();
+  Value *Dest = MemCpy->getDest();
   Value *DestSize = MemSet->getLength();
   Value *SrcSize = MemCpy->getLength();
 
@@ -1372,7 +1372,7 @@ bool MemCpyOptPass::performMemCpyToMemSetOptzn(MemCpyInst *MemCpy,
                                                BatchAAResults &BAA) {
   // Make sure that memcpy(..., memset(...), ...), that is we are memsetting and
   // memcpying from the same address. Otherwise it is hard to reason about.
-  if (!BAA.isMustAlias(MemSet->getRawDest(), MemCpy->getRawSource()))
+  if (!BAA.isMustAlias(MemSet->getDest(), MemCpy->getSource()))
     return false;
 
   Value *MemSetSize = MemSet->getLength();
@@ -1413,8 +1413,8 @@ bool MemCpyOptPass::performMemCpyToMemSetOptzn(MemCpyInst *MemCpy,
 
   IRBuilder<> Builder(MemCpy);
   Instruction *NewM =
-      Builder.CreateMemSet(MemCpy->getRawDest(), MemSet->getOperand(1),
-                           CopySize, MemCpy->getDestAlign());
+      Builder.CreateMemSet(MemCpy->getDest(), MemSet->getOperand(1), CopySize,
+                           MemCpy->getDestAlign());
   auto *LastDef =
       cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(MemCpy));
   auto *NewAccess = MSSAU->createMemoryAccessAfter(NewM, nullptr, LastDef);
@@ -1689,7 +1689,7 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
                                            M->getDataLayout())) {
         IRBuilder<> Builder(M);
         Instruction *NewM = Builder.CreateMemSet(
-            M->getRawDest(), ByteVal, M->getLength(), M->getDestAlign(), false);
+            M->getDest(), ByteVal, M->getLength(), M->getDestAlign(), false);
         auto *LastDef = cast<MemoryDef>(MA);
         auto *NewAccess =
             MSSAU->createMemoryAccessAfter(NewM, nullptr, LastDef);
@@ -1801,7 +1801,7 @@ bool MemCpyOptPass::processMemMove(MemMoveInst *M) {
                     << "\n");
 
   // If not, then we know we can transform this.
-  Type *ArgTys[3] = {M->getRawDest()->getType(), M->getRawSource()->getType(),
+  Type *ArgTys[3] = {M->getDest()->getType(), M->getSource()->getType(),
                      M->getLength()->getType()};
   M->setCalledFunction(
       Intrinsic::getDeclaration(M->getModule(), Intrinsic::memcpy, ArgTys));

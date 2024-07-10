@@ -256,10 +256,10 @@ bool SafeStack::IsMemIntrinsicSafe(const MemIntrinsic *MI, const Use &U,
                                    const Value *AllocaPtr,
                                    uint64_t AllocaSize) {
   if (auto MTI = dyn_cast<MemTransferInst>(MI)) {
-    if (MTI->getRawSource() != U && MTI->getRawDest() != U)
+    if (MTI->getSource() != U && MTI->getDest() != U)
       return true;
   } else {
-    if (MI->getRawDest() != U)
+    if (MI->getDest() != U)
       return true;
   }
 

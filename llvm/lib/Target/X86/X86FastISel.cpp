@@ -2718,8 +2718,8 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       uint64_t Len = cast<ConstantInt>(MCI->getLength())->getZExtValue();
       if (IsMemcpySmall(Len)) {
         X86AddressMode DestAM, SrcAM;
-        if (!X86SelectAddress(MCI->getRawDest(), DestAM) ||
-            !X86SelectAddress(MCI->getRawSource(), SrcAM))
+        if (!X86SelectAddress(MCI->getDest(), DestAM) ||
+            !X86SelectAddress(MCI->getSource(), SrcAM))
           return false;
         TryEmitSmallMemcpy(DestAM, SrcAM, Len);
         return true;

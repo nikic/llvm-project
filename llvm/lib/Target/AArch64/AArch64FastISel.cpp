@@ -3498,8 +3498,8 @@ bool AArch64FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
                              MTI->getSourceAlign().valueOrOne());
       if (isMemCpySmall(Len, Alignment)) {
         Address Dest, Src;
-        if (!computeAddress(MTI->getRawDest(), Dest) ||
-            !computeAddress(MTI->getRawSource(), Src))
+        if (!computeAddress(MTI->getDest(), Dest) ||
+            !computeAddress(MTI->getSource(), Src))
           return false;
         if (tryEmitSmallMemCpy(Dest, Src, Len, Alignment))
           return true;

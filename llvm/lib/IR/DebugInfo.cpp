@@ -2093,7 +2093,7 @@ getAssignmentInfoImpl(const DataLayout &DL, const Value *StoreDest,
 
 std::optional<AssignmentInfo> at::getAssignmentInfo(const DataLayout &DL,
                                                     const MemIntrinsic *I) {
-  const Value *StoreDest = I->getRawDest();
+  const Value *StoreDest = I->getDest();
   // Assume 8 bit bytes.
   auto *ConstLengthInBytes = dyn_cast<ConstantInt>(I->getLength());
   if (!ConstLengthInBytes)

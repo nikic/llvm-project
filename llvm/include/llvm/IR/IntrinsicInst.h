@@ -958,11 +958,11 @@ private:
   enum { ARG_DEST = 0, ARG_LENGTH = 2 };
 
 public:
-  Value *getRawDest() const {
+  Value *getDest() const {
     return const_cast<Value *>(getArgOperand(ARG_DEST));
   }
-  const Use &getRawDestUse() const { return getArgOperandUse(ARG_DEST); }
-  Use &getRawDestUse() { return getArgOperandUse(ARG_DEST); }
+  const Use &getDestUse() const { return getArgOperandUse(ARG_DEST); }
+  Use &getDestUse() { return getArgOperandUse(ARG_DEST); }
 
   Value *getLength() const {
     return const_cast<Value *>(getArgOperand(ARG_LENGTH));
@@ -970,13 +970,8 @@ public:
   const Use &getLengthUse() const { return getArgOperandUse(ARG_LENGTH); }
   Use &getLengthUse() { return getArgOperandUse(ARG_LENGTH); }
 
-  /// This is just like getRawDest, but it strips off any cast
-  /// instructions (including addrspacecast) that feed it, giving the
-  /// original input.  The returned value is guaranteed to be a pointer.
-  Value *getDest() const { return getRawDest()->stripPointerCasts(); }
-
   unsigned getDestAddressSpace() const {
-    return cast<PointerType>(getRawDest()->getType())->getAddressSpace();
+    return cast<PointerType>(getDest()->getType())->getAddressSpace();
   }
 
   /// FIXME: Remove this function once transition to Align is over.
@@ -991,7 +986,7 @@ public:
 
   /// Set the specified arguments of the instruction.
   void setDest(Value *Ptr) {
-    assert(getRawDest()->getType() == Ptr->getType() &&
+    assert(getDest()->getType() == Ptr->getType() &&
            "setDest called with pointer of wrong type!");
     setArgOperand(ARG_DEST, Ptr);
   }
@@ -1023,21 +1018,16 @@ private:
 
 public:
   /// Return the arguments to the instruction.
-  Value *getRawSource() const {
+  Value *getSource() const {
     return const_cast<Value *>(BaseCL::getArgOperand(ARG_SOURCE));
   }
-  const Use &getRawSourceUse() const {
+  const Use &getSourceUse() const {
     return BaseCL::getArgOperandUse(ARG_SOURCE);
   }
-  Use &getRawSourceUse() { return BaseCL::getArgOperandUse(ARG_SOURCE); }
-
-  /// This is just like getRawSource, but it strips off any cast
-  /// instructions that feed it, giving the original input.  The returned
-  /// value is guaranteed to be a pointer.
-  Value *getSource() const { return getRawSource()->stripPointerCasts(); }
+  Use &getSourceUse() { return BaseCL::getArgOperandUse(ARG_SOURCE); }
 
   unsigned getSourceAddressSpace() const {
-    return cast<PointerType>(getRawSource()->getType())->getAddressSpace();
+    return cast<PointerType>(getSource()->getType())->getAddressSpace();
   }
 
   /// FIXME: Remove this function once transition to Align is over.
@@ -1054,7 +1044,7 @@ public:
   }
 
   void setSource(Value *Ptr) {
-    assert(getRawSource()->getType() == Ptr->getType() &&
+    assert(getSource()->getType() == Ptr->getType() &&
            "setSource called with pointer of wrong type!");
     BaseCL::setArgOperand(ARG_SOURCE, Ptr);
   }

@@ -1155,7 +1155,7 @@ private:
   }
 
   void visitMemSetInst(MemSetInst &II) {
-    assert(II.getRawDest() == *U && "Pointer use is not the destination?");
+    assert(II.getDest() == *U && "Pointer use is not the destination?");
     ConstantInt *Length = dyn_cast<ConstantInt>(II.getLength());
     if ((Length && Length->getValue() == 0) ||
         (IsOffsetKnown && Offset.uge(AllocSize)))
@@ -1203,7 +1203,7 @@ private:
 
     // Check for the special case where the same exact value is used for both
     // source and dest.
-    if (*U == II.getRawDest() && *U == II.getRawSource()) {
+    if (*U == II.getDest() && *U == II.getSource()) {
       // For non-volatile transfers this is a no-op.
       if (!II.isVolatile())
         return markAsDead(II);
@@ -3136,7 +3136,7 @@ private:
 
   bool visitMemSetInst(MemSetInst &II) {
     LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
-    assert(II.getRawDest() == OldPtr);
+    assert(II.getDest() == OldPtr);
 
     AAMDNodes AATags = II.getAAMetadata();
 
@@ -3193,7 +3193,7 @@ private:
             AATags.adjustForAccess(NewBeginOffset - BeginOffset, Sz));
 
       migrateDebugInfo(&OldAI, IsSplit, NewBeginOffset * 8, SliceSize * 8, &II,
-                       New, New->getRawDest(), nullptr, DL);
+                       New, New->getDest(), nullptr, DL);
 
       LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
       return false;
@@ -3284,9 +3284,9 @@ private:
 
     AAMDNodes AATags = II.getAAMetadata();
 
-    bool IsDest = &II.getRawDestUse() == OldUse;
-    assert((IsDest && II.getRawDest() == OldPtr) ||
-           (!IsDest && II.getRawSource() == OldPtr));
+    bool IsDest = &II.getDestUse() == OldUse;
+    assert((IsDest && II.getDest() == OldPtr) ||
+           (!IsDest && II.getSource() == OldPtr));
 
     Align SliceAlign = getSliceAlign();
     // For unsplit intrinsics, we simply modify the source and destination
@@ -3352,7 +3352,7 @@ private:
 
     // Strip all inbounds GEPs and pointer casts to try to dig out any root
     // alloca that should be re-examined after rewriting this instruction.
-    Value *OtherPtr = IsDest ? II.getRawSource() : II.getRawDest();
+    Value *OtherPtr = IsDest ? II.getSource() : II.getDest();
     if (AllocaInst *AI =
             dyn_cast<AllocaInst>(OtherPtr->stripInBoundsOffsets())) {
       assert(AI != &OldAI && AI != &NewAI &&

@@ -2533,8 +2533,8 @@ bool ARMFastISel::SelectIntrinsicCall(const IntrinsicInst &I) {
       uint64_t Len = cast<ConstantInt>(MTI.getLength())->getZExtValue();
       if (ARMIsMemCpySmall(Len)) {
         Address Dest, Src;
-        if (!ARMComputeAddress(MTI.getRawDest(), Dest) ||
-            !ARMComputeAddress(MTI.getRawSource(), Src))
+        if (!ARMComputeAddress(MTI.getDest(), Dest) ||
+            !ARMComputeAddress(MTI.getSource(), Src))
           return false;
         MaybeAlign Alignment;
         if (MTI.getDestAlign() || MTI.getSourceAlign())

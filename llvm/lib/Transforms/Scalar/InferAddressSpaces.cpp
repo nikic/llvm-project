@@ -506,11 +506,11 @@ InferAddressSpacesImpl::collectFlatAddressExpressions(Function &F) const {
       PushPtrOperand(CmpX->getPointerOperand());
     else if (auto *MI = dyn_cast<MemIntrinsic>(&I)) {
       // For memset/memcpy/memmove, any pointer operand can be replaced.
-      PushPtrOperand(MI->getRawDest());
+      PushPtrOperand(MI->getDest());
 
       // Handle 2nd operand for memcpy/memmove.
       if (auto *MTI = dyn_cast<MemTransferInst>(MI))
-        PushPtrOperand(MTI->getRawSource());
+        PushPtrOperand(MTI->getSource());
     } else if (auto *II = dyn_cast<IntrinsicInst>(&I))
       collectRewritableIntrinsicOperands(II, PostorderStack, Visited);
     else if (ICmpInst *Cmp = dyn_cast<ICmpInst>(&I)) {
@@ -1049,8 +1049,8 @@ static bool handleMemIntrinsicPtrUse(MemIntrinsic *MI, Value *OldV,
                    false, // isVolatile
                    TBAA, ScopeMD, NoAliasMD);
   } else if (auto *MTI = dyn_cast<MemTransferInst>(MI)) {
-    Value *Src = MTI->getRawSource();
-    Value *Dest = MTI->getRawDest();
+    Value *Src = MTI->getSource();
+    Value *Dest = MTI->getDest();
 
     // Be careful in case this is a self-to-self copy.
     if (Src == OldV)

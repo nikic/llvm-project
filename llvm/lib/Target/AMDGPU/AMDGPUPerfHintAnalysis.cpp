@@ -130,7 +130,7 @@ static std::pair<const Value *, const Type *> getMemoryInstrPtrAndType(
   if (auto AI = dyn_cast<AtomicRMWInst>(Inst))
     return {AI->getPointerOperand(), AI->getValOperand()->getType()};
   if (auto MI = dyn_cast<AnyMemIntrinsic>(Inst))
-    return {MI->getRawDest(), Type::getInt8Ty(MI->getContext())};
+    return {MI->getDest(), Type::getInt8Ty(MI->getContext())};
 
   return {nullptr, nullptr};
 }

@@ -101,7 +101,7 @@ MemoryLocation MemoryLocation::getForSource(const AtomicMemTransferInst *MTI) {
 }
 
 MemoryLocation MemoryLocation::getForSource(const AnyMemTransferInst *MTI) {
-  assert(MTI->getRawSource() == MTI->getArgOperand(1));
+  assert(MTI->getSource() == MTI->getArgOperand(1));
   return getForArgument(MTI, 1, nullptr);
 }
 
@@ -114,7 +114,7 @@ MemoryLocation MemoryLocation::getForDest(const AtomicMemIntrinsic *MI) {
 }
 
 MemoryLocation MemoryLocation::getForDest(const AnyMemIntrinsic *MI) {
-  assert(MI->getRawDest() == MI->getArgOperand(0));
+  assert(MI->getDest() == MI->getArgOperand(0));
   return getForArgument(MI, 0, nullptr);
 }
 

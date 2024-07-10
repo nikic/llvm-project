@@ -1553,7 +1553,7 @@ bool AMDGPUPromoteAllocaImpl::tryPromoteAllocaToLDS(AllocaInst &I,
       continue;
     case Intrinsic::memset: {
       MemSetInst *MemSet = cast<MemSetInst>(Intr);
-      Builder.CreateMemSet(MemSet->getRawDest(), MemSet->getValue(),
+      Builder.CreateMemSet(MemSet->getDest(), MemSet->getValue(),
                            MemSet->getLength(), MemSet->getDestAlign(),
                            MemSet->isVolatile());
       Intr->eraseFromParent();
@@ -1595,7 +1595,7 @@ bool AMDGPUPromoteAllocaImpl::tryPromoteAllocaToLDS(AllocaInst &I,
 
     MemTransferInst *MI = cast<MemTransferInst>(Intr);
     auto *B = Builder.CreateMemTransferInst(
-        ID, MI->getRawDest(), MI->getDestAlign(), MI->getRawSource(),
+        ID, MI->getDest(), MI->getDestAlign(), MI->getSource(),
         MI->getSourceAlign(), MI->getLength(), MI->isVolatile());
 
     for (unsigned I = 0; I != 2; ++I) {

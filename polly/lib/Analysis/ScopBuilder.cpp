@@ -3270,7 +3270,7 @@ ScopBuilder::buildAliasGroupsForAccesses() {
         HasWriteAccess.insert(MA->getScopArrayInfo());
       MemAccInst Acc(MA->getAccessInstruction());
       if (MA->isRead() && isa<MemTransferInst>(Acc))
-        PtrToAcc[cast<MemTransferInst>(Acc)->getRawSource()] = MA;
+        PtrToAcc[cast<MemTransferInst>(Acc)->getSource()] = MA;
       else
         PtrToAcc[Acc.getPointerOperand()] = MA;
       AST.add(Acc);
