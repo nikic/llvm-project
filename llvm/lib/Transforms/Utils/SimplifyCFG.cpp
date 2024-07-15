@@ -1493,7 +1493,7 @@ static bool isSafeToHoistInstr(Instruction *I, unsigned Flags) {
   return true;
 }
 
-static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I, bool PtrValueMayBeModified = false);
+static bool passingValueIsAlwaysUndefined(Value *V, PHINode *PN);
 
 /// Helper function for hoistCommonCodeFromSuccessors. Return true if identical
 /// instructions \p I1 and \p I2 can and should be hoisted.
@@ -7564,116 +7564,140 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
 }
 
 /// Check if passing a value to an instruction will cause undefined behavior.
-static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I, bool PtrValueMayBeModified) {
+static bool passingValueIsAlwaysUndefined(Value *V, PHINode *PN) {
+  const unsigned MaxInsts = 20;
+
   Constant *C = dyn_cast<Constant>(V);
   if (!C)
     return false;
 
-  if (I->use_empty())
+  if (!C->isNullValue() && !isa<UndefValue>(C))
     return false;
 
-  if (C->isNullValue() || isa<UndefValue>(C)) {
-    // Only look at the first use, avoid hurting compile time with long uselists
-    auto *Use = cast<Instruction>(*I->user_begin());
-    // Bail out if Use is not in the same BB as I or Use == I or Use comes
-    // before I in the block. The latter two can be the case if Use is a PHI
-    // node.
-    if (Use->getParent() != I->getParent() || Use == I || Use->comesBefore(I))
+  if (PN->use_empty())
+    return false;
+
+  // The bool value is PtrValueMayBeModified, i.e. whether this is a GEP based
+  // on V that may have an offset but still has the same undeflying object.
+  SmallDenseMap<const Value *, bool, 8> KnownValues;
+  KnownValues.insert({PN, false});
+  unsigned NumInsts = 0;
+  for (const Instruction &I : *PN->getParent()) {
+    if (++NumInsts == MaxInsts)
       return false;
 
-    // Now make sure that there are no instructions in between that can alter
-    // control flow (eg. calls)
-    auto InstrRange =
-        make_range(std::next(I->getIterator()), Use->getIterator());
-    if (any_of(InstrRange, [](Instruction &I) {
-          return !isGuaranteedToTransferExecutionToSuccessor(&I);
-        }))
-      return false;
-
-    // Look through GEPs. A load from a GEP derived from NULL is still undefined
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Use))
-      if (GEP->getPointerOperand() == I) {
+    switch (I.getOpcode()) {
+    case Instruction::GetElementPtr: {
+      // Look through GEPs. A load from a GEP derived from NULL is still
+      // undefined.
+      auto *GEP = cast<GetElementPtrInst>(&I);
+      auto It = KnownValues.find(GEP->getPointerOperand());
+      if (It != KnownValues.end()) {
         // The current base address is null, there are four cases to consider:
         // getelementptr (TY, null, 0)                 -> null
         // getelementptr (TY, null, not zero)          -> may be modified
         // getelementptr inbounds (TY, null, 0)        -> null
         // getelementptr inbounds (TY, null, not zero) -> poison iff null is
         // undefined?
+        bool PtrValueMayBeModified = It->second;
         if (!GEP->hasAllZeroIndices() &&
             (!GEP->isInBounds() ||
              NullPointerIsDefined(GEP->getFunction(),
                                   GEP->getPointerAddressSpace())))
           PtrValueMayBeModified = true;
-        return passingValueIsAlwaysUndefined(V, GEP, PtrValueMayBeModified);
+        KnownValues.insert({&I, PtrValueMayBeModified});
+      }
+      break;
+    }
+    case Instruction::BitCast: {
+      // Look through bitcasts.
+      auto It = KnownValues.find(I.getOperand(0));
+      if (It != KnownValues.end())
+        KnownValues.insert({&I, It->second});
+      break;
+    }
+    case Instruction::Ret: {
+      auto *Ret = cast<ReturnInst>(&I);
+      auto It = KnownValues.find(Ret->getReturnValue());
+      if (It != KnownValues.end()) {
+        bool HasNoUndefAttr =
+            Ret->getFunction()->hasRetAttribute(Attribute::NoUndef);
+        // Return undefined to a noundef return value is undefined.
+        if (isa<UndefValue>(C) && HasNoUndefAttr)
+          return true;
+        // Return null to a nonnull+noundef return value is undefined.
+        if (C->isNullValue() && HasNoUndefAttr &&
+            Ret->getFunction()->hasRetAttribute(Attribute::NonNull) &&
+            !It->second)
+          return true;
+      }
+      break;
+    }
+    case Instruction::Load: {
+      // Load from null is undefined.
+      auto *LI = cast<LoadInst>(&I);
+      if (!LI->isVolatile() && KnownValues.contains(LI->getPointerOperand()) &&
+          !NullPointerIsDefined(LI->getFunction(),
+                                LI->getPointerAddressSpace()))
+        return true;
+      break;
+    }
+    case Instruction::Store: {
+      // Store to null is undefined.
+      auto *SI = cast<StoreInst>(&I);
+      if (!SI->isVolatile() && KnownValues.contains(SI->getPointerOperand()) &&
+          !NullPointerIsDefined(SI->getFunction(),
+                                SI->getPointerAddressSpace()))
+        return true;
+      break;
+    }
+    case Instruction::Call: {
+      // llvm.assume(false/undef) always triggers immediate UB.
+      if (auto *Assume = dyn_cast<AssumeInst>(&I)) {
+        // Ignore assume operand bundles.
+        if (KnownValues.contains(Assume->getArgOperand(0)))
+          return true;
       }
 
-    // Look through return.
-    if (ReturnInst *Ret = dyn_cast<ReturnInst>(Use)) {
-      bool HasNoUndefAttr =
-          Ret->getFunction()->hasRetAttribute(Attribute::NoUndef);
-      // Return undefined to a noundef return value is undefined.
-      if (isa<UndefValue>(C) && HasNoUndefAttr)
-        return true;
-      // Return null to a nonnull+noundef return value is undefined.
-      if (C->isNullValue() && HasNoUndefAttr &&
-          Ret->getFunction()->hasRetAttribute(Attribute::NonNull)) {
-        return !PtrValueMayBeModified;
-      }
-    }
-
-    // Look through bitcasts.
-    if (BitCastInst *BC = dyn_cast<BitCastInst>(Use))
-      return passingValueIsAlwaysUndefined(V, BC, PtrValueMayBeModified);
-
-    // Load from null is undefined.
-    if (LoadInst *LI = dyn_cast<LoadInst>(Use))
-      if (!LI->isVolatile())
-        return !NullPointerIsDefined(LI->getFunction(),
-                                     LI->getPointerAddressSpace());
-
-    // Store to null is undefined.
-    if (StoreInst *SI = dyn_cast<StoreInst>(Use))
-      if (!SI->isVolatile())
-        return (!NullPointerIsDefined(SI->getFunction(),
-                                      SI->getPointerAddressSpace())) &&
-               SI->getPointerOperand() == I;
-
-    // llvm.assume(false/undef) always triggers immediate UB.
-    if (auto *Assume = dyn_cast<AssumeInst>(Use)) {
-      // Ignore assume operand bundles.
-      if (I == Assume->getArgOperand(0))
-        return true;
-    }
-
-    if (auto *CB = dyn_cast<CallBase>(Use)) {
+      auto *CB = cast<CallBase>(&I);
       if (C->isNullValue() && NullPointerIsDefined(CB->getFunction()))
         return false;
+
       // A call to null is undefined.
-      if (CB->getCalledOperand() == I)
+      if (KnownValues.contains(CB->getCalledOperand()))
         return true;
 
       if (C->isNullValue()) {
-        for (const llvm::Use &Arg : CB->args())
-          if (Arg == I) {
+        for (const Use &Arg : CB->args()) {
+          auto It = KnownValues.find(Arg);
+          if (It != KnownValues.end() && !It->second) {
             unsigned ArgIdx = CB->getArgOperandNo(&Arg);
             if (CB->isPassingUndefUB(ArgIdx) &&
                 CB->paramHasAttr(ArgIdx, Attribute::NonNull)) {
               // Passing null to a nonnnull+noundef argument is undefined.
-              return !PtrValueMayBeModified;
+              return true;
             }
           }
+        }
       } else if (isa<UndefValue>(C)) {
         // Passing undef to a noundef argument is undefined.
-        for (const llvm::Use &Arg : CB->args())
-          if (Arg == I) {
+        for (const Use &Arg : CB->args()) {
+          if (KnownValues.contains(Arg)) {
             unsigned ArgIdx = CB->getArgOperandNo(&Arg);
             if (CB->isPassingUndefUB(ArgIdx)) {
               // Passing undef to a noundef argument is undefined.
               return true;
             }
           }
+        }
       }
+      break;
     }
+    }
+
+    // Later UB may not propagate upwards.
+    if (I.mayThrow() || !I.willReturn())
+      return false;
   }
   return false;
 }
