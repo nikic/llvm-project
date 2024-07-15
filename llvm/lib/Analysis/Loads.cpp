@@ -743,7 +743,12 @@ static bool isPointerAlwaysReplaceable(const Value *From, const Value *To,
   if (isa<Constant>(To) &&
       isDereferenceablePointer(To, Type::getInt8Ty(To->getContext()), DL))
     return true;
-  if (getUnderlyingObject(From) == getUnderlyingObject(To))
+  SmallVector<const Value *> FromObjs, ToObjs;
+  getUnderlyingObjects(From, FromObjs);
+  if (FromObjs.size() != 1)
+    return false;
+  getUnderlyingObjects(To, ToObjs);
+  if (ToObjs.size() == 1 && FromObjs.back() == ToObjs.back())
     return true;
   return false;
 }
