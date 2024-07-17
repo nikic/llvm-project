@@ -743,14 +743,8 @@ static bool isPointerAlwaysReplaceable(const Value *From, const Value *To,
   if (isa<Constant>(To) &&
       isDereferenceablePointer(To, Type::getInt8Ty(To->getContext()), DL))
     return true;
-  SmallVector<const Value *> FromObjs, ToObjs;
-  getUnderlyingObjects(From, FromObjs);
-  if (FromObjs.size() != 1)
-    return false;
-  getUnderlyingObjects(To, ToObjs);
-  if (ToObjs.size() == 1 && FromObjs.back() == ToObjs.back())
-    return true;
-  return false;
+  return getUnderlyingObjectThroughPhisAndSelects(From) ==
+         getUnderlyingObjectThroughPhisAndSelects(To);
 }
 
 bool llvm::canReplacePointersInUseIfEqual(const Use &U, const Value *To,
