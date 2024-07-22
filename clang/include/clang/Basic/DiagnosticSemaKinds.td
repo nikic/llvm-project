@@ -10306,7 +10306,7 @@ def warn_unannotated_fallthrough : Warning<
   InGroup<ImplicitFallthrough>, DefaultIgnore;
 def warn_unannotated_fallthrough_per_function : Warning<
   "unannotated fall-through between switch labels in partly-annotated "
-  "function">, InGroup<ImplicitFallthroughPerFunction>, DefaultIgnore;
+  "function">, InGroup<ImplicitFallthroughPerFunction>;
 def note_insert_fallthrough_fixit : Note<
   "insert '%0;' to silence this warning">;
 def note_insert_break_fixit : Note<
