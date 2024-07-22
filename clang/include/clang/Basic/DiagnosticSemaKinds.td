@@ -10310,10 +10310,10 @@ def warn_switch_default : Warning<"'switch' missing 'default' label">,
 
 def warn_unannotated_fallthrough : Warning<
   "unannotated fall-through between switch labels">,
-  InGroup<ImplicitFallthrough>, DefaultIgnore;
+  InGroup<ImplicitFallthrough>;
 def warn_unannotated_fallthrough_per_function : Warning<
   "unannotated fall-through between switch labels in partly-annotated "
-  "function">, InGroup<ImplicitFallthroughPerFunction>, DefaultIgnore;
+  "function">, InGroup<ImplicitFallthroughPerFunction>;
 def note_insert_fallthrough_fixit : Note<
   "insert '%0;' to silence this warning">;
 def note_insert_break_fixit : Note<
