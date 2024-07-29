@@ -686,7 +686,7 @@ CompareSCEVComplexity(EquivalenceClasses<const SCEV *> &EqCacheSCEV,
     const SCEVUnknown *RU = cast<SCEVUnknown>(RHS);
 
     int X =
-        CompareValueComplexity(LI, LU->getValue(), RU->getValue(), Depth + 1);
+        CompareValueComplexity(LI, LU->getValue(), RU->getValue(), /*Depth=*/0);
     if (X == 0)
       EqCacheSCEV.unionSets(LHS, RHS);
     return X;
