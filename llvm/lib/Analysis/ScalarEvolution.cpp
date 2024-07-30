@@ -11645,11 +11645,51 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
   return isImpliedCond(Pred, LHS, RHS, FoundPred, FoundLHS, FoundRHS, CtxI);
 }
 
+static void collectRoots(SmallPtrSetImpl<const SCEVUnknown *> &UnknownRoots,
+                         SmallPtrSetImpl<const Loop *> &LoopRoots,
+                         const SCEV *S) {
+  struct RootCollector {
+    SmallPtrSetImpl<const SCEVUnknown *> &UnknownRoots;
+    SmallPtrSetImpl<const Loop *> &LoopRoots;
+
+    RootCollector(SmallPtrSetImpl<const SCEVUnknown *> &UnknownRoots,
+                  SmallPtrSetImpl<const Loop *> &LoopRoots)
+        : UnknownRoots(UnknownRoots), LoopRoots(LoopRoots) {}
+
+    bool follow(const SCEV *S) {
+      if (auto *SU = dyn_cast<SCEVUnknown>(S))
+        UnknownRoots.insert(SU);
+      else if (auto *AddRec = dyn_cast<SCEVAddRecExpr>(S))
+        LoopRoots.insert(AddRec->getLoop());
+      return true;
+    }
+    bool isDone() const { return false; }
+  };
+  RootCollector C(UnknownRoots, LoopRoots);
+  visitAll(S, C);
+}
+
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS,
                                     ICmpInst::Predicate FoundPred,
                                     const SCEV *FoundLHS, const SCEV *FoundRHS,
                                     const Instruction *CtxI) {
+  SmallPtrSet<const SCEVUnknown *, 8> UnknownRoots, FoundUnknownRoots;
+  SmallPtrSet<const Loop *, 8> LoopRoots, FoundLoopRoots;
+  collectRoots(UnknownRoots, LoopRoots, LHS);
+  collectRoots(UnknownRoots, LoopRoots, RHS);
+  collectRoots(FoundUnknownRoots, FoundLoopRoots, FoundLHS);
+  collectRoots(FoundUnknownRoots, FoundLoopRoots, FoundRHS);
+  bool HasCommonRoots = any_of(UnknownRoots,
+                               [&](const SCEVUnknown *SU) {
+                                 return FoundUnknownRoots.contains(SU);
+                               }) ||
+                        any_of(LoopRoots, [&](const Loop *L) {
+                          return FoundLoopRoots.contains(L);
+                        });
+  if (!HasCommonRoots)
+    return false;
+
   // Balance the types.
   if (getTypeSizeInBits(LHS->getType()) <
       getTypeSizeInBits(FoundLHS->getType())) {
