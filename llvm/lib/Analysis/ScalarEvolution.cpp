@@ -674,7 +674,9 @@ CompareSCEVComplexity(EquivalenceClasses<const SCEV *> &EqCacheSCEV,
   if (EqCacheSCEV.isEquivalent(LHS, RHS))
     return 0;
 
-  if (Depth > MaxSCEVCompareDepth)
+  if (Depth > MaxSCEVCompareDepth ||
+      LHS->getExpressionSize() >= HugeExprThreshold ||
+      RHS->getExpressionSize() >= HugeExprThreshold)
     return std::nullopt;
 
   // Aside from the getSCEVType() ordering, the particular ordering
