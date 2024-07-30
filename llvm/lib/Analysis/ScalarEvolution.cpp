@@ -181,7 +181,7 @@ static cl::opt<unsigned> AddOpsInlineThreshold(
 static cl::opt<unsigned> MaxSCEVCompareDepth(
     "scalar-evolution-max-scev-compare-depth", cl::Hidden,
     cl::desc("Maximum depth of recursive SCEV complexity comparisons"),
-    cl::init(32));
+    cl::init(16));
 
 static cl::opt<unsigned> MaxSCEVOperationsImplicationDepth(
     "scalar-evolution-max-scev-operations-implication-depth", cl::Hidden,
