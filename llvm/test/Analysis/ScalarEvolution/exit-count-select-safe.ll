@@ -723,7 +723,7 @@ define i32 @logical_and_implies_poison_complex1(i32 %n, i32 %m) {
 ; CHECK-NEXT:    %i.next = add i32 %i, 1
 ; CHECK-NEXT:    --> {1,+,1}<%loop> U: full-set S: full-set Exits: (1 + ((%n + %m) umin (1 + %n + %m))) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %cond = select i1 %cond_p0, i1 %cond_p1, i1 false
-; CHECK-NEXT:    --> (%cond_p1 umin %cond_p0) U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
+; CHECK-NEXT:    --> (%cond_p0 umin %cond_p1) U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
 ; CHECK-NEXT:  Determining loop execution counts for: @logical_and_implies_poison_complex1
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((%n + %m) umin (1 + %n + %m))
 ; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is i32 -1
@@ -757,7 +757,7 @@ define i32 @logical_and_implies_poison_complex2(i32 %n, i32 %m, i32 %l) {
 ; CHECK-NEXT:    %i.next = add i32 %i, 1
 ; CHECK-NEXT:    --> {1,+,1}<%loop> U: full-set S: full-set Exits: (1 + ((%n + %m) umin (%n + %m + %l))) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %cond = select i1 %cond_p0, i1 %cond_p1, i1 false
-; CHECK-NEXT:    --> (%cond_p1 umin %cond_p0) U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
+; CHECK-NEXT:    --> (%cond_p0 umin %cond_p1) U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
 ; CHECK-NEXT:  Determining loop execution counts for: @logical_and_implies_poison_complex2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((%n + %m) umin (%n + %m + %l))
 ; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is i32 -1

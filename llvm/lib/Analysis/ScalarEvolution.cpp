@@ -191,7 +191,7 @@ static cl::opt<unsigned> MaxSCEVOperationsImplicationDepth(
 static cl::opt<unsigned> MaxValueCompareDepth(
     "scalar-evolution-max-value-compare-depth", cl::Hidden,
     cl::desc("Maximum depth of recursive value complexity comparisons"),
-    cl::init(2));
+    cl::init(1));
 
 static cl::opt<unsigned>
     MaxArithDepth("scalar-evolution-max-arith-depth", cl::Hidden,

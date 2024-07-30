@@ -80,7 +80,7 @@ define i32 @nary_infinite_loop_minmax(i32 %d0, i32 %d1, i32 %d2, i32 %d3) {
 ; CHECK-NEXT:    [[SEL2:%.*]] = select i1 [[CMP2]], i32 [[SEL1]], i32 [[SEL0]]
 ; CHECK-NEXT:    [[CMP3:%.*]] = icmp slt i32 [[D3]], [[D0]]
 ; CHECK-NEXT:    [[SEL3:%.*]] = select i1 [[CMP3]], i32 [[D0]], i32 [[D3]]
-; CHECK-NEXT:    [[SEL5_NARY:%.*]] = call i32 @llvm.smax.i32(i32 [[SEL3]], i32 [[SEL0]])
+; CHECK-NEXT:    [[SEL5_NARY:%.*]] = call i32 @llvm.smax.i32(i32 [[SEL0]], i32 [[SEL3]])
 ; CHECK-NEXT:    ret i32 [[SEL5_NARY]]
 ;
   %cmp0 = icmp slt i32 %d2, %d1
