@@ -176,7 +176,7 @@ static cl::opt<unsigned> MulOpsInlineThreshold(
 static cl::opt<unsigned> AddOpsInlineThreshold(
     "scev-addops-inline-threshold", cl::Hidden,
     cl::desc("Threshold for inlining addition operands into a SCEV"),
-    cl::init(500));
+    cl::init(128));
 
 static cl::opt<unsigned> MaxSCEVCompareDepth(
     "scalar-evolution-max-scev-compare-depth", cl::Hidden,
