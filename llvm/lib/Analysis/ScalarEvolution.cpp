@@ -831,6 +831,36 @@ static bool hasHugeExpression(ArrayRef<const SCEV *> Ops) {
   });
 }
 
+template <typename FoldT, typename IsIdentityT>
+static const SCEV *ConstantFoldOps(ScalarEvolution &SE,
+                                   SmallVectorImpl<const SCEV *> &Ops,
+                                   FoldT Fold, IsIdentityT IsIdentity) {
+  const SCEVConstant *Folded = nullptr;
+  for (unsigned Idx = 0; Idx < Ops.size();) {
+    const SCEV *Op = Ops[Idx];
+    if (const auto *C = dyn_cast<SCEVConstant>(Op)) {
+      if (!Folded)
+        Folded = C;
+      else
+        Folded = cast<SCEVConstant>(
+            SE.getConstant(Fold(Folded->getAPInt(), C->getAPInt())));
+      Ops.erase(Ops.begin() + Idx);
+      continue;
+    }
+    ++Idx;
+  }
+
+  if (Ops.empty()) {
+    assert(Folded && "Must have folded value");
+    return Folded;
+  }
+
+  if (Folded && !IsIdentity(Folded->getAPInt()))
+    Ops.insert(Ops.begin(), Folded);
+
+  return Ops.size() == 1 ? Ops[0] : nullptr;
+}
+
 //===----------------------------------------------------------------------===//
 //                      Simple SCEV method implementations
 //===----------------------------------------------------------------------===//
@@ -2504,30 +2534,16 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
   assert(NumPtrs <= 1 && "add has at most one pointer operand");
 #endif
 
+  const SCEV *Folded = ConstantFoldOps(
+      *this, Ops, [](const APInt &C1, const APInt &C2) { return C1 + C2; },
+      [](const APInt &C) { return C.isZero(); });
+  if (Folded)
+    return Folded;
+
   // Sort by complexity, this groups all similar expression types together.
   GroupByComplexity(Ops, &LI, DT);
 
-  // If there are any constants, fold them together.
-  unsigned Idx = 0;
-  if (const SCEVConstant *LHSC = dyn_cast<SCEVConstant>(Ops[0])) {
-    ++Idx;
-    assert(Idx < Ops.size());
-    while (const SCEVConstant *RHSC = dyn_cast<SCEVConstant>(Ops[Idx])) {
-      // We found two constants, fold them together!
-      Ops[0] = getConstant(LHSC->getAPInt() + RHSC->getAPInt());
-      if (Ops.size() == 2) return Ops[0];
-      Ops.erase(Ops.begin()+1);  // Erase the folded element
-      LHSC = cast<SCEVConstant>(Ops[0]);
-    }
-
-    // If we are left with a constant zero being added, strip it off.
-    if (LHSC->getValue()->isZero()) {
-      Ops.erase(Ops.begin());
-      --Idx;
-    }
-
-    if (Ops.size() == 1) return Ops[0];
-  }
+  unsigned Idx = isa<SCEVConstant>(Ops[0]) ? 1 : 0;
 
   // Delay expensive flag strengthening until necessary.
   auto ComputeFlags = [this, OrigFlags](const ArrayRef<const SCEV *> Ops) {
