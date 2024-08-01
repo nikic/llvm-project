@@ -3830,6 +3830,39 @@ const SCEV *ScalarEvolution::getMinMaxExpr(SCEVTypes Kind,
   bool IsSigned = Kind == scSMaxExpr || Kind == scSMinExpr;
   bool IsMax = Kind == scSMaxExpr || Kind == scUMaxExpr;
 
+  const SCEV *Folded = ConstantFoldOps(
+      *this, Ops,
+      [&](const APInt &C1, const APInt &C2) {
+        switch (Kind) {
+        case scSMaxExpr:
+          return APIntOps::smax(C1, C2);
+        case scSMinExpr:
+          return APIntOps::smin(C1, C2);
+        case scUMaxExpr:
+          return APIntOps::umax(C1, C2);
+        case scUMinExpr:
+          return APIntOps::umin(C1, C2);
+        default:
+          llvm_unreachable("Unknown SCEV min/max opcode");
+        }
+      },
+      [&](const APInt &C) {
+        // identity
+        if (IsMax)
+          return IsSigned ? C.isMinSignedValue() : C.isMinValue();
+        else
+          return IsSigned ? C.isMaxSignedValue() : C.isMaxValue();
+      },
+      [&](const APInt &C) {
+        // absorber
+        if (IsMax)
+          return IsSigned ? C.isMaxSignedValue() : C.isMaxValue();
+        else
+          return IsSigned ? C.isMinSignedValue() : C.isMinValue();
+      });
+  if (Folded)
+    return Folded;
+
   // Sort by complexity, this groups all similar expression types together.
   GroupByComplexity(Ops, &LI, DT);
 
@@ -3838,53 +3871,8 @@ const SCEV *ScalarEvolution::getMinMaxExpr(SCEVTypes Kind,
     return S;
   }
 
-  // If there are any constants, fold them together.
-  unsigned Idx = 0;
-  if (const SCEVConstant *LHSC = dyn_cast<SCEVConstant>(Ops[0])) {
-    ++Idx;
-    assert(Idx < Ops.size());
-    auto FoldOp = [&](const APInt &LHS, const APInt &RHS) {
-      switch (Kind) {
-      case scSMaxExpr:
-        return APIntOps::smax(LHS, RHS);
-      case scSMinExpr:
-        return APIntOps::smin(LHS, RHS);
-      case scUMaxExpr:
-        return APIntOps::umax(LHS, RHS);
-      case scUMinExpr:
-        return APIntOps::umin(LHS, RHS);
-      default:
-        llvm_unreachable("Unknown SCEV min/max opcode");
-      }
-    };
-
-    while (const SCEVConstant *RHSC = dyn_cast<SCEVConstant>(Ops[Idx])) {
-      // We found two constants, fold them together!
-      ConstantInt *Fold = ConstantInt::get(
-          getContext(), FoldOp(LHSC->getAPInt(), RHSC->getAPInt()));
-      Ops[0] = getConstant(Fold);
-      Ops.erase(Ops.begin()+1);  // Erase the folded element
-      if (Ops.size() == 1) return Ops[0];
-      LHSC = cast<SCEVConstant>(Ops[0]);
-    }
-
-    bool IsMinV = LHSC->getValue()->isMinValue(IsSigned);
-    bool IsMaxV = LHSC->getValue()->isMaxValue(IsSigned);
-
-    if (IsMax ? IsMinV : IsMaxV) {
-      // If we are left with a constant minimum(/maximum)-int, strip it off.
-      Ops.erase(Ops.begin());
-      --Idx;
-    } else if (IsMax ? IsMaxV : IsMinV) {
-      // If we have a max(/min) with a constant maximum(/minimum)-int,
-      // it will always be the extremum.
-      return LHSC;
-    }
-
-    if (Ops.size() == 1) return Ops[0];
-  }
-
   // Find the first operation of the same kind
+  unsigned Idx = 0;
   while (Idx < Ops.size() && Ops[Idx]->getSCEVType() < Kind)
     ++Idx;
 
