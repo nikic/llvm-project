@@ -831,10 +831,10 @@ static bool hasHugeExpression(ArrayRef<const SCEV *> Ops) {
   });
 }
 
-template <typename FoldT, typename IsIdentityT>
-static const SCEV *ConstantFoldOps(ScalarEvolution &SE,
-                                   SmallVectorImpl<const SCEV *> &Ops,
-                                   FoldT Fold, IsIdentityT IsIdentity) {
+template <typename FoldT, typename IsIdentityT, typename IsAbsorberT>
+static const SCEV *
+ConstantFoldOps(ScalarEvolution &SE, SmallVectorImpl<const SCEV *> &Ops,
+                FoldT Fold, IsIdentityT IsIdentity, IsAbsorberT IsAbsorber) {
   const SCEVConstant *Folded = nullptr;
   for (unsigned Idx = 0; Idx < Ops.size();) {
     const SCEV *Op = Ops[Idx];
@@ -854,6 +854,9 @@ static const SCEV *ConstantFoldOps(ScalarEvolution &SE,
     assert(Folded && "Must have folded value");
     return Folded;
   }
+
+  if (Folded && IsAbsorber(Folded->getAPInt()))
+    return Folded;
 
   if (Folded && !IsIdentity(Folded->getAPInt()))
     Ops.insert(Ops.begin(), Folded);
@@ -2536,7 +2539,8 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
 
   const SCEV *Folded = ConstantFoldOps(
       *this, Ops, [](const APInt &C1, const APInt &C2) { return C1 + C2; },
-      [](const APInt &C) { return C.isZero(); });
+      [](const APInt &C) { return C.isZero(); }, // identity
+      [](const APInt &C) { return false; });     // absorber
   if (Folded)
     return Folded;
 
@@ -3113,35 +3117,15 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
            "SCEVMulExpr operand types don't match!");
 #endif
 
+  const SCEV *Folded = ConstantFoldOps(
+      *this, Ops, [](const APInt &C1, const APInt &C2) { return C1 * C2; },
+      [](const APInt &C) { return C.isOne(); },   // identity
+      [](const APInt &C) { return C.isZero(); }); // absorber
+  if (Folded)
+    return Folded;
+
   // Sort by complexity, this groups all similar expression types together.
   GroupByComplexity(Ops, &LI, DT);
-
-  // If there are any constants, fold them together.
-  unsigned Idx = 0;
-  if (const SCEVConstant *LHSC = dyn_cast<SCEVConstant>(Ops[0])) {
-    ++Idx;
-    assert(Idx < Ops.size());
-    while (const SCEVConstant *RHSC = dyn_cast<SCEVConstant>(Ops[Idx])) {
-      // We found two constants, fold them together!
-      Ops[0] = getConstant(LHSC->getAPInt() * RHSC->getAPInt());
-      if (Ops.size() == 2) return Ops[0];
-      Ops.erase(Ops.begin()+1);  // Erase the folded element
-      LHSC = cast<SCEVConstant>(Ops[0]);
-    }
-
-    // If we have a multiply of zero, it will always be zero.
-    if (LHSC->getValue()->isZero())
-      return LHSC;
-
-    // If we are left with a constant one being multiplied, strip it off.
-    if (LHSC->getValue()->isOne()) {
-      Ops.erase(Ops.begin());
-      --Idx;
-    }
-
-    if (Ops.size() == 1)
-      return Ops[0];
-  }
 
   // Delay expensive flag strengthening until necessary.
   auto ComputeFlags = [this, OrigFlags](const ArrayRef<const SCEV *> Ops) {
@@ -3218,6 +3202,7 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
   }
 
   // Skip over the add expression until we get to a multiply.
+  unsigned Idx = 0;
   while (Idx < Ops.size() && Ops[Idx]->getSCEVType() < scMulExpr)
     ++Idx;
 
