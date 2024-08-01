@@ -833,8 +833,9 @@ static bool hasHugeExpression(ArrayRef<const SCEV *> Ops) {
 
 template <typename FoldT, typename IsIdentityT, typename IsAbsorberT>
 static const SCEV *
-ConstantFoldOps(ScalarEvolution &SE, SmallVectorImpl<const SCEV *> &Ops,
-                FoldT Fold, IsIdentityT IsIdentity, IsAbsorberT IsAbsorber) {
+ConstantFoldAndGroupOps(ScalarEvolution &SE, LoopInfo &LI, DominatorTree &DT,
+                        SmallVectorImpl<const SCEV *> &Ops, FoldT Fold,
+                        IsIdentityT IsIdentity, IsAbsorberT IsAbsorber) {
   const SCEVConstant *Folded = nullptr;
   for (unsigned Idx = 0; Idx < Ops.size();) {
     const SCEV *Op = Ops[Idx];
@@ -858,6 +859,7 @@ ConstantFoldOps(ScalarEvolution &SE, SmallVectorImpl<const SCEV *> &Ops,
   if (Folded && IsAbsorber(Folded->getAPInt()))
     return Folded;
 
+  GroupByComplexity(Ops, &LI, DT);
   if (Folded && !IsIdentity(Folded->getAPInt()))
     Ops.insert(Ops.begin(), Folded);
 
@@ -2537,15 +2539,13 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
   assert(NumPtrs <= 1 && "add has at most one pointer operand");
 #endif
 
-  const SCEV *Folded = ConstantFoldOps(
-      *this, Ops, [](const APInt &C1, const APInt &C2) { return C1 + C2; },
+  const SCEV *Folded = ConstantFoldAndGroupOps(
+      *this, LI, DT, Ops,
+      [](const APInt &C1, const APInt &C2) { return C1 + C2; },
       [](const APInt &C) { return C.isZero(); }, // identity
       [](const APInt &C) { return false; });     // absorber
   if (Folded)
     return Folded;
-
-  // Sort by complexity, this groups all similar expression types together.
-  GroupByComplexity(Ops, &LI, DT);
 
   unsigned Idx = isa<SCEVConstant>(Ops[0]) ? 1 : 0;
 
@@ -3117,15 +3117,13 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
            "SCEVMulExpr operand types don't match!");
 #endif
 
-  const SCEV *Folded = ConstantFoldOps(
-      *this, Ops, [](const APInt &C1, const APInt &C2) { return C1 * C2; },
+  const SCEV *Folded = ConstantFoldAndGroupOps(
+      *this, LI, DT, Ops,
+      [](const APInt &C1, const APInt &C2) { return C1 * C2; },
       [](const APInt &C) { return C.isOne(); },   // identity
       [](const APInt &C) { return C.isZero(); }); // absorber
   if (Folded)
     return Folded;
-
-  // Sort by complexity, this groups all similar expression types together.
-  GroupByComplexity(Ops, &LI, DT);
 
   // Delay expensive flag strengthening until necessary.
   auto ComputeFlags = [this, OrigFlags](const ArrayRef<const SCEV *> Ops) {
@@ -3830,8 +3828,8 @@ const SCEV *ScalarEvolution::getMinMaxExpr(SCEVTypes Kind,
   bool IsSigned = Kind == scSMaxExpr || Kind == scSMinExpr;
   bool IsMax = Kind == scSMaxExpr || Kind == scUMaxExpr;
 
-  const SCEV *Folded = ConstantFoldOps(
-      *this, Ops,
+  const SCEV *Folded = ConstantFoldAndGroupOps(
+      *this, LI, DT, Ops,
       [&](const APInt &C1, const APInt &C2) {
         switch (Kind) {
         case scSMaxExpr:
@@ -3862,9 +3860,6 @@ const SCEV *ScalarEvolution::getMinMaxExpr(SCEVTypes Kind,
       });
   if (Folded)
     return Folded;
-
-  // Sort by complexity, this groups all similar expression types together.
-  GroupByComplexity(Ops, &LI, DT);
 
   // Check if we have created the same expression before.
   if (const SCEV *S = findExistingSCEVInCache(Kind, Ops)) {
