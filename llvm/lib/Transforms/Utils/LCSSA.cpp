@@ -79,16 +79,14 @@ using LoopExitBlocksTy = SmallDenseMap<Loop *, SmallVector<BasicBlock *, 1>>;
 /// For every instruction from the worklist, check to see if it has any uses
 /// that are outside the current loop.  If so, insert LCSSA PHI nodes and
 /// rewrite the uses.
-static bool
-formLCSSAForInstructionsImpl(SmallVectorImpl<Instruction *> &Worklist,
-                             const DominatorTree &DT, const LoopInfo &LI,
-                             ScalarEvolution *SE,
-                             SmallVectorImpl<PHINode *> *PHIsToRemove,
-                             SmallVectorImpl<PHINode *> *InsertedPHIs,
-                             LoopExitBlocksTy &LoopExitBlocks) {
+static bool formLCSSAForInstructionsImpl(
+    SmallVectorImpl<Instruction *> &Worklist, const DominatorTree &DT,
+    const LoopInfo &LI, ScalarEvolution *SE,
+    SmallVectorImpl<PHINode *> *PHIsToRemove,
+    SmallVectorImpl<PHINode *> *InsertedPHIs, LoopExitBlocksTy &LoopExitBlocks,
+    PredIteratorCache &PredCache) {
   SmallVector<Use *, 16> UsesToRewrite;
   SmallSetVector<PHINode *, 16> LocalPHIsToRemove;
-  PredIteratorCache PredCache;
   bool Changed = false;
 
   while (!Worklist.empty()) {
@@ -328,9 +326,10 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
                                     SmallVectorImpl<PHINode *> *PHIsToRemove,
                                     SmallVectorImpl<PHINode *> *InsertedPHIs) {
   LoopExitBlocksTy LoopExitBlocks;
+  PredIteratorCache PredCache;
 
   return formLCSSAForInstructionsImpl(Worklist, DT, LI, SE, PHIsToRemove,
-                                      InsertedPHIs, LoopExitBlocks);
+                                      InsertedPHIs, LoopExitBlocks, PredCache);
 }
 
 // Compute the set of BasicBlocks in the loop `L` dominating at least one exit.
@@ -378,8 +377,8 @@ static void computeBlocksDominatingExits(
 }
 
 static bool formLCSSAImpl(Loop &L, const DominatorTree &DT, const LoopInfo *LI,
-                          ScalarEvolution *SE,
-                          LoopExitBlocksTy &LoopExitBlocks) {
+                          ScalarEvolution *SE, LoopExitBlocksTy &LoopExitBlocks,
+                          PredIteratorCache &PredCache) {
   bool Changed = false;
 
 #ifdef EXPENSIVE_CHECKS
@@ -434,7 +433,7 @@ static bool formLCSSAImpl(Loop &L, const DominatorTree &DT, const LoopInfo *LI,
   }
 
   Changed = formLCSSAForInstructionsImpl(Worklist, DT, *LI, SE, nullptr,
-                                         nullptr, LoopExitBlocks);
+                                         nullptr, LoopExitBlocks, PredCache);
 
   assert(L.isLCSSAForm(DT));
 
@@ -444,21 +443,24 @@ static bool formLCSSAImpl(Loop &L, const DominatorTree &DT, const LoopInfo *LI,
 bool llvm::formLCSSA(Loop &L, const DominatorTree &DT, const LoopInfo *LI,
                      ScalarEvolution *SE) {
   LoopExitBlocksTy LoopExitBlocks;
+  PredIteratorCache PredCache;
 
-  return formLCSSAImpl(L, DT, LI, SE, LoopExitBlocks);
+  return formLCSSAImpl(L, DT, LI, SE, LoopExitBlocks, PredCache);
 }
 
 /// Process a loop nest depth first.
 static bool formLCSSARecursivelyImpl(Loop &L, const DominatorTree &DT,
                                      const LoopInfo *LI, ScalarEvolution *SE,
-                                     LoopExitBlocksTy &LoopExitBlocks) {
+                                     LoopExitBlocksTy &LoopExitBlocks,
+                                     PredIteratorCache &PredCache) {
   bool Changed = false;
 
   // Recurse depth-first through inner loops.
   for (Loop *SubLoop : L.getSubLoops())
-    Changed |= formLCSSARecursivelyImpl(*SubLoop, DT, LI, SE, LoopExitBlocks);
+    Changed |= formLCSSARecursivelyImpl(*SubLoop, DT, LI, SE, LoopExitBlocks,
+                                        PredCache);
 
-  Changed |= formLCSSAImpl(L, DT, LI, SE, LoopExitBlocks);
+  Changed |= formLCSSAImpl(L, DT, LI, SE, LoopExitBlocks, PredCache);
   return Changed;
 }
 
@@ -466,8 +468,9 @@ static bool formLCSSARecursivelyImpl(Loop &L, const DominatorTree &DT,
 bool llvm::formLCSSARecursively(Loop &L, const DominatorTree &DT,
                                 const LoopInfo *LI, ScalarEvolution *SE) {
   LoopExitBlocksTy LoopExitBlocks;
+  PredIteratorCache PredCache;
 
-  return formLCSSARecursivelyImpl(L, DT, LI, SE, LoopExitBlocks);
+  return formLCSSARecursivelyImpl(L, DT, LI, SE, LoopExitBlocks, PredCache);
 }
 
 /// Process all loops in the function, inner-most out.
