@@ -11956,6 +11956,7 @@ ScalarEvolution::computeConstantDifference(const SCEV *More, const SCEV *Less) {
 
       Less = LAR->getStart();
       More = MAR->getStart();
+      continue;
     }
 
     // Try to cancel out common factors in two add expressions.
