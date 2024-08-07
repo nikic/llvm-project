@@ -103,9 +103,16 @@ if.end:
 define i32 @test4(i1 zeroext %flag, i32 %x, ptr %y) {
 ; CHECK-LABEL: @test4(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[DOT:%.*]] = select i1 [[FLAG:%.*]], i32 5, i32 7
-; CHECK-NEXT:    [[B:%.*]] = add i32 [[X:%.*]], [[DOT]]
-; CHECK-NEXT:    store i32 [[B]], ptr [[Y:%.*]], align 4
+; CHECK-NEXT:    br i1 [[FLAG:%.*]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
+; CHECK:       if.then:
+; CHECK-NEXT:    [[A:%.*]] = add i32 [[X:%.*]], 5
+; CHECK-NEXT:    store i32 [[A]], ptr [[Y:%.*]], align 4
+; CHECK-NEXT:    br label [[IF_END:%.*]]
+; CHECK:       if.else:
+; CHECK-NEXT:    [[B:%.*]] = add i32 [[X]], 7
+; CHECK-NEXT:    store i32 [[B]], ptr [[Y]], align 4
+; CHECK-NEXT:    br label [[IF_END]]
+; CHECK:       if.end:
 ; CHECK-NEXT:    ret i32 1
 ;
 entry:
@@ -162,9 +169,16 @@ if.end:
 define i32 @test6(i1 zeroext %flag, i32 %x, ptr %y) {
 ; CHECK-LABEL: @test6(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[DOT:%.*]] = select i1 [[FLAG:%.*]], i32 5, i32 7
-; CHECK-NEXT:    [[B:%.*]] = add i32 [[X:%.*]], [[DOT]]
-; CHECK-NEXT:    store volatile i32 [[B]], ptr [[Y:%.*]], align 4
+; CHECK-NEXT:    br i1 [[FLAG:%.*]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
+; CHECK:       if.then:
+; CHECK-NEXT:    [[A:%.*]] = add i32 [[X:%.*]], 5
+; CHECK-NEXT:    store volatile i32 [[A]], ptr [[Y:%.*]], align 4
+; CHECK-NEXT:    br label [[IF_END:%.*]]
+; CHECK:       if.else:
+; CHECK-NEXT:    [[B:%.*]] = add i32 [[X]], 7
+; CHECK-NEXT:    store volatile i32 [[B]], ptr [[Y]], align 4
+; CHECK-NEXT:    br label [[IF_END]]
+; CHECK:       if.end:
 ; CHECK-NEXT:    ret i32 1
 ;
 entry:
@@ -188,10 +202,18 @@ if.end:
 define i32 @test7(i1 zeroext %flag, i32 %x, ptr %y) {
 ; CHECK-LABEL: @test7(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[DOT:%.*]] = select i1 [[FLAG:%.*]], i32 5, i32 7
-; CHECK-NEXT:    [[W:%.*]] = load volatile i32, ptr [[Y:%.*]], align 4
-; CHECK-NEXT:    [[B:%.*]] = add i32 [[W]], [[DOT]]
+; CHECK-NEXT:    br i1 [[FLAG:%.*]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
+; CHECK:       if.then:
+; CHECK-NEXT:    [[Z:%.*]] = load volatile i32, ptr [[Y:%.*]], align 4
+; CHECK-NEXT:    [[A:%.*]] = add i32 [[Z]], 5
+; CHECK-NEXT:    store volatile i32 [[A]], ptr [[Y]], align 4
+; CHECK-NEXT:    br label [[IF_END:%.*]]
+; CHECK:       if.else:
+; CHECK-NEXT:    [[W:%.*]] = load volatile i32, ptr [[Y]], align 4
+; CHECK-NEXT:    [[B:%.*]] = add i32 [[W]], 7
 ; CHECK-NEXT:    store volatile i32 [[B]], ptr [[Y]], align 4
+; CHECK-NEXT:    br label [[IF_END]]
+; CHECK:       if.end:
 ; CHECK-NEXT:    ret i32 1
 ;
 entry:
@@ -223,14 +245,14 @@ define i32 @test8(i1 zeroext %flag, i32 %x, ptr %y) {
 ; CHECK-NEXT:    br i1 [[FLAG:%.*]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
 ; CHECK:       if.then:
 ; CHECK-NEXT:    [[A:%.*]] = add i32 [[Z]], 5
+; CHECK-NEXT:    store volatile i32 [[A]], ptr [[Y]], align 4
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       if.else:
 ; CHECK-NEXT:    [[W:%.*]] = load volatile i32, ptr [[Y]], align 4
 ; CHECK-NEXT:    [[B:%.*]] = add i32 [[W]], 7
+; CHECK-NEXT:    store volatile i32 [[B]], ptr [[Y]], align 4
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
-; CHECK-NEXT:    [[B_SINK:%.*]] = phi i32 [ [[B]], [[IF_ELSE]] ], [ [[A]], [[IF_THEN]] ]
-; CHECK-NEXT:    store volatile i32 [[B_SINK]], ptr [[Y]], align 4
 ; CHECK-NEXT:    ret i32 1
 ;
 entry:
@@ -263,14 +285,14 @@ define i32 @test9(i1 zeroext %flag, i32 %x, ptr %y, ptr %p) {
 ; CHECK-NEXT:    [[Z:%.*]] = load volatile i32, ptr [[Y:%.*]], align 4
 ; CHECK-NEXT:    store i32 6, ptr [[P]], align 4
 ; CHECK-NEXT:    [[A:%.*]] = add i32 [[Z]], 5
+; CHECK-NEXT:    store volatile i32 [[A]], ptr [[Y]], align 4
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       if.else:
 ; CHECK-NEXT:    [[W:%.*]] = load volatile i32, ptr [[Y]], align 4
 ; CHECK-NEXT:    [[B:%.*]] = add i32 [[W]], 7
+; CHECK-NEXT:    store volatile i32 [[B]], ptr [[Y]], align 4
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
-; CHECK-NEXT:    [[B_SINK:%.*]] = phi i32 [ [[B]], [[IF_ELSE]] ], [ [[A]], [[IF_THEN]] ]
-; CHECK-NEXT:    store volatile i32 [[B_SINK]], ptr [[Y]], align 4
 ; CHECK-NEXT:    ret i32 1
 ;
 entry:
@@ -304,14 +326,14 @@ define i32 @test10(i1 zeroext %flag, i32 %x, ptr %y, ptr %s) {
 ; CHECK-NEXT:    br i1 [[FLAG:%.*]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
 ; CHECK:       if.then:
 ; CHECK-NEXT:    call void @bar(i32 5)
+; CHECK-NEXT:    store volatile i32 [[X:%.*]], ptr [[S:%.*]], align 4
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       if.else:
 ; CHECK-NEXT:    call void @bar(i32 6)
-; CHECK-NEXT:    [[GEPB:%.*]] = getelementptr inbounds [[STRUCT_ANON:%.*]], ptr [[S:%.*]], i32 0, i32 1
+; CHECK-NEXT:    [[GEPB:%.*]] = getelementptr inbounds [[STRUCT_ANON:%.*]], ptr [[S]], i32 0, i32 1
+; CHECK-NEXT:    store volatile i32 [[X]], ptr [[GEPB]], align 4
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
-; CHECK-NEXT:    [[GEPB_SINK:%.*]] = phi ptr [ [[GEPB]], [[IF_ELSE]] ], [ [[S]], [[IF_THEN]] ]
-; CHECK-NEXT:    store volatile i32 [[X:%.*]], ptr [[GEPB_SINK]], align 4
 ; CHECK-NEXT:    ret i32 1
 ;
 entry:
@@ -412,10 +434,18 @@ declare i32 @llvm.cttz.i32(i32 %x, i1 immarg) readnone
 define i32 @test13(i1 zeroext %flag, i32 %x, ptr %y) {
 ; CHECK-LABEL: @test13(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[DOT:%.*]] = select i1 [[FLAG:%.*]], i32 5, i32 7
-; CHECK-NEXT:    [[W:%.*]] = load volatile i32, ptr [[Y:%.*]], align 4
-; CHECK-NEXT:    [[B:%.*]] = add i32 [[W]], [[DOT]]
-; CHECK-NEXT:    store volatile i32 [[B]], ptr [[Y]], align 4, !tbaa [[TBAA4:![0-9]+]]
+; CHECK-NEXT:    br i1 [[FLAG:%.*]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
+; CHECK:       if.then:
+; CHECK-NEXT:    [[Z:%.*]] = load volatile i32, ptr [[Y:%.*]], align 4
+; CHECK-NEXT:    [[A:%.*]] = add i32 [[Z]], 5
+; CHECK-NEXT:    store volatile i32 [[A]], ptr [[Y]], align 4, !tbaa [[TBAA4:![0-9]+]]
+; CHECK-NEXT:    br label [[IF_END:%.*]]
+; CHECK:       if.else:
+; CHECK-NEXT:    [[W:%.*]] = load volatile i32, ptr [[Y]], align 4
+; CHECK-NEXT:    [[B:%.*]] = add i32 [[W]], 7
+; CHECK-NEXT:    store volatile i32 [[B]], ptr [[Y]], align 4, !tbaa [[TBAA8:![0-9]+]]
+; CHECK-NEXT:    br label [[IF_END]]
+; CHECK:       if.end:
 ; CHECK-NEXT:    ret i32 1
 ;
 entry:
@@ -474,12 +504,19 @@ declare i32 @bar(i32)
 define i32 @test14(i1 zeroext %flag, i32 %w, i32 %x, i32 %y, ptr %s) {
 ; CHECK-LABEL: @test14(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[DOT:%.*]] = select i1 [[FLAG:%.*]], i32 1, i32 4
-; CHECK-NEXT:    [[DOT2:%.*]] = select i1 [[FLAG]], i32 56, i32 57
-; CHECK-NEXT:    [[DUMMY2:%.*]] = add i32 [[X:%.*]], [[DOT]]
+; CHECK-NEXT:    br i1 [[FLAG:%.*]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
+; CHECK:       if.then:
+; CHECK-NEXT:    [[DUMMY:%.*]] = add i32 [[X:%.*]], 1
+; CHECK-NEXT:    br label [[IF_END:%.*]]
+; CHECK:       if.else:
+; CHECK-NEXT:    [[DUMMY2:%.*]] = add i32 [[X]], 4
+; CHECK-NEXT:      #dbg_value(i32 0, [[META10:![0-9]+]], !DIExpression(), [[META12:![0-9]+]])
+; CHECK-NEXT:    br label [[IF_END]]
+; CHECK:       if.end:
+; CHECK-NEXT:    [[DOTSINK:%.*]] = phi i32 [ 57, [[IF_ELSE]] ], [ 56, [[IF_THEN]] ]
 ; CHECK-NEXT:    [[GEPB:%.*]] = getelementptr inbounds [[STRUCT_ANON:%.*]], ptr [[S:%.*]], i32 0, i32 1
 ; CHECK-NEXT:    [[SV2:%.*]] = load i32, ptr [[GEPB]], align 4
-; CHECK-NEXT:    [[CMP2:%.*]] = icmp eq i32 [[SV2]], [[DOT2]]
+; CHECK-NEXT:    [[CMP2:%.*]] = icmp eq i32 [[SV2]], [[DOTSINK]]
 ; CHECK-NEXT:    ret i32 1
 ;
 entry:
@@ -571,15 +608,15 @@ define zeroext i1 @test_crash(i1 zeroext %flag, ptr %i4, ptr %m, ptr %n) {
 ; CHECK:       if.then:
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[I4:%.*]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], -1
+; CHECK-NEXT:    store i32 [[TMP2]], ptr [[I4]], align 4
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       if.else:
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr [[M:%.*]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr [[N:%.*]], align 4
 ; CHECK-NEXT:    [[TMP5:%.*]] = add i32 [[TMP3]], [[TMP4]]
+; CHECK-NEXT:    store i32 [[TMP5]], ptr [[I4]], align 4
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
-; CHECK-NEXT:    [[TMP5_SINK:%.*]] = phi i32 [ [[TMP5]], [[IF_ELSE]] ], [ [[TMP2]], [[IF_THEN]] ]
-; CHECK-NEXT:    store i32 [[TMP5_SINK]], ptr [[I4]], align 4
 ; CHECK-NEXT:    ret i1 true
 ;
 entry:
@@ -654,17 +691,16 @@ define zeroext i1 @test16a(i1 zeroext %flag, i1 zeroext %flag2, i32 %blksA, i32 
 ; CHECK-NEXT:    br i1 [[FLAG:%.*]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
 ; CHECK:       if.then:
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp uge i32 [[BLKSA:%.*]], [[NBLKS:%.*]]
-; CHECK-NEXT:    br label [[IF_END_SINK_SPLIT:%.*]]
+; CHECK-NEXT:    [[FROMBOOL1:%.*]] = zext i1 [[CMP]] to i8
+; CHECK-NEXT:    store i8 [[FROMBOOL1]], ptr [[P:%.*]], align 1
+; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       if.else:
-; CHECK-NEXT:    br i1 [[FLAG2:%.*]], label [[IF_THEN2:%.*]], label [[IF_END:%.*]]
+; CHECK-NEXT:    br i1 [[FLAG2:%.*]], label [[IF_THEN2:%.*]], label [[IF_END]]
 ; CHECK:       if.then2:
 ; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[NBLKS]], [[BLKSB:%.*]]
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp ule i32 [[ADD]], [[BLKSA]]
-; CHECK-NEXT:    br label [[IF_END_SINK_SPLIT]]
-; CHECK:       if.end.sink.split:
-; CHECK-NEXT:    [[CMP2_SINK:%.*]] = phi i1 [ [[CMP2]], [[IF_THEN2]] ], [ [[CMP]], [[IF_THEN]] ]
-; CHECK-NEXT:    [[FROMBOOL3:%.*]] = zext i1 [[CMP2_SINK]] to i8
-; CHECK-NEXT:    store i8 [[FROMBOOL3]], ptr [[P:%.*]], align 1
+; CHECK-NEXT:    [[FROMBOOL3:%.*]] = zext i1 [[CMP2]] to i8
+; CHECK-NEXT:    store i8 [[FROMBOOL3]], ptr [[P]], align 1
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
 ; CHECK-NEXT:    ret i1 true
@@ -1229,13 +1265,13 @@ define void @test_operand_bundles(i1 %cond, ptr %ptr) {
 ; CHECK-NEXT:    br i1 [[COND:%.*]], label [[LEFT:%.*]], label [[RIGHT:%.*]]
 ; CHECK:       left:
 ; CHECK-NEXT:    [[VAL0:%.*]] = call i32 @call_target() [ "deopt"(i32 10) ]
+; CHECK-NEXT:    store i32 [[VAL0]], ptr [[PTR:%.*]], align 4
 ; CHECK-NEXT:    br label [[MERGE:%.*]]
 ; CHECK:       right:
 ; CHECK-NEXT:    [[VAL1:%.*]] = call i32 @call_target() [ "deopt"(i32 20) ]
+; CHECK-NEXT:    store i32 [[VAL1]], ptr [[PTR]], align 4
 ; CHECK-NEXT:    br label [[MERGE]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[VAL1_SINK:%.*]] = phi i32 [ [[VAL1]], [[RIGHT]] ], [ [[VAL0]], [[LEFT]] ]
-; CHECK-NEXT:    store i32 [[VAL1_SINK]], ptr [[PTR:%.*]], align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -1289,25 +1325,30 @@ define void @test_sink_void_calls(i32 %x) {
 ; CHECK-LABEL: @test_sink_void_calls(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    switch i32 [[X:%.*]], label [[DEFAULT:%.*]] [
-; CHECK-NEXT:      i32 0, label [[RETURN:%.*]]
+; CHECK-NEXT:      i32 0, label [[BB0:%.*]]
 ; CHECK-NEXT:      i32 1, label [[BB1:%.*]]
 ; CHECK-NEXT:      i32 2, label [[BB2:%.*]]
 ; CHECK-NEXT:      i32 3, label [[BB3:%.*]]
 ; CHECK-NEXT:      i32 4, label [[BB4:%.*]]
 ; CHECK-NEXT:    ]
+; CHECK:       bb0:
+; CHECK-NEXT:    call void @baz(i32 12)
+; CHECK-NEXT:    br label [[RETURN:%.*]]
 ; CHECK:       bb1:
+; CHECK-NEXT:    call void @baz(i32 34)
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       bb2:
+; CHECK-NEXT:    call void @baz(i32 56)
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       bb3:
+; CHECK-NEXT:    call void @baz(i32 78)
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       bb4:
+; CHECK-NEXT:    call void @baz(i32 90)
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       default:
 ; CHECK-NEXT:    unreachable
 ; CHECK:       return:
-; CHECK-NEXT:    [[DOTSINK:%.*]] = phi i32 [ 90, [[BB4]] ], [ 78, [[BB3]] ], [ 56, [[BB2]] ], [ 34, [[BB1]] ], [ 12, [[ENTRY:%.*]] ]
-; CHECK-NEXT:    call void @baz(i32 [[DOTSINK]])
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -1402,9 +1443,14 @@ end:
 
 define void @indirect_caller(i1 %c, i32 %v, ptr %foo, ptr %bar) {
 ; CHECK-LABEL: @indirect_caller(
-; CHECK-NEXT:  end:
-; CHECK-NEXT:    [[FOO_BAR:%.*]] = select i1 [[C:%.*]], ptr [[FOO:%.*]], ptr [[BAR:%.*]]
-; CHECK-NEXT:    tail call void [[FOO_BAR]](i32 [[V:%.*]])
+; CHECK-NEXT:    br i1 [[C:%.*]], label [[CALL_FOO:%.*]], label [[CALL_BAR:%.*]]
+; CHECK:       call_foo:
+; CHECK-NEXT:    tail call void [[FOO:%.*]](i32 [[V:%.*]])
+; CHECK-NEXT:    br label [[END:%.*]]
+; CHECK:       call_bar:
+; CHECK-NEXT:    tail call void [[BAR:%.*]](i32 [[V]])
+; CHECK-NEXT:    br label [[END]]
+; CHECK:       end:
 ; CHECK-NEXT:    ret void
 ;
   br i1 %c, label %call_foo, label %call_bar
@@ -1490,16 +1536,16 @@ define void @creating_too_many_phis(i1 %cond, i32 %a, i32 %b, i32 %c, i32 %d, i3
 ; CHECK-NEXT:    [[V1:%.*]] = add i32 [[V0]], [[C:%.*]]
 ; CHECK-NEXT:    [[V2:%.*]] = add i32 [[D:%.*]], [[E:%.*]]
 ; CHECK-NEXT:    [[R3:%.*]] = add i32 [[V1]], [[V2]]
+; CHECK-NEXT:    call void @use32(i32 [[R3]])
 ; CHECK-NEXT:    br label [[END:%.*]]
 ; CHECK:       bb1:
 ; CHECK-NEXT:    [[V4:%.*]] = add i32 [[A]], [[B]]
 ; CHECK-NEXT:    [[V5:%.*]] = add i32 [[V4]], [[C]]
 ; CHECK-NEXT:    [[V6:%.*]] = add i32 [[G:%.*]], [[H:%.*]]
 ; CHECK-NEXT:    [[R7:%.*]] = add i32 [[V5]], [[V6]]
+; CHECK-NEXT:    call void @use32(i32 [[R7]])
 ; CHECK-NEXT:    br label [[END]]
 ; CHECK:       end:
-; CHECK-NEXT:    [[R7_SINK:%.*]] = phi i32 [ [[R7]], [[BB1]] ], [ [[R3]], [[BB0]] ]
-; CHECK-NEXT:    call void @use32(i32 [[R7_SINK]])
 ; CHECK-NEXT:    ret void
 ;
   br i1 %cond, label %bb0, label %bb1
@@ -1567,7 +1613,7 @@ end:
 define void @nontemporal(ptr %ptr, i1 %cond) {
 ; CHECK-LABEL: @nontemporal(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    store i64 0, ptr [[PTR:%.*]], align 8, !nontemporal [[META7:![0-9]+]]
+; CHECK-NEXT:    store i64 0, ptr [[PTR:%.*]], align 8, !nontemporal [[META13:![0-9]+]]
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -1814,19 +1860,17 @@ define i64 @multi_use_in_block_inconsistent(i1 %cond, ptr %p, i64 %a, i64 %b) {
 ; CHECK:       if:
 ; CHECK-NEXT:    call void @dummy()
 ; CHECK-NEXT:    [[GEP1_A:%.*]] = getelementptr i8, ptr [[P:%.*]], i64 [[A:%.*]]
-; CHECK-NEXT:    [[V_A:%.*]] = load i64, ptr [[GEP1_A]], align 8
-; CHECK-NEXT:    [[GEP2_A:%.*]] = getelementptr i8, ptr [[GEP1_A]], i64 [[V_A]]
 ; CHECK-NEXT:    br label [[JOIN:%.*]]
 ; CHECK:       else:
 ; CHECK-NEXT:    [[GEP1_B:%.*]] = getelementptr i8, ptr [[P]], i64 [[A]]
-; CHECK-NEXT:    [[V_B:%.*]] = load i64, ptr [[P]], align 8
-; CHECK-NEXT:    [[GEP2_B:%.*]] = getelementptr i8, ptr [[GEP1_B]], i64 [[V_B]]
 ; CHECK-NEXT:    br label [[JOIN]]
 ; CHECK:       join:
-; CHECK-NEXT:    [[PHI1:%.*]] = phi i64 [ [[V_A]], [[IF]] ], [ [[V_B]], [[ELSE]] ]
-; CHECK-NEXT:    [[PHI2:%.*]] = phi ptr [ [[GEP2_A]], [[IF]] ], [ [[GEP2_B]], [[ELSE]] ]
-; CHECK-NEXT:    call void @use.ptr(ptr [[PHI2]])
-; CHECK-NEXT:    ret i64 [[PHI1]]
+; CHECK-NEXT:    [[P_SINK:%.*]] = phi ptr [ [[P]], [[ELSE]] ], [ [[GEP1_A]], [[IF]] ]
+; CHECK-NEXT:    [[GEP1_B_SINK:%.*]] = phi ptr [ [[GEP1_B]], [[ELSE]] ], [ [[GEP1_A]], [[IF]] ]
+; CHECK-NEXT:    [[V_B:%.*]] = load i64, ptr [[P_SINK]], align 8
+; CHECK-NEXT:    [[GEP2_B:%.*]] = getelementptr i8, ptr [[GEP1_B_SINK]], i64 [[V_B]]
+; CHECK-NEXT:    call void @use.ptr(ptr [[GEP2_B]])
+; CHECK-NEXT:    ret i64 [[V_B]]
 ;
   br i1 %cond, label %if, label %else
 

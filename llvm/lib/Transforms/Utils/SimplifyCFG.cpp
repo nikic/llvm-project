@@ -1996,10 +1996,7 @@ static bool canSinkInstructions(
       return false;
     // If we sink this instruction, we're not going to need the phi for it
     // anymore.
-    // TODO: We currently don't count pre-existing phis being removed, but
-    // maybe we should.
-    if (!isa<PHINode>(U.getUser()))
-      --NeededPHIsAdjustment;
+    --NeededPHIsAdjustment;
   }
 
   // Because SROA can't handle speculating stores of selects, try not to sink
@@ -2341,7 +2338,7 @@ static bool sinkCommonCodeFromPredecessors(BasicBlock *BB,
     // sink?
     for (; ScanIdx > 0; --ScanIdx) {
       // Allow creation of at most one phi node.
-      if (NeededPHIs[ScanIdx - 1] <= 1)
+      if (NeededPHIs[ScanIdx - 1] <= 0)
         break;
     }
 
