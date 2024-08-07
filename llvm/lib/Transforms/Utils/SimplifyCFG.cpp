@@ -2347,7 +2347,7 @@ static bool sinkCommonCodeFromPredecessors(BasicBlock *BB,
           ++NumPHIInsts;
           // Do not separate a load/store from the gep producing the address.
           if (IsMemOperand(U) &&
-              any_of(It->second, [](Value *V) { return isa<GEPOperator>(V); }))
+              all_of(It->second, [](Value *V) { return isa<GEPOperator>(V); }))
             return false;
           // FIXME: this check is overly optimistic. We may end up not sinking
           // said instruction, due to the very same profitability check.
