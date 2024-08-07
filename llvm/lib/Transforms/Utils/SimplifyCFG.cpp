@@ -2324,10 +2324,8 @@ static bool sinkCommonCodeFromPredecessors(BasicBlock *BB,
   bool followedByDeoptOrUnreachable = IsBlockFollowedByDeoptOrUnreachable(BB);
 
   if (!followedByDeoptOrUnreachable) {
-    // Check whether this is the pointer operand of a load/store and a GEP.
-    auto IsGepMemOperand = [](Use &U) {
-      if (!isa<GEPOperator>(U))
-        return false;
+    // Check whether this is the pointer operand of a load/store.
+    auto IsMemOperand = [](Use &U) {
       auto *I = cast<Instruction>(U.getUser());
       if (isa<LoadInst>(I))
         return U.getOperandNo() == LoadInst::getPointerOperandIndex();
@@ -2348,7 +2346,8 @@ static bool sinkCommonCodeFromPredecessors(BasicBlock *BB,
             })) {
           ++NumPHIInsts;
           // Do not separate a load/store from the gep producing the address.
-          if (IsGepMemOperand(U))
+          if (IsMemOperand(U) &&
+              any_of(It->second, [](Value *V) { return isa<GEPOperator>(V); }))
             return false;
           // FIXME: this check is overly optimistic. We may end up not sinking
           // said instruction, due to the very same profitability check.
