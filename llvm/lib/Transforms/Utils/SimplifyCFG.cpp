@@ -1925,15 +1925,20 @@ static bool replacingOperandWithVariableIsCheap(const Instruction *I,
   return !isa<IntrinsicInst>(I);
 }
 
+struct SinkInfo {
+  int NumNeededPHIs = 0;
+  int NumOrigPHIsRemoved = 0;
+};
+
 // All instructions in Insts belong to different blocks that all unconditionally
 // branch to a common successor. Analyze each instruction and return true if it
 // would be possible to sink them into their successor, creating one common
 // instruction instead. For every value that would be required to be provided by
 // PHI node (because an operand varies in each input block), add to PHIOperands.
-static bool canSinkInstructions(
-    ArrayRef<Instruction *> Insts,
-    DenseMap<const Use *, SmallVector<Value *, 4>> &PHIOperands,
-    SmallVectorImpl<int> &NeededPHIs) {
+static bool
+canSinkInstructions(ArrayRef<Instruction *> Insts,
+                    DenseMap<const Use *, SmallVector<Value *, 4>> &PHIOperands,
+                    SinkInfo &Info) {
   // Prune out obviously bad instructions to move. Each instruction must have
   // the same number of uses, and we check later that the uses are consistent.
   std::optional<unsigned> NumUses;
@@ -1986,7 +1991,6 @@ static bool canSinkInstructions(
   // then the other phi operands must match the instructions from Insts. This
   // also has to hold true for any phi nodes that would be created as a result
   // of sinking. Both of these cases are represented by PhiOperands.
-  int NeededPHIsAdjustment = 0;
   for (const Use &U : I0->uses()) {
     auto It = PHIOperands.find(&U);
     if (It == PHIOperands.end())
@@ -1996,7 +2000,10 @@ static bool canSinkInstructions(
       return false;
     // If we sink this instruction, we're not going to need the phi for it
     // anymore.
-    --NeededPHIsAdjustment;
+    if (isa<PHINode>(U.getUser()))
+      ++Info.NumOrigPHIsRemoved;
+    else
+      --Info.NumNeededPHIs;
   }
 
   // Because SROA can't handle speculating stores of selects, try not to sink
@@ -2065,12 +2072,10 @@ static bool canSinkInstructions(
       auto &Ops = PHIOperands[&I0->getOperandUse(OI)];
       for (auto *I : Insts)
         Ops.push_back(I->getOperand(OI));
-      ++NeededPHIsAdjustment;
+      ++Info.NumNeededPHIs;
     }
   }
 
-  int OldNeededPHIs = NeededPHIs.empty() ? 0 : NeededPHIs.back();
-  NeededPHIs.push_back(OldNeededPHIs + NeededPHIsAdjustment);
   return true;
 }
 
@@ -2316,12 +2321,13 @@ static bool sinkCommonCodeFromPredecessors(BasicBlock *BB,
 
   int ScanIdx = 0;
   // Number of new PHIs introduced if sinking the first N instructions.
-  SmallVector<int> NeededPHIs;
+  SmallVector<SinkInfo> Infos;
   LockstepReverseIterator LRI(UnconditionalPreds);
-  while (LRI.isValid() &&
-         canSinkInstructions(*LRI, PHIOperands, NeededPHIs)) {
+  SinkInfo CurInfo;
+  while (LRI.isValid() && canSinkInstructions(*LRI, PHIOperands, CurInfo)) {
     LLVM_DEBUG(dbgs() << "SINK: instruction can be sunk: " << *(*LRI)[0]
                       << "\n");
+    Infos.push_back(CurInfo);
     ++ScanIdx;
     --LRI;
   }
@@ -2338,7 +2344,10 @@ static bool sinkCommonCodeFromPredecessors(BasicBlock *BB,
     // sink?
     for (; ScanIdx > 0; --ScanIdx) {
       // Allow creation of at most one phi node.
-      if (NeededPHIs[ScanIdx - 1] <= 0)
+      if (Infos[ScanIdx - 1].NumNeededPHIs <= 1 ||
+          Infos[ScanIdx - 1].NumNeededPHIs -
+                  Infos[ScanIdx - 1].NumOrigPHIsRemoved <=
+              0)
         break;
     }
 
