@@ -525,17 +525,19 @@ define i32 @test15(i1 zeroext %flag, i32 %w, i32 %x, i32 %y, ptr %s) {
 ; CHECK-NEXT:    br i1 [[FLAG:%.*]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
 ; CHECK:       if.then:
 ; CHECK-NEXT:    call void @bar(i32 1)
+; CHECK-NEXT:    [[SV1:%.*]] = load i32, ptr [[S:%.*]], align 4
+; CHECK-NEXT:    [[EXT1:%.*]] = zext i32 [[SV1]] to i64
+; CHECK-NEXT:    [[CMP1:%.*]] = icmp eq i64 [[EXT1]], 56
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       if.else:
 ; CHECK-NEXT:    call void @bar(i32 4)
-; CHECK-NEXT:    [[GEPB:%.*]] = getelementptr inbounds [[STRUCT_ANON:%.*]], ptr [[S:%.*]], i32 0, i32 1
+; CHECK-NEXT:    [[GEPB:%.*]] = getelementptr inbounds [[STRUCT_ANON:%.*]], ptr [[S]], i32 0, i32 1
+; CHECK-NEXT:    [[SV2:%.*]] = load i32, ptr [[GEPB]], align 4
+; CHECK-NEXT:    [[EXT2:%.*]] = zext i32 [[SV2]] to i64
+; CHECK-NEXT:    [[CMP2:%.*]] = icmp eq i64 [[EXT2]], 57
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
-; CHECK-NEXT:    [[GEPB_SINK:%.*]] = phi ptr [ [[GEPB]], [[IF_ELSE]] ], [ [[S]], [[IF_THEN]] ]
-; CHECK-NEXT:    [[DOTSINK:%.*]] = phi i64 [ 57, [[IF_ELSE]] ], [ 56, [[IF_THEN]] ]
-; CHECK-NEXT:    [[SV2:%.*]] = load i32, ptr [[GEPB_SINK]], align 4
-; CHECK-NEXT:    [[EXT2:%.*]] = zext i32 [[SV2]] to i64
-; CHECK-NEXT:    [[CMP2:%.*]] = icmp eq i64 [[EXT2]], [[DOTSINK]]
+; CHECK-NEXT:    [[P:%.*]] = phi i1 [ [[CMP1]], [[IF_THEN]] ], [ [[CMP2]], [[IF_ELSE]] ]
 ; CHECK-NEXT:    ret i32 1
 ;
 entry:
