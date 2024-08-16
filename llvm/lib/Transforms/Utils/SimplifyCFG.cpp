@@ -2003,14 +2003,6 @@ static bool canSinkInstructions(
   // the line - see https://llvm.org/bugs/show_bug.cgi?id=30244.
   // FIXME: This is a workaround for a deficiency in SROA - see
   // https://llvm.org/bugs/show_bug.cgi?id=30188
-  if (isa<StoreInst>(I0) && any_of(Insts, [](const Instruction *I) {
-        return isa<AllocaInst>(I->getOperand(1)->stripPointerCasts());
-      }))
-    return false;
-  if (isa<LoadInst>(I0) && any_of(Insts, [](const Instruction *I) {
-        return isa<AllocaInst>(I->getOperand(0)->stripPointerCasts());
-      }))
-    return false;
   if (isLifeTimeMarker(I0) && any_of(Insts, [](const Instruction *I) {
         return isa<AllocaInst>(I->getOperand(1)->stripPointerCasts());
       }))
