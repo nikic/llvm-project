@@ -67,9 +67,10 @@ public:
                    TargetTransformInfo &TTI, DominatorTree &DT,
                    OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
                    BranchProbabilityInfo *BPI, ProfileSummaryInfo *PSI,
-                   const DataLayout &DL, LoopInfo *LI)
+                   const DataLayout &DL, LoopInfo *LI,
+                   ReversePostOrderTraversal<BasicBlock *> &RPOT)
       : InstCombiner(F, Worklist, Builder, MinimizeSize, AA, AC, TLI, TTI, DT,
-                     ORE, BFI, BPI, PSI, DL, LI) {}
+                     ORE, BFI, BPI, PSI, DL, LI, RPOT) {}
 
   virtual ~InstCombinerImpl() = default;
 

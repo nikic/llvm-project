@@ -5375,10 +5375,13 @@ bool InstCombinerImpl::prepareWorklist(
 
 void InstCombiner::computeBackEdges() {
   // Collect backedges.
-  SmallVector<std::pair<const BasicBlock *, const BasicBlock *>, 8> BEVector;
-  FindFunctionBackedges(F, BEVector);
-  for (const auto &Edge : BEVector)
-    BackEdges.insert(Edge);
+  SmallPtrSet<BasicBlock *, 16> Visited;
+  for (BasicBlock *BB : RPOT) {
+    Visited.insert(BB);
+    for (BasicBlock *Succ : successors(BB))
+      if (Visited.contains(Succ))
+        BackEdges.insert({BB, Succ});
+  }
   ComputedBackEdges = true;
 }
 
@@ -5425,7 +5428,7 @@ static bool combineInstructionsOverFunction(
                       << F.getName() << "\n");
 
     InstCombinerImpl IC(F, Worklist, Builder, F.hasMinSize(), AA, AC, TLI, TTI,
-                        DT, ORE, BFI, BPI, PSI, DL, LI);
+                        DT, ORE, BFI, BPI, PSI, DL, LI, RPOT);
     IC.MaxArraySizeForCombine = MaxArraySize;
     bool MadeChangeInThisIteration = IC.prepareWorklist(F, RPOT);
     MadeChangeInThisIteration |= IC.run();
