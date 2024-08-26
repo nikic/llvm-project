@@ -60,6 +60,9 @@ public:
   BuilderTy &Builder;
 
 protected:
+  /// The function being optimized.
+  Function &F;
+
   /// A worklist of the instructions that need to be simplified.
   InstructionWorklist &Worklist;
 
@@ -92,14 +95,20 @@ protected:
   /// Order of predecessors to canonicalize phi nodes towards.
   SmallDenseMap<BasicBlock *, SmallVector<BasicBlock *>, 8> PredOrder;
 
+  /// Backedges, used to avoid pushing instructions across backedges in cases
+  /// where this may result in infinite combine loops. For irreducible loops
+  /// this picks an arbitrary backedge.
+  SmallDenseSet<std::pair<const BasicBlock *, const BasicBlock *>, 8> BackEdges;
+  bool ComputedBackEdges = false;
+
 public:
-  InstCombiner(InstructionWorklist &Worklist, BuilderTy &Builder,
+  InstCombiner(Function &F, InstructionWorklist &Worklist, BuilderTy &Builder,
                bool MinimizeSize, AAResults *AA, AssumptionCache &AC,
                TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
                DominatorTree &DT, OptimizationRemarkEmitter &ORE,
                BlockFrequencyInfo *BFI, BranchProbabilityInfo *BPI,
                ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
-      : TTI(TTI), Builder(Builder), Worklist(Worklist),
+      : TTI(TTI), Builder(Builder), F(F), Worklist(Worklist),
         MinimizeSize(MinimizeSize), AA(AA), AC(AC), TLI(TLI), DT(DT), DL(DL),
         SQ(DL, &TLI, &DT, &AC, nullptr, /*UseInstrInfo*/ true,
            /*CanUseUndef*/ true, &DC),
@@ -355,6 +364,13 @@ public:
       APInt &UndefElts2, APInt &UndefElts3,
       std::function<void(Instruction *, unsigned, APInt, APInt &)>
           SimplifyAndSetOp);
+
+  void computeBackEdges();
+  bool isBackEdge(const BasicBlock *From, const BasicBlock *To) {
+    if (!ComputedBackEdges)
+      computeBackEdges();
+    return BackEdges.contains({From, To});
+  }
 
   /// Inserts an instruction \p New before instruction \p Old
   ///

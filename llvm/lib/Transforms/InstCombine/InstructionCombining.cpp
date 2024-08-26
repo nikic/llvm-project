@@ -1816,8 +1816,7 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
     // we'll push the operation across a loop backedge. This could result in
     // an infinite combine loop, and is generally non-profitable (especially
     // if the operation was originally outside the loop).
-    if (isPotentiallyReachable(PN->getParent(), NonSimplifiedBB, nullptr, &DT,
-                               LI))
+    if (isBackEdge(NonSimplifiedBB, PN->getParent()))
       return nullptr;
   }
 
@@ -5374,6 +5373,15 @@ bool InstCombinerImpl::prepareWorklist(
   return MadeIRChange;
 }
 
+void InstCombiner::computeBackEdges() {
+  // Collect backedges.
+  SmallVector<std::pair<const BasicBlock *, const BasicBlock *>, 8> BEVector;
+  FindFunctionBackedges(F, BEVector);
+  for (const auto &Edge : BEVector)
+    BackEdges.insert(Edge);
+  ComputedBackEdges = true;
+}
+
 static bool combineInstructionsOverFunction(
     Function &F, InstructionWorklist &Worklist, AliasAnalysis *AA,
     AssumptionCache &AC, TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
@@ -5416,8 +5424,8 @@ static bool combineInstructionsOverFunction(
     LLVM_DEBUG(dbgs() << "\n\nINSTCOMBINE ITERATION #" << Iteration << " on "
                       << F.getName() << "\n");
 
-    InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), AA, AC, TLI, TTI, DT,
-                        ORE, BFI, BPI, PSI, DL, LI);
+    InstCombinerImpl IC(F, Worklist, Builder, F.hasMinSize(), AA, AC, TLI, TTI,
+                        DT, ORE, BFI, BPI, PSI, DL, LI);
     IC.MaxArraySizeForCombine = MaxArraySize;
     bool MadeChangeInThisIteration = IC.prepareWorklist(F, RPOT);
     MadeChangeInThisIteration |= IC.run();
