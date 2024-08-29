@@ -2044,8 +2044,19 @@ bool SCEVExpander::isHighCostExpansionHelper(
     return Cost > Budget;
   }
   case scAddRecExpr: {
-    assert(cast<SCEVAddRecExpr>(S)->getNumOperands() >= 2 &&
-           "Polynomial should be at least linear");
+    auto *AR = cast<SCEVAddRecExpr>(S);
+    if (CanonicalMode && AR->isAffine()) {
+      PHINode *CanonicalIV = AR->getLoop()->getCanonicalInductionVariable();
+      if (CanonicalIV && CanonicalIV->getType() == AR->getType()) {
+        // The addrec will be emitted as %canonal.iv + %start.
+        Cost += TTI.getArithmeticInstrCost(Instruction::Add, AR->getType(),
+                                           CostKind);
+        Worklist.emplace_back(Instruction::Add, 1, AR->getStart());
+        return Cost > Budget;
+      }
+    }
+
+    assert(AR->getNumOperands() >= 2 && "Polynomial should be at least linear");
     Cost += costAndCollectOperands<SCEVAddRecExpr>(
         WorkItem, TTI, CostKind, Worklist);
     return Cost > Budget;
