@@ -370,6 +370,8 @@ public:
 
   void computeBackEdges();
   bool isBackEdge(const BasicBlock *From, const BasicBlock *To) {
+    if (From == To)
+      return true;
     if (!ComputedBackEdges)
       computeBackEdges();
     return BackEdges.contains({From, To});

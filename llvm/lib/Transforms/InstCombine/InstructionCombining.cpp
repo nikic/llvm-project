@@ -5379,7 +5379,7 @@ void InstCombiner::computeBackEdges() {
   for (BasicBlock *BB : RPOT) {
     Visited.insert(BB);
     for (BasicBlock *Succ : successors(BB))
-      if (Visited.contains(Succ))
+      if (Succ != BB && Visited.contains(Succ))
         BackEdges.insert({BB, Succ});
   }
   ComputedBackEdges = true;
