@@ -107,12 +107,6 @@ public:
   /// Solve - Solve for constants and executable blocks.
   void solve();
 
-  void solveWhileResolvedUndefsIn(Module &M);
-
-  void solveWhileResolvedUndefsIn(SmallVectorImpl<Function *> &WorkList);
-
-  void solveWhileResolvedUndefs();
-
   bool isBlockExecutable(BasicBlock *BB) const;
 
   // isEdgeFeasible - Return true if the control flow edge from the 'From' basic

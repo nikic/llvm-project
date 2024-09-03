@@ -78,13 +78,7 @@ BB1:
 define void @indbrtest4(ptr %Q) {
 ; CHECK-LABEL: @indbrtest4(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    indirectbr ptr undef, [label [[BB0:%.*]], label %BB1]
-; CHECK:       BB0:
-; CHECK-NEXT:    call void @BB0_f()
-; CHECK-NEXT:    ret void
-; CHECK:       BB1:
-; CHECK-NEXT:    call void @BB1_f()
-; CHECK-NEXT:    ret void
+; CHECK-NEXT:    unreachable
 ;
 entry:
   indirectbr ptr undef, [label %BB0, label %BB1]

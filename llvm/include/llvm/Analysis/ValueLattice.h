@@ -32,19 +32,9 @@ class ValueLatticeElement {
     /// Transition to any other state allowed.
     unknown,
 
-    /// This Value is an UndefValue constant or produces undef. Undefined values
-    /// can be merged with constants (or single element constant ranges),
-    /// assuming all uses of the result will be replaced.
-    /// Transition allowed to the following states:
-    ///  constant
-    ///  constantrange_including_undef
-    ///  overdefined
-    undef,
-
-    /// This Value has a specific constant value.  The constant cannot be undef.
+    /// This Value has a specific constant value.
     /// (For constant integers, constantrange is used instead. Integer typed
-    /// constantexprs can appear as constant.) Note that the constant state
-    /// can be reached by merging undef & constant states.
+    /// constantexprs can appear as constant.)
     /// Transition allowed to the following states:
     ///  overdefined
     constant,
@@ -92,7 +82,6 @@ class ValueLatticeElement {
     switch (Tag) {
     case overdefined:
     case unknown:
-    case undef:
     case constant:
     case notconstant:
       break;
@@ -160,7 +149,6 @@ public:
       break;
     case overdefined:
     case unknown:
-    case undef:
       break;
     }
   }
@@ -179,7 +167,6 @@ public:
       break;
     case overdefined:
     case unknown:
-    case undef:
       break;
     }
     Other.Tag = unknown;
@@ -213,12 +200,8 @@ public:
     if (CR.isFullSet())
       return getOverdefined();
 
-    if (CR.isEmptySet()) {
-      ValueLatticeElement Res;
-      if (MayIncludeUndef)
-        Res.markUndef();
-      return Res;
-    }
+    if (CR.isEmptySet())
+      return ValueLatticeElement();
 
     ValueLatticeElement Res;
     Res.markConstantRange(std::move(CR),
@@ -231,9 +214,7 @@ public:
     return Res;
   }
 
-  bool isUndef() const { return Tag == undef; }
   bool isUnknown() const { return Tag == unknown; }
-  bool isUnknownOrUndef() const { return Tag == unknown || Tag == undef; }
   bool isConstant() const { return Tag == constant; }
   bool isNotConstant() const { return Tag == notconstant; }
   bool isConstantRangeIncludingUndef() const {
@@ -301,16 +282,13 @@ public:
     return true;
   }
 
-  bool markUndef() {
-    if (isUndef())
-      return false;
-
-    assert(isUnknown());
-    Tag = undef;
-    return true;
-  }
-
   bool markConstant(Constant *V, bool MayIncludeUndef = false) {
+    if (isa<PoisonValue>(V)) {
+      // TODO: Make this a separate state.
+      assert(isUnknown());
+      return false;
+    }
+
     if (isConstant()) {
       assert(getConstant() == V && "Marking constant with different value");
       return false;
@@ -321,7 +299,7 @@ public:
           ConstantRange(CI->getValue()),
           MergeOptions().setMayIncludeUndef(MayIncludeUndef));
 
-    assert(isUnknown() || isUndef());
+    assert(isUnknown());
     Tag = constant;
     ConstVal = V;
     return true;
@@ -362,7 +340,7 @@ public:
 
     ValueLatticeElementTy OldTag = Tag;
     ValueLatticeElementTy NewTag =
-        (isUndef() || isConstantRangeIncludingUndef() || Opts.MayIncludeUndef)
+        (isConstantRangeIncludingUndef() || Opts.MayIncludeUndef)
             ? constantrange_including_undef
             : constantrange;
     if (isConstantRange()) {
@@ -381,7 +359,7 @@ public:
       return true;
     }
 
-    assert(isUnknown() || isUndef() || isConstant());
+    assert(isUnknown() || isConstant());
     assert((!isConstant() || NewR.contains(getConstant()->toConstantRange())) &&
            "Constant must be subset of new range");
 
@@ -402,18 +380,6 @@ public:
       return true;
     }
 
-    if (isUndef()) {
-      assert(!RHS.isUnknown());
-      if (RHS.isUndef())
-        return false;
-      if (RHS.isConstant())
-        return markConstant(RHS.getConstant(), true);
-      if (RHS.isConstantRange())
-        return markConstantRange(RHS.getConstantRange(true),
-                                 Opts.setMayIncludeUndef());
-      return markOverdefined();
-    }
-
     if (isUnknown()) {
       assert(!RHS.isUnknown() && "Unknow RHS should be handled earlier");
       *this = RHS;
@@ -422,8 +388,6 @@ public:
 
     if (isConstant()) {
       if (RHS.isConstant() && getConstant() == RHS.getConstant())
-        return false;
-      if (RHS.isUndef())
         return false;
       // If the constant is a vector of integers, try to treat it as a range.
       if (getConstant()->getType()->isVectorTy() &&
@@ -446,12 +410,7 @@ public:
       return true;
     }
 
-    auto OldTag = Tag;
     assert(isConstantRange() && "New ValueLattice type?");
-    if (RHS.isUndef()) {
-      Tag = constantrange_including_undef;
-      return OldTag != Tag;
-    }
 
     const ConstantRange &L = getConstantRange();
     ConstantRange NewR = L.unionWith(
