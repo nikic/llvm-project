@@ -3,8 +3,7 @@
 
 define ptr @scalable_vector_getelementptr(i64 %x) {
 ; CHECK-LABEL: @scalable_vector_getelementptr(
-; CHECK-NEXT:    [[PTR:%.*]] = getelementptr <vscale x 4 x i32>, ptr null, i64 1
-; CHECK-NEXT:    ret ptr [[PTR]]
+; CHECK-NEXT:    ret ptr poison
 ;
   %ptr = getelementptr <vscale x 4 x i32>, ptr null, i64 1
   ret ptr %ptr

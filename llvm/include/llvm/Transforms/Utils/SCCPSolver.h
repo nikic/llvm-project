@@ -107,13 +107,6 @@ public:
   /// Solve - Solve for constants and executable blocks.
   void solve();
 
-  /// resolvedUndefsIn - While solving the dataflow for a function, we assume
-  /// that branches on undef values cannot reach any of their successors.
-  /// However, this is not a safe assumption.  After we solve dataflow, this
-  /// method should be use to handle this.  If this returns true, the solver
-  /// should be rerun.
-  bool resolvedUndefsIn(Function &F);
-
   void solveWhileResolvedUndefsIn(Module &M);
 
   void solveWhileResolvedUndefsIn(SmallVectorImpl<Function *> &WorkList);

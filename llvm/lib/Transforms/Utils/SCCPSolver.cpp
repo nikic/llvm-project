@@ -51,7 +51,7 @@ bool SCCPSolver::isConstant(const ValueLatticeElement &LV) {
 }
 
 bool SCCPSolver::isOverdefined(const ValueLatticeElement &LV) {
-  return !LV.isUnknownOrUndef() && !SCCPSolver::isConstant(LV);
+  return !LV.isUnknown() && !SCCPSolver::isConstant(LV);
 }
 
 static bool canRemoveInstruction(Instruction *I) {
@@ -781,10 +781,6 @@ public:
 
   void solve();
 
-  bool resolvedUndef(Instruction &I);
-
-  bool resolvedUndefsIn(Function &F);
-
   bool isBlockExecutable(BasicBlock *BB) const {
     return BBExecutable.count(BB);
   }
@@ -880,35 +876,15 @@ public:
   }
 
   void solveWhileResolvedUndefsIn(Module &M) {
-    bool ResolvedUndefs = true;
-    while (ResolvedUndefs) {
-      solve();
-      ResolvedUndefs = false;
-      for (Function &F : M)
-        ResolvedUndefs |= resolvedUndefsIn(F);
-    }
+    solve();
   }
 
   void solveWhileResolvedUndefsIn(SmallVectorImpl<Function *> &WorkList) {
-    bool ResolvedUndefs = true;
-    while (ResolvedUndefs) {
-      solve();
-      ResolvedUndefs = false;
-      for (Function *F : WorkList)
-        ResolvedUndefs |= resolvedUndefsIn(*F);
-    }
+    solve();
   }
 
   void solveWhileResolvedUndefs() {
-    bool ResolvedUndefs = true;
-    while (ResolvedUndefs) {
-      solve();
-      ResolvedUndefs = false;
-      for (Value *V : Invalidated)
-        if (auto *I = dyn_cast<Instruction>(V))
-          ResolvedUndefs |= resolvedUndef(*I);
-    }
-    Invalidated.clear();
+    solve();
   }
 };
 
@@ -1016,7 +992,7 @@ Constant *SCCPInstVisitor::getConstantOrNull(Value *V) const {
       ValueLatticeElement LV = LVs[I];
       ConstVals.push_back(SCCPSolver::isConstant(LV)
                               ? getConstant(LV, ST->getElementType(I))
-                              : UndefValue::get(ST->getElementType(I)));
+                              : PoisonValue::get(ST->getElementType(I)));
     }
     Const = ConstantStruct::get(ST, ConstVals);
   } else {
@@ -1024,7 +1000,7 @@ Constant *SCCPInstVisitor::getConstantOrNull(Value *V) const {
     if (SCCPSolver::isOverdefined(LV))
       return nullptr;
     Const = SCCPSolver::isConstant(LV) ? getConstant(LV, V->getType())
-                                       : UndefValue::get(V->getType());
+                                       : PoisonValue::get(V->getType());
   }
   assert(Const && "Constant is nullptr here!");
   return Const;
@@ -1391,11 +1367,6 @@ void SCCPInstVisitor::visitExtractValueInst(ExtractValueInst &EVI) {
   if (EVI.getType()->isStructTy())
     return (void)markOverdefined(&EVI);
 
-  // resolvedUndefsIn might mark I as overdefined. Bail out, even if we would
-  // discover a concrete value later.
-  if (ValueState[&EVI].isOverdefined())
-    return (void)markOverdefined(&EVI);
-
   // If this is extracting from more than one level of struct, we don't know.
   if (EVI.getNumIndices() != 1)
     return (void)markOverdefined(&EVI);
@@ -1416,11 +1387,6 @@ void SCCPInstVisitor::visitExtractValueInst(ExtractValueInst &EVI) {
 void SCCPInstVisitor::visitInsertValueInst(InsertValueInst &IVI) {
   auto *STy = dyn_cast<StructType>(IVI.getType());
   if (!STy)
-    return (void)markOverdefined(&IVI);
-
-  // resolvedUndefsIn might mark I as overdefined. Bail out, even if we would
-  // discover a concrete value later.
-  if (ValueState[&IVI].isOverdefined())
     return (void)markOverdefined(&IVI);
 
   // If this has more than one index, we can't handle it, drive all results to
@@ -1457,11 +1423,6 @@ void SCCPInstVisitor::visitSelectInst(SelectInst &I) {
   if (I.getType()->isStructTy())
     return (void)markOverdefined(&I);
 
-  // resolvedUndefsIn might mark I as overdefined. Bail out, even if we would
-  // discover a concrete value later.
-  if (ValueState[&I].isOverdefined())
-    return (void)markOverdefined(&I);
-
   ValueLatticeElement CondValue = getValueState(I.getCondition());
   if (CondValue.isUnknownOrUndef())
     return;
@@ -1490,10 +1451,6 @@ void SCCPInstVisitor::visitUnaryOperator(Instruction &I) {
   ValueLatticeElement V0State = getValueState(I.getOperand(0));
 
   ValueLatticeElement &IV = ValueState[&I];
-  // resolvedUndefsIn might mark I as overdefined. Bail out, even if we would
-  // discover a concrete value later.
-  if (IV.isOverdefined())
-    return (void)markOverdefined(&I);
 
   // If something is unknown/undef, wait for it to resolve.
   if (V0State.isUnknownOrUndef())
@@ -1515,10 +1472,6 @@ void SCCPInstVisitor::visitFreezeInst(FreezeInst &I) {
 
   ValueLatticeElement V0State = getValueState(I.getOperand(0));
   ValueLatticeElement &IV = ValueState[&I];
-  // resolvedUndefsIn might mark I as overdefined. Bail out, even if we would
-  // discover a concrete value later.
-  if (IV.isOverdefined())
-    return (void)markOverdefined(&I);
 
   // If something is unknown/undef, wait for it to resolve.
   if (V0State.isUnknownOrUndef())
@@ -1717,11 +1670,6 @@ void SCCPInstVisitor::visitLoadInst(LoadInst &I) {
   // If this load is of a struct or the load is volatile, just mark the result
   // as overdefined.
   if (I.getType()->isStructTy() || I.isVolatile())
-    return (void)markOverdefined(&I);
-
-  // resolvedUndefsIn might mark I as overdefined. Bail out, even if we would
-  // discover a concrete value later.
-  if (ValueState[&I].isOverdefined())
     return (void)markOverdefined(&I);
 
   ValueLatticeElement PtrVal = getValueState(I.getOperand(0));
@@ -2024,90 +1972,6 @@ void SCCPInstVisitor::solve() {
   }
 }
 
-bool SCCPInstVisitor::resolvedUndef(Instruction &I) {
-  // Look for instructions which produce undef values.
-  if (I.getType()->isVoidTy())
-    return false;
-
-  if (auto *STy = dyn_cast<StructType>(I.getType())) {
-    // Only a few things that can be structs matter for undef.
-
-    // Tracked calls must never be marked overdefined in resolvedUndefsIn.
-    if (auto *CB = dyn_cast<CallBase>(&I))
-      if (Function *F = CB->getCalledFunction())
-        if (MRVFunctionsTracked.count(F))
-          return false;
-
-    // extractvalue and insertvalue don't need to be marked; they are
-    // tracked as precisely as their operands.
-    if (isa<ExtractValueInst>(I) || isa<InsertValueInst>(I))
-      return false;
-    // Send the results of everything else to overdefined.  We could be
-    // more precise than this but it isn't worth bothering.
-    for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
-      ValueLatticeElement &LV = getStructValueState(&I, i);
-      if (LV.isUnknown()) {
-        markOverdefined(LV, &I);
-        return true;
-      }
-    }
-    return false;
-  }
-
-  ValueLatticeElement &LV = getValueState(&I);
-  if (!LV.isUnknown())
-    return false;
-
-  // There are two reasons a call can have an undef result
-  // 1. It could be tracked.
-  // 2. It could be constant-foldable.
-  // Because of the way we solve return values, tracked calls must
-  // never be marked overdefined in resolvedUndefsIn.
-  if (auto *CB = dyn_cast<CallBase>(&I))
-    if (Function *F = CB->getCalledFunction())
-      if (TrackedRetVals.count(F))
-        return false;
-
-  if (isa<LoadInst>(I)) {
-    // A load here means one of two things: a load of undef from a global,
-    // a load from an unknown pointer.  Either way, having it return undef
-    // is okay.
-    return false;
-  }
-
-  markOverdefined(&I);
-  return true;
-}
-
-/// While solving the dataflow for a function, we don't compute a result for
-/// operations with an undef operand, to allow undef to be lowered to a
-/// constant later. For example, constant folding of "zext i8 undef to i16"
-/// would result in "i16 0", and if undef is later lowered to "i8 1", then the
-/// zext result would become "i16 1" and would result into an overdefined
-/// lattice value once merged with the previous result. Not computing the
-/// result of the zext (treating undef the same as unknown) allows us to handle
-/// a later undef->constant lowering more optimally.
-///
-/// However, if the operand remains undef when the solver returns, we do need
-/// to assign some result to the instruction (otherwise we would treat it as
-/// unreachable). For simplicity, we mark any instructions that are still
-/// unknown as overdefined.
-bool SCCPInstVisitor::resolvedUndefsIn(Function &F) {
-  bool MadeChange = false;
-  for (BasicBlock &BB : F) {
-    if (!BBExecutable.count(&BB))
-      continue;
-
-    for (Instruction &I : BB)
-      MadeChange |= resolvedUndef(I);
-  }
-
-  LLVM_DEBUG(if (MadeChange) dbgs()
-             << "\nResolved undefs in " << F.getName() << '\n');
-
-  return MadeChange;
-}
-
 //===----------------------------------------------------------------------===//
 //
 // SCCPSolver implementations
@@ -2158,10 +2022,6 @@ bool SCCPSolver::isArgumentTrackedFunction(Function *F) {
 }
 
 void SCCPSolver::solve() { Visitor->solve(); }
-
-bool SCCPSolver::resolvedUndefsIn(Function &F) {
-  return Visitor->resolvedUndefsIn(F);
-}
 
 void SCCPSolver::solveWhileResolvedUndefsIn(Module &M) {
   Visitor->solveWhileResolvedUndefsIn(M);

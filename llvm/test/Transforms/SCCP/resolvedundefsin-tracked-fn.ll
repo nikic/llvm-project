@@ -260,7 +260,7 @@ define void @test4_a() {
 ; CHECK-LABEL: define {{[^@]+}}@test4_a() {
 ; CHECK-NEXT:  bb:
 ; CHECK-NEXT:    [[TMP:%.*]] = call ptr @test4_c(ptr null)
-; CHECK-NEXT:    call void @test4_b(ptr undef)
+; CHECK-NEXT:    call void @test4_b(ptr poison)
 ; CHECK-NEXT:    ret void
 ;
 bb:
@@ -273,9 +273,8 @@ define internal void @test4_b(ptr %arg) {
 ; CHECK-LABEL: define {{[^@]+}}@test4_b
 ; CHECK-SAME: (ptr [[ARG:%.*]]) {
 ; CHECK-NEXT:  bb:
-; CHECK-NEXT:    [[SEL:%.*]] = select i1 false, ptr undef, ptr undef
-; CHECK-NEXT:    call void @use.16(ptr undef)
-; CHECK-NEXT:    call void @use.8(ptr [[SEL]])
+; CHECK-NEXT:    call void @use.16(ptr poison)
+; CHECK-NEXT:    call void @use.8(ptr poison)
 ; CHECK-NEXT:    ret void
 ;
 bb:
@@ -308,7 +307,7 @@ define void @test5_a() {
 ; CHECK-LABEL: define {{[^@]+}}@test5_a() {
 ; CHECK-NEXT:  bb:
 ; CHECK-NEXT:    [[TMP:%.*]] = call ptr @test5_c(ptr null)
-; CHECK-NEXT:    call void @test5_b(ptr undef)
+; CHECK-NEXT:    call void @test5_b(ptr poison)
 ; CHECK-NEXT:    ret void
 ;
 bb:
@@ -321,8 +320,7 @@ define internal void @test5_b(ptr %arg) {
 ; CHECK-LABEL: define {{[^@]+}}@test5_b
 ; CHECK-SAME: (ptr [[ARG:%.*]]) {
 ; CHECK-NEXT:  bb:
-; CHECK-NEXT:    [[SEL:%.*]] = select i1 false, ptr undef, ptr undef
-; CHECK-NEXT:    call void @use.8(ptr [[SEL]])
+; CHECK-NEXT:    call void @use.8(ptr poison)
 ; CHECK-NEXT:    ret void
 ;
 bb:
