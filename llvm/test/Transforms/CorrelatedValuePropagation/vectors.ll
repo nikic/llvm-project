@@ -333,7 +333,8 @@ define <2 x i1> @insertelement_fold1() {
 ; CHECK-LABEL: define <2 x i1> @insertelement_fold1() {
 ; CHECK-NEXT:    [[IE1:%.*]] = insertelement <2 x i32> poison, i32 10, i64 0
 ; CHECK-NEXT:    [[IE2:%.*]] = insertelement <2 x i32> [[IE1]], i32 20, i64 1
-; CHECK-NEXT:    ret <2 x i1> <i1 true, i1 true>
+; CHECK-NEXT:    [[ICMP1:%.*]] = icmp slt <2 x i32> [[IE2]], <i32 1024, i32 1024>
+; CHECK-NEXT:    ret <2 x i1> [[ICMP1]]
 ;
   %ie1 = insertelement <2 x i32> poison, i32 10, i64 0
   %ie2 = insertelement <2 x i32> %ie1, i32 20, i64 1

@@ -10,8 +10,10 @@ define internal ptr @myfunc(ptr %arg) {
 ; CHECK:       for.cond:
 ; CHECK-NEXT:    br label [[FOR_COND2:%.*]]
 ; CHECK:       for.cond2:
-; CHECK-NEXT:    br label [[FOR_BODY2:%.*]]
+; CHECK-NEXT:    [[PHI2:%.*]] = phi ptr [ undef, [[FOR_BODY2:%.*]] ], [ null, [[FOR_COND]] ]
+; CHECK-NEXT:    br label [[FOR_BODY2]]
 ; CHECK:       for.body2:
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [[MYSTRUCT:%.*]], ptr [[PHI2]], i64 0, i32 1, i64 3
 ; CHECK-NEXT:    br label [[FOR_COND2]]
 ;
 entry:

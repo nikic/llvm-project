@@ -311,9 +311,6 @@ public:
   }
 
   bool markConstant(Constant *V, bool MayIncludeUndef = false) {
-    if (isa<UndefValue>(V))
-      return markUndef();
-
     if (isConstant()) {
       assert(getConstant() == V && "Marking constant with different value");
       return false;

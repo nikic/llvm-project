@@ -1118,6 +1118,9 @@ void SCCPInstVisitor::getFeasibleSuccessors(Instruction &TI,
     }
 
     ValueLatticeElement BCValue = getValueState(BI->getCondition());
+    if (isa_and_nonnull<UndefValue>(
+            getConstant(BCValue, BI->getCondition()->getType())))
+      return;
     ConstantInt *CI = getConstantInt(BCValue, BI->getCondition()->getType());
     if (!CI) {
       // Overdefined condition variables, and branches on unfoldable constant
@@ -1145,6 +1148,9 @@ void SCCPInstVisitor::getFeasibleSuccessors(Instruction &TI,
       return;
     }
     const ValueLatticeElement &SCValue = getValueState(SI->getCondition());
+    if (isa_and_nonnull<UndefValue>(
+            getConstant(SCValue, SI->getCondition()->getType())))
+      return;
     if (ConstantInt *CI =
             getConstantInt(SCValue, SI->getCondition()->getType())) {
       Succs[SI->findCaseValue(CI)->getSuccessorIndex()] = true;
