@@ -695,6 +695,7 @@ bool RecursiveASTVisitor<Derived>::TraverseStmt(Stmt *S,
 }
 
 template <typename Derived>
+LLVM_ATTRIBUTE_NOINLINE
 bool RecursiveASTVisitor<Derived>::TraverseType(QualType T) {
   if (T.isNull())
     return true;
