@@ -366,6 +366,7 @@ public:
 // Declare Traverse*() for all concrete Stmt classes.
 #define ABSTRACT_STMT(STMT)
 #define STMT(CLASS, PARENT) \
+  LLVM_ATTRIBUTE_NOINLINE \
   bool Traverse##CLASS(CLASS *S, DataRecursionQueue *Queue = nullptr);
 #include "clang/AST/StmtNodes.inc"
   // The above header #undefs ABSTRACT_STMT and STMT upon exit.
@@ -387,7 +388,9 @@ public:
 
 // Declare Traverse*() for all concrete Type classes.
 #define ABSTRACT_TYPE(CLASS, BASE)
-#define TYPE(CLASS, BASE) bool Traverse##CLASS##Type(CLASS##Type *T);
+#define TYPE(CLASS, BASE) \
+  LLVM_ATTRIBUTE_NOINLINE \
+  bool Traverse##CLASS##Type(CLASS##Type *T);
 #include "clang/AST/TypeNodes.inc"
   // The above header #undefs ABSTRACT_TYPE and TYPE upon exit.
 
@@ -408,7 +411,9 @@ public:
 
 // Declare Traverse*() for all concrete TypeLoc classes.
 #define ABSTRACT_TYPELOC(CLASS, BASE)
-#define TYPELOC(CLASS, BASE) bool Traverse##CLASS##TypeLoc(CLASS##TypeLoc TL);
+#define TYPELOC(CLASS, BASE) \
+  LLVM_ATTRIBUTE_NOINLINE \
+  bool Traverse##CLASS##TypeLoc(CLASS##TypeLoc TL);
 #include "clang/AST/TypeLocNodes.def"
   // The above header #undefs ABSTRACT_TYPELOC and TYPELOC upon exit.
 
@@ -441,7 +446,9 @@ public:
 
 // Declare Traverse*() for all concrete Decl classes.
 #define ABSTRACT_DECL(DECL)
-#define DECL(CLASS, BASE) bool Traverse##CLASS##Decl(CLASS##Decl *D);
+#define DECL(CLASS, BASE) \
+  LLVM_ATTRIBUTE_NOINLINE \
+  bool Traverse##CLASS##Decl(CLASS##Decl *D);
 #include "clang/AST/DeclNodes.inc"
   // The above header #undefs ABSTRACT_DECL and DECL upon exit.
 
