@@ -734,6 +734,7 @@ bool RecursiveASTVisitor<Derived>::TraverseTypeLoc(TypeLoc TL) {
 #undef VISITORCLASS
 
 template <typename Derived>
+LLVM_ATTRIBUTE_NOINLINE
 bool RecursiveASTVisitor<Derived>::TraverseDecl(Decl *D) {
   if (!D)
     return true;
