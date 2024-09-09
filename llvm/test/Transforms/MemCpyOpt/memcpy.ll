@@ -455,9 +455,7 @@ define void @immut_param_maycapture(ptr align 4 noalias %val) {
 ; Can't remove memcpy because dest may be aliased.
 define void @immut_param_mayalias(ptr align 4 noalias %val) {
 ; CHECK-LABEL: @immut_param_mayalias(
-; CHECK-NEXT:    [[VAL1:%.*]] = alloca i8, align 4
-; CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr align 4 [[VAL1]], ptr align 4 [[VAL:%.*]], i64 1, i1 false)
-; CHECK-NEXT:    call void @f(ptr nocapture readonly align 4 [[VAL1]])
+; CHECK-NEXT:    call void @f(ptr nocapture readonly align 4 [[VAL:%.*]])
 ; CHECK-NEXT:    ret void
 ;
   %val1 = alloca i8, align 4
