@@ -120,8 +120,6 @@ bool InitUndef::handleReg(MachineInstr *MI) {
       continue;
     if (!UseMO.getReg().isVirtual())
       continue;
-    if (!TRI->doesRegClassHavePseudoInitUndef(MRI->getRegClass(UseMO.getReg())))
-      continue;
 
     if (UseMO.isUndef() || findImplictDefMIFromReg(UseMO.getReg(), MRI))
       Changed |= fixupIllOperand(MI, UseMO);
@@ -139,8 +137,6 @@ bool InitUndef::handleSubReg(MachineFunction &MF, MachineInstr &MI,
     if (!UseMO.getReg().isVirtual())
       continue;
     if (UseMO.isTied())
-      continue;
-    if (!TRI->doesRegClassHavePseudoInitUndef(MRI->getRegClass(UseMO.getReg())))
       continue;
 
     Register Reg = UseMO.getReg();
@@ -252,8 +248,8 @@ bool InitUndef::runOnMachineFunction(MachineFunction &MF) {
   // returns false by default so requires an implementation per architecture.
   // Support can be added by overriding the function in a way that best fits
   // the architecture.
-  if (!ST->supportsInitUndef())
-    return false;
+  /*if (!ST->supportsInitUndef())
+    return false;*/
 
   MRI = &MF.getRegInfo();
   TII = ST->getInstrInfo();
