@@ -119,8 +119,7 @@ struct ClonedCodeInfo {
 /// parameter.
 BasicBlock *CloneBasicBlock(const BasicBlock *BB, ValueToValueMapTy &VMap,
                             const Twine &NameSuffix = "", Function *F = nullptr,
-                            ClonedCodeInfo *CodeInfo = nullptr,
-                            DebugInfoFinder *DIFinder = nullptr);
+                            ClonedCodeInfo *CodeInfo = nullptr);
 
 /// Return a copy of the specified function and add it to that
 /// function's module.  Also, any references specified in the VMap are changed
@@ -175,6 +174,35 @@ void CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
                        ValueMapTypeRemapper *TypeMapper = nullptr,
                        ValueMaterializer *Materializer = nullptr);
 
+void CloneFunctionAttributesInto(Function *NewFunc, const Function *OldFunc,
+                                 ValueToValueMapTy &VMap,
+                                 bool ModuleLevelChanges,
+                                 ValueMapTypeRemapper *TypeMapper = nullptr,
+                                 ValueMaterializer *Materializer = nullptr);
+
+/// Clone OldFunc's metadata into NewFunc.
+///
+/// The caller is expected to populate \p VMap beforehand and set an appropriate
+/// \p RemapFlag.
+///
+/// NOTE: This function doesn't clone !llvm.dbg.cu when cloning into a different
+/// module. Use CloneFunctionInto for that behavior.
+void CloneFunctionMetadataInto(Function *NewFunc, const Function *OldFunc,
+                               ValueToValueMapTy &VMap, RemapFlags RemapFlag,
+                               ValueMapTypeRemapper *TypeMapper = nullptr,
+                               ValueMaterializer *Materializer = nullptr,
+                               const MetadataSetTy *IdentityMD = nullptr);
+
+/// Clone OldFunc's body NewFunct.
+void CloneFunctionBodyInto(Function *NewFunc, const Function *OldFunc,
+                           ValueToValueMapTy &VMap, RemapFlags RemapFlag,
+                           SmallVectorImpl<ReturnInst *> &Returns,
+                           const char *NameSuffix = "",
+                           ClonedCodeInfo *CodeInfo = nullptr,
+                           ValueMapTypeRemapper *TypeMapper = nullptr,
+                           ValueMaterializer *Materializer = nullptr,
+                           const MetadataSetTy *IdentityMD = nullptr);
+
 void CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFunc,
                                const Instruction *StartingInst,
                                ValueToValueMapTy &VMap, bool ModuleLevelChanges,
@@ -198,6 +226,18 @@ void CloneAndPruneFunctionInto(Function *NewFunc, const Function *OldFunc,
                                SmallVectorImpl<ReturnInst*> &Returns,
                                const char *NameSuffix = "",
                                ClonedCodeInfo *CodeInfo = nullptr);
+
+/// Process debug information from function's subprogram attachment.
+DISubprogram *ProcessSubprogramAttachment(const Function &F,
+                                          CloneFunctionChangeType Changes,
+                                          DebugInfoFinder &DIFinder);
+
+/// Based on \p Changes and \p DIFinder populate \p MD with debug info that
+/// needs to be identity mapped during Metadata cloning.
+void FindDebugInfoToIdentityMap(MetadataSetTy &MD,
+                                CloneFunctionChangeType Changes,
+                                DebugInfoFinder &DIFinder,
+                                DISubprogram *SPClonedWithinModule);
 
 /// This class captures the data input to the InlineFunction call, and records
 /// the auxiliary results produced by it.
