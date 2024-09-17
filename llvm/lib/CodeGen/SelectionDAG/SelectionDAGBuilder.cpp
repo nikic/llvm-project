@@ -1085,10 +1085,11 @@ RegsForValue::getRegsAndSizes() const {
 }
 
 void SelectionDAGBuilder::init(GCFunctionInfo *gfi, AliasAnalysis *aa,
-                               AssumptionCache *ac,
+                               AssumptionCache *ac, const DominatorTree *dt,
                                const TargetLibraryInfo *li) {
   AA = aa;
   AC = ac;
+  DT = dt;
   GFI = gfi;
   LibInfo = li;
   Context = DAG.getContext();
@@ -4550,7 +4551,7 @@ void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
   const MDNode *Ranges = getRangeMetadata(I);
   bool isVolatile = I.isVolatile();
   MachineMemOperand::Flags MMOFlags =
-      TLI.getLoadMemOperandFlags(I, DAG.getDataLayout(), AC, LibInfo);
+      TLI.getLoadMemOperandFlags(I, DAG.getDataLayout(), AC, DT, LibInfo);
 
   SDValue Root;
   bool ConstantMemory = false;
@@ -5174,7 +5175,8 @@ void SelectionDAGBuilder::visitAtomicLoad(const LoadInst &I) {
       I.getAlign().value() < MemVT.getSizeInBits() / 8)
     report_fatal_error("Cannot generate unaligned atomic load");
 
-  auto Flags = TLI.getLoadMemOperandFlags(I, DAG.getDataLayout(), AC, LibInfo);
+  auto Flags =
+      TLI.getLoadMemOperandFlags(I, DAG.getDataLayout(), AC, DT, LibInfo);
 
   MachineMemOperand *MMO = DAG.getMachineFunction().getMachineMemOperand(
       MachinePointerInfo(I.getPointerOperand()), Flags,

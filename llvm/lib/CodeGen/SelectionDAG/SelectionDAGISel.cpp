@@ -68,6 +68,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/EHPersonalities.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InlineAsm.h"
@@ -405,6 +406,8 @@ void SelectionDAGISelLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetTransformInfoWrapperPass>();
 #endif
   AU.addRequired<AssumptionCacheTracker>();
+  if (OptLevel != CodeGenOptLevel::None)
+    AU.addRequired<DominatorTreeWrapperPass>();
   if (UseMBPI && OptLevel != CodeGenOptLevel::None)
       AU.addRequired<BranchProbabilityInfoWrapperPass>();
   AU.addRequired<ProfileSummaryInfoWrapperPass>();
@@ -529,6 +532,10 @@ void SelectionDAGISel::initializeAnalysisResults(MachineFunctionPass &MFP) {
                    : nullptr;
   ORE = std::make_unique<OptimizationRemarkEmitter>(&Fn);
   AC = &MFP.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn);
+  if (OptLevel != CodeGenOptLevel::None)
+    DT = &MFP.getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  else
+    DT = nullptr;
   auto *PSI = &MFP.getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
   BlockFrequencyInfo *BFI = nullptr;
   if (PSI && PSI->hasProfileSummary() && OptLevel != CodeGenOptLevel::None)
@@ -580,7 +587,7 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
 
   ISEL_DUMP(dbgs() << "\n\n\n=== " << FuncName << '\n');
 
-  SDB->init(GFI, AA, AC, LibInfo);
+  SDB->init(GFI, AA, AC, DT, LibInfo);
 
   MF->setHasInlineAsm(false);
 

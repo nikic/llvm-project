@@ -69,6 +69,7 @@ class CCValAssign;
 enum class ComplexDeinterleavingOperation;
 enum class ComplexDeinterleavingRotation;
 class Constant;
+class DominatorTree;
 class FastISel;
 class FunctionLoweringInfo;
 class GlobalValue;
@@ -443,6 +444,7 @@ public:
   MachineMemOperand::Flags
   getLoadMemOperandFlags(const LoadInst &LI, const DataLayout &DL,
                          AssumptionCache *AC = nullptr,
+                         const DominatorTree *DT = nullptr,
                          const TargetLibraryInfo *LibInfo = nullptr) const;
   MachineMemOperand::Flags getStoreMemOperandFlags(const StoreInst &SI,
                                                    const DataLayout &DL) const;

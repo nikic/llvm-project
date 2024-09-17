@@ -23,6 +23,7 @@
 namespace llvm {
 class AAResults;
 class AssumptionCache;
+class DominatorTree;
 class TargetInstrInfo;
 class TargetMachine;
 class SSPLayoutInfo;
@@ -54,6 +55,7 @@ public:
   std::unique_ptr<SelectionDAGBuilder> SDB;
   AAResults *AA = nullptr;
   AssumptionCache *AC = nullptr;
+  const DominatorTree *DT = nullptr;
   GCFunctionInfo *GFI = nullptr;
   SSPLayoutInfo *SP = nullptr;
 #if LLVM_ENABLE_ABI_BREAKING_CHECKS

@@ -58,6 +58,7 @@ class Constant;
 class ConstrainedFPIntrinsic;
 class DbgValueInst;
 class DataLayout;
+class DominatorTree;
 class DIExpression;
 class DILocalVariable;
 class DILocation;
@@ -227,6 +228,7 @@ public:
   SelectionDAG &DAG;
   AAResults *AA = nullptr;
   AssumptionCache *AC = nullptr;
+  const DominatorTree *DT = nullptr;
   const TargetLibraryInfo *LibInfo = nullptr;
 
   class SDAGSwitchLowering : public SwitchCG::SwitchLowering {
@@ -281,7 +283,7 @@ public:
         FuncInfo(funcinfo), SwiftError(swifterror) {}
 
   void init(GCFunctionInfo *gfi, AAResults *AA, AssumptionCache *AC,
-            const TargetLibraryInfo *li);
+            const DominatorTree *DT, const TargetLibraryInfo *li);
 
   /// Clear out the current SelectionDAG and the associated state and prepare
   /// this SelectionDAGBuilder object to be used for a new block. This doesn't
