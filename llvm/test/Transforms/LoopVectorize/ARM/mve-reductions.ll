@@ -13,7 +13,7 @@ define i64 @add_i64_i64(ptr nocapture readonly %x, i32 %n) #0 {
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_08:%.*]] = phi i32 [ [[INC:%.*]], [[FOR_BODY]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[R_07:%.*]] = phi i64 [ [[ADD:%.*]], [[FOR_BODY]] ], [ 0, [[ENTRY]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[X:%.*]], i32 [[I_08]]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds nuw i64, ptr [[X:%.*]], i32 [[I_08]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i64, ptr [[ARRAYIDX]], align 8
 ; CHECK-NEXT:    [[ADD]] = add nsw i64 [[TMP0]], [[R_07]]
 ; CHECK-NEXT:    [[INC]] = add nuw nsw i32 [[I_08]], 1
@@ -76,7 +76,7 @@ define i64 @add_i32_i64(ptr nocapture readonly %x, i32 %n) #0 {
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_08:%.*]] = phi i32 [ [[INC:%.*]], [[FOR_BODY]] ], [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ]
 ; CHECK-NEXT:    [[R_07:%.*]] = phi i64 [ [[ADD:%.*]], [[FOR_BODY]] ], [ [[BC_MERGE_RDX]], [[SCALAR_PH]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[X]], i32 [[I_08]]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds nuw i32, ptr [[X]], i32 [[I_08]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[CONV:%.*]] = sext i32 [[TMP5]] to i64
 ; CHECK-NEXT:    [[ADD]] = add nsw i64 [[R_07]], [[CONV]]
@@ -141,7 +141,7 @@ define i64 @add_i16_i64(ptr nocapture readonly %x, i32 %n) #0 {
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_08:%.*]] = phi i32 [ [[INC:%.*]], [[FOR_BODY]] ], [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ]
 ; CHECK-NEXT:    [[R_07:%.*]] = phi i64 [ [[ADD:%.*]], [[FOR_BODY]] ], [ [[BC_MERGE_RDX]], [[SCALAR_PH]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i16, ptr [[X]], i32 [[I_08]]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds nuw i16, ptr [[X]], i32 [[I_08]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = load i16, ptr [[ARRAYIDX]], align 2
 ; CHECK-NEXT:    [[CONV:%.*]] = sext i16 [[TMP5]] to i64
 ; CHECK-NEXT:    [[ADD]] = add nsw i64 [[R_07]], [[CONV]]
@@ -206,7 +206,7 @@ define i64 @add_i8_i64(ptr nocapture readonly %x, i32 %n) #0 {
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_08:%.*]] = phi i32 [ [[INC:%.*]], [[FOR_BODY]] ], [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ]
 ; CHECK-NEXT:    [[R_07:%.*]] = phi i64 [ [[ADD:%.*]], [[FOR_BODY]] ], [ [[BC_MERGE_RDX]], [[SCALAR_PH]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i8, ptr [[X]], i32 [[I_08]]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds nuw i8, ptr [[X]], i32 [[I_08]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr [[ARRAYIDX]], align 1
 ; CHECK-NEXT:    [[CONV:%.*]] = zext i8 [[TMP5]] to i64
 ; CHECK-NEXT:    [[ADD]] = add nuw nsw i64 [[R_07]], [[CONV]]
@@ -519,9 +519,9 @@ define i64 @mla_i64_i64(ptr nocapture readonly %x, ptr nocapture readonly %y, i3
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_010:%.*]] = phi i32 [ [[INC:%.*]], [[FOR_BODY]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[R_09:%.*]] = phi i64 [ [[ADD:%.*]], [[FOR_BODY]] ], [ 0, [[ENTRY]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[X:%.*]], i32 [[I_010]]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds nuw i64, ptr [[X:%.*]], i32 [[I_010]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i64, ptr [[ARRAYIDX]], align 8
-; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds i64, ptr [[Y:%.*]], i32 [[I_010]]
+; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds nuw i64, ptr [[Y:%.*]], i32 [[I_010]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i64, ptr [[ARRAYIDX1]], align 8
 ; CHECK-NEXT:    [[MUL:%.*]] = mul nsw i64 [[TMP1]], [[TMP0]]
 ; CHECK-NEXT:    [[ADD]] = add nsw i64 [[MUL]], [[R_09]]
@@ -591,9 +591,9 @@ define i64 @mla_i32_i64(ptr nocapture readonly %x, ptr nocapture readonly %y, i3
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_010:%.*]] = phi i32 [ [[INC:%.*]], [[FOR_BODY]] ], [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ]
 ; CHECK-NEXT:    [[R_09:%.*]] = phi i64 [ [[ADD:%.*]], [[FOR_BODY]] ], [ [[BC_MERGE_RDX]], [[SCALAR_PH]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[X]], i32 [[I_010]]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds nuw i32, ptr [[X]], i32 [[I_010]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
-; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds i32, ptr [[Y]], i32 [[I_010]]
+; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds nuw i32, ptr [[Y]], i32 [[I_010]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr [[ARRAYIDX1]], align 4
 ; CHECK-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP8]], [[TMP7]]
 ; CHECK-NEXT:    [[CONV:%.*]] = sext i32 [[MUL]] to i64
@@ -667,10 +667,10 @@ define i64 @mla_i16_i64(ptr nocapture readonly %x, ptr nocapture readonly %y, i3
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_012:%.*]] = phi i32 [ [[INC:%.*]], [[FOR_BODY]] ], [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ]
 ; CHECK-NEXT:    [[R_011:%.*]] = phi i64 [ [[ADD:%.*]], [[FOR_BODY]] ], [ [[BC_MERGE_RDX]], [[SCALAR_PH]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i16, ptr [[X]], i32 [[I_012]]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds nuw i16, ptr [[X]], i32 [[I_012]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = load i16, ptr [[ARRAYIDX]], align 2
 ; CHECK-NEXT:    [[CONV:%.*]] = sext i16 [[TMP9]] to i32
-; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds i16, ptr [[Y]], i32 [[I_012]]
+; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds nuw i16, ptr [[Y]], i32 [[I_012]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = load i16, ptr [[ARRAYIDX1]], align 2
 ; CHECK-NEXT:    [[CONV2:%.*]] = sext i16 [[TMP10]] to i32
 ; CHECK-NEXT:    [[MUL:%.*]] = mul nsw i32 [[CONV2]], [[CONV]]
@@ -747,10 +747,10 @@ define i64 @mla_i8_i64(ptr nocapture readonly %x, ptr nocapture readonly %y, i32
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_012:%.*]] = phi i32 [ [[INC:%.*]], [[FOR_BODY]] ], [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ]
 ; CHECK-NEXT:    [[R_011:%.*]] = phi i64 [ [[ADD:%.*]], [[FOR_BODY]] ], [ [[BC_MERGE_RDX]], [[SCALAR_PH]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i8, ptr [[X]], i32 [[I_012]]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds nuw i8, ptr [[X]], i32 [[I_012]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = load i8, ptr [[ARRAYIDX]], align 1
 ; CHECK-NEXT:    [[CONV:%.*]] = zext i8 [[TMP9]] to i32
-; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds i8, ptr [[Y]], i32 [[I_012]]
+; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds nuw i8, ptr [[Y]], i32 [[I_012]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = load i8, ptr [[ARRAYIDX1]], align 1
 ; CHECK-NEXT:    [[CONV2:%.*]] = zext i8 [[TMP10]] to i32
 ; CHECK-NEXT:    [[MUL:%.*]] = mul nuw nsw i32 [[CONV2]], [[CONV]]
