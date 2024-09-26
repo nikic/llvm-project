@@ -242,10 +242,7 @@ private:
   bool isSmall() const { return Set.empty(); }
 
   VIterator vfind(const T &V) const {
-    for (VIterator I = Vector.begin(), E = Vector.end(); I != E; ++I)
-      if (*I == V)
-        return I;
-    return Vector.end();
+    return std::find(Vector.begin(), Vector.end(), V);
   }
 };
 
