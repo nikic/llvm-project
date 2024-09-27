@@ -655,7 +655,7 @@ option(LLVM_ENABLE_EXPENSIVE_CHECKS "Enable expensive checks" OFF)
 option(LLVM_ENABLE_STRICT_FIXED_SIZE_VECTORS
        "Enable assertions that type is not scalable in implicit conversion from TypeSize to uint64_t and calls to getNumElements" OFF)
 
-set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING
+set(LLVM_ABI_BREAKING_CHECKS "FORCE_OFF" CACHE STRING
   "Enable abi-breaking checks.  Can be WITH_ASSERTS, FORCE_ON or FORCE_OFF.")
 
 option(LLVM_FORCE_USE_OLD_TOOLCHAIN
