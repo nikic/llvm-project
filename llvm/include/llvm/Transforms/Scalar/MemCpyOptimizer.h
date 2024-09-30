@@ -50,6 +50,8 @@ class MemCpyOptPass : public PassInfoMixin<MemCpyOptPass> {
   MemorySSA *MSSA = nullptr;
   MemorySSAUpdater *MSSAU = nullptr;
   EarliestEscapeInfo *EEI = nullptr;
+  BatchAAResults *BAA = nullptr;
+  SmallVector<Instruction *, 8> DeadInsts;
 
 public:
   MemCpyOptPass() = default;
@@ -71,14 +73,10 @@ private:
   bool processMemMove(MemMoveInst *M);
   bool performCallSlotOptzn(Instruction *cpyLoad, Instruction *cpyStore,
                             Value *cpyDst, Value *cpySrc, TypeSize cpyLen,
-                            Align cpyAlign, BatchAAResults &BAA,
-                            std::function<CallInst *()> GetC);
-  bool processMemCpyMemCpyDependence(MemCpyInst *M, MemCpyInst *MDep,
-                                     BatchAAResults &BAA);
-  bool processMemSetMemCpyDependence(MemCpyInst *MemCpy, MemSetInst *MemSet,
-                                     BatchAAResults &BAA);
-  bool performMemCpyToMemSetOptzn(MemCpyInst *MemCpy, MemSetInst *MemSet,
-                                  BatchAAResults &BAA);
+                            Align cpyAlign, std::function<CallInst *()> GetC);
+  bool processMemCpyMemCpyDependence(MemCpyInst *M, MemCpyInst *MDep);
+  bool processMemSetMemCpyDependence(MemCpyInst *MemCpy, MemSetInst *MemSet);
+  bool performMemCpyToMemSetOptzn(MemCpyInst *MemCpy, MemSetInst *MemSet);
   bool processByValArgument(CallBase &CB, unsigned ArgNo);
   bool processImmutArgument(CallBase &CB, unsigned ArgNo);
   Instruction *tryMergingIntoMemset(Instruction *I, Value *StartPtr,
@@ -86,7 +84,7 @@ private:
   bool moveUp(StoreInst *SI, Instruction *P, const LoadInst *LI);
   bool performStackMoveOptzn(Instruction *Load, Instruction *Store,
                              AllocaInst *DestAlloca, AllocaInst *SrcAlloca,
-                             TypeSize Size, BatchAAResults &BAA);
+                             TypeSize Size);
 
   void eraseInstruction(Instruction *I);
   bool iterateOnFunction(Function &F);
