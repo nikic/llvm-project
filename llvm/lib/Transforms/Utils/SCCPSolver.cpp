@@ -383,6 +383,125 @@ void SCCPSolver::inferArgAttributes() const {
   }
 }
 
+// GuaranteedBoundsPropagator is a class that propagates
+// guaranteed bounds for values. Typically, a ValueLatticeElement
+// associated with a frequently visited Phi node is marked as "overdefined" to
+// prevent excessive iterations. However, GuaranteedBoundsPropagator enhances
+// this by propagating guaranteed bounds up to the Phi node, potentially
+// improving precision.
+// Consider a scenario where a variable 'x' is evaluated in a branch with the
+// condition 'x < 10'. In this case, we can confidently assert that 'x' will not
+// exceed 10. GuaranteedBoundsPropagator leverages this information by
+// propagating such guaranteed bounds up to the relevant Phi node. If all
+// incoming values to the Phi node have guaranteed bounds, the union of these
+// bounds will represent the guaranteed bounds for the Phi node itself. Once
+// these bounds are established for the Phi node, they can be propagated further
+// to other values that depend on this Phi node.
+// However, if not all incoming branches to the Phi node have been explored or
+// are active, the bounds for the Phi node cannot be fully guaranteed. In such
+// cases, the propagator may still apply the best available bounds to the Phi
+// node instead of marking it as overdefined. These bounds remain valid unless
+// new branches become active. If any active incoming branches lack guaranteed
+// bounds, the Phi node's state need to be adjusted to overdefined.
+class GuaranteedBoundsPropagator {
+  DenseMap<Value *, ConstantRange> GuaranteedBounds;
+
+public:
+  std::optional<ConstantRange> getGuaranteedBounds(Value *V) {
+    if (!V->getType()->isIntegerTy())
+      return {};
+    if (Constant *C = dyn_cast<Constant>(V))
+      return C->toConstantRange();
+    auto It = GuaranteedBounds.find(V);
+    if (It == GuaranteedBounds.end())
+      return {};
+    auto &Range = It->second;
+    if (Range.isFullSet())
+      return {};
+    return Range;
+  }
+
+  void insertOrUpdate(Value *V, const ConstantRange &CR) {
+    if (CR.isFullSet())
+      return;
+    auto It = GuaranteedBounds.find(V);
+    if (It == GuaranteedBounds.end()) {
+      GuaranteedBounds.insert({V, CR});
+    } else {
+      It->second = CR;
+    }
+  }
+
+  // If ImposedCR is not full set, then we update guaranteed bounds
+  // of OutputValue. If in addition InputValue has guaranteed bounds,
+  // we update the guaranteed bounds of OutputValue to be the intersection
+  // of the two.
+  void processConditionalBranch(Value *OutputValue, Value *InputValue,
+                                const ConstantRange &ImposedCR);
+
+  // Updates the guaranteed bounds of the corresponding value if the
+  // operands have guaranteed bounds.
+  void processBinaryOp(Instruction *I);
+
+  // If guaranteed bounds from all incoming edges are known, the union of all
+  // of the bounds is returned. The flag \p IsBoundGuaranteed is set to true.
+  // If all the incoming edges were not explored yet, but the ones that were
+  // all have guaranteed bounds, the union of the bounds is returned and the
+  // flag \p IsBoundGuaranteed is set to false. If some of the incoming edges
+  // do not have guaranteed bounds (or we failed to calculate union),
+  // the function returns std::nullopt.
+  std::optional<ConstantRange> processPhiNode(
+      PHINode *PN,
+      const SmallVector<Value *, 8> &IncomingValuesFromActiveBranches);
+};
+
+// The MonotonicityTracker class evaluates whether a variable x, which is
+// subject to various functional transformations within a loop, maintains a
+// consistent pattern of monotonicity. Monotonicity, in this context, refers
+// to the property of a sequence where its elements consistently increase
+// or decrease. When a variable x enters a loop and is transformed by a series
+// of operations before it merges back at a PHI node, this class checks if all
+// transformations applied to x preserve the same type of monotonicity
+// (either increasing or decreasing). If the monotonicity is consistent and
+// increasing, for instance, it can be inferred that the value of x at the end
+// of the loop will always be greater than its initial value at the start
+// of the loop.
+class MonotonicityTracker {
+public:
+  enum class Monotonicity {
+    UNKNOWN,
+    CONSTANT,
+    INCREASING,
+    DECREASING,
+  };
+
+  Monotonicity getMonotonicity(Value *V) const {
+    if (isa<Constant>(V))
+      return Monotonicity::CONSTANT;
+    auto It = MonotonicityMap.find(V);
+    if (It == MonotonicityMap.end())
+      return Monotonicity::UNKNOWN;
+    return It->second;
+  }
+
+  void processSSACopyIntrinsic(CallBase &CB) {
+    Value *Op = CB.getOperand(0);
+    Monotonicity OpMonotonicity = getMonotonicity(Op);
+    if (OpMonotonicity == Monotonicity::UNKNOWN)
+      return;
+    MonotonicityMap[&CB] = OpMonotonicity;
+  }
+
+  void processPhiNode(
+      PHINode &PN,
+      const SmallVector<Value *, 8> &IncomingValuesFromActiveBranches);
+
+  void processBinaryOp(Instruction &I);
+
+private:
+  DenseMap<Value *, Monotonicity> MonotonicityMap;
+};
+
 /// Helper class for SCCPSolver. This implements the instruction visitor and
 /// holds all the state.
 class SCCPInstVisitor : public InstVisitor<SCCPInstVisitor> {
@@ -449,6 +568,10 @@ class SCCPInstVisitor : public InstVisitor<SCCPInstVisitor> {
   DenseMap<Function *, std::unique_ptr<PredicateInfo>> FnPredicateInfo;
 
   DenseMap<Value *, SmallSetVector<User *, 2>> AdditionalUsers;
+
+  GuaranteedBoundsPropagator BoundsPropagator;
+
+  MonotonicityTracker MonotonicityTrackerObj;
 
   LLVMContext &Ctx;
 
@@ -915,6 +1038,11 @@ public:
     }
     Invalidated.clear();
   }
+
+  bool mergeInWithBoundsOverrideForPhi(
+      PHINode &PN,
+      const SmallVector<Value *, 8> &IncomingValuesFromActiveBranches,
+      ValueLatticeElement &PhiState);
 };
 
 } // namespace llvm
@@ -1223,6 +1351,65 @@ bool SCCPInstVisitor::isEdgeFeasible(BasicBlock *From, BasicBlock *To) const {
   return KnownFeasibleEdges.count(Edge(From, To));
 }
 
+bool SCCPInstVisitor::mergeInWithBoundsOverrideForPhi(
+    PHINode &PN,
+    const SmallVector<Value *, 8> &IncomingValuesFromActiveBranches,
+    ValueLatticeElement &PhiState) {
+  if (!PhiState.isConstantRange(false))
+    return false;
+  auto &OldState = getValueState(&PN);
+  if (!OldState.isConstantRange(false))
+    return false;
+  ConstantRange OldStateRange = OldState.getConstantRange();
+  ConstantRange NewStateRange = PhiState.getConstantRange();
+  unsigned NumActiveIncoming = IncomingValuesFromActiveBranches.size();
+  if (OldStateRange == NewStateRange ||
+      OldState.getNumRangeExtensions() <= NumActiveIncoming)
+    return false;
+
+  // At this point we visited Phi node too many times and need
+  // to extend the range
+  MonotonicityTracker::Monotonicity Monotonicity =
+      MonotonicityTrackerObj.getMonotonicity(&PN);
+
+  // Monotonicity cannot be CONSTANT, otherwise the range should not
+  // have changed
+  if (Monotonicity == MonotonicityTracker::Monotonicity::INCREASING &&
+      OldStateRange.getUpper() == NewStateRange.getUpper()) {
+    mergeInValue(&PN, PhiState);
+    return true;
+  }
+
+  if (Monotonicity == MonotonicityTracker::Monotonicity::DECREASING &&
+      OldStateRange.getLower() == NewStateRange.getLower()) {
+    mergeInValue(&PN, PhiState);
+    return true;
+  }
+
+  auto OptionalBestBounds =
+      BoundsPropagator.processPhiNode(&PN, IncomingValuesFromActiveBranches);
+  if (!OptionalBestBounds)
+    return false;
+  if (Monotonicity == MonotonicityTracker::Monotonicity::INCREASING) {
+    mergeInValue(
+        &PN, ValueLatticeElement::getRange(ConstantRange(
+                 NewStateRange.getLower(), OptionalBestBounds->getUpper())));
+    return true;
+  }
+
+  if (Monotonicity == MonotonicityTracker::Monotonicity::DECREASING &&
+      OptionalBestBounds) {
+    mergeInValue(
+        &PN, ValueLatticeElement::getRange(ConstantRange(
+                 OptionalBestBounds->getLower(), NewStateRange.getUpper())));
+    return true;
+  }
+
+  PhiState = ValueLatticeElement::getRange(*OptionalBestBounds);
+  mergeInValue(&PN, PhiState);
+  return true;
+}
+
 // visit Implementations - Something changed in this instruction, either an
 // operand made a transition, or the instruction is newly executable.  Change
 // the value type of I to reflect these changes if appropriate.  This method
@@ -1255,6 +1442,7 @@ void SCCPInstVisitor::visitPHINode(PHINode &PN) {
     return (void)markOverdefined(&PN);
 
   unsigned NumActiveIncoming = 0;
+  SmallVector<Value *, 8> IncomingValuesFromActiveBranches;
 
   // Look at all of the executable operands of the PHI node.  If any of them
   // are overdefined, the PHI becomes overdefined as well.  If they are all
@@ -1265,13 +1453,22 @@ void SCCPInstVisitor::visitPHINode(PHINode &PN) {
   for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i) {
     if (!isEdgeFeasible(PN.getIncomingBlock(i), PN.getParent()))
       continue;
-
+    IncomingValuesFromActiveBranches.push_back(PN.getIncomingValue(i));
     ValueLatticeElement IV = getValueState(PN.getIncomingValue(i));
     PhiState.mergeIn(IV);
     NumActiveIncoming++;
     if (PhiState.isOverdefined())
       break;
   }
+
+  MonotonicityTrackerObj.processPhiNode(PN, IncomingValuesFromActiveBranches);
+
+  // If we have visited this PHI node too many times, we first check
+  // if there is a known bounds we could use. If not, the state will
+  // be maked as overdefined.
+  if (mergeInWithBoundsOverrideForPhi(PN, IncomingValuesFromActiveBranches,
+                                      PhiState))
+    return;
 
   // We allow up to 1 range extension per active incoming value and one
   // additional extension. Note that we manually adjust the number of range
@@ -1280,7 +1477,7 @@ void SCCPInstVisitor::visitPHINode(PHINode &PN) {
   // incoming values are equal.
   mergeInValue(&PN, PhiState,
                ValueLatticeElement::MergeOptions().setMaxWidenSteps(
-                   NumActiveIncoming + 1));
+                   NumActiveIncoming + 2));
   ValueLatticeElement &PhiStateRef = getValueState(&PN);
   PhiStateRef.setNumRangeExtensions(
       std::max(NumActiveIncoming, PhiStateRef.getNumRangeExtensions()));
@@ -1546,6 +1743,8 @@ void SCCPInstVisitor::visitBinaryOperator(Instruction &I) {
   if (V1State.isOverdefined() && V2State.isOverdefined())
     return (void)markOverdefined(&I);
 
+  MonotonicityTrackerObj.processBinaryOp(I);
+
   // If either of the operands is a constant, try to fold it to a constant.
   // TODO: Use information from notconstant better.
   if ((V1State.isConstant() || V2State.isConstant())) {
@@ -1585,6 +1784,8 @@ void SCCPInstVisitor::visitBinaryOperator(Instruction &I) {
     R = A.overflowingBinaryOp(BO->getOpcode(), B, OBO->getNoWrapKind());
   else
     R = A.binaryOp(BO->getOpcode(), B);
+
+  BoundsPropagator.processBinaryOp(&I);
   mergeInValue(&I, ValueLatticeElement::getRange(R));
 
   // TODO: Currently we do not exploit special values that produce something
@@ -1849,6 +2050,7 @@ void SCCPInstVisitor::handleCallResult(CallBase &CB) {
 
   if (auto *II = dyn_cast<IntrinsicInst>(&CB)) {
     if (II->getIntrinsicID() == Intrinsic::ssa_copy) {
+      MonotonicityTrackerObj.processSSACopyIntrinsic(CB);
       if (ValueState[&CB].isOverdefined())
         return;
 
@@ -1880,9 +2082,12 @@ void SCCPInstVisitor::handleCallResult(CallBase &CB) {
             ConstantRange::getFull(DL.getTypeSizeInBits(CopyOf->getType()));
 
         // Get the range imposed by the condition.
-        if (CondVal.isConstantRange())
+        if (CondVal.isConstantRange()) {
           ImposedCR = ConstantRange::makeAllowedICmpRegion(
               Pred, CondVal.getConstantRange());
+          if (BoundsPropagator.getGuaranteedBounds(OtherOp))
+            BoundsPropagator.processConditionalBranch(&CB, CopyOf, ImposedCR);
+        }
 
         // Combine range info for the original value with the new range from the
         // condition.
@@ -2252,3 +2457,139 @@ void SCCPSolver::markFunctionUnreachable(Function *F) {
 void SCCPSolver::visit(Instruction *I) { Visitor->visit(I); }
 
 void SCCPSolver::visitCall(CallInst &I) { Visitor->visitCall(I); }
+
+void GuaranteedBoundsPropagator::processConditionalBranch(
+    Value *OutputValue, Value *InputValue, const ConstantRange &ImposedCR) {
+  auto OptionalInputValueBounds = getGuaranteedBounds(InputValue);
+  if (OptionalInputValueBounds)
+    insertOrUpdate(OutputValue,
+                   ImposedCR.intersectWith(*OptionalInputValueBounds));
+  else
+    insertOrUpdate(OutputValue, ImposedCR);
+}
+
+void GuaranteedBoundsPropagator::processBinaryOp(Instruction *I) {
+  auto *BO = cast<BinaryOperator>(I);
+  assert(BO && "Expected binary op");
+  auto OptionalLHSBounds = getGuaranteedBounds(BO->getOperand(0));
+  auto OptionalRHSBounds = getGuaranteedBounds(BO->getOperand(1));
+  if (!OptionalLHSBounds || !OptionalRHSBounds)
+    return;
+  ConstantRange R =
+      ConstantRange::getEmpty(I->getType()->getScalarSizeInBits());
+  if (auto *OBO = dyn_cast<OverflowingBinaryOperator>(BO))
+    R = OptionalLHSBounds->overflowingBinaryOp(
+        BO->getOpcode(), *OptionalRHSBounds, OBO->getNoWrapKind());
+  else
+    R = OptionalLHSBounds->binaryOp(BO->getOpcode(), *OptionalRHSBounds);
+  insertOrUpdate(I, R);
+}
+
+std::optional<ConstantRange> GuaranteedBoundsPropagator::processPhiNode(
+    PHINode *PN,
+    const SmallVector<Value *, 8> &IncomingValuesFromActiveBranches) {
+  auto OptionalExistingBounds = getGuaranteedBounds(PN);
+  if (OptionalExistingBounds)
+    return *OptionalExistingBounds;
+
+  ConstantRange R =
+      ConstantRange::getEmpty(PN->getType()->getScalarSizeInBits());
+  for (Value *IncomingValue : IncomingValuesFromActiveBranches) {
+    auto OptionalIncomingBounds = getGuaranteedBounds(IncomingValue);
+    if (!OptionalIncomingBounds)
+      return {};
+    // TODO: Handle disjoint ranges in the future, if needed.
+    auto OptionalUnion = R.exactUnionWith(*OptionalIncomingBounds);
+    if (!OptionalUnion)
+      return {};
+    R = *OptionalUnion;
+  }
+  if (PN->getNumIncomingValues() == IncomingValuesFromActiveBranches.size())
+    insertOrUpdate(PN, R);
+  return R;
+}
+
+void MonotonicityTracker::processPhiNode(
+    PHINode &PN,
+    const SmallVector<Value *, 8> &IncomingValuesFromActiveBranches) {
+  Monotonicity MI = Monotonicity::UNKNOWN;
+  // If all incoming values have the same monotonicity, then the phi
+  // node will be assinged the same monotonicity as well. However, if
+  // there are different monotonicities or unknown for some incoming values,
+  // then the phi node will be assigned UNKNOWN.
+  for (Value *IncomingValue : IncomingValuesFromActiveBranches) {
+    auto IncomingMonotonicity = getMonotonicity(IncomingValue);
+    if (IncomingMonotonicity == Monotonicity::UNKNOWN) {
+      MI = IncomingMonotonicity;
+      break;
+    }
+    if (IncomingMonotonicity == Monotonicity::CONSTANT &&
+        MI != Monotonicity::UNKNOWN)
+      continue;
+    if (MI != IncomingMonotonicity && MI != Monotonicity::UNKNOWN &&
+        MI != Monotonicity::CONSTANT) {
+      MI = Monotonicity::UNKNOWN;
+      break;
+    }
+    if (MI == Monotonicity::UNKNOWN || MI == Monotonicity::CONSTANT)
+      MI = IncomingMonotonicity;
+  }
+  MonotonicityMap[&PN] = MI;
+}
+
+static bool increasingOrConst(MonotonicityTracker::Monotonicity M) {
+  return M == MonotonicityTracker::Monotonicity::INCREASING ||
+         M == MonotonicityTracker::Monotonicity::CONSTANT;
+}
+
+static bool decreasingOrConst(MonotonicityTracker::Monotonicity M) {
+  return M == MonotonicityTracker::Monotonicity::DECREASING ||
+         M == MonotonicityTracker::Monotonicity::CONSTANT;
+}
+
+void MonotonicityTracker::processBinaryOp(Instruction &I) {
+  auto *BO = dyn_cast<OverflowingBinaryOperator>(&I);
+  if (!I.getType()->isIntegerTy())
+    return;
+  if (!BO || !(BO->hasNoSignedWrap() || BO->hasNoUnsignedWrap()))
+    return;
+  if (isa<Constant>(BO->getOperand(0)) && isa<Constant>(BO->getOperand(1))) {
+    MonotonicityMap[&I] = Monotonicity::CONSTANT;
+    return;
+  }
+  if (!isa<Constant>(BO->getOperand(0)) && !isa<Constant>(BO->getOperand(1))) {
+    MonotonicityMap[&I] = Monotonicity::UNKNOWN;
+    return;
+  }
+  // Here one operand must be a constant and the other must be a variable.
+  ConstantInt *C;
+  Value *NonConstOp;
+  if (isa<Constant>(BO->getOperand(0))) {
+    C = cast<ConstantInt>(BO->getOperand(0));
+    NonConstOp = BO->getOperand(1);
+  } else {
+    C = cast<ConstantInt>(BO->getOperand(1));
+    NonConstOp = BO->getOperand(0);
+  }
+  Monotonicity NonConstOpMonotonicity = getMonotonicity(NonConstOp);
+  if (BO->getOpcode() == Instruction::Add) {
+    if (increasingOrConst(NonConstOpMonotonicity) && !C->isNegative()) {
+      MonotonicityMap[&I] = Monotonicity::INCREASING;
+      return;
+    } else if (decreasingOrConst(NonConstOpMonotonicity) && C->isNegative()) {
+      MonotonicityMap[&I] = Monotonicity::DECREASING;
+      return;
+    }
+  }
+  // Handle subtraction only if it is in the form of "x - constant".
+  if (BO->getOpcode() == Instruction::Sub &&
+      !isa<Constant>(BO->getOperand(0))) {
+    if (decreasingOrConst(NonConstOpMonotonicity) && !C->isNegative()) {
+      MonotonicityMap[&I] = Monotonicity::DECREASING;
+      return;
+    } else if (increasingOrConst(NonConstOpMonotonicity) && C->isNegative()) {
+      MonotonicityMap[&I] = Monotonicity::INCREASING;
+      return;
+    }
+  }
+}
