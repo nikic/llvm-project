@@ -1811,6 +1811,7 @@ void ShuffleVectorInst::getShuffleMask(const Constant *Mask,
 }
 
 void ShuffleVectorInst::setShuffleMask(ArrayRef<int> Mask) {
+  CachedShuffleProperties.unset();
   ShuffleMask.assign(Mask.begin(), Mask.end());
   ShuffleMaskForBitcode = convertShuffleMaskForBitcode(Mask, getType());
 }
@@ -2101,63 +2102,77 @@ bool ShuffleVectorInst::isInsertSubvectorMask(ArrayRef<int> Mask,
 }
 
 bool ShuffleVectorInst::isIdentityWithPadding() const {
+  if (CachedShuffleProperties.isIdentityWithPadding_set)
+    return CachedShuffleProperties.isIdentityWithPadding;
+
+  CachedShuffleProperties.isIdentityWithPadding_set = true;
   // FIXME: Not currently possible to express a shuffle mask for a scalable
   // vector for this case.
   if (isa<ScalableVectorType>(getType()))
-    return false;
+    return CachedShuffleProperties.isIdentityWithPadding = false;
 
   int NumOpElts = cast<FixedVectorType>(Op<0>()->getType())->getNumElements();
   int NumMaskElts = cast<FixedVectorType>(getType())->getNumElements();
   if (NumMaskElts <= NumOpElts)
-    return false;
+    return CachedShuffleProperties.isIdentityWithPadding = false;
 
   // The first part of the mask must choose elements from exactly 1 source op.
   ArrayRef<int> Mask = getShuffleMask();
   if (!isIdentityMaskImpl(Mask, NumOpElts))
-    return false;
+    return CachedShuffleProperties.isIdentityWithPadding = false;
 
   // All extending must be with undef elements.
   for (int i = NumOpElts; i < NumMaskElts; ++i)
     if (Mask[i] != -1)
-      return false;
+      return CachedShuffleProperties.isIdentityWithPadding = false;
 
-  return true;
+  return CachedShuffleProperties.isIdentityWithPadding = true;
 }
 
 bool ShuffleVectorInst::isIdentityWithExtract() const {
+  if (CachedShuffleProperties.isIdentityWithExtract_set)
+    return CachedShuffleProperties.isIdentityWithExtract;
+
+  CachedShuffleProperties.isIdentityWithExtract_set = true;
   // FIXME: Not currently possible to express a shuffle mask for a scalable
   // vector for this case.
   if (isa<ScalableVectorType>(getType()))
-    return false;
+    return CachedShuffleProperties.isIdentityWithExtract = false;
 
   int NumOpElts = cast<FixedVectorType>(Op<0>()->getType())->getNumElements();
   int NumMaskElts = cast<FixedVectorType>(getType())->getNumElements();
   if (NumMaskElts >= NumOpElts)
-    return false;
+    return CachedShuffleProperties.isIdentityWithExtract = false;
 
-  return isIdentityMaskImpl(getShuffleMask(), NumOpElts);
+  return CachedShuffleProperties.isIdentityWithExtract =
+             isIdentityMaskImpl(getShuffleMask(), NumOpElts);
 }
 
 bool ShuffleVectorInst::isConcat() const {
+  if (CachedShuffleProperties.isConcat_set)
+    return CachedShuffleProperties.isConcat;
+
+  CachedShuffleProperties.isConcat_set = true;
   // Vector concatenation is differentiated from identity with padding.
   if (isa<UndefValue>(Op<0>()) || isa<UndefValue>(Op<1>()))
-    return false;
+    return CachedShuffleProperties.isConcat = false;
 
   // FIXME: Not currently possible to express a shuffle mask for a scalable
   // vector for this case.
   if (isa<ScalableVectorType>(getType()))
-    return false;
+    return CachedShuffleProperties.isConcat = false;
 
   int NumOpElts = cast<FixedVectorType>(Op<0>()->getType())->getNumElements();
   int NumMaskElts = cast<FixedVectorType>(getType())->getNumElements();
   if (NumMaskElts != NumOpElts * 2)
-    return false;
+    return CachedShuffleProperties.isConcat = false;
 
   // Use the mask length rather than the operands' vector lengths here. We
   // already know that the shuffle returns a vector twice as long as the inputs,
   // and neither of the inputs are undef vectors. If the mask picks consecutive
   // elements from both inputs, then this is a concatenation of the inputs.
-  return isIdentityMaskImpl(getShuffleMask(), NumMaskElts);
+  return CachedShuffleProperties.isConcat =
+             isIdentityMaskImpl(getShuffleMask(), NumMaskElts);
 }
 
 static bool isReplicationMaskWithParams(ArrayRef<int> Mask,

@@ -1848,6 +1848,39 @@ class ShuffleVectorInst : public Instruction {
 
   SmallVector<int, 4> ShuffleMask;
   Constant *ShuffleMaskForBitcode;
+  struct ShuffleProperties {
+    bool isSingleSource : 1;
+    bool isSingleSource_set : 1;
+    bool isIdentityMask : 1;
+    bool isIdentityMask_set : 1;
+    bool isIdentityWithPadding : 1;
+    bool isIdentityWithPadding_set : 1;
+    bool isIdentityWithExtract : 1;
+    bool isIdentityWithExtract_set : 1;
+    bool isConcat : 1;
+    bool isConcat_set : 1;
+    bool isSelect : 1;
+    bool isSelect_set : 1;
+    bool isReverse : 1;
+    bool isReverse_set : 1;
+    bool isZeroEltSplat : 1;
+    bool isZeroEltSplat_set : 1;
+    bool isTranspose : 1;
+    bool isTranspose_set : 1;
+
+    void unset() {
+      isSingleSource_set = false;
+      isIdentityMask_set = false;
+      isIdentityWithPadding_set = false;
+      isIdentityWithExtract_set = false;
+      isConcat_set = false;
+      isSelect_set = false;
+      isReverse_set = false;
+      isZeroEltSplat_set = false;
+      isTranspose_set = false;
+    }
+  };
+  mutable ShuffleProperties CachedShuffleProperties = {};
 
 protected:
   // Note: Instruction needs to be a friend here to call cloneImpl.
@@ -1959,8 +1992,13 @@ public:
   /// Example: shufflevector <4 x n> A, <4 x n> B, <3,0,undef,3>
   /// TODO: Optionally allow length-changing shuffles.
   bool isSingleSource() const {
-    return !changesLength() &&
-           isSingleSourceMask(ShuffleMask, ShuffleMask.size());
+    if (CachedShuffleProperties.isSingleSource_set)
+      return CachedShuffleProperties.isSingleSource;
+
+    CachedShuffleProperties.isSingleSource_set = true;
+    return CachedShuffleProperties.isSingleSource =
+               !changesLength() &&
+               isSingleSourceMask(ShuffleMask, ShuffleMask.size());
   }
 
   /// Return true if this shuffle mask chooses elements from exactly one source
@@ -1987,12 +2025,18 @@ public:
   /// from its input vectors.
   /// Example: shufflevector <4 x n> A, <4 x n> B, <4,undef,6,undef>
   bool isIdentity() const {
+    if (CachedShuffleProperties.isIdentityMask_set)
+      return CachedShuffleProperties.isIdentityMask;
+
+    CachedShuffleProperties.isIdentityMask_set = true;
     // Not possible to express a shuffle mask for a scalable vector for this
     // case.
     if (isa<ScalableVectorType>(getType()))
-      return false;
+      return CachedShuffleProperties.isIdentityMask = false;
 
-    return !changesLength() && isIdentityMask(ShuffleMask, ShuffleMask.size());
+    return CachedShuffleProperties.isIdentityMask =
+               !changesLength() &&
+               isIdentityMask(ShuffleMask, ShuffleMask.size());
   }
 
   /// Return true if this shuffle lengthens exactly one source vector with
@@ -2033,7 +2077,13 @@ public:
   /// In that case, the shuffle is better classified as an identity shuffle.
   /// TODO: Optionally allow length-changing shuffles.
   bool isSelect() const {
-    return !changesLength() && isSelectMask(ShuffleMask, ShuffleMask.size());
+    if (CachedShuffleProperties.isSelect_set)
+      return CachedShuffleProperties.isSelect;
+
+    CachedShuffleProperties.isSelect_set = true;
+    return CachedShuffleProperties.isSelect =
+               !changesLength() &&
+               isSelectMask(ShuffleMask, ShuffleMask.size());
   }
 
   /// Return true if this shuffle mask swaps the order of elements from exactly
@@ -2054,7 +2104,13 @@ public:
   /// Example: shufflevector <4 x n> A, <4 x n> B, <3,undef,1,undef>
   /// TODO: Optionally allow length-changing shuffles.
   bool isReverse() const {
-    return !changesLength() && isReverseMask(ShuffleMask, ShuffleMask.size());
+    if (CachedShuffleProperties.isReverse_set)
+      return CachedShuffleProperties.isReverse;
+
+    CachedShuffleProperties.isReverse_set = true;
+    return CachedShuffleProperties.isReverse =
+               !changesLength() &&
+               isReverseMask(ShuffleMask, ShuffleMask.size());
   }
 
   /// Return true if this shuffle mask chooses all elements with the same value
@@ -2077,8 +2133,13 @@ public:
   /// TODO: Optionally allow length-changing shuffles.
   /// TODO: Optionally allow splats from other elements.
   bool isZeroEltSplat() const {
-    return !changesLength() &&
-           isZeroEltSplatMask(ShuffleMask, ShuffleMask.size());
+    if (CachedShuffleProperties.isZeroEltSplat_set)
+      return CachedShuffleProperties.isZeroEltSplat;
+
+    CachedShuffleProperties.isZeroEltSplat_set = true;
+    return CachedShuffleProperties.isZeroEltSplat =
+               !changesLength() &&
+               isZeroEltSplatMask(ShuffleMask, ShuffleMask.size());
   }
 
   /// Return true if this shuffle mask is a transpose mask.
@@ -2127,7 +2188,13 @@ public:
   /// exact specification.
   /// Example: shufflevector <4 x n> A, <4 x n> B, <0,4,2,6>
   bool isTranspose() const {
-    return !changesLength() && isTransposeMask(ShuffleMask, ShuffleMask.size());
+    if (CachedShuffleProperties.isTranspose_set)
+      return CachedShuffleProperties.isTranspose;
+
+    CachedShuffleProperties.isTranspose_set = true;
+    return CachedShuffleProperties.isTranspose =
+               !changesLength() &&
+               isTransposeMask(ShuffleMask, ShuffleMask.size());
   }
 
   /// Return true if this shuffle mask is a splice mask, concatenating the two
