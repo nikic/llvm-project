@@ -88,14 +88,15 @@ static Instruction *getContextInstForUse(Use &U) {
 namespace {
 /// Struct to express a condition of the form %Op0 Pred %Op1.
 struct ConditionTy {
-  CmpInst::Predicate Pred;
-  Value *Op0;
-  Value *Op1;
+  CmpInst::Predicate Pred = CmpInst::BAD_ICMP_PREDICATE;
+  bool HasSameSign = false;
+  Value *Op0 = nullptr;
+  Value *Op1 = nullptr;
 
-  ConditionTy()
-      : Pred(CmpInst::BAD_ICMP_PREDICATE), Op0(nullptr), Op1(nullptr) {}
-  ConditionTy(CmpInst::Predicate Pred, Value *Op0, Value *Op1)
-      : Pred(Pred), Op0(Op0), Op1(Op1) {}
+  ConditionTy() = default;
+  ConditionTy(CmpInst::Predicate Pred, Value *Op0, Value *Op1,
+              bool HasSameSign = false)
+      : Pred(Pred), HasSameSign(HasSameSign), Op0(Op0), Op1(Op1) {}
 };
 
 /// Represents either
@@ -132,19 +133,25 @@ struct FactOrCheck {
         Ty(Ty) {}
 
   FactOrCheck(DomTreeNode *DTN, Use *U)
-      : U(U), DoesHold(CmpInst::BAD_ICMP_PREDICATE, nullptr, nullptr),
-        NumIn(DTN->getDFSNumIn()), NumOut(DTN->getDFSNumOut()),
+      : U(U), NumIn(DTN->getDFSNumIn()), NumOut(DTN->getDFSNumOut()),
         Ty(EntryTy::UseCheck) {}
 
   FactOrCheck(DomTreeNode *DTN, CmpInst::Predicate Pred, Value *Op0, Value *Op1,
-              ConditionTy Precond = ConditionTy())
-      : Cond(Pred, Op0, Op1), DoesHold(Precond), NumIn(DTN->getDFSNumIn()),
-        NumOut(DTN->getDFSNumOut()), Ty(EntryTy::ConditionFact) {}
+              ConditionTy Precond = {}, bool HasSameSign = false)
+      : Cond(Pred, Op0, Op1, HasSameSign), DoesHold(Precond),
+        NumIn(DTN->getDFSNumIn()), NumOut(DTN->getDFSNumOut()),
+        Ty(EntryTy::ConditionFact) {}
 
   static FactOrCheck getConditionFact(DomTreeNode *DTN, CmpInst::Predicate Pred,
                                       Value *Op0, Value *Op1,
-                                      ConditionTy Precond = ConditionTy()) {
-    return FactOrCheck(DTN, Pred, Op0, Op1, Precond);
+                                      ConditionTy Precond = {}) {
+    return FactOrCheck(DTN, Pred, Op0, Op1, Precond, false);
+  }
+
+  static FactOrCheck getConditionFact(DomTreeNode *DTN, CmpInst::Predicate Pred,
+                                      Value *Op0, Value *Op1,
+                                      bool HasSameSign) {
+    return FactOrCheck(DTN, Pred, Op0, Op1, {}, HasSameSign);
   }
 
   static FactOrCheck getInstFact(DomTreeNode *DTN, Instruction *Inst) {
@@ -1077,8 +1084,9 @@ void State::addInfoFor(BasicBlock &BB) {
       if (GuaranteedToExecute) {
         // The assume is guaranteed to execute when BB is entered, hence Cond
         // holds on entry to BB.
+        bool HasSameSign = cast<ICmpInst>(I.getOperand(0))->hasSameSign();
         WorkList.emplace_back(FactOrCheck::getConditionFact(
-            DT.getNode(I.getParent()), Pred, A, B));
+            DT.getNode(I.getParent()), Pred, A, B, HasSameSign));
       } else {
         WorkList.emplace_back(
             FactOrCheck::getInstFact(DT.getNode(I.getParent()), &I));
@@ -1160,7 +1168,7 @@ void State::addInfoFor(BasicBlock &BB) {
               DT.getNode(Successor),
               IsOr ? CmpInst::getInversePredicate(Cmp->getPredicate())
                    : Cmp->getPredicate(),
-              Cmp->getOperand(0), Cmp->getOperand(1)));
+              Cmp->getOperand(0), Cmp->getOperand(1), Cmp->hasSameSign()));
           continue;
         }
         if (IsOr && match(Cur, m_LogicalOr(m_Value(Op0), m_Value(Op1)))) {
@@ -1184,12 +1192,12 @@ void State::addInfoFor(BasicBlock &BB) {
   if (canAddSuccessor(BB, Br->getSuccessor(0)))
     WorkList.emplace_back(FactOrCheck::getConditionFact(
         DT.getNode(Br->getSuccessor(0)), CmpI->getPredicate(),
-        CmpI->getOperand(0), CmpI->getOperand(1)));
+        CmpI->getOperand(0), CmpI->getOperand(1), CmpI->hasSameSign()));
   if (canAddSuccessor(BB, Br->getSuccessor(1)))
     WorkList.emplace_back(FactOrCheck::getConditionFact(
         DT.getNode(Br->getSuccessor(1)),
         CmpInst::getInversePredicate(CmpI->getPredicate()), CmpI->getOperand(0),
-        CmpI->getOperand(1)));
+        CmpI->getOperand(1), CmpI->hasSameSign()));
 }
 
 #ifndef NDEBUG
@@ -1780,7 +1788,8 @@ static bool eliminateConstraints(Function &F, DominatorTree &DT, LoopInfo &LI,
       continue;
     }
 
-    auto AddFact = [&](CmpInst::Predicate Pred, Value *A, Value *B) {
+    auto AddFact = [&](CmpInst::Predicate Pred, Value *A, Value *B,
+                       bool HasSameSign = false) {
       LLVM_DEBUG(dbgs() << "Processing fact to add to the system: ";
                  dumpUnpackedICmp(dbgs(), Pred, A, B); dbgs() << "\n");
       if (Info.getCS(CmpInst::isSigned(Pred)).size() > MaxRows) {
@@ -1794,7 +1803,14 @@ static bool eliminateConstraints(Function &F, DominatorTree &DT, LoopInfo &LI,
       if (ReproducerModule && DFSInStack.size() > ReproducerCondStack.size())
         ReproducerCondStack.emplace_back(Pred, A, B);
 
-      Info.transferToOtherSystem(Pred, A, B, CB.NumIn, CB.NumOut, DFSInStack);
+      // If samesign is present on the ICmp, simply transfer the signed system
+      // to the unsigned system, and viceversa.
+      if (HasSameSign)
+        Info.addFact(CmpInst::getFlippedSignednessPredicate(Pred), A, B,
+                     CB.NumIn, CB.NumOut, DFSInStack);
+      else
+        Info.transferToOtherSystem(Pred, A, B, CB.NumIn, CB.NumOut, DFSInStack);
+
       if (ReproducerModule && DFSInStack.size() > ReproducerCondStack.size()) {
         // Add dummy entries to ReproducerCondStack to keep it in sync with
         // DFSInStack.
@@ -1828,7 +1844,9 @@ static bool eliminateConstraints(Function &F, DominatorTree &DT, LoopInfo &LI,
     }
 
     Value *A = nullptr, *B = nullptr;
+    bool HasSameSign = false;
     if (CB.isConditionFact()) {
+      HasSameSign = CB.Cond.HasSameSign;
       Pred = CB.Cond.Pred;
       A = CB.Cond.Op0;
       B = CB.Cond.Op1;
@@ -1847,10 +1865,11 @@ static bool eliminateConstraints(Function &F, DominatorTree &DT, LoopInfo &LI,
     } else {
       bool Matched = match(CB.Inst, m_Intrinsic<Intrinsic::assume>(
                                         m_ICmp(Pred, m_Value(A), m_Value(B))));
+      HasSameSign = cast<ICmpInst>(CB.Inst->getOperand(0))->hasSameSign();
       (void)Matched;
       assert(Matched && "Must have an assume intrinsic with a icmp operand");
     }
-    AddFact(Pred, A, B);
+    AddFact(Pred, A, B, HasSameSign);
   }
 
   if (ReproducerModule && !ReproducerModule->functions().empty()) {
