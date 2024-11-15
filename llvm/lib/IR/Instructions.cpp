@@ -132,6 +132,26 @@ PHINode::PHINode(const PHINode &PN)
   SubclassOptionalData = PN.SubclassOptionalData;
 }
 
+int PHINode::getBasicBlockIndex(const BasicBlock *BB) const {
+  if (getNumOperands() < 4) {
+    for (unsigned i = 0, e = getNumOperands(); i != e; ++i)
+      if (block_begin()[i] == BB)
+        return i;
+    return -1;
+  }
+
+  if (BlockIndices.empty())
+    for (auto [Idx, Block] : enumerate(blocks()))
+      BlockIndices.try_emplace(Block, Idx);
+
+  auto It = BlockIndices.find(BB);
+  if (It != BlockIndices.end()) {
+    assert(getIncomingBlock(It->second) == BB && "BlockIndices out of date");
+    return It->second;
+  }
+  return -1;
+}
+
 // removeIncomingValue - Remove an incoming value.  This is useful if a
 // predecessor basic block is deleted.
 Value *PHINode::removeIncomingValue(unsigned Idx, bool DeletePHIIfEmpty) {
@@ -180,6 +200,7 @@ void PHINode::removeIncomingValueIf(function_ref<bool(unsigned)> Predicate,
                  const_cast<block_iterator>(block_end()), [&](BasicBlock *&BB) {
                    return RemoveIndices.contains(&BB - block_begin());
                  });
+  BlockIndices.clear();
 
   setNumHungOffUseOperands(getNumOperands() - RemoveIndices.size());
 

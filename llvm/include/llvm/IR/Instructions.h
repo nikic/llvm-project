@@ -2555,6 +2555,9 @@ class PHINode : public Instruction {
   /// the number actually in use.
   unsigned ReservedSpace;
 
+  /// Cache of block to index mapping.
+  mutable DenseMap<const BasicBlock *, unsigned> BlockIndices;
+
   PHINode(const PHINode &PN);
 
   explicit PHINode(Type *Ty, unsigned NumReservedValues,
@@ -2664,6 +2667,7 @@ public:
 
   void setIncomingBlock(unsigned i, BasicBlock *BB) {
     const_cast<block_iterator>(block_begin())[i] = BB;
+    BlockIndices.clear();
   }
 
   /// Copies the basic blocks from \p BBRange to the incoming basic block list
@@ -2671,6 +2675,7 @@ public:
   void copyIncomingBlocks(iterator_range<const_block_iterator> BBRange,
                           uint32_t ToIdx = 0) {
     copy(BBRange, const_cast<block_iterator>(block_begin()) + ToIdx);
+    BlockIndices.clear();
   }
 
   /// Replace every incoming basic block \p Old to basic block \p New.
@@ -2716,12 +2721,7 @@ public:
   /// Return the first index of the specified basic
   /// block in the value list for this PHI.  Returns -1 if no instance.
   ///
-  int getBasicBlockIndex(const BasicBlock *BB) const {
-    for (unsigned i = 0, e = getNumOperands(); i != e; ++i)
-      if (block_begin()[i] == BB)
-        return i;
-    return -1;
-  }
+  int getBasicBlockIndex(const BasicBlock *BB) const;
 
   Value *getIncomingValueForBlock(const BasicBlock *BB) const {
     int Idx = getBasicBlockIndex(BB);
