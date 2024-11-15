@@ -2666,8 +2666,14 @@ public:
   }
 
   void setIncomingBlock(unsigned i, BasicBlock *BB) {
+    if (!BlockIndices.empty()) {
+      BasicBlock *OldBB = block_begin()[i];
+      if (!OldBB)
+        BlockIndices.try_emplace(BB, i);
+      else
+        BlockIndices.clear();
+    }
     const_cast<block_iterator>(block_begin())[i] = BB;
-    BlockIndices.clear();
   }
 
   /// Copies the basic blocks from \p BBRange to the incoming basic block list
@@ -2675,7 +2681,6 @@ public:
   void copyIncomingBlocks(iterator_range<const_block_iterator> BBRange,
                           uint32_t ToIdx = 0) {
     copy(BBRange, const_cast<block_iterator>(block_begin()) + ToIdx);
-    BlockIndices.clear();
   }
 
   /// Replace every incoming basic block \p Old to basic block \p New.

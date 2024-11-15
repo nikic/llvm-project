@@ -156,6 +156,7 @@ int PHINode::getBasicBlockIndex(const BasicBlock *BB) const {
 // predecessor basic block is deleted.
 Value *PHINode::removeIncomingValue(unsigned Idx, bool DeletePHIIfEmpty) {
   Value *Removed = getIncomingValue(Idx);
+  BasicBlock *Block = getIncomingBlock(Idx);
 
   // Move everything after this operand down.
   //
@@ -164,6 +165,26 @@ Value *PHINode::removeIncomingValue(unsigned Idx, bool DeletePHIIfEmpty) {
   // use/def lists, which is kinda lame.
   std::copy(op_begin() + Idx + 1, op_end(), op_begin() + Idx);
   copyIncomingBlocks(drop_begin(blocks(), Idx + 1), Idx);
+
+  if (!BlockIndices.empty()) {
+    auto It = BlockIndices.find(Block);
+    assert(It != BlockIndices.end() && "Missing BlockIndices entry");
+    assert(It->second <= Idx && "Unexpected cached index");
+    if (It->second == Idx)
+      BlockIndices.erase(It);
+    for (auto [I, BB] : drop_begin(enumerate(blocks()), Idx)) {
+      if (BB == Block) {
+        BlockIndices.try_emplace(Block, I);
+        continue;
+      }
+
+      auto It = BlockIndices.find(BB);
+      assert(It != BlockIndices.end() && "Missing BlockIndices entry");
+      assert(It->second <= I + 1 && "Unexpected cached index");
+      if (It->second == I + 1)
+        It->second = I;
+    }
+  }
 
   // Nuke the last value.
   Op<-1>().set(nullptr);
