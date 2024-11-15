@@ -3778,6 +3778,11 @@ Sema::ActOnReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp,
         << FSI->getFirstCoroutineStmtKeyword();
   }
 
+  if (IsBuiltinCountedByRef(RetVal.get()))
+    Diag(RetVal.get()->getExprLoc(),
+         diag::err_builtin_counted_by_ref_cannot_leak_reference)
+        << RetVal.get()->getSourceRange();
+
   StmtResult R =
       BuildReturnStmt(ReturnLoc, RetVal.get(), /*AllowRecovery=*/true);
   if (R.isInvalid() || ExprEvalContexts.back().isDiscardedStatementContext())

@@ -14699,6 +14699,13 @@ void Sema::FinalizeDeclaration(Decl *ThisDecl) {
     }
   }
 
+  // The result of __builtin_counted_by_ref cannot be assigned to a variable.
+  // It allows leaking and modification of bounds safety information.
+  if (IsBuiltinCountedByRef(VD->getInit()))
+    Diag(VD->getInit()->getExprLoc(),
+         diag::err_builtin_counted_by_ref_cannot_leak_reference)
+        << VD->getInit()->getSourceRange();
+
   checkAttributesAfterMerging(*this, *VD);
 
   if (VD->isStaticLocal())
