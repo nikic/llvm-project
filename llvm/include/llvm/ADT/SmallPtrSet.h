@@ -235,7 +235,7 @@ protected:
 private:
   std::pair<const void *const *, bool> insert_imp_big(const void *Ptr);
 
-  const void *const *doFind(const void *Ptr) const;
+  const void *const *doFind(const void *Ptr) const LLVM_READONLY;
   const void * const *FindBucketFor(const void *Ptr) const;
   void shrink_and_clear();
 
