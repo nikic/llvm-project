@@ -55,13 +55,17 @@ class SmallPtrSetImplBase : public DebugEpochBase {
 protected:
   /// The current set of buckets, in either small or big representation.
   const void **CurArray;
-  /// CurArraySize - The allocated size of CurArray, always a power of two.
-  unsigned CurArraySize;
-
-  /// Number of elements in CurArray that contain a value or are a tombstone.
-  /// If small, all these elements are at the beginning of CurArray and the rest
-  /// is uninitialized.
-  unsigned NumNonEmpty;
+  /// The number of array elements that are initialized. In small
+  /// representation, this is the number of elements in the set. In big
+  /// representation, it is the size of the array.
+  unsigned NumInitialized;
+  union {
+    /// In small representation: The size of the small storage array.
+    unsigned SmallSize;
+    /// In big representation: The number of non-empty elements in the
+    /// hash set, including tombstones.
+    unsigned NumNonEmpty;
+  };
   /// Number of tombstones in CurArray.
   unsigned NumTombstones;
   /// Whether the set is in small representation.
@@ -74,7 +78,7 @@ protected:
                       const void **RHSSmallStorage, SmallPtrSetImplBase &&that);
 
   explicit SmallPtrSetImplBase(const void **SmallStorage, unsigned SmallSize)
-      : CurArray(SmallStorage), CurArraySize(SmallSize), NumNonEmpty(0),
+      : CurArray(SmallStorage), NumInitialized(0), SmallSize(SmallSize),
         NumTombstones(0), IsSmall(true) {
     assert(SmallSize && (SmallSize & (SmallSize-1)) == 0 &&
            "Initial size must be a power of two!");
@@ -91,22 +95,25 @@ public:
   SmallPtrSetImplBase &operator=(const SmallPtrSetImplBase &) = delete;
 
   [[nodiscard]] bool empty() const { return size() == 0; }
-  size_type size() const { return NumNonEmpty - NumTombstones; }
-  size_type capacity() const { return CurArraySize; }
+  size_type size() const {
+    return isSmall() ? NumInitialized : (NumNonEmpty - NumTombstones);
+  }
+  size_type capacity() const { return isSmall() ? SmallSize : NumIniitalized; }
 
   void clear() {
     incrementEpoch();
     // If the capacity of the array is huge, and the # elements used is small,
     // shrink the array.
     if (!isSmall()) {
-      if (size() * 4 < CurArraySize && CurArraySize > 32)
+      if (size() * 4 < NumInitialized && NumInitialized > 32)
         return shrink_and_clear();
       // Fill the array with empty markers.
-      memset(CurArray, -1, CurArraySize * sizeof(void *));
+      memset(CurArray, -1, NumInitialized * sizeof(void *));
+      NumNonEmpty = 0;
+      NumTombstones = 0;
+    } else {
+      NumInitialized = 0;
     }
-
-    NumNonEmpty = 0;
-    NumTombstones = 0;
   }
 
   void reserve(size_type NumEntries) {
@@ -115,11 +122,11 @@ public:
     if (NumEntries == 0)
       return;
     // No need to expand if we're small and NumEntries will fit in the space.
-    if (isSmall() && NumEntries <= CurArraySize)
+    if (isSmall() && NumEntries <= SmallSize)
       return;
     // insert_imp_big will reallocate if stores is more than 75% full, on the
     // /final/ insertion.
-    if (!isSmall() && ((NumEntries - 1) * 4) < (CurArraySize * 3))
+    if (!isSmall() && ((NumEntries - 1) * 4) < (NumInitialized * 3))
       return;
     // We must Grow -- find the size where we'd be 75% full, then round up to
     // the next power of two.
@@ -139,9 +146,7 @@ protected:
     return reinterpret_cast<void*>(-1);
   }
 
-  const void **EndPointer() const {
-    return isSmall() ? CurArray + NumNonEmpty : CurArray + CurArraySize;
-  }
+  const void **EndPointer() const { return CurArray + NumInitialized; }
 
   /// insert_imp - This returns true if the pointer was new to the set, false if
   /// it was already in the set.  This is hidden from the client so that the
@@ -149,7 +154,7 @@ protected:
   std::pair<const void *const *, bool> insert_imp(const void *Ptr) {
     if (isSmall()) {
       // Check to see if it is already in the set.
-      for (const void **APtr = CurArray, **E = CurArray + NumNonEmpty;
+      for (const void **APtr = CurArray, **E = CurArray + NumInitialized;
            APtr != E; ++APtr) {
         const void *Value = *APtr;
         if (Value == Ptr)
@@ -157,10 +162,10 @@ protected:
       }
 
       // Nope, there isn't.  If we stay small, just 'pushback' now.
-      if (NumNonEmpty < CurArraySize) {
-        CurArray[NumNonEmpty++] = Ptr;
+      if (NumInitialized < SmallSize) {
+        CurArray[NumInitialized++] = Ptr;
         incrementEpoch();
-        return std::make_pair(CurArray + (NumNonEmpty - 1), true);
+        return std::make_pair(CurArray + (NumInitialized - 1), true);
       }
       // Otherwise, hit the big set case, which will call grow.
     }
@@ -173,10 +178,10 @@ protected:
   /// in.
   bool erase_imp(const void * Ptr) {
     if (isSmall()) {
-      for (const void **APtr = CurArray, **E = CurArray + NumNonEmpty;
+      for (const void **APtr = CurArray, **E = CurArray + NumInitialized;
            APtr != E; ++APtr) {
         if (*APtr == Ptr) {
-          *APtr = CurArray[--NumNonEmpty];
+          *APtr = CurArray[--NumInitialized];
           incrementEpoch();
           return true;
         }
@@ -203,7 +208,7 @@ protected:
     if (isSmall()) {
       // Linear search for the item.
       for (const void *const *APtr = CurArray, *const *E =
-                                                   CurArray + NumNonEmpty;
+                                                   CurArray + NumInitialized;
            APtr != E; ++APtr)
         if (*APtr == Ptr)
           return APtr;
@@ -220,7 +225,7 @@ protected:
     if (isSmall()) {
       // Linear search for the item.
       const void *const *APtr = CurArray;
-      const void *const *E = CurArray + NumNonEmpty;
+      const void *const *E = CurArray + NumInitialized;
       for (; APtr != E; ++APtr)
         if (*APtr == Ptr)
           return true;
@@ -418,12 +423,12 @@ public:
   bool remove_if(UnaryPredicate P) {
     bool Removed = false;
     if (isSmall()) {
-      const void **APtr = CurArray, **E = CurArray + NumNonEmpty;
+      const void **APtr = CurArray, **E = CurArray + NumInitialized;
       while (APtr != E) {
         PtrType Ptr = PtrTraits::getFromVoidPointer(const_cast<void *>(*APtr));
         if (P(Ptr)) {
           *APtr = *--E;
-          --NumNonEmpty;
+          --NumInitialized;
           incrementEpoch();
           Removed = true;
         } else {

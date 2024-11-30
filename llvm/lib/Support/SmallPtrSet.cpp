@@ -27,24 +27,24 @@ void SmallPtrSetImplBase::shrink_and_clear() {
 
   // Reduce the number of buckets.
   unsigned Size = size();
-  CurArraySize = Size > 16 ? 1 << (Log2_32_Ceil(Size) + 1) : 32;
+  NumInitialized = Size > 16 ? 1 << (Log2_32_Ceil(Size) + 1) : 32;
   NumNonEmpty = NumTombstones = 0;
 
   // Install the new array.  Clear all the buckets to empty.
-  CurArray = (const void**)safe_malloc(sizeof(void*) * CurArraySize);
+  CurArray = (const void**)safe_malloc(sizeof(void*) * NumInitialized);
 
-  memset(CurArray, -1, CurArraySize*sizeof(void*));
+  memset(CurArray, -1, NumInitialized*sizeof(void*));
 }
 
 std::pair<const void *const *, bool>
 SmallPtrSetImplBase::insert_imp_big(const void *Ptr) {
-  if (LLVM_UNLIKELY(size() * 4 >= CurArraySize * 3)) {
+  if (LLVM_UNLIKELY(size() * 4 >= NumInitialized * 3)) {
     // If more than 3/4 of the array is full, grow.
-    Grow(CurArraySize < 64 ? 128 : CurArraySize * 2);
-  } else if (LLVM_UNLIKELY(CurArraySize - NumNonEmpty < CurArraySize / 8)) {
+    Grow(NumInitialized < 64 ? 128 : NumInitialized * 2);
+  } else if (LLVM_UNLIKELY(NumInitialized - NumNonEmpty < NumInitialized / 8)) {
     // If fewer of 1/8 of the array is empty (meaning that many are filled with
     // tombstones), rehash.
-    Grow(CurArraySize);
+    Grow(NumInitialized);
   }
 
   // Okay, we know we have space.  Find a hash bucket.
@@ -64,7 +64,7 @@ SmallPtrSetImplBase::insert_imp_big(const void *Ptr) {
 
 const void *const *SmallPtrSetImplBase::doFind(const void *Ptr) const {
   unsigned BucketNo =
-      DenseMapInfo<void *>::getHashValue(Ptr) & (CurArraySize - 1);
+      DenseMapInfo<void *>::getHashValue(Ptr) & (NumInitialized - 1);
   unsigned ProbeAmt = 1;
   while (true) {
     const void *const *Bucket = CurArray + BucketNo;
@@ -76,13 +76,13 @@ const void *const *SmallPtrSetImplBase::doFind(const void *Ptr) const {
     // Otherwise, it's a hash collision or a tombstone, continue quadratic
     // probing.
     BucketNo += ProbeAmt++;
-    BucketNo &= CurArraySize - 1;
+    BucketNo &= NumInitialized - 1;
   }
 }
 
 const void *const *SmallPtrSetImplBase::FindBucketFor(const void *Ptr) const {
-  unsigned Bucket = DenseMapInfo<void *>::getHashValue(Ptr) & (CurArraySize-1);
-  unsigned ArraySize = CurArraySize;
+  unsigned Bucket = DenseMapInfo<void *>::getHashValue(Ptr) & (NumInitialized-1);
+  unsigned ArraySize = NumInitialized;
   unsigned ProbeAmt = 1;
   const void *const *Array = CurArray;
   const void *const *Tombstone = nullptr;
@@ -119,7 +119,7 @@ void SmallPtrSetImplBase::Grow(unsigned NewSize) {
 
   // Reset member only if memory was allocated successfully
   CurArray = NewBuckets;
-  CurArraySize = NewSize;
+  NumInitialized = NewSize;
   memset(CurArray, -1, NewSize*sizeof(void*));
 
   // Copy over all valid entries.
@@ -145,7 +145,7 @@ SmallPtrSetImplBase::SmallPtrSetImplBase(const void **SmallStorage,
     CurArray = SmallStorage;
   } else {
     // Otherwise, allocate new heap space (unless we were the same size)
-    CurArray = (const void**)safe_malloc(sizeof(void*) * that.CurArraySize);
+    CurArray = (const void**)safe_malloc(sizeof(void*) * that.NumInitialized);
   }
 
   // Copy over the that array.
@@ -164,7 +164,7 @@ void SmallPtrSetImplBase::copyFrom(const void **SmallStorage,
   assert(&RHS != this && "Self-copy should be handled by the caller.");
 
   if (isSmall() && RHS.isSmall())
-    assert(CurArraySize == RHS.CurArraySize &&
+    assert(SmallSize == RHS.SmallSize &&
            "Cannot assign sets with different small sizes");
 
   // If we're becoming small, prepare to insert into our stack space
