@@ -934,6 +934,10 @@ Instruction *InstCombinerImpl::visitTrunc(TruncInst &Trunc) {
     }
   }
 
+  if (DestWidth == 1 && Trunc.hasNoUnsignedWrap() &&
+      isKnownNonZero(Src, SQ.getWithInstruction(&Trunc)))
+    return replaceInstUsesWith(Trunc, ConstantInt::getTrue(DestTy));
+
   bool Changed = false;
   if (!Trunc.hasNoSignedWrap() &&
       ComputeMaxSignificantBits(Src, /*Depth=*/0, &Trunc) <= DestWidth) {
