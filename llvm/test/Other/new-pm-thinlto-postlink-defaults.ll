@@ -181,6 +181,7 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: InferAlignmentPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
+; CHECK-POSTLINK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-POSTLINK-O2-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-POSTLINK-O3-NEXT: Running pass: SLPVectorizerPass

@@ -166,6 +166,7 @@
 ; CHECK-O-NEXT: Running pass: InferAlignmentPass
 ; CHECK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
+; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O2-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-O3-NEXT: Running pass: SLPVectorizerPass

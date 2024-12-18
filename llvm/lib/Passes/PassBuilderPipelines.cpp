@@ -1306,6 +1306,10 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   }
   // Cleanup after the loop optimization passes.
   FPM.addPass(InstCombinePass());
+  // InstCombine can create CSE opportunities when it cleans the result of loop
+  // vectorization. They occur when combines use replaceOperand, which happens
+  // most often when combining the boolean operations created by if-conversion.
+  FPM.addPass(EarlyCSEPass());
 
   if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
     ExtraFunctionPassManager<ShouldRunExtraVectorPasses> ExtraPasses;
@@ -1315,7 +1319,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     // common computations, hoist loop-invariant aspects out of any outer loop,
     // and unswitch the runtime checks if possible. Once hoisted, we may have
     // dead (or speculatable) control flows or more combining opportunities.
-    ExtraPasses.addPass(EarlyCSEPass());
     ExtraPasses.addPass(CorrelatedValuePropagationPass());
     ExtraPasses.addPass(InstCombinePass());
     LoopPassManager LPM;
