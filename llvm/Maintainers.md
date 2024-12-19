@@ -395,11 +395,6 @@ martin@martin.st (email), [mstorsjo](https://github.com/mstorsjo) (GitHub)
 Jeremy Morse \
 jeremy.morse@sony.com (email), [jmorse](https://github.com/jmorse) (GitHub)
 
-#### Inline assembly
-
-Eric Christopher \
-echristo@gmail.com (email), [echristo](https://github.com/echristo) (GitHub)
-
 #### Exception handling
 
 Anton Korobeynikov \
@@ -457,6 +452,7 @@ Paul C. Anagnostopoulos (paul@windfall.com, [Paul-C-Anagnostopoulos](https://git
 Justin Bogner (mail@justinbogner.com, [bogner](https://github.com/bogner)) -- SelectionDAG \
 Chandler Carruth (chandlerc@gmail.com, chandlerc@google.com, [chandlerc](https://github.com/chandlerc)) -- ADT, Support \
 Evan Cheng (evan.cheng@apple.com) -- Parts of code generator not covered by someone else \
+Eric Christopher (echristo@gmail.com, [echristo](https://github.com/echristo)) -- Inline assembly \
 Jake Ehrlich (jakehehrlich@google.com, [jakehehrlich](https://github.com/jakehehrlich)) -- llvm-objcopy and ObjCopy library \
 Renato Golin (rengolin@systemcall.eu, [rengolin](https://github.com/rengolin)) -- ARM backend \
 James Grosbach (grosbach@apple.com) -- MC layer \
