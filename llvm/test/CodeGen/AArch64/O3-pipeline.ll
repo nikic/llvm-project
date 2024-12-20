@@ -138,6 +138,7 @@
 ; CHECK-NEXT:       Machine Trace Metrics
 ; CHECK-NEXT:       AArch64 Conditional Compares
 ; CHECK-NEXT:       Lazy Machine Block Frequency Analysis
+; CHECK-NEXT:       Machine Register Class Info Analysis
 ; CHECK-NEXT:       Machine InstCombiner
 ; CHECK-NEXT:       AArch64 Conditional Branch Tuning
 ; CHECK-NEXT:       Machine Trace Metrics

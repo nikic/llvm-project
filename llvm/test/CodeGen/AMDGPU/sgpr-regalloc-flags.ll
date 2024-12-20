@@ -21,6 +21,7 @@
 ; DEFAULT-NEXT: SI lower SGPR spill instructions
 ; DEFAULT-NEXT: Virtual Register Map
 ; DEFAULT-NEXT: Live Register Matrix
+; DEFAULT-NEXT: Machine Register Class Info Analysis
 ; DEFAULT-NEXT: SI Pre-allocate WWM Registers
 ; DEFAULT-NEXT: Live Stack Slot Analysis
 ; DEFAULT-NEXT: Greedy Register Allocator
