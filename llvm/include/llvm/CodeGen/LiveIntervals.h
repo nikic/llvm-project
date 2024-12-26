@@ -30,6 +30,7 @@
 #include "llvm/CodeGen/SlotIndexes.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/MC/LaneBitmask.h"
+#include "llvm/Support/Allocator.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -63,6 +64,8 @@ class LiveIntervals {
   SlotIndexes *Indexes = nullptr;
   MachineDominatorTree *DomTree = nullptr;
   std::unique_ptr<LiveIntervalCalc> LICalc;
+
+  BumpPtrAllocator Allocator;
 
   /// Special pool allocator for VNInfo's (LiveInterval val#).
   VNInfo::Allocator VNInfoAllocator;
@@ -170,7 +173,7 @@ public:
   /// Interval removal.
   void removeInterval(Register Reg) {
     auto &Interval = VirtRegIntervals[Reg];
-    delete Interval;
+    Allocator.Deallocate(Interval);
     Interval = nullptr;
   }
 
@@ -416,7 +419,8 @@ public:
     if (!LR) {
       // Compute missing ranges on demand.
       // Use segment set to speed-up initial computation of the live range.
-      RegUnitRanges[Unit] = LR = new LiveRange(UseSegmentSetForPhysRegs);
+      RegUnitRanges[Unit] = LR = new (Allocator.Allocate<LiveRange>())
+          LiveRange(UseSegmentSetForPhysRegs);
       computeRegUnitRange(*LR, Unit);
     }
     return *LR;
@@ -433,7 +437,7 @@ public:
   /// Remove computed live range for register unit \p Unit. Subsequent uses
   /// should rely on on-demand recomputation.
   void removeRegUnit(unsigned Unit) {
-    delete RegUnitRanges[Unit];
+    Allocator.Deallocate(RegUnitRanges[Unit]);
     RegUnitRanges[Unit] = nullptr;
   }
 
@@ -481,7 +485,7 @@ private:
   bool computeDeadValues(LiveInterval &LI,
                          SmallVectorImpl<MachineInstr *> *dead);
 
-  static LiveInterval *createInterval(Register Reg);
+  LiveInterval *createInterval(Register Reg);
 
   void printInstrs(raw_ostream &O) const;
   void dumpInstrs() const;
