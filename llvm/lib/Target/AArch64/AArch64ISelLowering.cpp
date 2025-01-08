@@ -29912,6 +29912,10 @@ unsigned AArch64TargetLowering::getMinimumJumpTableEntries() const {
 MVT AArch64TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
                                                          CallingConv::ID CC,
                                                          EVT VT) const {
+  if (getTargetMachine().Options.FloatABIType == FloatABI::Soft &&
+      VT.isFloatingPoint())
+    VT = VT.changeTypeToInteger();
+
   bool NonUnitFixedLengthVector =
       VT.isFixedLengthVector() && !VT.getVectorElementCount().isScalar();
   if (!NonUnitFixedLengthVector || !Subtarget->useSVEForFixedLengthVectors())
@@ -29927,6 +29931,10 @@ MVT AArch64TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
 
 unsigned AArch64TargetLowering::getNumRegistersForCallingConv(
     LLVMContext &Context, CallingConv::ID CC, EVT VT) const {
+  if (getTargetMachine().Options.FloatABIType == FloatABI::Soft &&
+      VT.isFloatingPoint())
+    VT = VT.changeTypeToInteger();
+
   bool NonUnitFixedLengthVector =
       VT.isFixedLengthVector() && !VT.getVectorElementCount().isScalar();
   if (!NonUnitFixedLengthVector || !Subtarget->useSVEForFixedLengthVectors())
@@ -29942,6 +29950,10 @@ unsigned AArch64TargetLowering::getNumRegistersForCallingConv(
 unsigned AArch64TargetLowering::getVectorTypeBreakdownForCallingConv(
     LLVMContext &Context, CallingConv::ID CC, EVT VT, EVT &IntermediateVT,
     unsigned &NumIntermediates, MVT &RegisterVT) const {
+  if (getTargetMachine().Options.FloatABIType == FloatABI::Soft &&
+      VT.isFloatingPoint())
+    VT = VT.changeTypeToInteger();
+
   int NumRegs = TargetLowering::getVectorTypeBreakdownForCallingConv(
       Context, CC, VT, IntermediateVT, NumIntermediates, RegisterVT);
   if (!RegisterVT.isFixedLengthVector() ||
