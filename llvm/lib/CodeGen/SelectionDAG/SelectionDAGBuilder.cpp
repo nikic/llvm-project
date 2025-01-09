@@ -167,7 +167,8 @@ getCopyFromParts(SelectionDAG &DAG, const SDLoc &DL, const SDValue *Parts,
                  unsigned NumParts, MVT PartVT, EVT ValueVT, const Value *V,
                  SDValue InChain,
                  std::optional<CallingConv::ID> CC = std::nullopt,
-                 std::optional<ISD::NodeType> AssertOp = std::nullopt) {
+                 std::optional<ISD::NodeType> AssertOp = std::nullopt,
+                 bool LegalTypes = false) {
   // Let the target assemble the parts if it wants to
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   if (SDValue Val = TLI.joinRegisterPartsIntoValue(DAG, DL, Parts, NumParts,
@@ -246,6 +247,23 @@ getCopyFromParts(SelectionDAG &DAG, const SDLoc &DL, const SDValue *Parts,
       assert(ValueVT.isFloatingPoint() && PartVT.isInteger() &&
              !PartVT.isVector() && "Unexpected split");
       EVT IntVT = EVT::getIntegerVT(*DAG.getContext(), ValueVT.getSizeInBits());
+      if (LegalTypes && !TLI.isTypeLegal(IntVT)) {
+        // The intermediate integer type is not legal. Convert via stack.
+        SDValue Ptr = DAG.CreateStackTemporary(ValueVT, PartVT);
+        int FrameIndex = cast<FrameIndexSDNode>(Ptr.getNode())->getIndex();
+        MachinePointerInfo PtrInfo = MachinePointerInfo::getFixedStack(
+            DAG.getMachineFunction(), FrameIndex);
+        TypeSize PartStoreSize = PartVT.getStoreSize();
+        SmallVector<SDValue> Stores;
+        for (unsigned I = 0; I < NumParts; ++I)
+          Stores.push_back(
+              DAG.getStore(DAG.getEntryNode(), DL, Parts[I],
+                           DAG.getObjectPtrOffset(DL, Ptr, I * PartStoreSize),
+                           PtrInfo.getWithOffset(I * PartStoreSize)));
+        SDValue Chain = DAG.getTokenFactor(DL, Stores);
+        return DAG.getLoad(ValueVT, DL, Chain, Ptr, PtrInfo);
+      }
+
       Val = getCopyFromParts(DAG, DL, Parts, NumParts, PartVT, IntVT, V,
                              InChain, CC);
     }
@@ -505,7 +523,8 @@ static void
 getCopyToParts(SelectionDAG &DAG, const SDLoc &DL, SDValue Val, SDValue *Parts,
                unsigned NumParts, MVT PartVT, const Value *V,
                std::optional<CallingConv::ID> CallConv = std::nullopt,
-               ISD::NodeType ExtendKind = ISD::ANY_EXTEND) {
+               ISD::NodeType ExtendKind = ISD::ANY_EXTEND,
+               bool LegalTypes = false) {
   // Let the target split the parts if it wants to
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   if (TLI.splitValueIntoRegisterParts(DAG, DL, Val, Parts, NumParts, PartVT,
@@ -608,12 +627,25 @@ getCopyToParts(SelectionDAG &DAG, const SDLoc &DL, SDValue Val, SDValue *Parts,
     Val = DAG.getNode(ISD::TRUNCATE, DL, ValueVT, Val);
   }
 
+  EVT IntVT = EVT::getIntegerVT(*DAG.getContext(), ValueVT.getSizeInBits());
+  if (LegalTypes && !TLI.isTypeLegal(IntVT)) {
+    // The intermediate integer type is not legal. Convert via stack.
+    SDValue Ptr = DAG.CreateStackTemporary(ValueVT, PartVT);
+    int FrameIndex = cast<FrameIndexSDNode>(Ptr.getNode())->getIndex();
+    MachinePointerInfo PtrInfo =
+        MachinePointerInfo::getFixedStack(DAG.getMachineFunction(), FrameIndex);
+    SDValue Store = DAG.getStore(DAG.getEntryNode(), DL, Val, Ptr, PtrInfo);
+    TypeSize PartStoreSize = PartVT.getStoreSize();
+    for (unsigned I = 0; I < NumParts; ++I)
+      Parts[I] = DAG.getLoad(PartVT, DL, Store,
+                             DAG.getObjectPtrOffset(DL, Ptr, I * PartStoreSize),
+                             PtrInfo.getWithOffset(I * PartStoreSize));
+    return;
+  }
+
   // The number of parts is a power of 2.  Repeatedly bisect the value using
   // EXTRACT_ELEMENT.
-  Parts[0] = DAG.getNode(ISD::BITCAST, DL,
-                         EVT::getIntegerVT(*DAG.getContext(),
-                                           ValueVT.getSizeInBits()),
-                         Val);
+  Parts[0] = DAG.getNode(ISD::BITCAST, DL, IntVT, Val);
 
   for (unsigned StepSize = NumParts; StepSize > 1; StepSize /= 2) {
     for (unsigned i = 0; i < NumParts; i += StepSize) {
@@ -11241,7 +11273,7 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
       }
 
       getCopyToParts(CLI.DAG, CLI.DL, Op, &Parts[0], NumParts, PartVT, CLI.CB,
-                     CLI.CallConv, ExtendKind);
+                     CLI.CallConv, ExtendKind, CLI.IsPostTypeLegalization);
 
       for (unsigned j = 0; j != NumParts; ++j) {
         // if it isn't first piece, alignment must be 1
@@ -11345,7 +11377,7 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
 
       ReturnValues.push_back(getCopyFromParts(
           CLI.DAG, CLI.DL, &InVals[CurReg], NumRegs, RegisterVT, VT, nullptr,
-          CLI.Chain, CLI.CallConv, AssertOp));
+          CLI.Chain, CLI.CallConv, AssertOp, CLI.IsPostTypeLegalization));
       CurReg += NumRegs;
     }
 
