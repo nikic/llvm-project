@@ -29912,9 +29912,13 @@ unsigned AArch64TargetLowering::getMinimumJumpTableEntries() const {
 MVT AArch64TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
                                                          CallingConv::ID CC,
                                                          EVT VT) const {
-  if (getTargetMachine().Options.FloatABIType == FloatABI::Soft &&
-      VT.isFloatingPoint())
-    VT = VT.changeTypeToInteger();
+  if (getTargetMachine().Options.FloatABIType == FloatABI::Soft) {
+    if (VT.isFloatingPoint())
+      VT = VT.changeTypeToInteger();
+    if (VT.isVector())
+      VT = VT.getScalarType();
+    return TargetLowering::getRegisterTypeForCallingConv(Context, CC, VT);
+  }
 
   bool NonUnitFixedLengthVector =
       VT.isFixedLengthVector() && !VT.getVectorElementCount().isScalar();
@@ -29931,9 +29935,17 @@ MVT AArch64TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
 
 unsigned AArch64TargetLowering::getNumRegistersForCallingConv(
     LLVMContext &Context, CallingConv::ID CC, EVT VT) const {
-  if (getTargetMachine().Options.FloatABIType == FloatABI::Soft &&
-      VT.isFloatingPoint())
-    VT = VT.changeTypeToInteger();
+  if (getTargetMachine().Options.FloatABIType == FloatABI::Soft) {
+    if (VT.isFloatingPoint())
+      VT = VT.changeTypeToInteger();
+    unsigned NumElements = 1;
+    if (VT.isVector()) {
+      NumElements = VT.getVectorNumElements();
+      VT = VT.getScalarType();
+    }
+    return NumElements *
+           TargetLowering::getNumRegistersForCallingConv(Context, CC, VT);
+  }
 
   bool NonUnitFixedLengthVector =
       VT.isFixedLengthVector() && !VT.getVectorElementCount().isScalar();
@@ -29950,9 +29962,23 @@ unsigned AArch64TargetLowering::getNumRegistersForCallingConv(
 unsigned AArch64TargetLowering::getVectorTypeBreakdownForCallingConv(
     LLVMContext &Context, CallingConv::ID CC, EVT VT, EVT &IntermediateVT,
     unsigned &NumIntermediates, MVT &RegisterVT) const {
-  if (getTargetMachine().Options.FloatABIType == FloatABI::Soft &&
-      VT.isFloatingPoint())
-    VT = VT.changeTypeToInteger();
+  if (getTargetMachine().Options.FloatABIType == FloatABI::Soft) {
+    if (VT.isFloatingPoint())
+      VT = VT.changeTypeToInteger();
+    NumIntermediates = VT.getVectorNumElements();
+    IntermediateVT = VT.getScalarType();
+    RegisterVT = getRegisterTypeForCallingConv(Context, CC, IntermediateVT);
+    if (EVT(RegisterVT).bitsLT(IntermediateVT)) {
+      TypeSize IntermediateVTSize = IntermediateVT.getSizeInBits();
+      // Convert sizes such as i33 to i64.
+      if (!llvm::has_single_bit<uint32_t>(
+              IntermediateVTSize.getKnownMinValue()))
+        IntermediateVTSize = IntermediateVTSize.coefficientNextPowerOf2();
+      return NumIntermediates *
+             (IntermediateVTSize / RegisterVT.getSizeInBits());
+    }
+    return NumIntermediates;
+  }
 
   int NumRegs = TargetLowering::getVectorTypeBreakdownForCallingConv(
       Context, CC, VT, IntermediateVT, NumIntermediates, RegisterVT);
