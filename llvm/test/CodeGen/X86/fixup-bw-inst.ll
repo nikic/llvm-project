@@ -13,15 +13,10 @@ target triple = "x86_64-apple-macosx10.8.0"
 ; should have been changed into movzbl instead.
 ; CHECK-LABEL: foo1
 ; load:
-; BWON:  movzbl
-; BWOFF: movb
+; BWON:  movzwl
+; BWOFF: movw
 ; store:
-; CHECK: movb
-; load:
-; BWON: movzbl
-; BWOFF: movb
-; store:
-; CHECK: movb
+; CHECK: movw
 ; CHECK: ret
 define void @foo1(i32 %count,
                   ptr noalias nocapture %q,
@@ -58,15 +53,10 @@ a4:                                       ; preds = %3, %.lr.ph
 ; been changed into movzwl instead.
 ; CHECK-LABEL: foo2
 ; load:
-; BWON:  movzwl
-; BWOFF: movw
+; BWON:  movl
+; BWOFF: movl
 ; store:
-; CHECK: movw
-; load:
-; BWON:  movzwl
-; BWOFF: movw
-; store:
-; CHECK: movw
+; CHECK: movl
 ; CHECK: ret
 define void @foo2(i32 %count,
                   ptr noalias nocapture %q,
