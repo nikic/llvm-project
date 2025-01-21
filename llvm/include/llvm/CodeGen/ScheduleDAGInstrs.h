@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SparseMultiSet.h"
 #include "llvm/ADT/identity.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/LiveRegUnits.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/ScheduleDAG.h"
@@ -169,7 +170,7 @@ namespace llvm {
     /// Tracks the last instructions in this region using each virtual register.
     VReg2SUnitOperIdxMultiMap CurrentVRegUses;
 
-    AAResults *AAForDep = nullptr;
+    std::optional<BatchAAResults> AAForDep;
 
     /// Remember a generic side-effecting instruction as we proceed.
     /// No other SU ever gets scheduled around it (except in the special

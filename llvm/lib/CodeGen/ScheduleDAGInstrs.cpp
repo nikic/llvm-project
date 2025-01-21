@@ -551,7 +551,8 @@ void ScheduleDAGInstrs::addVRegUseDeps(SUnit *SU, unsigned OperIdx) {
 
 void ScheduleDAGInstrs::addChainDependency (SUnit *SUa, SUnit *SUb,
                                             unsigned Latency) {
-  if (SUa->getInstr()->mayAlias(AAForDep, *SUb->getInstr(), UseTBAA)) {
+  if (SUa->getInstr()->mayAlias(AAForDep.has_value() ? &*AAForDep : nullptr,
+                                *SUb->getInstr(), UseTBAA)) {
     SDep Dep(SUa, SDep::MayAliasMem);
     Dep.setLatency(Latency);
     SUb->addPred(Dep);
@@ -740,7 +741,8 @@ void ScheduleDAGInstrs::buildSchedGraph(AAResults *AA,
   const TargetSubtargetInfo &ST = MF.getSubtarget();
   bool UseAA = EnableAASchedMI.getNumOccurrences() > 0 ? EnableAASchedMI
                                                        : ST.useAA();
-  AAForDep = UseAA ? AA : nullptr;
+  if (UseAA)
+    AAForDep.emplace(*AA);
 
   BarrierChain = nullptr;
 

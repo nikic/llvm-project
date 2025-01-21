@@ -192,7 +192,7 @@ namespace {
     DenseMap<SDNode *, std::pair<SDNode *, unsigned>> StoreRootCountMap;
 
     // AA - Used for DAG load/store alias analysis.
-    AliasAnalysis *AA;
+    mutable std::optional<BatchAAResults> AA;
 
     /// This caches all chains that have already been processed in
     /// DAGCombiner::getStoreMergeCandidates() and found to have no mergeable
@@ -249,7 +249,8 @@ namespace {
   public:
     DAGCombiner(SelectionDAG &D, AliasAnalysis *AA, CodeGenOptLevel OL)
         : DAG(D), TLI(D.getTargetLoweringInfo()),
-          STI(D.getSubtarget().getSelectionDAGInfo()), OptLevel(OL), AA(AA) {
+          STI(D.getSubtarget().getSelectionDAGInfo()), OptLevel(OL),
+          AA(AA ? std::optional<BatchAAResults>(*AA) : std::nullopt) {
       ForCodeSize = DAG.shouldOptForSize();
       DisableGenericCombines = STI && STI->disableGenericCombines(OptLevel);
 

@@ -668,6 +668,9 @@ public:
                  MemoryLocation(V2, LocationSize::precise(1))) ==
            AliasResult::MustAlias;
   }
+  bool isNoAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
+    return alias(LocA, LocB) == AliasResult::NoAlias;
+  }
   ModRefInfo callCapturesBefore(const Instruction *I,
                                 const MemoryLocation &MemLoc,
                                 DominatorTree *DT) {
