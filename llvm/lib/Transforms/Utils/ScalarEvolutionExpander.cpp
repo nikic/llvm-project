@@ -2398,6 +2398,15 @@ void SCEVExpanderCleaner::cleanup() {
 
   // Remove all inserted instructions.
   for (Instruction *I : reverse(InsertedInstructions)) {
+    auto *PN = dyn_cast<PHINode>(I);
+    if (PN && PN->getNumOperands() == 1) {
+      // If this is an LCSSA phi node, replace it with its operand. Other uses
+      // may have been adjusted to use the new LCSSA phi node.
+      PN->replaceAllUsesWith(PN->getOperand(0));
+      PN->eraseFromParent();
+      continue;
+    }
+
 #ifndef NDEBUG
     assert(all_of(I->users(),
                   [&InsertedSet](Value *U) {
