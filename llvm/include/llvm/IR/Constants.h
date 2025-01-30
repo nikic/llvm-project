@@ -65,7 +65,7 @@ protected:
   void *operator new(size_t S) { return User::operator new(S, AllocMarker); }
 
 public:
-  void operator delete(void *Ptr) { User::operator delete(Ptr); }
+  void operator delete(void *Ptr) { User::operator delete(Ptr, AllocMarker); }
 
   ConstantData(const ConstantData &) = delete;
 
@@ -903,7 +903,7 @@ class BlockAddress final : public Constant {
   Value *handleOperandChangeImpl(Value *From, Value *To);
 
 public:
-  void operator delete(void *Ptr) { User::operator delete(Ptr); }
+  void operator delete(void *Ptr) { User::operator delete(Ptr, AllocMarker); }
 
   /// Return a BlockAddress for the specified function and basic block.
   static BlockAddress *get(Function *F, BasicBlock *BB);
@@ -951,7 +951,7 @@ class DSOLocalEquivalent final : public Constant {
   Value *handleOperandChangeImpl(Value *From, Value *To);
 
 public:
-  void operator delete(void *Ptr) { User::operator delete(Ptr); }
+  void operator delete(void *Ptr) { User::operator delete(Ptr, AllocMarker); }
 
   /// Return a DSOLocalEquivalent for the specified global value.
   static DSOLocalEquivalent *get(GlobalValue *GV);

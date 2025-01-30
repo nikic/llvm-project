@@ -164,6 +164,7 @@ public:
   Function(const Function&) = delete;
   void operator=(const Function&) = delete;
   ~Function();
+  void operator delete(void *Ptr) { User::operator delete(Ptr, AllocMarker); }
 
   // This is here to help easily convert from FunctionT * (Function * or
   // MachineFunction *) in BlockFrequencyInfoImpl to Function * by calling
