@@ -569,7 +569,11 @@ define i1 @test_nonequal_domcond1(i64 %x, i64 %y, i64 %z, i64 %w) {
 ; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[COND1]], i1 true, i1 [[COND2]]
 ; CHECK-NEXT:    br i1 [[OR_COND]], label [[IF_END:%.*]], label [[IF_THEN:%.*]]
 ; CHECK:       if.then:
-; CHECK-NEXT:    ret i1 false
+; CHECK-NEXT:    [[SUB1:%.*]] = sub i64 [[W]], [[Z]]
+; CHECK-NEXT:    [[SUB2:%.*]] = sub i64 [[Y]], [[X]]
+; CHECK-NEXT:    [[UMIN:%.*]] = call i64 @llvm.umin.i64(i64 [[SUB1]], i64 [[SUB2]])
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[UMIN]], 0
+; CHECK-NEXT:    ret i1 [[CMP]]
 ; CHECK:       if.end:
 ; CHECK-NEXT:    ret i1 false
 ;
@@ -598,7 +602,11 @@ define i1 @test_nonequal_domcond2(i64 %x, i64 %y, i64 %z, i64 %w) {
 ; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[COND1]], i1 [[COND2]], i1 false
 ; CHECK-NEXT:    br i1 [[OR_COND]], label [[IF_THEN:%.*]], label [[IF_END:%.*]]
 ; CHECK:       if.then:
-; CHECK-NEXT:    ret i1 false
+; CHECK-NEXT:    [[SUB1:%.*]] = sub i64 [[W]], [[Z]]
+; CHECK-NEXT:    [[SUB2:%.*]] = sub i64 [[Y]], [[X]]
+; CHECK-NEXT:    [[UMIN:%.*]] = call i64 @llvm.umin.i64(i64 [[SUB1]], i64 [[SUB2]])
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[UMIN]], 0
+; CHECK-NEXT:    ret i1 [[CMP]]
 ; CHECK:       if.end:
 ; CHECK-NEXT:    ret i1 false
 ;

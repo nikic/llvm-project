@@ -3843,18 +3843,21 @@ static bool isKnownNonEqual(const Value *V1, const Value *V2,
   if (Q.DC && Q.DT) {
     for (BranchInst *BI : Q.DC->conditionsFor(V1)) {
       Value *Cond = BI->getCondition();
+      auto ImpliesNonEqual = [&](bool CondIsTrue) {
+        ICmpInst::Predicate Pred =
+            CondIsTrue ? ICmpInst::ICMP_NE : ICmpInst::ICMP_EQ;
+        return match(Cond,
+                     m_c_SpecificICmp(Pred, m_Specific(V1), m_Specific(V2)));
+      };
+
       BasicBlockEdge Edge0(BI->getParent(), BI->getSuccessor(0));
-      if (Q.DT->dominates(Edge0, Q.CxtI->getParent()) &&
-          isImpliedCondition(Cond, ICmpInst::ICMP_NE, V1, V2, Q.DL,
-                             /*LHSIsTrue=*/true, Depth)
-              .value_or(false))
+      if (ImpliesNonEqual(/*CondIsTrue=*/true) &&
+          Q.DT->dominates(Edge0, Q.CxtI->getParent()))
         return true;
 
       BasicBlockEdge Edge1(BI->getParent(), BI->getSuccessor(1));
-      if (Q.DT->dominates(Edge1, Q.CxtI->getParent()) &&
-          isImpliedCondition(Cond, ICmpInst::ICMP_NE, V1, V2, Q.DL,
-                             /*LHSIsTrue=*/false, Depth)
-              .value_or(false))
+      if (ImpliesNonEqual(/*CondIsTrue=*/false) &&
+          Q.DT->dominates(Edge1, Q.CxtI->getParent()))
         return true;
     }
   }
