@@ -842,15 +842,7 @@ bool llvm::isEscapeSource(const Value *V) {
     // The return value of a function with a captures(ret: address, provenance)
     // attribute is not necessarily an escape source. The return value may
     // alias with a non-escaping object.
-    for (unsigned I = 0, E = CB->data_operands_size(); I < E; ++I) {
-      if (!CB->getOperand(I)->getType()->isPointerTy())
-        continue;
-
-      CaptureInfo CI = CB->getCaptureInfo(I);
-      if (capturesAnything(CI.getRetComponents() & ~CI.getOtherComponents()))
-        return false;
-    }
-    return true;
+    return !CB->hasArgumentWithAdditionalReturnCaptureComponents();
   }
 
   // The load case works because isNonEscapingLocalObject considers all
