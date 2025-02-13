@@ -712,12 +712,17 @@ CaptureInfo CallBase::getCaptureInfo(unsigned OpNo) const {
 }
 
 bool CallBase::hasArgumentWithAdditionalReturnCaptureComponents() const {
+  auto *Fn = dyn_cast<Function>(getCalledOperand());
+  if (!Attrs.hasAttrSomewhere(Attribute::Captures) &&
+      (!Fn || !Fn->getAttributes().hasAttrSomewhere(Attribute::Captures)))
+    return false;
+
   for (unsigned I = 0, E = arg_size(); I < E; ++I) {
     if (!getArgOperand(I)->getType()->isPointerTy())
       continue;
 
     CaptureInfo CI = getParamAttributes(I).getCaptureInfo();
-    if (auto *Fn = dyn_cast<Function>(getCalledOperand()))
+    if (Fn)
       CI &= Fn->getAttributes().getParamAttrs(I).getCaptureInfo();
     if (capturesAnything(CI.getRetComponents() & ~CI.getOtherComponents()))
       return true;
