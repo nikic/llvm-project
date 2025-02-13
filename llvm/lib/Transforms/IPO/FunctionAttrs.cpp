@@ -541,17 +541,18 @@ struct ArgumentUsesTracker : public CaptureTracker {
 
   void tooManyUses() override { Captured = true; }
 
-  bool captured(const Use *U) override {
+  Action captured(const Use *U, UseCaptureInfo UseCI) override {
+    // TODO(captures): Make use of UseCaptureInfo.
     CallBase *CB = dyn_cast<CallBase>(U->getUser());
     if (!CB) {
       Captured = true;
-      return true;
+      return Stop;
     }
 
     Function *F = CB->getCalledFunction();
     if (!F || !F->hasExactDefinition() || !SCCNodes.count(F)) {
       Captured = true;
-      return true;
+      return Stop;
     }
 
     assert(!CB->isCallee(U) && "callee operand reported captured?");
@@ -565,17 +566,17 @@ struct ArgumentUsesTracker : public CaptureTracker {
       // or not -- we've been captured in some unknown way, and we have to be
       // conservative.
       Captured = true;
-      return true;
+      return Stop;
     }
 
     if (UseIndex >= F->arg_size()) {
       assert(F->isVarArg() && "More params than args in non-varargs call");
       Captured = true;
-      return true;
+      return Stop;
     }
 
     Uses.push_back(&*std::next(F->arg_begin(), UseIndex));
-    return false;
+    return ContinueIgnoringReturn;
   }
 
   // True only if certainly captured (used outside our SCC).
