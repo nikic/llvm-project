@@ -41,15 +41,15 @@ define i8 @trunc_to_assumed_zeros(ptr %p) {
 ; CHECK-LABEL: 'trunc_to_assumed_zeros'
 ; CHECK-NEXT:  Classifying expressions for: @trunc_to_assumed_zeros
 ; CHECK-NEXT:    %a = load i32, ptr %p, align 4
-; CHECK-NEXT:    --> %a U: [0,-255) S: [-2147483648,2147483393)
+; CHECK-NEXT:    --> %a U: full-set S: full-set
 ; CHECK-NEXT:    %and = and i32 %a, 255
-; CHECK-NEXT:    --> 0 U: [0,1) S: [0,1)
+; CHECK-NEXT:    --> (zext i8 (trunc i32 %a to i8) to i32) U: [0,256) S: [0,256)
 ; CHECK-NEXT:    %c = trunc i32 %a to i8
-; CHECK-NEXT:    --> 0 U: [0,1) S: [0,1)
+; CHECK-NEXT:    --> (trunc i32 %a to i8) U: full-set S: full-set
 ; CHECK-NEXT:    %d = trunc i32 %a to i1
-; CHECK-NEXT:    --> false U: [0,-1) S: [0,-1)
+; CHECK-NEXT:    --> (trunc i32 %a to i1) U: full-set S: full-set
 ; CHECK-NEXT:    %e = trunc i32 %a to i16
-; CHECK-NEXT:    --> (trunc i32 %a to i16) U: [0,-255) S: [-32768,32513)
+; CHECK-NEXT:    --> (trunc i32 %a to i16) U: full-set S: full-set
 ; CHECK-NEXT:  Determining loop execution counts for: @trunc_to_assumed_zeros
 ;
   %a = load i32, ptr %p

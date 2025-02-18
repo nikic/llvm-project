@@ -3217,7 +3217,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
                                         m_Zero())) &&
         LHS->getOpcode() == Instruction::Load &&
         LHS->getType()->isPointerTy() &&
-        isValidAssumeForContext(II, LHS, &DT)) {
+        isValidAssumeForContext(II, LHS, &DT, /*AllowEphemeral=*/true)) {
       MDNode *MD = MDNode::get(II->getContext(), {});
       LHS->setMetadata(LLVMContext::MD_nonnull, MD);
       LHS->setMetadata(LLVMContext::MD_noundef, MD);

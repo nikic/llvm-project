@@ -432,7 +432,8 @@ struct AssumeSimplify {
                 continue;
               }
             if (isValidAssumeForContext(
-                    Assume, &*F.getEntryBlock().getFirstInsertionPt()) ||
+                    Assume, &*F.getEntryBlock().getFirstInsertionPt(),
+                    /*DT=*/nullptr, /*AllowEphemeral=*/true) ||
                 Assume == &*F.getEntryBlock().getFirstInsertionPt()) {
               if (HasSameKindAttr)
                 Arg->removeAttr(RK.AttrKind);

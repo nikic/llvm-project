@@ -502,10 +502,9 @@ define i1 @nonnull3B(ptr %a, i1 %control) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br i1 [[CONTROL:%.*]], label [[TAKEN:%.*]], label [[NOT_TAKEN:%.*]]
 ; CHECK:       taken:
-; CHECK-NEXT:    [[LOAD:%.*]] = load ptr, ptr [[A:%.*]], align 8
-; CHECK-NEXT:    [[CMP:%.*]] = icmp ne ptr [[LOAD]], null
-; CHECK-NEXT:    call void @llvm.assume(i1 [[CMP]]) [ "nonnull"(ptr [[LOAD]]) ]
-; CHECK-NEXT:    ret i1 [[CMP]]
+; CHECK-NEXT:    [[LOAD:%.*]] = load ptr, ptr [[A:%.*]], align 8, !nonnull [[META6]], !noundef [[META6]]
+; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "nonnull"(ptr [[LOAD]]) ]
+; CHECK-NEXT:    ret i1 true
 ; CHECK:       not_taken:
 ; CHECK-NEXT:    ret i1 false
 ;
