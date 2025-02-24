@@ -3996,7 +3996,8 @@ Instruction *InstCombinerImpl::visitCallBase(CallBase &Call) {
     if (V->getType()->isPointerTy()) {
       // Simplify the nonnull operand if the parameter is known to be nonnull.
       // Otherwise, try to infer nonnull for it.
-      bool HasDereferenceable = Call.getParamDereferenceableBytes(ArgNo) > 0;
+      bool HasDereferenceable =
+          Call.paramHasAttr(ArgNo, Attribute::Dereferenceable);
       if (Call.paramHasAttr(ArgNo, Attribute::NonNull) ||
           (HasDereferenceable &&
            !NullPointerIsDefined(Call.getFunction(),

@@ -3593,8 +3593,7 @@ Instruction *InstCombinerImpl::visitReturnInst(ReturnInst &RI) {
   Function *F = RI.getFunction();
   Type *RetTy = RetVal->getType();
   if (RetTy->isPointerTy()) {
-    bool HasDereferenceable =
-        F->getAttributes().getRetDereferenceableBytes() > 0;
+    bool HasDereferenceable = F->hasRetAttribute(Attribute::Dereferenceable);
     if (F->hasRetAttribute(Attribute::NonNull) ||
         (HasDereferenceable &&
          !NullPointerIsDefined(F, RetTy->getPointerAddressSpace()))) {
