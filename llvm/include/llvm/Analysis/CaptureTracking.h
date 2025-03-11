@@ -44,6 +44,15 @@ namespace llvm {
   bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
                             unsigned MaxUsesToExplore = 0);
 
+  /// Return which components of the pointer may be captured. StopFn specifies
+  /// when to stop looking for additional components. For example, using
+  /// capturesAnyProvenance as StopFn will return as soon as any provenance is
+  /// captured. In that case, the returned components may be incomplete.
+  CaptureComponents
+  PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+                       function_ref<bool(CaptureComponents)> StopFn,
+                       unsigned MaxUsesToExplore = 0);
+
   /// PointerMayBeCapturedBefore - Return true if this pointer value may be
   /// captured by the enclosing function (which is required to exist). If a
   /// DominatorTree is provided, only captures which happen before the given

@@ -73,28 +73,29 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
 
 namespace {
 struct SimpleCaptureTracker : public CaptureTracker {
-  explicit SimpleCaptureTracker(bool ReturnCaptures)
-      : ReturnCaptures(ReturnCaptures) {}
+  explicit SimpleCaptureTracker(bool ReturnCaptures,
+                                function_ref<bool(CaptureComponents)> StopFn)
+      : ReturnCaptures(ReturnCaptures), StopFn(StopFn) {}
 
   void tooManyUses() override {
     LLVM_DEBUG(dbgs() << "Captured due to too many uses\n");
-    Captured = true;
+    CC = CaptureComponents::All;
   }
 
   Action captured(const Use *U, UseCaptureInfo CI) override {
-    // TODO(captures): Use UseCaptureInfo.
     if (isa<ReturnInst>(U->getUser()) && !ReturnCaptures)
       return ContinueIgnoringReturn;
 
     LLVM_DEBUG(dbgs() << "Captured by: " << *U->getUser() << "\n");
 
-    Captured = true;
-    return Stop;
+    CC |= CI.UseCC;
+    return StopFn(CC) ? Stop : Continue;
   }
 
   bool ReturnCaptures;
+  function_ref<bool(CaptureComponents)> StopFn;
 
-  bool Captured = false;
+  CaptureComponents CC = CaptureComponents::None;
 };
 
 /// Only find pointer captures which happen before the given instruction. Uses
@@ -199,27 +200,30 @@ struct EarliestCaptures : public CaptureTracker {
 };
 } // namespace
 
-/// PointerMayBeCaptured - Return true if this pointer value may be captured
-/// by the enclosing function (which is required to exist).  This routine can
-/// be expensive, so consider caching the results.  The boolean ReturnCaptures
-/// specifies whether returning the value (or part of it) from the function
-/// counts as capturing it or not.
-bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
-                                unsigned MaxUsesToExplore) {
+CaptureComponents
+llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+                           function_ref<bool(CaptureComponents)> StopFn,
+                           unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
   LLVM_DEBUG(dbgs() << "Captured?: " << *V << " = ");
 
-  SimpleCaptureTracker SCT(ReturnCaptures);
+  SimpleCaptureTracker SCT(ReturnCaptures, StopFn);
   PointerMayBeCaptured(V, &SCT, MaxUsesToExplore);
-  if (SCT.Captured)
+  if (capturesAnything(SCT.CC))
     ++NumCaptured;
   else {
     ++NumNotCaptured;
     LLVM_DEBUG(dbgs() << "not captured\n");
   }
-  return SCT.Captured;
+  return SCT.CC;
+}
+
+bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+                                unsigned MaxUsesToExplore) {
+  return capturesAnything(PointerMayBeCaptured(
+      V, ReturnCaptures, capturesAnything, MaxUsesToExplore));
 }
 
 /// PointerMayBeCapturedBefore - Return true if this pointer value may be
@@ -473,8 +477,10 @@ bool llvm::isNonEscapingLocalObject(
   }
 
   // If this is an identified function-local object, check to see if it escapes.
+  // We only care about provenance here, not address capture.
   if (isIdentifiedFunctionLocal(V)) {
-    auto Ret = !PointerMayBeCaptured(V, /*ReturnCaptures=*/false);
+    bool Ret = !capturesAnyProvenance(PointerMayBeCaptured(
+        V, /*ReturnCaptures=*/false, capturesAnyProvenance));
     if (IsCapturedCache)
       CacheIt->second = Ret;
     return Ret;
