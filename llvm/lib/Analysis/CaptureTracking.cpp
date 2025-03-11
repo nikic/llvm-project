@@ -74,8 +74,8 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
 namespace {
 struct SimpleCaptureTracker : public CaptureTracker {
   explicit SimpleCaptureTracker(bool ReturnCaptures,
-                                function_ref<bool(CaptureComponents)> StopFn)
-      : ReturnCaptures(ReturnCaptures), StopFn(StopFn) {}
+                                function_ref<bool(CaptureComponents)> FilterFn)
+      : ReturnCaptures(ReturnCaptures), FilterFn(FilterFn) {}
 
   void tooManyUses() override {
     LLVM_DEBUG(dbgs() << "Captured due to too many uses\n");
@@ -86,14 +86,16 @@ struct SimpleCaptureTracker : public CaptureTracker {
     if (isa<ReturnInst>(U->getUser()) && !ReturnCaptures)
       return ContinueIgnoringReturn;
 
-    LLVM_DEBUG(dbgs() << "Captured by: " << *U->getUser() << "\n");
+    if (!FilterFn(CI.UseCC))
+      return Continue;
 
-    CC |= CI.UseCC;
-    return StopFn(CC) ? Stop : Continue;
+    LLVM_DEBUG(dbgs() << "Captured by: " << *U->getUser() << "\n");
+    CC = CI.UseCC;
+    return Stop;
   }
 
   bool ReturnCaptures;
-  function_ref<bool(CaptureComponents)> StopFn;
+  function_ref<bool(CaptureComponents)> FilterFn;
 
   CaptureComponents CC = CaptureComponents::None;
 };
@@ -162,54 +164,52 @@ struct CapturesBefore : public CaptureTracker {
 // escape are not in a cycle.
 struct EarliestCaptures : public CaptureTracker {
 
-  EarliestCaptures(bool ReturnCaptures, Function &F, const DominatorTree &DT)
-      : DT(DT), ReturnCaptures(ReturnCaptures), F(F) {}
+  EarliestCaptures(bool ReturnCaptures, Function &F, const DominatorTree &DT,
+                   function_ref<bool(CaptureComponents)> FilterFn)
+      : DT(DT), ReturnCaptures(ReturnCaptures), F(F), FilterFn(FilterFn) {}
 
   void tooManyUses() override {
-    Captured = true;
+    CC = CaptureComponents::All;
     EarliestCapture = &*F.getEntryBlock().begin();
   }
 
   Action captured(const Use *U, UseCaptureInfo CI) override {
-    // TODO(captures): Use UseCaptureInfo.
     Instruction *I = cast<Instruction>(U->getUser());
     if (isa<ReturnInst>(I) && !ReturnCaptures)
       return ContinueIgnoringReturn;
 
-    if (!EarliestCapture)
-      EarliestCapture = I;
-    else
-      EarliestCapture = DT.findNearestCommonDominator(EarliestCapture, I);
-    Captured = true;
+    if (FilterFn(CI.UseCC)) {
+      if (!EarliestCapture)
+        EarliestCapture = I;
+      else
+        EarliestCapture = DT.findNearestCommonDominator(EarliestCapture, I);
+      CC |= CI.UseCC;
+    }
 
-    // Continue analysis, as we need to see all potential captures. However,
-    // we do not need to follow the instruction result, as this use will
-    // dominate any captures made through the instruction result.
-    return ContinueIgnoringReturn;
+    // Continue analysis, as we need to see all potential captures.
+    return Continue;
   }
 
-  Instruction *EarliestCapture = nullptr;
-
   const DominatorTree &DT;
-
   bool ReturnCaptures;
-
-  bool Captured = false;
-
   Function &F;
+  function_ref<bool(CaptureComponents)> FilterFn;
+
+  Instruction *EarliestCapture = nullptr;
+  CaptureComponents CC = CaptureComponents::None;
 };
 } // namespace
 
 CaptureComponents
 llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
-                           function_ref<bool(CaptureComponents)> StopFn,
+                           function_ref<bool(CaptureComponents)> FilterFn,
                            unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
   LLVM_DEBUG(dbgs() << "Captured?: " << *V << " = ");
 
-  SimpleCaptureTracker SCT(ReturnCaptures, StopFn);
+  SimpleCaptureTracker SCT(ReturnCaptures, FilterFn);
   PointerMayBeCaptured(V, &SCT, MaxUsesToExplore);
   if (capturesAnything(SCT.CC))
     ++NumCaptured;
@@ -253,16 +253,15 @@ bool llvm::PointerMayBeCapturedBefore(const Value *V, bool ReturnCaptures,
   return CB.Captured;
 }
 
-Instruction *llvm::FindEarliestCapture(const Value *V, Function &F,
-                                       bool ReturnCaptures,
-                                       const DominatorTree &DT,
-                                       unsigned MaxUsesToExplore) {
+Instruction *llvm::FindEarliestCapture(
+    const Value *V, Function &F, bool ReturnCaptures, const DominatorTree &DT,
+    function_ref<bool(CaptureComponents)> FilterFn, unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
-  EarliestCaptures CB(ReturnCaptures, F, DT);
+  EarliestCaptures CB(ReturnCaptures, F, DT, FilterFn);
   PointerMayBeCaptured(V, &CB, MaxUsesToExplore);
-  if (CB.Captured)
+  if (capturesAnything(CB.CC))
     ++NumCapturedBefore;
   else
     ++NumNotCapturedBefore;

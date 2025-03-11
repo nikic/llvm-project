@@ -44,13 +44,12 @@ namespace llvm {
   bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
                             unsigned MaxUsesToExplore = 0);
 
-  /// Return which components of the pointer may be captured. StopFn specifies
-  /// when to stop looking for additional components. For example, using
-  /// capturesAnyProvenance as StopFn will return as soon as any provenance is
-  /// captured. In that case, the returned components may be incomplete.
+  /// Return which components of the pointer may be captured. FilterFn specifies
+  /// which captures are interesting. Non-interesting captures are ignored, and
+  /// the traversal stops at the first interesting capture.
   CaptureComponents
   PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
-                       function_ref<bool(CaptureComponents)> StopFn,
+                       function_ref<bool(CaptureComponents)> FilterFn,
                        unsigned MaxUsesToExplore = 0);
 
   /// PointerMayBeCapturedBefore - Return true if this pointer value may be
@@ -78,9 +77,13 @@ namespace llvm {
   // nullptr is returned. Note that the caller of the function has to ensure
   // that the instruction the result value is compared against is not in a
   // cycle.
-  Instruction *FindEarliestCapture(const Value *V, Function &F,
-                                   bool ReturnCaptures, const DominatorTree &DT,
-                                   unsigned MaxUsesToExplore = 0);
+  //
+  // Only captures satisfying \p FilterFn are considered.
+  Instruction *
+  FindEarliestCapture(const Value *V, Function &F, bool ReturnCaptures,
+                      const DominatorTree &DT,
+                      function_ref<bool(CaptureComponents)> FilterFn,
+                      unsigned MaxUsesToExplore = 0);
 
   /// Capture information for a specific Use.
   struct UseCaptureInfo {
