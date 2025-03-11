@@ -69,6 +69,16 @@ namespace llvm {
                                   unsigned MaxUsesToExplore = 0,
                                   const LoopInfo *LI = nullptr);
 
+  /// Return which components of the pointer may be captured on the path to I.
+  /// FilterFn specifies which captures are interesting. Non-interesting
+  /// captures are ignored, and the traversal stops at the first capture that
+  /// is both interesting and reachable.
+  CaptureComponents PointerMayBeCapturedBefore(
+      const Value *V, bool ReturnCaptures, const Instruction *I,
+      const DominatorTree *DT, bool IncludeI,
+      function_ref<bool(CaptureComponents)> FilterFn,
+      const LoopInfo *LI = nullptr, unsigned MaxUsesToExplore = 0);
+
   // Returns the 'earliest' instruction that captures \p V in \F. An instruction
   // A is considered earlier than instruction B, if A dominates B. If 2 escapes
   // do not dominate each other, the terminator of the common dominator is

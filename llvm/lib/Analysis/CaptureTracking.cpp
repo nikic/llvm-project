@@ -107,11 +107,12 @@ struct SimpleCaptureTracker : public CaptureTracker {
 struct CapturesBefore : public CaptureTracker {
 
   CapturesBefore(bool ReturnCaptures, const Instruction *I,
-                 const DominatorTree *DT, bool IncludeI, const LoopInfo *LI)
+                 const DominatorTree *DT, bool IncludeI, const LoopInfo *LI,
+                 function_ref<bool(CaptureComponents)> FilterFn)
       : BeforeHere(I), DT(DT), ReturnCaptures(ReturnCaptures),
-        IncludeI(IncludeI), LI(LI) {}
+        IncludeI(IncludeI), LI(LI), FilterFn(FilterFn) {}
 
-  void tooManyUses() override { Captured = true; }
+  void tooManyUses() override { CC = CaptureComponents::All; }
 
   bool isSafeToPrune(Instruction *I) {
     if (BeforeHere == I)
@@ -127,7 +128,6 @@ struct CapturesBefore : public CaptureTracker {
   }
 
   Action captured(const Use *U, UseCaptureInfo CI) override {
-    // TODO(captures): Use UseCaptureInfo.
     Instruction *I = cast<Instruction>(U->getUser());
     if (isa<ReturnInst>(I) && !ReturnCaptures)
       return ContinueIgnoringReturn;
@@ -139,7 +139,10 @@ struct CapturesBefore : public CaptureTracker {
       // If the use is not reachable, the instruction result isn't either.
       return ContinueIgnoringReturn;
 
-    Captured = true;
+    if (!FilterFn(CI.UseCC))
+      return Continue;
+
+    CC = CI.UseCC;
     return Stop;
   }
 
@@ -149,9 +152,10 @@ struct CapturesBefore : public CaptureTracker {
   bool ReturnCaptures;
   bool IncludeI;
 
-  bool Captured = false;
+  CaptureComponents CC = CaptureComponents::None;
 
   const LoopInfo *LI;
+  function_ref<bool(CaptureComponents)> FilterFn;
 };
 
 /// Find the 'earliest' instruction before which the pointer is known not to
@@ -226,31 +230,34 @@ bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
       V, ReturnCaptures, capturesAnything, MaxUsesToExplore));
 }
 
-/// PointerMayBeCapturedBefore - Return true if this pointer value may be
-/// captured by the enclosing function (which is required to exist). If a
-/// DominatorTree is provided, only captures which happen before the given
-/// instruction are considered. This routine can be expensive, so consider
-/// caching the results.  The boolean ReturnCaptures specifies whether
-/// returning the value (or part of it) from the function counts as capturing
-/// it or not.
+CaptureComponents llvm::PointerMayBeCapturedBefore(
+    const Value *V, bool ReturnCaptures, const Instruction *I,
+    const DominatorTree *DT, bool IncludeI,
+    function_ref<bool(CaptureComponents)> FilterFn, const LoopInfo *LI,
+    unsigned MaxUsesToExplore) {
+  assert(!isa<GlobalValue>(V) &&
+         "It doesn't make sense to ask whether a global is captured.");
+
+  if (!DT)
+    return PointerMayBeCaptured(V, ReturnCaptures, FilterFn, MaxUsesToExplore);
+
+  CapturesBefore CB(ReturnCaptures, I, DT, IncludeI, LI, FilterFn);
+  PointerMayBeCaptured(V, &CB, MaxUsesToExplore);
+  if (capturesAnything(CB.CC))
+    ++NumCapturedBefore;
+  else
+    ++NumNotCapturedBefore;
+  return CB.CC;
+}
+
 bool llvm::PointerMayBeCapturedBefore(const Value *V, bool ReturnCaptures,
                                       const Instruction *I,
                                       const DominatorTree *DT, bool IncludeI,
                                       unsigned MaxUsesToExplore,
                                       const LoopInfo *LI) {
-  assert(!isa<GlobalValue>(V) &&
-         "It doesn't make sense to ask whether a global is captured.");
-
-  if (!DT)
-    return PointerMayBeCaptured(V, ReturnCaptures, MaxUsesToExplore);
-
-  CapturesBefore CB(ReturnCaptures, I, DT, IncludeI, LI);
-  PointerMayBeCaptured(V, &CB, MaxUsesToExplore);
-  if (CB.Captured)
-    ++NumCapturedBefore;
-  else
-    ++NumNotCapturedBefore;
-  return CB.Captured;
+  return capturesAnything(PointerMayBeCapturedBefore(V, ReturnCaptures, I, DT,
+                                                     IncludeI, capturesAnything,
+                                                     LI, MaxUsesToExplore));
 }
 
 Instruction *llvm::FindEarliestCapture(
