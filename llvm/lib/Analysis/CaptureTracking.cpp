@@ -73,29 +73,30 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
 
 namespace {
 struct SimpleCaptureTracker : public CaptureTracker {
-  explicit SimpleCaptureTracker(bool ReturnCaptures,
-                                function_ref<bool(CaptureComponents)> FilterFn)
-      : ReturnCaptures(ReturnCaptures), FilterFn(FilterFn) {}
+  explicit SimpleCaptureTracker(bool ReturnCaptures, CaptureComponents Mask,
+                                function_ref<bool(CaptureComponents)> StopFn)
+      : ReturnCaptures(ReturnCaptures), Mask(Mask), StopFn(StopFn) {}
 
   void tooManyUses() override {
     LLVM_DEBUG(dbgs() << "Captured due to too many uses\n");
-    CC = CaptureComponents::All;
+    CC = Mask;
   }
 
   Action captured(const Use *U, UseCaptureInfo CI) override {
     if (isa<ReturnInst>(U->getUser()) && !ReturnCaptures)
       return ContinueIgnoringReturn;
 
-    if (!FilterFn(CI.UseCC))
+    if (capturesNothing(CI.UseCC & Mask))
       return Continue;
 
     LLVM_DEBUG(dbgs() << "Captured by: " << *U->getUser() << "\n");
-    CC = CI.UseCC;
-    return Stop;
+    CC |= CI.UseCC & Mask;
+    return StopFn(CC) ? Stop : Continue;
   }
 
   bool ReturnCaptures;
-  function_ref<bool(CaptureComponents)> FilterFn;
+  CaptureComponents Mask;
+  function_ref<bool(CaptureComponents)> StopFn;
 
   CaptureComponents CC = CaptureComponents::None;
 };
@@ -108,11 +109,12 @@ struct CapturesBefore : public CaptureTracker {
 
   CapturesBefore(bool ReturnCaptures, const Instruction *I,
                  const DominatorTree *DT, bool IncludeI, const LoopInfo *LI,
-                 function_ref<bool(CaptureComponents)> FilterFn)
+                 CaptureComponents Mask,
+                 function_ref<bool(CaptureComponents)> StopFn)
       : BeforeHere(I), DT(DT), ReturnCaptures(ReturnCaptures),
-        IncludeI(IncludeI), LI(LI), FilterFn(FilterFn) {}
+        IncludeI(IncludeI), LI(LI), Mask(Mask), StopFn(StopFn) {}
 
-  void tooManyUses() override { CC = CaptureComponents::All; }
+  void tooManyUses() override { CC = Mask; }
 
   bool isSafeToPrune(Instruction *I) {
     if (BeforeHere == I)
@@ -139,11 +141,11 @@ struct CapturesBefore : public CaptureTracker {
       // If the use is not reachable, the instruction result isn't either.
       return ContinueIgnoringReturn;
 
-    if (!FilterFn(CI.UseCC))
+    if (capturesNothing(CI.UseCC & Mask))
       return Continue;
 
-    CC = CI.UseCC;
-    return Stop;
+    CC |= CI.UseCC & Mask;
+    return StopFn(CC) ? Stop : Continue;
   }
 
   const Instruction *BeforeHere;
@@ -155,7 +157,8 @@ struct CapturesBefore : public CaptureTracker {
   CaptureComponents CC = CaptureComponents::None;
 
   const LoopInfo *LI;
-  function_ref<bool(CaptureComponents)> FilterFn;
+  CaptureComponents Mask;
+  function_ref<bool(CaptureComponents)> StopFn;
 };
 
 /// Find the 'earliest' instruction before which the pointer is known not to
@@ -169,11 +172,11 @@ struct CapturesBefore : public CaptureTracker {
 struct EarliestCaptures : public CaptureTracker {
 
   EarliestCaptures(bool ReturnCaptures, Function &F, const DominatorTree &DT,
-                   function_ref<bool(CaptureComponents)> FilterFn)
-      : DT(DT), ReturnCaptures(ReturnCaptures), F(F), FilterFn(FilterFn) {}
+                   CaptureComponents Mask)
+      : DT(DT), ReturnCaptures(ReturnCaptures), F(F), Mask(Mask) {}
 
   void tooManyUses() override {
-    CC = CaptureComponents::All;
+    CC = Mask;
     EarliestCapture = &*F.getEntryBlock().begin();
   }
 
@@ -182,12 +185,12 @@ struct EarliestCaptures : public CaptureTracker {
     if (isa<ReturnInst>(I) && !ReturnCaptures)
       return ContinueIgnoringReturn;
 
-    if (FilterFn(CI.UseCC)) {
+    if (capturesAnything(CI.UseCC & Mask)) {
       if (!EarliestCapture)
         EarliestCapture = I;
       else
         EarliestCapture = DT.findNearestCommonDominator(EarliestCapture, I);
-      CC |= CI.UseCC;
+      CC |= CI.UseCC & Mask;
     }
 
     // Continue analysis, as we need to see all potential captures.
@@ -197,23 +200,22 @@ struct EarliestCaptures : public CaptureTracker {
   const DominatorTree &DT;
   bool ReturnCaptures;
   Function &F;
-  function_ref<bool(CaptureComponents)> FilterFn;
+  CaptureComponents Mask;
 
   Instruction *EarliestCapture = nullptr;
   CaptureComponents CC = CaptureComponents::None;
 };
 } // namespace
 
-CaptureComponents
-llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
-                           function_ref<bool(CaptureComponents)> FilterFn,
-                           unsigned MaxUsesToExplore) {
+CaptureComponents llvm::PointerMayBeCaptured(
+    const Value *V, bool ReturnCaptures, CaptureComponents Mask,
+    function_ref<bool(CaptureComponents)> StopFn, unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
   LLVM_DEBUG(dbgs() << "Captured?: " << *V << " = ");
 
-  SimpleCaptureTracker SCT(ReturnCaptures, FilterFn);
+  SimpleCaptureTracker SCT(ReturnCaptures, Mask, StopFn);
   PointerMayBeCaptured(V, &SCT, MaxUsesToExplore);
   if (capturesAnything(SCT.CC))
     ++NumCaptured;
@@ -226,22 +228,24 @@ llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
 
 bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
                                 unsigned MaxUsesToExplore) {
-  return capturesAnything(PointerMayBeCaptured(
-      V, ReturnCaptures, capturesAnything, MaxUsesToExplore));
+  return capturesAnything(
+      PointerMayBeCaptured(V, ReturnCaptures, CaptureComponents::All,
+                           capturesAnything, MaxUsesToExplore));
 }
 
 CaptureComponents llvm::PointerMayBeCapturedBefore(
     const Value *V, bool ReturnCaptures, const Instruction *I,
-    const DominatorTree *DT, bool IncludeI,
-    function_ref<bool(CaptureComponents)> FilterFn, const LoopInfo *LI,
+    const DominatorTree *DT, bool IncludeI, CaptureComponents Mask,
+    function_ref<bool(CaptureComponents)> StopFn, const LoopInfo *LI,
     unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
   if (!DT)
-    return PointerMayBeCaptured(V, ReturnCaptures, FilterFn, MaxUsesToExplore);
+    return PointerMayBeCaptured(V, ReturnCaptures, Mask, StopFn,
+                                MaxUsesToExplore);
 
-  CapturesBefore CB(ReturnCaptures, I, DT, IncludeI, LI, FilterFn);
+  CapturesBefore CB(ReturnCaptures, I, DT, IncludeI, LI, Mask, StopFn);
   PointerMayBeCaptured(V, &CB, MaxUsesToExplore);
   if (capturesAnything(CB.CC))
     ++NumCapturedBefore;
@@ -255,18 +259,20 @@ bool llvm::PointerMayBeCapturedBefore(const Value *V, bool ReturnCaptures,
                                       const DominatorTree *DT, bool IncludeI,
                                       unsigned MaxUsesToExplore,
                                       const LoopInfo *LI) {
-  return capturesAnything(PointerMayBeCapturedBefore(V, ReturnCaptures, I, DT,
-                                                     IncludeI, capturesAnything,
-                                                     LI, MaxUsesToExplore));
+  return capturesAnything(PointerMayBeCapturedBefore(
+      V, ReturnCaptures, I, DT, IncludeI, CaptureComponents::All,
+      capturesAnything, LI, MaxUsesToExplore));
 }
 
-Instruction *llvm::FindEarliestCapture(
-    const Value *V, Function &F, bool ReturnCaptures, const DominatorTree &DT,
-    function_ref<bool(CaptureComponents)> FilterFn, unsigned MaxUsesToExplore) {
+Instruction *llvm::FindEarliestCapture(const Value *V, Function &F,
+                                       bool ReturnCaptures,
+                                       const DominatorTree &DT,
+                                       CaptureComponents Mask,
+                                       unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
-  EarliestCaptures CB(ReturnCaptures, F, DT, FilterFn);
+  EarliestCaptures CB(ReturnCaptures, F, DT, Mask);
   PointerMayBeCaptured(V, &CB, MaxUsesToExplore);
   if (capturesAnything(CB.CC))
     ++NumCapturedBefore;
@@ -485,8 +491,8 @@ bool llvm::isNonEscapingLocalObject(
   // If this is an identified function-local object, check to see if it escapes.
   // We only care about provenance here, not address capture.
   if (isIdentifiedFunctionLocal(V)) {
-    bool Ret = !capturesAnyProvenance(PointerMayBeCaptured(
-        V, /*ReturnCaptures=*/false, capturesAnyProvenance));
+    bool Ret = !capturesAnything(PointerMayBeCaptured(
+        V, /*ReturnCaptures=*/false, CaptureComponents::Provenance));
     if (IsCapturedCache)
       CacheIt->second = Ret;
     return Ret;

@@ -622,9 +622,9 @@ ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
   if (!Call || Call == Object)
     return ModRefInfo::ModRef;
 
-  if (capturesAnyProvenance(PointerMayBeCapturedBefore(
+  if (capturesAnything(PointerMayBeCapturedBefore(
           Object, /* ReturnCaptures */ true, I, DT,
-          /* include Object */ true, capturesAnyProvenance)))
+          /* include Object */ true, CaptureComponents::Provenance)))
     return ModRefInfo::ModRef;
 
   unsigned ArgNo = 0;

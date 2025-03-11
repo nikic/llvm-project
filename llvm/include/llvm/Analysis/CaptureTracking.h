@@ -44,13 +44,14 @@ namespace llvm {
   bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
                             unsigned MaxUsesToExplore = 0);
 
-  /// Return which components of the pointer may be captured. FilterFn specifies
-  /// which captures are interesting. Non-interesting captures are ignored, and
-  /// the traversal stops at the first interesting capture.
-  CaptureComponents
-  PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
-                       function_ref<bool(CaptureComponents)> FilterFn,
-                       unsigned MaxUsesToExplore = 0);
+  /// Return which components of the pointer may be captured. Only consider
+  /// components that are part of \p Mask. Once \p StopFn on the accumulated
+  /// components returns true, the traversal is aborted early. By default, this
+  /// happens when *any* of the components in \p Mask are captured.
+  CaptureComponents PointerMayBeCaptured(
+      const Value *V, bool ReturnCaptures, CaptureComponents Mask,
+      function_ref<bool(CaptureComponents)> StopFn = capturesAnything,
+      unsigned MaxUsesToExplore = 0);
 
   /// PointerMayBeCapturedBefore - Return true if this pointer value may be
   /// captured by the enclosing function (which is required to exist). If a
@@ -69,14 +70,15 @@ namespace llvm {
                                   unsigned MaxUsesToExplore = 0,
                                   const LoopInfo *LI = nullptr);
 
-  /// Return which components of the pointer may be captured on the path to I.
-  /// FilterFn specifies which captures are interesting. Non-interesting
-  /// captures are ignored, and the traversal stops at the first capture that
-  /// is both interesting and reachable.
+  /// Return which components of the pointer may be captured on the path to
+  /// \p I. Only consider components that are part of \p Mask. Once \p StopFn
+  /// on the accumulated components returns true, the traversal is aborted
+  /// early. By default, this happens when *any* of the components in \p Mask
+  /// are captured.
   CaptureComponents PointerMayBeCapturedBefore(
       const Value *V, bool ReturnCaptures, const Instruction *I,
-      const DominatorTree *DT, bool IncludeI,
-      function_ref<bool(CaptureComponents)> FilterFn,
+      const DominatorTree *DT, bool IncludeI, CaptureComponents Mask,
+      function_ref<bool(CaptureComponents)> StopFn = capturesAnything,
       const LoopInfo *LI = nullptr, unsigned MaxUsesToExplore = 0);
 
   // Returns the 'earliest' instruction that captures \p V in \F. An instruction
@@ -88,12 +90,11 @@ namespace llvm {
   // that the instruction the result value is compared against is not in a
   // cycle.
   //
-  // Only captures satisfying \p FilterFn are considered.
-  Instruction *
-  FindEarliestCapture(const Value *V, Function &F, bool ReturnCaptures,
-                      const DominatorTree &DT,
-                      function_ref<bool(CaptureComponents)> FilterFn,
-                      unsigned MaxUsesToExplore = 0);
+  // Only consider components that are part of \p Mask.
+  Instruction *FindEarliestCapture(const Value *V, Function &F,
+                                   bool ReturnCaptures, const DominatorTree &DT,
+                                   CaptureComponents Mask,
+                                   unsigned MaxUsesToExplore = 0);
 
   /// Capture information for a specific Use.
   struct UseCaptureInfo {
