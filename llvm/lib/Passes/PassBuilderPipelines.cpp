@@ -1689,7 +1689,7 @@ PassBuilder::buildFatLTODefaultPipeline(OptimizationLevel Level, bool ThinLTO,
       LowerTypeTestsPass(nullptr, nullptr, lowertypetests::DropTestKind::All));
 
   // Use the ThinLTO post-link pipeline with sample profiling
-  if (ThinLTO && PGOOpt && PGOOpt->Action == PGOOptions::SampleUse)
+  if (ThinLTO)
     MPM.addPass(buildThinLTODefaultPipeline(Level, /*ImportSummary=*/nullptr));
   else {
     // otherwise, just use module optimization
