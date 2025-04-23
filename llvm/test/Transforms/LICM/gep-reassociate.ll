@@ -43,13 +43,13 @@ define void @both_inbounds_one_neg(ptr %ptr, i1 %c) {
 ; CHECK-LABEL: define void @both_inbounds_one_neg
 ; CHECK-SAME: (ptr [[PTR:%.*]], i1 [[C:%.*]]) {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[INVARIANT_GEP:%.*]] = getelementptr i8, ptr [[PTR]], i64 -1
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[VAL:%.*]] = call i32 @get.i32()
 ; CHECK-NEXT:    [[VAL_EXT:%.*]] = zext i32 [[VAL]] to i64
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr i8, ptr [[INVARIANT_GEP]], i64 [[VAL_EXT]]
-; CHECK-NEXT:    call void @use(ptr [[GEP]])
+; CHECK-NEXT:    [[PTR2:%.*]] = getelementptr inbounds i8, ptr [[PTR]], i64 [[VAL_EXT]]
+; CHECK-NEXT:    [[PTR3:%.*]] = getelementptr i8, ptr [[PTR2]], i64 -1
+; CHECK-NEXT:    call void @use(ptr [[PTR3]])
 ; CHECK-NEXT:    br i1 [[C]], label [[LOOP]], label [[EXIT:%.*]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
@@ -73,13 +73,13 @@ define void @both_inbounds_pos(ptr %ptr, i1 %c) {
 ; CHECK-LABEL: define void @both_inbounds_pos
 ; CHECK-SAME: (ptr [[PTR:%.*]], i1 [[C:%.*]]) {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[INVARIANT_GEP:%.*]] = getelementptr inbounds i8, ptr [[PTR]], i64 1
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[VAL:%.*]] = call i32 @get.i32()
 ; CHECK-NEXT:    [[VAL_EXT:%.*]] = zext i32 [[VAL]] to i64
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds i8, ptr [[INVARIANT_GEP]], i64 [[VAL_EXT]]
-; CHECK-NEXT:    call void @use(ptr [[GEP]])
+; CHECK-NEXT:    [[PTR2:%.*]] = getelementptr inbounds i8, ptr [[PTR]], i64 [[VAL_EXT]]
+; CHECK-NEXT:    [[PTR3:%.*]] = getelementptr inbounds i8, ptr [[PTR2]], i64 1
+; CHECK-NEXT:    call void @use(ptr [[PTR3]])
 ; CHECK-NEXT:    br i1 [[C]], label [[LOOP]], label [[EXIT:%.*]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
