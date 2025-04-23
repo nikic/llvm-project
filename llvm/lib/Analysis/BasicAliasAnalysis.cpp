@@ -81,7 +81,7 @@ STATISTIC(SearchTimes, "Number of times a GEP is decomposed");
 
 // The max limit of the search depth in DecomposeGEPExpression() and
 // getUnderlyingObject().
-static const unsigned MaxLookupSearchDepth = 6;
+static const unsigned MaxLookupSearchDepth = 8;
 
 bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
                                FunctionAnalysisManager::Invalidator &Inv) {
