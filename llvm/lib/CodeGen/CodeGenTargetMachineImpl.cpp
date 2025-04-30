@@ -95,10 +95,8 @@ CodeGenTargetMachineImpl::CodeGenTargetMachineImpl(
   this->CMModel = CM;
   this->OptLevel = OL;
 
-  if (EnableTrapUnreachable)
-    this->Options.TrapUnreachable = true;
-  if (EnableNoTrapAfterNoreturn)
-    this->Options.NoTrapAfterNoreturn = true;
+  this->Options.TrapUnreachable = true;
+  this->Options.NoTrapAfterNoreturn = true;
 }
 
 TargetTransformInfo
