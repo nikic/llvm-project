@@ -34,6 +34,13 @@ using namespace CodeGen;
 CodeGenTypes::CodeGenTypes(CodeGenModule &cgm)
     : CGM(cgm), Context(cgm.getContext()), TheModule(cgm.getModule()),
       Target(cgm.getTarget()) {
+  //     if (cgm.shouldUseLLVMABI()) {
+  //   Alloc = std::make_unique<llvm::BumpPtrAllocator>();
+  //   TB = std::make_unique<llvm::abi::TypeBuilder>(*Alloc);
+  //   Mapper = std::make_unique<QualTypeMapper>(cgm.getContext(), *Alloc);
+  //   ReverseMapper = std::make_unique<llvm::ABITypeMapper>(
+  //       cgm.getLLVMContext(), cgm.getModule().getDataLayout());
+  // }
   SkippedLayout = false;
   LongDoubleReferenced = false;
 }
