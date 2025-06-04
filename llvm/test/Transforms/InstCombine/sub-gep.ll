@@ -80,7 +80,7 @@ define i32 @test_inbounds_nuw_trunc(ptr %base, i64 %idx) {
 
 define i64 @test_inbounds_nuw_swapped(ptr %base, i64 %idx) {
 ; CHECK-LABEL: @test_inbounds_nuw_swapped(
-; CHECK-NEXT:    [[P2_IDX_NEG:%.*]] = mul i64 [[IDX:%.*]], -4
+; CHECK-NEXT:    [[P2_IDX_NEG:%.*]] = mul nsw i64 [[IDX:%.*]], -4
 ; CHECK-NEXT:    ret i64 [[P2_IDX_NEG]]
 ;
   %p2 = getelementptr inbounds [0 x i32], ptr %base, i64 0, i64 %idx
@@ -104,7 +104,7 @@ define i64 @test_inbounds1_nuw_swapped(ptr %base, i64 %idx) {
 
 define i64 @test_inbounds2_nuw_swapped(ptr %base, i64 %idx) {
 ; CHECK-LABEL: @test_inbounds2_nuw_swapped(
-; CHECK-NEXT:    [[P2_IDX_NEG:%.*]] = mul i64 [[IDX:%.*]], -4
+; CHECK-NEXT:    [[P2_IDX_NEG:%.*]] = mul nsw i64 [[IDX:%.*]], -4
 ; CHECK-NEXT:    ret i64 [[P2_IDX_NEG]]
 ;
   %p2 = getelementptr inbounds [0 x i32], ptr %base, i64 0, i64 %idx
@@ -279,7 +279,7 @@ define i16 @test24_as1(ptr addrspace(1) %P, i16 %A) {
 
 define i64 @test24a(ptr %P, i64 %A){
 ; CHECK-LABEL: @test24a(
-; CHECK-NEXT:    [[DIFF_NEG:%.*]] = sub i64 0, [[A:%.*]]
+; CHECK-NEXT:    [[DIFF_NEG:%.*]] = sub nsw i64 0, [[A:%.*]]
 ; CHECK-NEXT:    ret i64 [[DIFF_NEG]]
 ;
   %B = getelementptr inbounds i8, ptr %P, i64 %A
@@ -291,7 +291,7 @@ define i64 @test24a(ptr %P, i64 %A){
 
 define i16 @test24a_as1(ptr addrspace(1) %P, i16 %A) {
 ; CHECK-LABEL: @test24a_as1(
-; CHECK-NEXT:    [[DIFF_NEG:%.*]] = sub i16 0, [[A:%.*]]
+; CHECK-NEXT:    [[DIFF_NEG:%.*]] = sub nsw i16 0, [[A:%.*]]
 ; CHECK-NEXT:    ret i16 [[DIFF_NEG]]
 ;
   %B = getelementptr inbounds i8, ptr addrspace(1) %P, i16 %A
