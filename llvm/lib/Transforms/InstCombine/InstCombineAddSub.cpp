@@ -2105,7 +2105,7 @@ Value *InstCombinerImpl::OptimizePointerDifference(Value *LHS, Value *RHS,
   // computed offset. This may erase the original GEP, so be sure to cache the
   // nowrap flags before emitting the offset.
   // TODO: We should probably do this even if there is only one GEP.
-  bool RewriteGEPs = GEP2 != nullptr;
+  bool RewriteGEPs = true;
 
   // Emit the offset of the GEP and an intptr_t.
   GEPNoWrapFlags GEP1NW = GEP1->getNoWrapFlags();
