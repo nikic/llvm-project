@@ -2140,11 +2140,13 @@ Value *InstCombinerImpl::OptimizePointerDifference(Value *LHS, Value *RHS,
   if (!Base.Ptr)
     return nullptr;
 
+  bool RewriteGEPs = !Base.LHSGEPs.empty() && !Base.RHSGEPs.empty();
+
   Type *IdxTy = DL.getIndexType(Base.Ptr->getType());
   auto EmitOffsetFromBase = [&](ArrayRef<GEPOperator *> GEPs) -> Value * {
     Value *Sum = nullptr;
     for (GEPOperator *GEP : reverse(GEPs)) {
-      Value *Offset = EmitGEPOffset(GEP, /*RewriteGEP=*/true);
+      Value *Offset = EmitGEPOffset(GEP, RewriteGEPs);
       if (Sum)
         Sum = Builder.CreateAdd(Sum, Offset);
       else
