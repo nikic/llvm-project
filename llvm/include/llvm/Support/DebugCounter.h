@@ -154,12 +154,7 @@ public:
   static void enableAllCounters() { instance().Enabled = true; }
 
   static bool isCountingEnabled() {
-// Compile to nothing when debugging is off
-#ifdef NDEBUG
-    return false;
-#else
     return instance().Enabled || instance().ShouldPrintCounter;
-#endif
   }
 
 protected:
