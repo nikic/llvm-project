@@ -199,12 +199,12 @@ CaptureAnalysis::~CaptureAnalysis() = default;
 bool SimpleCaptureAnalysis::isNotCapturedBefore(const Value *Object,
                                                 const Instruction *I,
                                                 bool OrAt) {
-  if (!isIdentifiedFunctionLocal(Object))
-    return false;
-
   auto [CacheIt, Inserted] = IsCapturedCache.insert({Object, false});
   if (!Inserted)
     return CacheIt->second;
+
+  if (!isIdentifiedFunctionLocal(Object))
+    return false;
 
   bool Ret = !capturesAnything(PointerMayBeCaptured(
       Object, /*ReturnCaptures=*/false, CaptureComponents::Provenance));
