@@ -714,6 +714,7 @@ PredicateInfo::PredicateInfo(Function &F, DominatorTree &DT,
 // Remove all declarations we created . The PredicateInfo consumers are
 // responsible for remove the ssa_copy calls created.
 PredicateInfo::~PredicateInfo() {
+#if 0
   // Collect function pointers in set first, as SmallSet uses a SmallVector
   // internally and we have to remove the asserting value handles first.
   SmallPtrSet<Function *, 20> FunctionPtrs;
@@ -726,6 +727,7 @@ PredicateInfo::~PredicateInfo() {
            "PredicateInfo consumer did not remove all SSA copies.");
     F->eraseFromParent();
   }
+#endif
 }
 
 std::optional<PredicateConstraint> PredicateBase::getConstraint() const {
