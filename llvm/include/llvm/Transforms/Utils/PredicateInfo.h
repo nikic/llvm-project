@@ -82,16 +82,15 @@ struct PredicateConstraint {
 class PredicateBase : public ilist_node<PredicateBase> {
 public:
   PredicateType Type;
-  // The original operand before we renamed it.
-  // This can be use by passes, when destroying predicateinfo, to know
-  // whether they can just drop the intrinsic, or have to merge metadata.
-  Value *OriginalOp;
-  // The renamed operand in the condition used for this predicate. For nested
-  // predicates, this is different to OriginalOp which refers to the initial
-  // operand.
-  Value *RenamedOp;
   // The condition associated with this predicate.
   Value *Condition;
+  // The use (part of the condition) this predicate applies to. This is a Use
+  // rather than Value to track it through renames.
+  Use *U;
+  // The original value of the Use before we renamed it.
+  // This can be used by passes, when destroying predicateinfo, to know
+  // whether they can just drop the intrinsic, or have to merge metadata.
+  Value *OriginalOp;
 
   PredicateBase(const PredicateBase &) = delete;
   PredicateBase &operator=(const PredicateBase &) = delete;
@@ -106,8 +105,8 @@ public:
   LLVM_ABI std::optional<PredicateConstraint> getConstraint() const;
 
 protected:
-  PredicateBase(PredicateType PT, Value *Op, Value *Condition)
-      : Type(PT), OriginalOp(Op), Condition(Condition) {}
+  PredicateBase(PredicateType PT, Use *U, Value *Condition)
+      : Type(PT), Condition(Condition), U(U), OriginalOp(U->get()) {}
 };
 
 // Provides predicate information for assumes.  Since assumes are always true,
@@ -116,8 +115,8 @@ protected:
 class PredicateAssume : public PredicateBase {
 public:
   IntrinsicInst *AssumeInst;
-  PredicateAssume(Value *Op, IntrinsicInst *AssumeInst, Value *Condition)
-      : PredicateBase(PT_Assume, Op, Condition), AssumeInst(AssumeInst) {}
+  PredicateAssume(Use *U, IntrinsicInst *AssumeInst, Value *Condition)
+      : PredicateBase(PT_Assume, U, Condition), AssumeInst(AssumeInst) {}
   PredicateAssume() = delete;
   static bool classof(const PredicateBase *PB) {
     return PB->Type == PT_Assume;
@@ -137,9 +136,9 @@ public:
   }
 
 protected:
-  PredicateWithEdge(PredicateType PType, Value *Op, BasicBlock *From,
+  PredicateWithEdge(PredicateType PType, Use *U, BasicBlock *From,
                     BasicBlock *To, Value *Cond)
-      : PredicateBase(PType, Op, Cond), From(From), To(To) {}
+      : PredicateBase(PType, U, Cond), From(From), To(To) {}
 };
 
 // Provides predicate information for branches.
@@ -147,9 +146,9 @@ class PredicateBranch : public PredicateWithEdge {
 public:
   // If true, SplitBB is the true successor, otherwise it's the false successor.
   bool TrueEdge;
-  PredicateBranch(Value *Op, BasicBlock *BranchBB, BasicBlock *SplitBB,
+  PredicateBranch(Use *U, BasicBlock *BranchBB, BasicBlock *SplitBB,
                   Value *Condition, bool TakenEdge)
-      : PredicateWithEdge(PT_Branch, Op, BranchBB, SplitBB, Condition),
+      : PredicateWithEdge(PT_Branch, U, BranchBB, SplitBB, Condition),
         TrueEdge(TakenEdge) {}
   PredicateBranch() = delete;
   static bool classof(const PredicateBase *PB) {
@@ -162,9 +161,9 @@ public:
   Value *CaseValue;
   // This is the switch instruction.
   SwitchInst *Switch;
-  PredicateSwitch(Value *Op, BasicBlock *SwitchBB, BasicBlock *TargetBB,
+  PredicateSwitch(Use *U, BasicBlock *SwitchBB, BasicBlock *TargetBB,
                   Value *CaseValue, SwitchInst *SI)
-      : PredicateWithEdge(PT_Switch, Op, SwitchBB, TargetBB,
+      : PredicateWithEdge(PT_Switch, U, SwitchBB, TargetBB,
                           SI->getCondition()),
         CaseValue(CaseValue), Switch(SI) {}
   PredicateSwitch() = delete;
