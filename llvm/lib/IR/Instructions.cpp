@@ -762,9 +762,11 @@ void CallInst::init(FunctionType *FTy, Value *Func, ArrayRef<Value *> Args,
   llvm::copy(Args, op_begin());
   setCalledOperand(Func);
 
-  auto It = populateBundleOperandInfos(Bundles, Args.size());
-  (void)It;
-  assert(It + 1 == op_end() && "Should add up!");
+  if (!Bundles.empty()) {
+    auto It = populateBundleOperandInfos(Bundles, Args.size());
+    (void)It;
+    assert(It + 1 == op_end() && "Should add up!");
+  }
 
   setName(NameStr);
 }
@@ -860,9 +862,11 @@ void InvokeInst::init(FunctionType *FTy, Value *Fn, BasicBlock *IfNormal,
   setUnwindDest(IfException);
   setCalledOperand(Fn);
 
-  auto It = populateBundleOperandInfos(Bundles, Args.size());
-  (void)It;
-  assert(It + 3 == op_end() && "Should add up!");
+  if (!Bundles.empty()) {
+    auto It = populateBundleOperandInfos(Bundles, Args.size());
+    (void)It;
+    assert(It + 3 == op_end() && "Should add up!");
+  }
 
   setName(NameStr);
 }
@@ -944,9 +948,11 @@ void CallBrInst::init(FunctionType *FTy, Value *Fn, BasicBlock *Fallthrough,
     setIndirectDest(i, IndirectDests[i]);
   setCalledOperand(Fn);
 
-  auto It = populateBundleOperandInfos(Bundles, Args.size());
-  (void)It;
-  assert(It + 2 + IndirectDests.size() == op_end() && "Should add up!");
+  if (!Bundles.empty()) {
+    auto It = populateBundleOperandInfos(Bundles, Args.size());
+    (void)It;
+    assert(It + 2 + IndirectDests.size() == op_end() && "Should add up!");
+  }
 
   setName(NameStr);
 }
