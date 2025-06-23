@@ -9,7 +9,6 @@ define void @load_first_noalias_addrspace(ptr %p) {
 ; CHECK-SAME: ptr [[P:%.*]]) {
 ; CHECK-NEXT:    [[V1:%.*]] = load ptr, ptr [[P]], align 8, !nonnull [[META0:![0-9]+]], !noundef [[META0]], !noalias.addrspace [[META1:![0-9]+]]
 ; CHECK-NEXT:    call void @use.ptr(ptr [[V1]])
-; CHECK-NEXT:    call void @use.ptr(ptr [[V1]])
 ; CHECK-NEXT:    ret void
 ;
   %v1 = load ptr, ptr %p, !nonnull !{}, !noundef !{}, !noalias.addrspace !0
@@ -23,7 +22,6 @@ define void @load_both_same_noalias_addrspace(ptr %p) {
 ; CHECK-LABEL: define void @load_both_same_noalias_addrspace(
 ; CHECK-SAME: ptr [[P:%.*]]) {
 ; CHECK-NEXT:    [[V1:%.*]] = load ptr, ptr [[P]], align 8, !nonnull [[META0]], !noundef [[META0]], !noalias.addrspace [[META1]]
-; CHECK-NEXT:    call void @use.ptr(ptr [[V1]])
 ; CHECK-NEXT:    call void @use.ptr(ptr [[V1]])
 ; CHECK-NEXT:    ret void
 ;
@@ -39,7 +37,6 @@ define void @load_both_disjoint_noalias_addrspace(ptr %p) {
 ; CHECK-SAME: ptr [[P:%.*]]) {
 ; CHECK-NEXT:    [[V1:%.*]] = load ptr, ptr [[P]], align 8, !nonnull [[META0]], !noundef [[META0]], !noalias.addrspace [[META1]]
 ; CHECK-NEXT:    call void @use.ptr(ptr [[V1]])
-; CHECK-NEXT:    call void @use.ptr(ptr [[V1]])
 ; CHECK-NEXT:    ret void
 ;
   %v1 = load ptr, ptr %p, !nonnull !{}, !noundef !{}, !noalias.addrspace !0
@@ -53,7 +50,6 @@ define void @load_both_overlap_noalias_addrspace(ptr %p) {
 ; CHECK-LABEL: define void @load_both_overlap_noalias_addrspace(
 ; CHECK-SAME: ptr [[P:%.*]]) {
 ; CHECK-NEXT:    [[V1:%.*]] = load ptr, ptr [[P]], align 8, !nonnull [[META0]], !noundef [[META0]], !noalias.addrspace [[META1]]
-; CHECK-NEXT:    call void @use.ptr(ptr [[V1]])
 ; CHECK-NEXT:    call void @use.ptr(ptr [[V1]])
 ; CHECK-NEXT:    ret void
 ;
