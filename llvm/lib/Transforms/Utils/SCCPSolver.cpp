@@ -471,6 +471,7 @@ class SCCPInstVisitor : public InstVisitor<SCCPInstVisitor> {
 
   /// Worklist of instructions to re-visit. This only includes instructions
   /// in blocks that have already been visited at least once.
+  SmallSetVector<Instruction *, 16> OverdefinedWorkList;
   SmallSetVector<Instruction *, 16> InstWorkList;
 
   /// Current instruction while visiting a block for the first time, used to
@@ -500,10 +501,10 @@ private:
   }
 
   /// Push instruction \p I to the worklist.
-  void pushToWorkList(Instruction *I);
+  void pushToWorkList(const ValueLatticeElement &IV, Instruction *I);
 
   /// Push users of value \p V to the worklist.
-  void pushUsersToWorkList(Value *V);
+  void pushUsersToWorkList(const ValueLatticeElement &IV, Value *V);
 
   /// Like pushUsersToWorkList(), but also prints a debug message with the
   /// updated value.
@@ -953,7 +954,8 @@ bool SCCPInstVisitor::markBlockExecutable(BasicBlock *BB) {
   return true;
 }
 
-void SCCPInstVisitor::pushToWorkList(Instruction *I) {
+void SCCPInstVisitor::pushToWorkList(const ValueLatticeElement &IV,
+                                     Instruction *I) {
   // If we're currently visiting a block, do not push any instructions in the
   // same blocks that are after the current one, as they will be visited
   // anyway. We do have to push updates to earlier instructions (e.g. phi
@@ -962,14 +964,19 @@ void SCCPInstVisitor::pushToWorkList(Instruction *I) {
     return;
   // Only push instructions in already visited blocks. Otherwise we'll handle
   // it when we visit the block for the first time.
-  if (BBVisited.count(I->getParent()))
-    InstWorkList.insert(I);
+  if (BBVisited.count(I->getParent())) {
+    if (IV.isOverdefined())
+      OverdefinedWorkList.insert(I);
+    else
+      InstWorkList.insert(I);
+  }
 }
 
-void SCCPInstVisitor::pushUsersToWorkList(Value *V) {
+void SCCPInstVisitor::pushUsersToWorkList(const ValueLatticeElement &IV,
+                                          Value *V) {
   for (User *U : V->users())
     if (auto *UI = dyn_cast<Instruction>(U))
-      pushToWorkList(UI);
+      pushToWorkList(IV, UI);
 
   auto Iter = AdditionalUsers.find(V);
   if (Iter != AdditionalUsers.end()) {
@@ -980,14 +987,14 @@ void SCCPInstVisitor::pushUsersToWorkList(Value *V) {
       if (auto *UI = dyn_cast<Instruction>(U))
         ToNotify.push_back(UI);
     for (Instruction *UI : ToNotify)
-      pushToWorkList(UI);
+      pushToWorkList(IV, UI);
   }
 }
 
 void SCCPInstVisitor::pushUsersToWorkListMsg(ValueLatticeElement &IV,
                                              Value *V) {
   LLVM_DEBUG(dbgs() << "updated " << IV << ": " << *V << '\n');
-  pushUsersToWorkList(V);
+  pushUsersToWorkList(IV, V);
 }
 
 bool SCCPInstVisitor::markConstant(ValueLatticeElement &IV, Value *V,
@@ -995,7 +1002,7 @@ bool SCCPInstVisitor::markConstant(ValueLatticeElement &IV, Value *V,
   if (!IV.markConstant(C, MayIncludeUndef))
     return false;
   LLVM_DEBUG(dbgs() << "markConstant: " << *C << ": " << *V << '\n');
-  pushUsersToWorkList(V);
+  pushUsersToWorkList(IV, V);
   return true;
 }
 
@@ -1004,7 +1011,7 @@ bool SCCPInstVisitor::markNotConstant(ValueLatticeElement &IV, Value *V,
   if (!IV.markNotConstant(C))
     return false;
   LLVM_DEBUG(dbgs() << "markNotConstant: " << *C << ": " << *V << '\n');
-  pushUsersToWorkList(V);
+  pushUsersToWorkList(IV, V);
   return true;
 }
 
@@ -1013,7 +1020,7 @@ bool SCCPInstVisitor::markConstantRange(ValueLatticeElement &IV, Value *V,
   if (!IV.markConstantRange(CR))
     return false;
   LLVM_DEBUG(dbgs() << "markConstantRange: " << CR << ": " << *V << '\n');
-  pushUsersToWorkList(V);
+  pushUsersToWorkList(IV, V);
   return true;
 }
 
@@ -1026,7 +1033,7 @@ bool SCCPInstVisitor::markOverdefined(ValueLatticeElement &IV, Value *V) {
              << "Function '" << F->getName() << "'\n";
              else dbgs() << *V << '\n');
   // Only instructions go on the work list
-  pushUsersToWorkList(V);
+  pushUsersToWorkList(IV, V);
   return true;
 }
 
@@ -1134,7 +1141,7 @@ bool SCCPInstVisitor::mergeInValue(ValueLatticeElement &IV, Value *V,
                                    ValueLatticeElement MergeWithV,
                                    ValueLatticeElement::MergeOptions Opts) {
   if (IV.mergeIn(MergeWithV, Opts)) {
-    pushUsersToWorkList(V);
+    pushUsersToWorkList(IV, V);
     LLVM_DEBUG(dbgs() << "Merged " << MergeWithV << " into " << *V << " : "
                       << IV << "\n");
     return true;
@@ -1153,8 +1160,9 @@ bool SCCPInstVisitor::markEdgeExecutable(BasicBlock *Source, BasicBlock *Dest) {
     LLVM_DEBUG(dbgs() << "Marking Edge Executable: " << Source->getName()
                       << " -> " << Dest->getName() << '\n');
 
+    ValueLatticeElement Dummy;
     for (PHINode &PN : Dest->phis())
-      pushToWorkList(&PN);
+      pushToWorkList(Dummy, &PN);
   }
   return true;
 }
@@ -2029,7 +2037,18 @@ void SCCPInstVisitor::handleCallResult(CallBase &CB) {
 
 void SCCPInstVisitor::solve() {
   // Process the work lists until they are empty!
-  while (!BBWorkList.empty() || !InstWorkList.empty()) {
+  while (!BBWorkList.empty() || !InstWorkList.empty() ||
+         !OverdefinedWorkList.empty()) {
+    // Process the instruction work list.
+    while (!OverdefinedWorkList.empty()) {
+      Instruction *I = OverdefinedWorkList.pop_back_val();
+      Invalidated.erase(I);
+
+      LLVM_DEBUG(dbgs() << "\nPopped off I-WL: " << *I << '\n');
+
+      visit(I);
+    }
+
     // Process the instruction work list.
     while (!InstWorkList.empty()) {
       Instruction *I = InstWorkList.pop_back_val();
