@@ -67,7 +67,7 @@ struct DenseMapInfo<T*> {
   // static_assert(alignof(T) <= (1 << Log2MaxAlign),
   //               "DenseMap does not support pointer keys requiring more than "
   //               "Log2MaxAlign bits of alignment");
-  static constexpr uintptr_t Log2MaxAlign = 12;
+  static constexpr uintptr_t Log2MaxAlign = 5;
 
   static inline T* getEmptyKey() {
     return reinterpret_cast<T*>(1 << Log2MaxAlign);
