@@ -70,15 +70,11 @@ struct DenseMapInfo<T*> {
   static constexpr uintptr_t Log2MaxAlign = 12;
 
   static inline T* getEmptyKey() {
-    uintptr_t Val = static_cast<uintptr_t>(-1);
-    Val <<= Log2MaxAlign;
-    return reinterpret_cast<T*>(Val);
+    return reinterpret_cast<T*>(1 << Log2MaxAlign);
   }
 
   static inline T* getTombstoneKey() {
-    uintptr_t Val = static_cast<uintptr_t>(-2);
-    Val <<= Log2MaxAlign;
-    return reinterpret_cast<T*>(Val);
+    return reinterpret_cast<T*>(2 << Log2MaxAlign);
   }
 
   static unsigned getHashValue(const T *PtrVal) {
