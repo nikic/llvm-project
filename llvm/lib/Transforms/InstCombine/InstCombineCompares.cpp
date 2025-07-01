@@ -711,7 +711,11 @@ Instruction *InstCombinerImpl::foldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
   Value *PtrBase = GEPLHS->getOperand(0);
   if (PtrBase == RHS && CanFold(GEPLHS->getNoWrapFlags())) {
     // ((gep Ptr, OFFSET) cmp Ptr)   ---> (OFFSET cmp 0).
-    Value *Offset = EmitGEPOffset(GEPLHS, /*RewriteGEP=*/true);
+    bool IsTrivial = GEPLHS->getNoWrapFlags() != GEPNoWrapFlags::none() &&
+                     count_if(GEPLHS->indices(), [](Value *V) {
+                       return !isa<ConstantInt>(V);
+                     }) <= 1;
+    Value *Offset = EmitGEPOffset(GEPLHS, /*RewriteGEP=*/!IsTrivial);
     return NewICmp(GEPLHS->getNoWrapFlags(), Offset,
                    Constant::getNullValue(Offset->getType()));
   }
