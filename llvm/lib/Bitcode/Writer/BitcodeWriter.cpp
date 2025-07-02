@@ -141,6 +141,7 @@ enum {
 
   // FUNCTION_BLOCK abbrev id's.
   FUNCTION_INST_LOAD_ABBREV = bitc::FIRST_APPLICATION_ABBREV,
+  FUNCTION_INST_STORE_ABBREV,
   FUNCTION_INST_UNOP_ABBREV,
   FUNCTION_INST_UNOP_FLAGS_ABBREV,
   FUNCTION_INST_BINOP_ABBREV,
@@ -3455,12 +3456,16 @@ void ModuleBitcodeWriter::writeInstruction(const Instruction &I,
     }
     break;
   case Instruction::Store:
-    if (cast<StoreInst>(I).isAtomic())
+    if (cast<StoreInst>(I).isAtomic()) {
       Code = bitc::FUNC_CODE_INST_STOREATOMIC;
-    else
+    } else {
       Code = bitc::FUNC_CODE_INST_STORE;
-    pushValueAndType(I.getOperand(1), InstID, Vals); // ptrty + ptr
-    pushValueAndType(I.getOperand(0), InstID, Vals); // valty + val
+      AbbrevToUse = FUNCTION_INST_STORE_ABBREV;
+    }
+    if (pushValueAndType(I.getOperand(1), InstID, Vals)) // ptrty + ptr
+      AbbrevToUse = 0;
+    if (pushValueAndType(I.getOperand(0), InstID, Vals)) // valty + val
+      AbbrevToUse = 0;
     Vals.push_back(getEncodedAlign(cast<StoreInst>(I).getAlign()));
     Vals.push_back(cast<StoreInst>(I).isVolatile());
     if (cast<StoreInst>(I).isAtomic()) {
@@ -3956,6 +3961,17 @@ void ModuleBitcodeWriter::writeBlockInfo() {
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // volatile
     if (Stream.EmitBlockInfoAbbrev(bitc::FUNCTION_BLOCK_ID, Abbv) !=
         FUNCTION_INST_LOAD_ABBREV)
+      llvm_unreachable("Unexpected abbrev ordering!");
+  }
+  { // INST_STORE abbrev for FUNCTION_BLOCK.
+    auto Abbv = std::make_shared<BitCodeAbbrev>();
+    Abbv->Add(BitCodeAbbrevOp(bitc::FUNC_CODE_INST_STORE));
+    Abbv->Add(ValAbbrevOp); // op1
+    Abbv->Add(ValAbbrevOp); // op0
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4)); // Align
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // volatile
+    if (Stream.EmitBlockInfoAbbrev(bitc::FUNCTION_BLOCK_ID, Abbv) !=
+        FUNCTION_INST_STORE_ABBREV)
       llvm_unreachable("Unexpected abbrev ordering!");
   }
   { // INST_UNOP abbrev for FUNCTION_BLOCK.
