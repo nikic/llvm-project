@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/SCCPSolver.h"
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -27,6 +28,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
+#include <queue>
 #include <utility>
 #include <vector>
 
@@ -479,7 +481,17 @@ class SCCPInstVisitor : public InstVisitor<SCCPInstVisitor> {
   Instruction *CurI = nullptr;
 
   // The BasicBlock work list
-  SmallVector<BasicBlock *, 64> BBWorkList;
+  struct BBWorkListEntry {
+    BasicBlock *BB;
+    unsigned RPONumber;
+    bool operator<(const BBWorkListEntry &Other) const {
+      return RPONumber > Other.RPONumber;
+    }
+  };
+  std::priority_queue<BBWorkListEntry> BBWorkList;
+
+  DenseMap<BasicBlock *, unsigned> RPONumbers;
+  unsigned LastRPONumber = 0;
 
   /// KnownFeasibleEdges - Entries in this set are edges which have already had
   /// PHI nodes retriggered.
@@ -949,7 +961,12 @@ bool SCCPInstVisitor::markBlockExecutable(BasicBlock *BB) {
   if (!BBExecutable.insert(BB).second)
     return false;
   LLVM_DEBUG(dbgs() << "Marking Block Executable: " << BB->getName() << '\n');
-  BBWorkList.push_back(BB); // Add the block to the work list!
+  if (BB->isEntryBlock()) {
+    ReversePostOrderTraversal<BasicBlock *> RPOT(BB);
+    for (BasicBlock *BB : RPOT)
+      RPONumbers[BB] = LastRPONumber++;
+  }
+  BBWorkList.push({BB, RPONumbers[BB]}); // Add the block to the work list!
   return true;
 }
 
@@ -2041,8 +2058,9 @@ void SCCPInstVisitor::solve() {
     }
 
     // Process the basic block work list.
-    while (!BBWorkList.empty()) {
-      BasicBlock *BB = BBWorkList.pop_back_val();
+    if (!BBWorkList.empty()) {
+      BasicBlock *BB = BBWorkList.top().BB;
+      BBWorkList.pop();
       BBVisited.insert(BB);
 
       LLVM_DEBUG(dbgs() << "\nPopped off BBWL: " << *BB << '\n');
