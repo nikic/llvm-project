@@ -1302,9 +1302,6 @@ void SCCPInstVisitor::visitPHINode(PHINode &PN) {
   if (PN.getType()->isStructTy())
     return (void)markOverdefined(&PN);
 
-  if (getValueState(&PN).isOverdefined())
-    return; // Quick exit
-
   // Super-extra-high-degree PHI nodes are unlikely to ever be marked constant,
   // and slow us down a lot.  Just mark them overdefined.
   if (PN.getNumIncomingValues() > 64)
@@ -1381,11 +1378,6 @@ void SCCPInstVisitor::visitTerminator(Instruction &TI) {
 }
 
 void SCCPInstVisitor::visitCastInst(CastInst &I) {
-  // ResolvedUndefsIn might mark I as overdefined. Bail out, even if we would
-  // discover a concrete value later.
-  if (ValueState[&I].isOverdefined())
-    return;
-
   ValueLatticeElement OpSt = getValueState(I.getOperand(0));
   if (OpSt.isUnknownOrUndef())
     return;
@@ -1446,11 +1438,6 @@ void SCCPInstVisitor::visitExtractValueInst(ExtractValueInst &EVI) {
   if (EVI.getType()->isStructTy())
     return (void)markOverdefined(&EVI);
 
-  // resolvedUndefsIn might mark I as overdefined. Bail out, even if we would
-  // discover a concrete value later.
-  if (ValueState[&EVI].isOverdefined())
-    return (void)markOverdefined(&EVI);
-
   // If this is extracting from more than one level of struct, we don't know.
   if (EVI.getNumIndices() != 1)
     return (void)markOverdefined(&EVI);
@@ -1471,11 +1458,6 @@ void SCCPInstVisitor::visitExtractValueInst(ExtractValueInst &EVI) {
 void SCCPInstVisitor::visitInsertValueInst(InsertValueInst &IVI) {
   auto *STy = dyn_cast<StructType>(IVI.getType());
   if (!STy)
-    return (void)markOverdefined(&IVI);
-
-  // resolvedUndefsIn might mark I as overdefined. Bail out, even if we would
-  // discover a concrete value later.
-  if (ValueState[&IVI].isOverdefined())
     return (void)markOverdefined(&IVI);
 
   // If this has more than one index, we can't handle it, drive all results to
@@ -1510,11 +1492,6 @@ void SCCPInstVisitor::visitSelectInst(SelectInst &I) {
   // If this select returns a struct, just mark the result overdefined.
   // TODO: We could do a lot better than this if code actually uses this.
   if (I.getType()->isStructTy())
-    return (void)markOverdefined(&I);
-
-  // resolvedUndefsIn might mark I as overdefined. Bail out, even if we would
-  // discover a concrete value later.
-  if (ValueState[&I].isOverdefined())
     return (void)markOverdefined(&I);
 
   ValueLatticeElement CondValue = getValueState(I.getCondition());
@@ -1592,10 +1569,6 @@ void SCCPInstVisitor::visitBinaryOperator(Instruction &I) {
   ValueLatticeElement V1State = getValueState(I.getOperand(0));
   ValueLatticeElement V2State = getValueState(I.getOperand(1));
 
-  ValueLatticeElement &IV = ValueState[&I];
-  if (IV.isOverdefined())
-    return;
-
   // If something is undef, wait for it to resolve.
   if (V1State.isUnknownOrUndef() || V2State.isUnknownOrUndef())
     return;
@@ -1651,11 +1624,6 @@ void SCCPInstVisitor::visitBinaryOperator(Instruction &I) {
 
 // Handle ICmpInst instruction.
 void SCCPInstVisitor::visitCmpInst(CmpInst &I) {
-  // Do not cache this lookup, getValueState calls later in the function might
-  // invalidate the reference.
-  if (ValueState[&I].isOverdefined())
-    return (void)markOverdefined(&I);
-
   Value *Op1 = I.getOperand(0);
   Value *Op2 = I.getOperand(1);
 
@@ -1683,9 +1651,6 @@ void SCCPInstVisitor::visitCmpInst(CmpInst &I) {
 // Handle getelementptr instructions.  If all operands are constants then we
 // can turn this into a getelementptr ConstantExpr.
 void SCCPInstVisitor::visitGetElementPtrInst(GetElementPtrInst &I) {
-  if (ValueState[&I].isOverdefined())
-    return (void)markOverdefined(&I);
-
   const ValueLatticeElement &PtrState = getValueState(I.getPointerOperand());
   if (PtrState.isUnknownOrUndef())
     return;
@@ -1775,11 +1740,6 @@ void SCCPInstVisitor::visitLoadInst(LoadInst &I) {
   // If this load is of a struct or the load is volatile, just mark the result
   // as overdefined.
   if (I.getType()->isStructTy() || I.isVolatile())
-    return (void)markOverdefined(&I);
-
-  // resolvedUndefsIn might mark I as overdefined. Bail out, even if we would
-  // discover a concrete value later.
-  if (ValueState[&I].isOverdefined())
     return (void)markOverdefined(&I);
 
   ValueLatticeElement PtrVal = getValueState(I.getOperand(0));
