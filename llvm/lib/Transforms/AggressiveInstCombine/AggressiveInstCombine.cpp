@@ -874,10 +874,9 @@ static std::optional<PartStore> matchPartStore(Instruction &I,
   uint64_t ValWidth = StoredTy->getPrimitiveSizeInBits();
   uint64_t ValOffset = 0;
   Value *Val;
-  if (!match(StoredVal,
-             m_CombineOr(m_OneUse(m_Trunc(m_OneUse(
-                             m_LShr(m_Value(Val), m_ConstantInt(ValOffset))))),
-                         m_OneUse(m_Trunc(m_Value(Val))))))
+  if (!match(StoredVal, m_CombineOr(m_Trunc(m_LShr(m_Value(Val),
+                                                   m_ConstantInt(ValOffset))),
+                                    m_Trunc(m_Value(Val)))))
     return std::nullopt;
 
   Value *Ptr = Store->getPointerOperand();

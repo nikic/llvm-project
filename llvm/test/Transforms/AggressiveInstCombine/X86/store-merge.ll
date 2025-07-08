@@ -3,6 +3,9 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
+declare void @use.i16(i16)
+declare void @use.i32(i32)
+
 define void @test_i16(i16 %x, ptr %p) {
 ; CHECK-LABEL: define void @test_i16(
 ; CHECK-SAME: i16 [[X:%.*]], ptr [[P:%.*]]) {
@@ -589,5 +592,85 @@ define void @test_i32_atomic(i32 %x, ptr %p) {
   %x.1 = trunc i32 %shr.1 to i8
   %gep.1 = getelementptr i8, ptr %p, i64 1
   store i8 %x.1, ptr %gep.1
+  ret void
+}
+
+define void @test_i32_multiple_pointers(i32 %x, i32 %y, ptr %p, ptr %p2) {
+; CHECK-LABEL: define void @test_i32_multiple_pointers(
+; CHECK-SAME: i32 [[X:%.*]], i32 [[Y:%.*]], ptr [[P:%.*]], ptr [[P2:%.*]]) {
+; CHECK-NEXT:    store i32 [[X]], ptr [[P]], align 2
+; CHECK-NEXT:    store i32 [[Y]], ptr [[P2]], align 2
+; CHECK-NEXT:    ret void
+;
+  %x.0 = trunc i32 %x to i16
+  store i16 %x.0, ptr %p
+  %shr.1 = lshr i32 %x, 16
+  %x.1 = trunc i32 %shr.1 to i16
+  %gep.1 = getelementptr i8, ptr %p, i64 2
+  store i16 %x.1, ptr %gep.1
+
+  %y.0 = trunc i32 %y to i16
+  store i16 %y.0, ptr %p2
+  %y.shr.1 = lshr i32 %y, 16
+  %y.1 = trunc i32 %y.shr.1 to i16
+  %p2.gep.1 = getelementptr i8, ptr %p2, i64 2
+  store i16 %y.1, ptr %p2.gep.1
+  ret void
+}
+
+define void @test_i32_multiple_pointers_interleaved(i32 %x, i32 %y, ptr noalias %p, ptr noalias %p2) {
+; CHECK-LABEL: define void @test_i32_multiple_pointers_interleaved(
+; CHECK-SAME: i32 [[X:%.*]], i32 [[Y:%.*]], ptr noalias [[P:%.*]], ptr noalias [[P2:%.*]]) {
+; CHECK-NEXT:    [[X_0:%.*]] = trunc i32 [[X]] to i16
+; CHECK-NEXT:    store i16 [[X_0]], ptr [[P]], align 2
+; CHECK-NEXT:    [[Y_0:%.*]] = trunc i32 [[Y]] to i16
+; CHECK-NEXT:    store i16 [[Y_0]], ptr [[P2]], align 2
+; CHECK-NEXT:    [[SHR_1:%.*]] = lshr i32 [[X]], 16
+; CHECK-NEXT:    [[X_1:%.*]] = trunc i32 [[SHR_1]] to i16
+; CHECK-NEXT:    [[GEP_1:%.*]] = getelementptr i8, ptr [[P]], i64 2
+; CHECK-NEXT:    store i16 [[X_1]], ptr [[GEP_1]], align 2
+; CHECK-NEXT:    [[Y_SHR_1:%.*]] = lshr i32 [[Y]], 16
+; CHECK-NEXT:    [[Y_1:%.*]] = trunc i32 [[Y_SHR_1]] to i16
+; CHECK-NEXT:    [[P2_GEP_1:%.*]] = getelementptr i8, ptr [[P2]], i64 2
+; CHECK-NEXT:    store i16 [[Y_1]], ptr [[P2_GEP_1]], align 2
+; CHECK-NEXT:    ret void
+;
+  %x.0 = trunc i32 %x to i16
+  store i16 %x.0, ptr %p
+  %y.0 = trunc i32 %y to i16
+  store i16 %y.0, ptr %p2
+
+  %shr.1 = lshr i32 %x, 16
+  %x.1 = trunc i32 %shr.1 to i16
+  %gep.1 = getelementptr i8, ptr %p, i64 2
+  store i16 %x.1, ptr %gep.1
+  %y.shr.1 = lshr i32 %y, 16
+  %y.1 = trunc i32 %y.shr.1 to i16
+  %p2.gep.1 = getelementptr i8, ptr %p2, i64 2
+  store i16 %y.1, ptr %p2.gep.1
+  ret void
+}
+
+define void @test_i32_multi_use(i32 %x, ptr %p) {
+; CHECK-LABEL: define void @test_i32_multi_use(
+; CHECK-SAME: i32 [[X:%.*]], ptr [[P:%.*]]) {
+; CHECK-NEXT:    [[X_0:%.*]] = trunc i32 [[X]] to i16
+; CHECK-NEXT:    store i32 [[X]], ptr [[P]], align 2
+; CHECK-NEXT:    [[SHR_1:%.*]] = lshr i32 [[X]], 16
+; CHECK-NEXT:    [[X_1:%.*]] = trunc i32 [[SHR_1]] to i16
+; CHECK-NEXT:    call void @use.i16(i16 [[X_0]])
+; CHECK-NEXT:    call void @use.i16(i16 [[X_1]])
+; CHECK-NEXT:    call void @use.i32(i32 [[SHR_1]])
+; CHECK-NEXT:    ret void
+;
+  %x.0 = trunc i32 %x to i16
+  store i16 %x.0, ptr %p
+  %shr.1 = lshr i32 %x, 16
+  %x.1 = trunc i32 %shr.1 to i16
+  %gep.1 = getelementptr i8, ptr %p, i64 2
+  store i16 %x.1, ptr %gep.1
+  call void @use.i16(i16 %x.0)
+  call void @use.i16(i16 %x.1)
+  call void @use.i32(i32 %shr.1)
   ret void
 }
