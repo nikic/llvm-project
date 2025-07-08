@@ -887,45 +887,10 @@ static std::optional<PartStore> matchPartStore(Instruction &I,
   return {{PtrBase, PtrOffset, Val, ValOffset, ValWidth, Store}};
 }
 
-static bool foldConsecutiveStores(Instruction &I, const DataLayout &DL,
-                                  TargetTransformInfo &TTI, AliasAnalysis &AA,
-                                  const DominatorTree &DT) {
-  // FIXME: Add big endian support.
-  if (DL.isBigEndian())
+static bool mergePartStores(SmallVectorImpl<PartStore> &Parts,
+                            const DataLayout &DL, TargetTransformInfo &TTI) {
+  if (Parts.size() < 2)
     return false;
-
-  SmallVector<PartStore, 8> Parts;
-  if (std::optional<PartStore> Part = matchPartStore(I, DL))
-    Parts.push_back(std::move(*Part));
-  else
-    return false;
-
-  // Try to find stores for other parts.
-  BasicBlock *BB = I.getParent();
-  unsigned NumVisited = 0;
-  for (Instruction &OtherI :
-       make_range(std::next(I.getIterator()), BB->end())) {
-    if (++NumVisited > 64)
-      break;
-
-    std::optional<PartStore> Part = matchPartStore(OtherI, DL);
-    if (Part && Part->isCompatibleWith(Parts[0])) {
-      Parts.push_back(std::move(*Part));
-      continue;
-    }
-
-    // FIXME: Use AA to make this more precise.
-    if (OtherI.mayReadOrWriteMemory() || OtherI.mayThrow())
-      break;
-  }
-
-  if (Parts.size() == 1)
-    return false;
-
-  // Get the full width of the stored value (ignoring gaps/overlap).
-  uint64_t FullWidth = 0;
-  for (const PartStore &Part : Parts)
-    FullWidth += Part.ValWidth;
 
   // We now have multiple parts of the same value stored to the same pointer.
   // Sort the parts by pointer offset, and make sure they are consistent with
@@ -946,17 +911,18 @@ static bool foldConsecutiveStores(Instruction &I, const DataLayout &DL,
 
   // Check whether combining the stores is profitable.
   // FIXME: We could generate smaller stores if we can't produce a large one.
-  Type *NewTy = Type::getIntNTy(I.getContext(), FullWidth);
+  LLVMContext &Ctx = First.Store->getContext();
+  Type *NewTy = Type::getIntNTy(Ctx, LastEndOffsetFromFirst);
   unsigned Fast = 0;
   if (!TTI.isTypeLegal(NewTy) ||
-      !TTI.allowsMisalignedMemoryAccesses(
-          I.getContext(), FullWidth, First.Store->getPointerAddressSpace(),
-          First.Store->getAlign(), &Fast) ||
+      !TTI.allowsMisalignedMemoryAccesses(Ctx, LastEndOffsetFromFirst,
+                                          First.Store->getPointerAddressSpace(),
+                                          First.Store->getAlign(), &Fast) ||
       !Fast)
     return false;
 
   // Generate the combined store.
-  IRBuilder<> Builder(&I);
+  IRBuilder<> Builder(First.Store);
   Value *Val = First.Val;
   if (First.ValOffset != 0)
     Val = Builder.CreateLShr(Val, First.ValOffset);
@@ -971,6 +937,39 @@ static bool foldConsecutiveStores(Instruction &I, const DataLayout &DL,
     Part.Store->eraseFromParent();
 
   return true;
+}
+
+static bool foldConsecutiveStores(BasicBlock &BB, const DataLayout &DL,
+                                  TargetTransformInfo &TTI, AliasAnalysis &AA) {
+  // FIXME: Add big endian support.
+  if (DL.isBigEndian())
+    return false;
+
+  SmallVector<PartStore, 8> Parts;
+  bool MadeChange = false;
+  for (Instruction &I : make_early_inc_range(BB)) {
+    if (std::optional<PartStore> Part = matchPartStore(I, DL)) {
+      if (Parts.empty() || Part->isCompatibleWith(Parts[0])) {
+        Parts.push_back(std::move(*Part));
+        continue;
+      }
+
+      MadeChange |= mergePartStores(Parts, DL, TTI);
+      Parts.clear();
+      Parts.push_back(std::move(*Part));
+      continue;
+    }
+
+    // FIXME: Use AA to make this more precise.
+    if (I.mayReadOrWriteMemory() || I.mayThrow()) {
+      MadeChange |= mergePartStores(Parts, DL, TTI);
+      Parts.clear();
+      continue;
+    }
+  }
+
+  MadeChange |= mergePartStores(Parts, DL, TTI);
+  return MadeChange;
 }
 
 /// Combine away instructions providing they are still equivalent when compared
@@ -1454,7 +1453,6 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
       MadeChange |= tryToFPToSat(I, TTI);
       MadeChange |= tryToRecognizeTableBasedCttz(I);
       MadeChange |= foldConsecutiveLoads(I, DL, TTI, AA, DT);
-      MadeChange |= foldConsecutiveStores(I, DL, TTI, AA, DT);
       MadeChange |= foldPatternedLoads(I, DL);
       MadeChange |= foldICmpOrChain(I, DL, TTI, AA, DT);
       // NOTE: This function introduces erasing of the instruction `I`, so it
@@ -1462,6 +1460,9 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
       // bugs.
       MadeChange |= foldLibCalls(I, TTI, TLI, AC, DT, DL, MadeCFGChange);
     }
+
+    // Do this separately to avoid redundantly scanning stores multiple times.
+    MadeChange |= foldConsecutiveStores(BB, DL, TTI, AA);
   }
 
   // We're done with transforms, so remove dead instructions.

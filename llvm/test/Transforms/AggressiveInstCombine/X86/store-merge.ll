@@ -148,9 +148,37 @@ define void @test_i128(i128 %x, ptr %p) {
 ; CHECK-NEXT:    [[GEP_7:%.*]] = getelementptr i8, ptr [[P]], i64 7
 ; CHECK-NEXT:    store i8 [[X_7]], ptr [[GEP_7]], align 1
 ; CHECK-NEXT:    [[SHR_8:%.*]] = lshr i128 [[X]], 64
-; CHECK-NEXT:    [[TMP2:%.*]] = trunc i128 [[SHR_8]] to i64
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i8, ptr [[P]], i64 8
-; CHECK-NEXT:    store i64 [[TMP2]], ptr [[TMP3]], align 1
+; CHECK-NEXT:    [[X_8:%.*]] = trunc i128 [[SHR_8]] to i8
+; CHECK-NEXT:    [[GEP_8:%.*]] = getelementptr i8, ptr [[P]], i64 8
+; CHECK-NEXT:    store i8 [[X_8]], ptr [[GEP_8]], align 1
+; CHECK-NEXT:    [[SHR_9:%.*]] = lshr i128 [[X]], 72
+; CHECK-NEXT:    [[X_9:%.*]] = trunc i128 [[SHR_9]] to i8
+; CHECK-NEXT:    [[GEP_9:%.*]] = getelementptr i8, ptr [[P]], i64 9
+; CHECK-NEXT:    store i8 [[X_9]], ptr [[GEP_9]], align 1
+; CHECK-NEXT:    [[SHR_10:%.*]] = lshr i128 [[X]], 80
+; CHECK-NEXT:    [[X_10:%.*]] = trunc i128 [[SHR_10]] to i8
+; CHECK-NEXT:    [[GEP_10:%.*]] = getelementptr i8, ptr [[P]], i64 10
+; CHECK-NEXT:    store i8 [[X_10]], ptr [[GEP_10]], align 1
+; CHECK-NEXT:    [[SHR_11:%.*]] = lshr i128 [[X]], 88
+; CHECK-NEXT:    [[X_11:%.*]] = trunc i128 [[SHR_11]] to i8
+; CHECK-NEXT:    [[GEP_11:%.*]] = getelementptr i8, ptr [[P]], i64 11
+; CHECK-NEXT:    store i8 [[X_11]], ptr [[GEP_11]], align 1
+; CHECK-NEXT:    [[SHR_12:%.*]] = lshr i128 [[X]], 96
+; CHECK-NEXT:    [[X_12:%.*]] = trunc i128 [[SHR_12]] to i8
+; CHECK-NEXT:    [[GEP_12:%.*]] = getelementptr i8, ptr [[P]], i64 12
+; CHECK-NEXT:    store i8 [[X_12]], ptr [[GEP_12]], align 1
+; CHECK-NEXT:    [[SHR_13:%.*]] = lshr i128 [[X]], 104
+; CHECK-NEXT:    [[X_13:%.*]] = trunc i128 [[SHR_13]] to i8
+; CHECK-NEXT:    [[GEP_13:%.*]] = getelementptr i8, ptr [[P]], i64 13
+; CHECK-NEXT:    store i8 [[X_13]], ptr [[GEP_13]], align 1
+; CHECK-NEXT:    [[SHR_14:%.*]] = lshr i128 [[X]], 112
+; CHECK-NEXT:    [[X_14:%.*]] = trunc i128 [[SHR_14]] to i8
+; CHECK-NEXT:    [[GEP_14:%.*]] = getelementptr i8, ptr [[P]], i64 14
+; CHECK-NEXT:    store i8 [[X_14]], ptr [[GEP_14]], align 1
+; CHECK-NEXT:    [[SHR_15:%.*]] = lshr i128 [[X]], 120
+; CHECK-NEXT:    [[X_15:%.*]] = trunc i128 [[SHR_15]] to i8
+; CHECK-NEXT:    [[GEP_15:%.*]] = getelementptr i8, ptr [[P]], i64 15
+; CHECK-NEXT:    store i8 [[X_15]], ptr [[GEP_15]], align 1
 ; CHECK-NEXT:    ret void
 ;
   %x.0 = trunc i128 %x to i8
