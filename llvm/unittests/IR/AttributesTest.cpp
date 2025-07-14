@@ -287,8 +287,8 @@ TEST(Attributes, MismatchedABIAttrs) {
 
   {
     auto *I = cast<CallBase>(&M->getFunction("g")->getEntryBlock().front());
-    ASSERT_TRUE(I->isByValArgument(0));
-    ASSERT_TRUE(I->getParamByValType(0));
+    ASSERT_FALSE(I->isByValArgument(0));
+    ASSERT_EQ(I->getParamByValType(0), nullptr);
   }
   {
     auto *I = cast<CallBase>(&M->getFunction("h")->getEntryBlock().front());

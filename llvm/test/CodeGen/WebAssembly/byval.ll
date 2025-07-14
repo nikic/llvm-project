@@ -1,5 +1,5 @@
-; RUN: llc < %s -asm-verbose=false -disable-wasm-fallthrough-return-opt -wasm-disable-explicit-locals -wasm-keep-registers -verify-machineinstrs -mcpu=mvp | FileCheck %s
-; RUN: llc < %s -asm-verbose=false -disable-wasm-fallthrough-return-opt -wasm-disable-explicit-locals -wasm-keep-registers -verify-machineinstrs -mcpu=mvp -fast-isel | FileCheck %s
+; RUN: llc < %s -asm-verbose=false -disable-wasm-fallthrough-return-opt -wasm-disable-explicit-locals -wasm-keep-registers -verify-machineinstrs -mcpu=mvp | FileCheck %s --check-prefixes=CHECK,SDAG
+; RUN: llc < %s -asm-verbose=false -disable-wasm-fallthrough-return-opt -wasm-disable-explicit-locals -wasm-keep-registers -verify-machineinstrs -mcpu=mvp -fast-isel | FileCheck %s --check-prefixes=CHECK,FAST
 
 target triple = "wasm32-unknown-unknown"
 
@@ -99,7 +99,9 @@ define void @byval_empty_caller(ptr %ptr) {
 ; CHECK-LABEL: byval_empty_callee:
 define void @byval_empty_callee(ptr byval(%EmptyStruct) %ptr) {
  ; CHECK: .functype byval_empty_callee (i32) -> ()
- ; CHECK: call ext_func_empty, $0
+ ; SDAG: call ext_func_empty, $0
+ ; FAST: i32.const $push0=, ext_func_empty
+ ; FAST: call_indirect $0, $pop0
  call void @ext_func_empty(ptr %ptr)
  ret void
 }

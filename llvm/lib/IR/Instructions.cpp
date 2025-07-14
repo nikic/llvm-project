@@ -740,6 +740,22 @@ bool CallBase::hasArgumentWithAdditionalReturnCaptureComponents() const {
   return false;
 }
 
+bool CallBase::isCompatibleWithImpl(const Function *F) const {
+  assert(F->getFunctionType() == getFunctionType() &&
+         "Should have been checked already");
+  AttributeList FnAttrs = F->getAttributes();
+  for (unsigned I = 0; I < F->arg_size(); ++I) {
+    // Mismatch in byval type.
+    if (getArgOperand(I)->getType()->isPointerTy() &&
+        Attrs.getParamByValType(I) != FnAttrs.getParamByValType(I))
+      return false;
+    // FIXME: Also check other attributes like inalloca and preallocated.
+  }
+
+  KnownCompatibleFnAttrs = FnAttrs;
+  return true;
+}
+
 //===----------------------------------------------------------------------===//
 //                        CallInst Implementation
 //===----------------------------------------------------------------------===//
