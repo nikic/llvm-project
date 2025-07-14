@@ -1193,6 +1193,9 @@ protected:
   static constexpr int CalledOperandOpEndIdx = -1;
 
   AttributeList Attrs; ///< parameter attributes for callable
+  /// Function AttributeList which is known to be compatible with the call-site
+  /// AttributeList. See the isCompatibleWith() method.
+  mutable AttributeList KnownCompatibleFnAttrs = AttributeList::getInvalid();
   FunctionType *FTy;
 
   template <class... ArgsTy>
@@ -1416,9 +1419,18 @@ public:
   /// the call target is an alias.
   Function *getCalledFunction() const {
     if (auto *F = dyn_cast_or_null<Function>(getCalledOperand()))
-      if (F->getFunctionType() == getFunctionType())
+      if (isCompatibleWith(F))
         return F;
     return nullptr;
+  }
+
+  /// Whether this call-site is compatible with the given function, in the
+  /// sense that their signatures and ABI attributes match to a degree that
+  /// straightforward IPO is possible.
+  bool isCompatibleWith(const Function *F) const {
+    return F->getFunctionType() == getFunctionType() &&
+           (F->getAttributes() == KnownCompatibleFnAttrs ||
+            isCompatibleWithImpl(F));
   }
 
   /// Return true if the callsite is an indirect call.
@@ -1493,7 +1505,10 @@ public:
   AttributeList getAttributes() const { return Attrs; }
 
   /// Set the attributes for this call.
-  void setAttributes(AttributeList A) { Attrs = A; }
+  void setAttributes(AttributeList A) {
+    Attrs = A;
+    KnownCompatibleFnAttrs = AttributeList::getInvalid();
+  }
 
   /// Return the return attributes for this call.
   AttributeSet getRetAttributes() const {
@@ -2416,6 +2431,8 @@ private:
       return F->getAttributes().hasRetAttr(Kind);
     return false;
   }
+
+  LLVM_ABI bool isCompatibleWithImpl(const Function *F) const;
 };
 
 template <>

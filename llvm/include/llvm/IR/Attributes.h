@@ -588,6 +588,11 @@ public:
                                     AttributeSet RetAttrs,
                                     ArrayRef<AttributeSet> ArgAttrs);
 
+  /// An invalid attribute list, for use as a sentinel.
+  static AttributeList getInvalid() {
+    return AttributeList(reinterpret_cast<AttributeListImpl *>(-1));
+  }
+
 private:
   explicit AttributeList(AttributeListImpl *LI) : pImpl(LI) {}
 

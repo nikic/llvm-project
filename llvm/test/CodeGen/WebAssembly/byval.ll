@@ -100,7 +100,7 @@ define void @byval_empty_caller(ptr %ptr) {
 define void @byval_empty_callee(ptr byval(%EmptyStruct) %ptr) {
  ; CHECK: .functype byval_empty_callee (i32) -> ()
  ; CHECK: call ext_func_empty, $0
- call void @ext_func_empty(ptr %ptr)
+ call void @ext_func_empty(ptr byval(%EmptyStruct) %ptr)
  ret void
 }
 

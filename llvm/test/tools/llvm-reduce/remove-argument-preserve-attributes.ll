@@ -4,7 +4,7 @@
 ; RUN: FileCheck --check-prefixes=RESULT %s < %t
 
 ; INTERESTING-LABEL: define void @callee0(
-define void @callee0(ptr %interesting0, ptr %interesting1, i32 %uninteresting2) {
+define void @callee0(ptr byval(i32) %interesting0, ptr %interesting1, i32 %uninteresting2) {
   ret void
 }
 
