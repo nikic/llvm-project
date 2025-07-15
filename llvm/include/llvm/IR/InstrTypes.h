@@ -2432,7 +2432,8 @@ private:
     return false;
   }
 
-  LLVM_ABI bool isCompatibleWithImpl(const Function *F) const;
+  LLVM_ABI LLVM_ATTRIBUTE_NOINLINE bool
+  isCompatibleWithImpl(const Function *F) const;
 };
 
 template <>
