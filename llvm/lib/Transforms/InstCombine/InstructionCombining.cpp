@@ -1937,6 +1937,9 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN,
       return nullptr;
   }
 
+  if (isa<CmpInst>(&I) && !isa<Constant>(I.getOperand(1)))
+    return nullptr;
+
   // Clone the instruction that uses the phi node and move it into the incoming
   // BB because we know that the next iteration of InstCombine will simplify it.
   SmallDenseMap<BasicBlock *, Instruction *> Clones;

@@ -4,15 +4,18 @@
 define i1 @test(i1 %cond, i64 %left, i64 %right) {
 ; CHECK-LABEL: define i1 @test(
 ; CHECK-SAME: i1 [[COND:%.*]], i64 [[LEFT:%.*]], i64 [[RIGHT:%.*]]) {
-; CHECK-NEXT:  [[START:.*:]]
+; CHECK-NEXT:  [[START:.*]]:
 ; CHECK-NEXT:    br i1 [[COND]], label %[[COND_TRUE:.*]], label %[[COND_FALSE:.*]]
 ; CHECK:       [[COND_TRUE]]:
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp sgt i64 [[RIGHT]], [[LEFT]]
 ; CHECK-NEXT:    br i1 [[CMP]], label %[[END:.*]], label %[[COND_FALSE]]
 ; CHECK:       [[COND_FALSE]]:
+; CHECK-NEXT:    [[LEFT_OR_RIGHT:%.*]] = phi i64 [ [[LEFT]], %[[START]] ], [ [[RIGHT]], %[[COND_TRUE]] ]
+; CHECK-NEXT:    [[FALSE:%.*]] = icmp sgt i64 [[LEFT_OR_RIGHT]], [[LEFT]]
 ; CHECK-NEXT:    br label %[[END]]
 ; CHECK:       [[END]]:
-; CHECK-NEXT:    ret i1 false
+; CHECK-NEXT:    [[RESULT:%.*]] = phi i1 [ false, %[[COND_TRUE]] ], [ [[FALSE]], %[[COND_FALSE]] ]
+; CHECK-NEXT:    ret i1 [[RESULT]]
 ;
 start:
   br i1 %cond, label %cond.true, label %cond.false
@@ -34,15 +37,18 @@ end:
 define i1 @test_commuted(i1 %cond, i64 %left, i64 %right) {
 ; CHECK-LABEL: define i1 @test_commuted(
 ; CHECK-SAME: i1 [[COND:%.*]], i64 [[LEFT:%.*]], i64 [[RIGHT:%.*]]) {
-; CHECK-NEXT:  [[START:.*:]]
+; CHECK-NEXT:  [[START:.*]]:
 ; CHECK-NEXT:    br i1 [[COND]], label %[[COND_TRUE:.*]], label %[[COND_FALSE:.*]]
 ; CHECK:       [[COND_TRUE]]:
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp sgt i64 [[RIGHT]], [[LEFT]]
 ; CHECK-NEXT:    br i1 [[CMP]], label %[[END:.*]], label %[[COND_FALSE]]
 ; CHECK:       [[COND_FALSE]]:
+; CHECK-NEXT:    [[LEFT_OR_RIGHT:%.*]] = phi i64 [ [[LEFT]], %[[START]] ], [ [[RIGHT]], %[[COND_TRUE]] ]
+; CHECK-NEXT:    [[FALSE:%.*]] = icmp slt i64 [[LEFT]], [[LEFT_OR_RIGHT]]
 ; CHECK-NEXT:    br label %[[END]]
 ; CHECK:       [[END]]:
-; CHECK-NEXT:    ret i1 false
+; CHECK-NEXT:    [[RESULT:%.*]] = phi i1 [ false, %[[COND_TRUE]] ], [ [[FALSE]], %[[COND_FALSE]] ]
+; CHECK-NEXT:    ret i1 [[RESULT]]
 ;
 start:
   br i1 %cond, label %cond.true, label %cond.false
@@ -130,15 +136,17 @@ end:
 define i1 @test_which_optimizes_to_select(i1 %cond, i64 %left, i64 %right) {
 ; CHECK-LABEL: define i1 @test_which_optimizes_to_select(
 ; CHECK-SAME: i1 [[COND:%.*]], i64 [[LEFT:%.*]], i64 [[RIGHT:%.*]]) {
-; CHECK-NEXT:  [[START:.*:]]
+; CHECK-NEXT:  [[START:.*]]:
 ; CHECK-NEXT:    br i1 [[COND]], label %[[COND_TRUE:.*]], label %[[COND_FALSE:.*]]
 ; CHECK:       [[COND_TRUE]]:
 ; CHECK-NEXT:    [[CMP_NOT:%.*]] = icmp sgt i64 [[RIGHT]], [[LEFT]]
 ; CHECK-NEXT:    br i1 [[CMP_NOT]], label %[[COND_FALSE]], label %[[END:.*]]
 ; CHECK:       [[COND_FALSE]]:
+; CHECK-NEXT:    [[LEFT_OR_RIGHT:%.*]] = phi i64 [ [[LEFT]], %[[START]] ], [ [[RIGHT]], %[[COND_TRUE]] ]
+; CHECK-NEXT:    [[FALSE:%.*]] = icmp sgt i64 [[LEFT_OR_RIGHT]], [[LEFT]]
 ; CHECK-NEXT:    br label %[[END]]
 ; CHECK:       [[END]]:
-; CHECK-NEXT:    [[RESULT:%.*]] = phi i1 [ false, %[[COND_TRUE]] ], [ [[COND]], %[[COND_FALSE]] ]
+; CHECK-NEXT:    [[RESULT:%.*]] = phi i1 [ false, %[[COND_TRUE]] ], [ [[FALSE]], %[[COND_FALSE]] ]
 ; CHECK-NEXT:    ret i1 [[RESULT]]
 ;
 start:
