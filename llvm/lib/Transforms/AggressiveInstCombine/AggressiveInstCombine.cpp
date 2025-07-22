@@ -927,9 +927,16 @@ static bool mergeConsecutivePartStores(ArrayRef<PartStore> Parts,
 }
 
 static bool mergePartStores(SmallVectorImpl<PartStore> &Parts,
-                            const DataLayout &DL, TargetTransformInfo &TTI) {
+                            ArrayRef<Instruction *> MayAlias,
+                            const DataLayout &DL, TargetTransformInfo &TTI,
+                            BatchAAResults &BatchAA) {
   if (Parts.size() < 2)
     return false;
+
+  for (Instruction *I : MayAlias)
+    if (isModOrRefSet(BatchAA.getModRefInfo(
+            I, MemoryLocation::getBeforeOrAfter(Parts[0].PtrBase))))
+      return false;
 
   // We now have multiple parts of the same value stored to the same pointer.
   // Sort the parts by pointer offset, and make sure they are consistent with
@@ -967,6 +974,7 @@ static bool foldConsecutiveStores(BasicBlock &BB, const DataLayout &DL,
 
   BatchAAResults BatchAA(AA);
   SmallVector<PartStore, 8> Parts;
+  SmallVector<Instruction *, 8> MayAlias;
   bool MadeChange = false;
   for (Instruction &I : make_early_inc_range(BB)) {
     if (std::optional<PartStore> Part = matchPartStore(I, DL)) {
@@ -975,29 +983,26 @@ static bool foldConsecutiveStores(BasicBlock &BB, const DataLayout &DL,
         continue;
       }
 
-      MadeChange |= mergePartStores(Parts, DL, TTI);
+      MadeChange |= mergePartStores(Parts, MayAlias, DL, TTI, BatchAA);
       Parts.clear();
+      MayAlias.clear();
       Parts.push_back(std::move(*Part));
       continue;
     }
 
     // Callee may read on unwind.
     if (I.mayThrow()) {
-      MadeChange |= mergePartStores(Parts, DL, TTI);
+      MadeChange |= mergePartStores(Parts, MayAlias, DL, TTI, BatchAA);
       Parts.clear();
+      MayAlias.clear();
       continue;
     }
 
-    if (!Parts.empty() && I.mayReadOrWriteMemory() &&
-        isModOrRefSet(BatchAA.getModRefInfo(
-            &I, MemoryLocation::getBeforeOrAfter(Parts[0].PtrBase)))) {
-      MadeChange |= mergePartStores(Parts, DL, TTI);
-      Parts.clear();
-      continue;
-    }
+    if (!Parts.empty() && I.mayReadOrWriteMemory())
+      MayAlias.push_back(&I);
   }
 
-  MadeChange |= mergePartStores(Parts, DL, TTI);
+  MadeChange |= mergePartStores(Parts, MayAlias, DL, TTI, BatchAA);
   return MadeChange;
 }
 

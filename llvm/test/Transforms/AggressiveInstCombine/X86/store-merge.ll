@@ -415,13 +415,21 @@ define i8 @test_non_aliasing_load(i16 %x, ptr noalias %p, ptr noalias %p2) {
 define i8 @test_aliasing_load_partially_mergeable(i32 %x, ptr %p, ptr %p2) {
 ; CHECK-LABEL: define i8 @test_aliasing_load_partially_mergeable(
 ; CHECK-SAME: i32 [[X:%.*]], ptr [[P:%.*]], ptr [[P2:%.*]]) {
-; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[X]] to i16
-; CHECK-NEXT:    store i16 [[TMP1]], ptr [[P]], align 1
+; CHECK-NEXT:    [[X_0:%.*]] = trunc i32 [[X]] to i8
+; CHECK-NEXT:    store i8 [[X_0]], ptr [[P]], align 1
+; CHECK-NEXT:    [[SHR_1:%.*]] = lshr i32 [[X]], 8
+; CHECK-NEXT:    [[X_1:%.*]] = trunc i32 [[SHR_1]] to i8
+; CHECK-NEXT:    [[GEP_1:%.*]] = getelementptr i8, ptr [[P]], i64 1
+; CHECK-NEXT:    store i8 [[X_1]], ptr [[GEP_1]], align 1
 ; CHECK-NEXT:    [[V:%.*]] = load i8, ptr [[P2]], align 1
-; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr i8, ptr [[P]], i64 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = lshr i32 [[X]], 16
-; CHECK-NEXT:    [[TMP3:%.*]] = trunc i32 [[TMP2]] to i16
-; CHECK-NEXT:    store i16 [[TMP3]], ptr [[TMP4]], align 1
+; CHECK-NEXT:    [[X_2:%.*]] = trunc i32 [[TMP2]] to i8
+; CHECK-NEXT:    [[GEP_2:%.*]] = getelementptr i8, ptr [[P]], i64 2
+; CHECK-NEXT:    store i8 [[X_2]], ptr [[GEP_2]], align 1
+; CHECK-NEXT:    [[SHR_3:%.*]] = lshr i32 [[X]], 24
+; CHECK-NEXT:    [[X_3:%.*]] = trunc i32 [[SHR_3]] to i8
+; CHECK-NEXT:    [[GEP_3:%.*]] = getelementptr i8, ptr [[P]], i64 3
+; CHECK-NEXT:    store i8 [[X_3]], ptr [[GEP_3]], align 1
 ; CHECK-NEXT:    ret i8 [[V]]
 ;
   %x.0 = trunc i32 %x to i8
