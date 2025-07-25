@@ -562,20 +562,20 @@ uint32_t GVNPass::ValueTable::lookupOrAddCall(CallInst *C) {
 
     // Check to see if we have a single dominating call instruction that is
     // identical to C.
-    for (const NonLocalDepEntry &I : Deps) {
-      if (I.getResult().isNonLocal())
+    for (const auto &[BB, Result] : Deps) {
+      if (Result.isNonLocal())
         continue;
 
       // We don't handle non-definitions.  If we already have a call, reject
       // instruction dependencies.
-      if (!I.getResult().isDef() || CDep != nullptr) {
+      if (!Result.isDef() || CDep != nullptr) {
         CDep = nullptr;
         break;
       }
 
-      CallInst *NonLocalDepCall = dyn_cast<CallInst>(I.getResult().getInst());
+      CallInst *NonLocalDepCall = dyn_cast<CallInst>(Result.getInst());
       // FIXME: All duplicated with non-local case.
-      if (NonLocalDepCall && DT->properlyDominates(I.getBB(), C->getParent())) {
+      if (NonLocalDepCall && DT->properlyDominates(BB, C->getParent())) {
         CDep = NonLocalDepCall;
         continue;
       }
@@ -2352,8 +2352,8 @@ bool GVNPass::ValueTable::areCallValsEqual(uint32_t Num, uint32_t NewNum,
       MD->getNonLocalCallDependency(Call);
 
   // Check to see if the Call has no function local clobber.
-  for (const NonLocalDepEntry &D : Deps) {
-    if (D.getResult().isNonFuncLocal())
+  for (const auto &[_, Result] : Deps) {
+    if (Result.isNonFuncLocal())
       return true;
   }
   return false;

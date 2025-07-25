@@ -14,6 +14,7 @@
 #define LLVM_ANALYSIS_MEMORYDEPENDENCEANALYSIS_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PointerEmbeddedInt.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/PointerSumType.h"
@@ -199,51 +200,28 @@ private:
   }
 };
 
-/// This is an entry in the NonLocalDepInfo cache.
-///
-/// For each BasicBlock (the BB entry) it keeps a MemDepResult.
-class NonLocalDepEntry {
-  BasicBlock *BB;
-  MemDepResult Result;
-
-public:
-  NonLocalDepEntry(BasicBlock *BB, MemDepResult Result)
-      : BB(BB), Result(Result) {}
-
-  // This is used for searches.
-  NonLocalDepEntry(BasicBlock *BB) : BB(BB) {}
-
-  // BB is the sort key, it can't be changed.
-  BasicBlock *getBB() const { return BB; }
-
-  void setResult(const MemDepResult &R) { Result = R; }
-
-  const MemDepResult &getResult() const { return Result; }
-
-  bool operator<(const NonLocalDepEntry &RHS) const { return BB < RHS.BB; }
-};
-
 /// This is a result from a NonLocal dependence query.
 ///
 /// For each BasicBlock (the BB entry) it keeps a MemDepResult and the
 /// (potentially phi translated) address that was live in the block.
 class NonLocalDepResult {
-  NonLocalDepEntry Entry;
+  BasicBlock *BB;
+  MemDepResult Result;
   Value *Address;
 
 public:
   NonLocalDepResult(BasicBlock *BB, MemDepResult Result, Value *Address)
-      : Entry(BB, Result), Address(Address) {}
+      : BB(BB), Result(Result), Address(Address) {}
 
   // BB is the sort key, it can't be changed.
-  BasicBlock *getBB() const { return Entry.getBB(); }
+  BasicBlock *getBB() const { return BB; }
 
   void setResult(const MemDepResult &R, Value *Addr) {
-    Entry.setResult(R);
+    Result = R;
     Address = Addr;
   }
 
-  const MemDepResult &getResult() const { return Entry.getResult(); }
+  const MemDepResult &getResult() const { return Result; }
 
   /// Returns the address of this pointer in this block.
   ///
@@ -274,7 +252,7 @@ class MemoryDependenceResults {
   LocalDepMapType LocalDeps;
 
 public:
-  using NonLocalDepInfo = std::vector<NonLocalDepEntry>;
+  using NonLocalDepInfo = MapVector<BasicBlock *, MemDepResult>;
 
 private:
   /// A pair<Value*, bool> where the bool is true if the dependence is a read
@@ -498,7 +476,6 @@ private:
   MemDepResult getNonLocalInfoForBlock(Instruction *QueryInst,
                                        const MemoryLocation &Loc, bool isLoad,
                                        BasicBlock *BB, NonLocalDepInfo *Cache,
-                                       unsigned NumSortedEntries,
                                        BatchAAResults &BatchAA);
 
   void removeCachedNonLocalPointerDependencies(ValueIsLoadPair P);
