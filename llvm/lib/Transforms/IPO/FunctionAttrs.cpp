@@ -2283,12 +2283,12 @@ deriveAttrsInPostOrder(ArrayRef<Function *> Functions, AARGetterT &&AARGetter,
   addWillReturn(Nodes.SCCNodes, Changed);
   addNoUndefAttrs(Nodes.SCCNodes, Changed);
   inferAttrsFromFunctionBodies(Nodes.SCCNodes, Changed);
+  addNoAliasAttrs(Nodes.SCCNodes, Changed);
+  addNonNullAttrs(Nodes.SCCNodes, Changed);
 
   // If we have no external nodes participating in the SCC, we can deduce some
   // more precise attributes as well.
   if (!Nodes.HasUnknownCall) {
-    addNoAliasAttrs(Nodes.SCCNodes, Changed);
-    addNonNullAttrs(Nodes.SCCNodes, Changed);
     addNoRecurseAttrs(Nodes.SCCNodes, Changed);
   }
 
