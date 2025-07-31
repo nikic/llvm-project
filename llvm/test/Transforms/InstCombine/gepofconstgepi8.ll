@@ -85,10 +85,8 @@ define ptr @test_zero_sext_add_nsw(ptr %base, i32 %a) {
 ; CHECK-LABEL: define ptr @test_zero_sext_add_nsw(
 ; CHECK-SAME: ptr [[BASE:%.*]], i32 [[A:%.*]]) {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[P1:%.*]] = getelementptr i8, ptr [[BASE]], i64 -4
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[A]] to i64
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr i32, ptr [[P1]], i64 [[TMP0]]
-; CHECK-NEXT:    [[P2:%.*]] = getelementptr i8, ptr [[TMP1]], i64 4
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr i32, ptr [[BASE]], i64 [[TMP0]]
 ; CHECK-NEXT:    ret ptr [[P2]]
 ;
 entry:
@@ -263,8 +261,8 @@ define ptr @test_nonzero_multiuse_ptr(ptr %base, i64 %a) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[P1:%.*]] = getelementptr i8, ptr [[BASE]], i64 -4
 ; CHECK-NEXT:    call void @useptr(ptr [[P1]])
-; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr i32, ptr [[P1]], i64 [[A]]
-; CHECK-NEXT:    [[P2:%.*]] = getelementptr i8, ptr [[TMP0]], i64 8
+; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr i32, ptr [[BASE]], i64 [[A]]
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr i8, ptr [[TMP0]], i64 4
 ; CHECK-NEXT:    ret ptr [[P2]]
 ;
 entry:
