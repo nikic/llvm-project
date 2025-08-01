@@ -4224,9 +4224,10 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
   }
 
   // See if we can fold the select into a phi node if the condition is a select.
-  if (auto *PN = dyn_cast<PHINode>(SI.getCondition()))
-    if (Instruction *NV = foldOpIntoPhi(SI, PN))
-      return NV;
+  for (Value *Op : SI.operands())
+    if (auto *PN = dyn_cast<PHINode>(Op))
+      if (Instruction *NV = foldOpIntoPhi(SI, PN))
+        return NV;
 
   if (SelectInst *TrueSI = dyn_cast<SelectInst>(TrueVal)) {
     if (TrueSI->getCondition()->getType() == CondVal->getType()) {

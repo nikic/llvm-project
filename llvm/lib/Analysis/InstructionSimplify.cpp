@@ -4988,6 +4988,13 @@ static Value *simplifySelectInst(Value *Cond, Value *TrueVal, Value *FalseVal,
   if (Value *V = simplifySelectWithFCmp(Cond, TrueVal, FalseVal, Q, MaxRecurse))
     return V;
 
+  if (auto *InnerSI = dyn_cast<SelectInst>(TrueVal))
+    if (Cond == InnerSI->getCondition() && FalseVal == InnerSI->getFalseValue())
+      return InnerSI;
+  if (auto *InnerSI = dyn_cast<SelectInst>(FalseVal))
+    if (Cond == InnerSI->getCondition() && TrueVal == InnerSI->getTrueValue())
+      return InnerSI;
+
   std::optional<bool> Imp = isImpliedByDomCondition(Cond, Q.CxtI, Q.DL);
   if (Imp)
     return *Imp ? TrueVal : FalseVal;

@@ -2221,8 +2221,7 @@ define i32 @test_invoke_2_neg(i1 %cond, i32 %x, i32 %y) nounwind uwtable ssp per
 ; CHECK-NEXT:    [[RESULT:%.*]] = invoke i32 @bar()
 ; CHECK-NEXT:            to label [[MERGE]] unwind label [[LPAD:%.*]]
 ; CHECK:       merge:
-; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 0, [[IF_TRUE]] ], [ [[RESULT]], [[IF_FALSE]] ]
-; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[COND]], i32 1, i32 [[PHI]]
+; CHECK-NEXT:    [[SEL:%.*]] = phi i32 [ 1, [[IF_TRUE]] ], [ [[RESULT]], [[IF_FALSE]] ]
 ; CHECK-NEXT:    ret i32 [[SEL]]
 ; CHECK:       lpad:
 ; CHECK-NEXT:    [[LP:%.*]] = landingpad { i1, i32 }
