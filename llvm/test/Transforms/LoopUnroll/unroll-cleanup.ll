@@ -28,22 +28,22 @@ define void @_Z3fn1v(ptr %r, ptr %a) #0 {
 ; CHECK-NEXT:    br i1 [[TOBOOL20]], label %[[FOR_END6:.*]], label %[[FOR_BODY:.*]]
 ; CHECK:       [[FOR_COND_LOOPEXIT_LOOPEXIT:.*]]:
 ; CHECK-NEXT:    [[ADD_PTR_LCSSA:%.*]] = phi ptr [ [[ADD_PTR_LCSSA_UNR:%.*]], %[[FOR_BODY3_PROL_LOOPEXIT:.*]] ], [ [[ADD_PTR_1:%.*]], %[[FOR_INC_1:.*]] ]
-; CHECK-NEXT:    [[SCEVGEP:%.*]] = getelementptr i8, ptr [[A_021:%.*]], i64 1
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[T2:%.*]], -1
 ; CHECK-NEXT:    [[TMP1:%.*]] = zext i32 [[TMP0]] to i64
 ; CHECK-NEXT:    [[SCEVGEP1:%.*]] = getelementptr i8, ptr [[SCEVGEP:%.*]], i64 [[TMP1]]
+; CHECK-NEXT:    [[SCEVGEP2:%.*]] = getelementptr i8, ptr [[SCEVGEP1]], i64 1
 ; CHECK-NEXT:    [[T1_PRE:%.*]] = load i32, ptr @b, align 4
 ; CHECK-NEXT:    br label %[[FOR_COND_LOOPEXIT:.*]]
 ; CHECK:       [[FOR_COND_LOOPEXIT]]:
 ; CHECK-NEXT:    [[T1:%.*]] = phi i32 [ [[T12:%.*]], %[[FOR_BODY]] ], [ [[T1_PRE]], %[[FOR_COND_LOOPEXIT_LOOPEXIT]] ]
 ; CHECK-NEXT:    [[R_1_LCSSA:%.*]] = phi ptr [ [[R_022:%.*]], %[[FOR_BODY]] ], [ [[ADD_PTR_LCSSA]], %[[FOR_COND_LOOPEXIT_LOOPEXIT]] ]
-; CHECK-NEXT:    [[A_1_LCSSA:%.*]] = phi ptr [ [[A_021:%.*]], %[[FOR_BODY]] ], [ [[SCEVGEP1]], %[[FOR_COND_LOOPEXIT_LOOPEXIT]] ]
+; CHECK-NEXT:    [[A_1_LCSSA:%.*]] = phi ptr [ [[SCEVGEP]], %[[FOR_BODY]] ], [ [[SCEVGEP2]], %[[FOR_COND_LOOPEXIT_LOOPEXIT]] ]
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[T1]], 0
 ; CHECK-NEXT:    br i1 [[TOBOOL]], label %[[FOR_END6]], label %[[FOR_BODY]]
 ; CHECK:       [[FOR_BODY]]:
 ; CHECK-NEXT:    [[T12]] = phi i32 [ [[T1]], %[[FOR_COND_LOOPEXIT]] ], [ [[T]], %[[ENTRY]] ]
 ; CHECK-NEXT:    [[R_022]] = phi ptr [ [[R_1_LCSSA]], %[[FOR_COND_LOOPEXIT]] ], [ [[R]], %[[ENTRY]] ]
-; CHECK-NEXT:    [[A_021]] = phi ptr [ [[A_1_LCSSA]], %[[FOR_COND_LOOPEXIT]] ], [ [[A]], %[[ENTRY]] ]
+; CHECK-NEXT:    [[SCEVGEP]] = phi ptr [ [[A_1_LCSSA]], %[[FOR_COND_LOOPEXIT]] ], [ [[A]], %[[ENTRY]] ]
 ; CHECK-NEXT:    [[T2]] = load i32, ptr @c, align 4
 ; CHECK-NEXT:    [[TOBOOL215:%.*]] = icmp eq i32 [[T2]], 0
 ; CHECK-NEXT:    br i1 [[TOBOOL215]], label %[[FOR_COND_LOOPEXIT]], label %[[FOR_BODY3_PREHEADER:.*]]
@@ -53,7 +53,7 @@ define void @_Z3fn1v(ptr %r, ptr %a) #0 {
 ; CHECK-NEXT:    br i1 [[LCMP_MOD_NOT]], label %[[FOR_BODY3_PROL_LOOPEXIT]], label %[[FOR_BODY3_PROL:.*]]
 ; CHECK:       [[FOR_BODY3_PROL]]:
 ; CHECK-NEXT:    [[DEC18_PROL:%.*]] = add nsw i32 [[T2]], -1
-; CHECK-NEXT:    [[T3_PROL:%.*]] = load i8, ptr [[A_021]], align 1
+; CHECK-NEXT:    [[T3_PROL:%.*]] = load i8, ptr [[SCEVGEP]], align 1
 ; CHECK-NEXT:    [[CMP_PROL:%.*]] = icmp eq i8 [[T3_PROL]], 0
 ; CHECK-NEXT:    br i1 [[CMP_PROL]], label %[[IF_THEN_PROL:.*]], label %[[FOR_INC_PROL:.*]]
 ; CHECK:       [[IF_THEN_PROL]]:
@@ -64,14 +64,14 @@ define void @_Z3fn1v(ptr %r, ptr %a) #0 {
 ; CHECK-NEXT:    store i16 0, ptr [[ARRAYIDX5_PROL]], align 2
 ; CHECK-NEXT:    br label %[[FOR_INC_PROL]]
 ; CHECK:       [[FOR_INC_PROL]]:
-; CHECK-NEXT:    [[INCDEC_PTR_PROL:%.*]] = getelementptr inbounds nuw i8, ptr [[A_021]], i64 1
+; CHECK-NEXT:    [[INCDEC_PTR_PROL:%.*]] = getelementptr inbounds nuw i8, ptr [[SCEVGEP]], i64 1
 ; CHECK-NEXT:    [[ADD_PTR_PROL:%.*]] = getelementptr inbounds nuw i8, ptr [[R_022]], i64 6
 ; CHECK-NEXT:    br label %[[FOR_BODY3_PROL_LOOPEXIT]]
 ; CHECK:       [[FOR_BODY3_PROL_LOOPEXIT]]:
 ; CHECK-NEXT:    [[ADD_PTR_LCSSA_UNR]] = phi ptr [ poison, %[[FOR_BODY3_PREHEADER]] ], [ [[ADD_PTR_PROL]], %[[FOR_INC_PROL]] ]
 ; CHECK-NEXT:    [[DEC18_IN_UNR:%.*]] = phi i32 [ [[T2]], %[[FOR_BODY3_PREHEADER]] ], [ [[DEC18_PROL]], %[[FOR_INC_PROL]] ]
 ; CHECK-NEXT:    [[R_117_UNR:%.*]] = phi ptr [ [[R_022]], %[[FOR_BODY3_PREHEADER]] ], [ [[ADD_PTR_PROL]], %[[FOR_INC_PROL]] ]
-; CHECK-NEXT:    [[A_116_UNR:%.*]] = phi ptr [ [[A_021]], %[[FOR_BODY3_PREHEADER]] ], [ [[INCDEC_PTR_PROL]], %[[FOR_INC_PROL]] ]
+; CHECK-NEXT:    [[A_116_UNR:%.*]] = phi ptr [ [[SCEVGEP]], %[[FOR_BODY3_PREHEADER]] ], [ [[INCDEC_PTR_PROL]], %[[FOR_INC_PROL]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i32 [[T2]], 1
 ; CHECK-NEXT:    br i1 [[TMP2]], label %[[FOR_COND_LOOPEXIT_LOOPEXIT]], label %[[FOR_BODY3:.*]]
 ; CHECK:       [[FOR_BODY3]]:

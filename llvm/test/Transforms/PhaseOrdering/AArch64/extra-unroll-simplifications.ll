@@ -76,8 +76,6 @@ define void @cse_matching_load_from_previous_unrolled_iteration(i32 %N, ptr %src
 ; CHECK-LABEL: define void @cse_matching_load_from_previous_unrolled_iteration(
 ; CHECK-SAME: i32 [[N:%.*]], ptr readonly captures(none) [[SRC:%.*]], ptr noalias writeonly captures(none) [[DST:%.*]]) local_unnamed_addr #[[ATTR0]] {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[SRC_4:%.*]] = getelementptr i8, ptr [[SRC]], i64 4
-; CHECK-NEXT:    [[SRC_12:%.*]] = getelementptr i8, ptr [[SRC]], i64 12
 ; CHECK-NEXT:    [[CMP141:%.*]] = icmp sgt i32 [[N]], 0
 ; CHECK-NEXT:    br i1 [[CMP141]], label [[LOOP_LATCH_PREHEADER:%.*]], label [[EXIT:%.*]]
 ; CHECK:       loop.latch.preheader:
@@ -91,15 +89,17 @@ define void @cse_matching_load_from_previous_unrolled_iteration(i32 %N, ptr %src
 ; CHECK:       loop.latch:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[LOOP_LATCH_PREHEADER_NEW]] ], [ [[INDVARS_IV_NEXT_1:%.*]], [[LOOP_LATCH]] ]
 ; CHECK-NEXT:    [[NITER:%.*]] = phi i64 [ 0, [[LOOP_LATCH_PREHEADER_NEW]] ], [ [[NITER_NEXT_1:%.*]], [[LOOP_LATCH]] ]
-; CHECK-NEXT:    [[GEP_SRC_12:%.*]] = getelementptr <2 x i32>, ptr [[SRC_12]], i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr <2 x i32>, ptr [[SRC]], i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[GEP_SRC_12:%.*]] = getelementptr i8, ptr [[TMP1]], i64 12
 ; CHECK-NEXT:    [[L_12:%.*]] = load <2 x i32>, ptr [[GEP_SRC_12]], align 8
-; CHECK-NEXT:    [[GEP_SRC_4:%.*]] = getelementptr <2 x i32>, ptr [[SRC_4]], i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[GEP_SRC_4:%.*]] = getelementptr i8, ptr [[TMP1]], i64 4
 ; CHECK-NEXT:    [[L_4:%.*]] = load <2 x i32>, ptr [[GEP_SRC_4]], align 8
 ; CHECK-NEXT:    [[MUL:%.*]] = mul <2 x i32> [[L_4]], [[L_12]]
 ; CHECK-NEXT:    [[GEP_DST:%.*]] = getelementptr <2 x i32>, ptr [[DST]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    store <2 x i32> [[MUL]], ptr [[GEP_DST]], align 8
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT:%.*]] = or disjoint i64 [[INDVARS_IV]], 1
-; CHECK-NEXT:    [[GEP_SRC_12_1:%.*]] = getelementptr <2 x i32>, ptr [[SRC_12]], i64 [[INDVARS_IV_NEXT]]
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr <2 x i32>, ptr [[SRC]], i64 [[INDVARS_IV_NEXT]]
+; CHECK-NEXT:    [[GEP_SRC_12_1:%.*]] = getelementptr i8, ptr [[TMP2]], i64 12
 ; CHECK-NEXT:    [[L_12_1:%.*]] = load <2 x i32>, ptr [[GEP_SRC_12_1]], align 8
 ; CHECK-NEXT:    [[MUL_1:%.*]] = mul <2 x i32> [[L_12]], [[L_12_1]]
 ; CHECK-NEXT:    [[GEP_DST_1:%.*]] = getelementptr <2 x i32>, ptr [[DST]], i64 [[INDVARS_IV_NEXT]]
@@ -113,9 +113,10 @@ define void @cse_matching_load_from_previous_unrolled_iteration(i32 %N, ptr %src
 ; CHECK-NEXT:    [[LCMP_MOD_NOT:%.*]] = icmp eq i64 [[XTRAITER]], 0
 ; CHECK-NEXT:    br i1 [[LCMP_MOD_NOT]], label [[EXIT]], label [[LOOP_LATCH_EPIL:%.*]]
 ; CHECK:       loop.latch.epil:
-; CHECK-NEXT:    [[GEP_SRC_12_EPIL:%.*]] = getelementptr <2 x i32>, ptr [[SRC_12]], i64 [[INDVARS_IV_UNR]]
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr <2 x i32>, ptr [[SRC]], i64 [[INDVARS_IV_UNR]]
+; CHECK-NEXT:    [[GEP_SRC_12_EPIL:%.*]] = getelementptr i8, ptr [[TMP3]], i64 12
 ; CHECK-NEXT:    [[L_12_EPIL:%.*]] = load <2 x i32>, ptr [[GEP_SRC_12_EPIL]], align 8
-; CHECK-NEXT:    [[GEP_SRC_4_EPIL:%.*]] = getelementptr <2 x i32>, ptr [[SRC_4]], i64 [[INDVARS_IV_UNR]]
+; CHECK-NEXT:    [[GEP_SRC_4_EPIL:%.*]] = getelementptr i8, ptr [[TMP3]], i64 4
 ; CHECK-NEXT:    [[L_4_EPIL:%.*]] = load <2 x i32>, ptr [[GEP_SRC_4_EPIL]], align 8
 ; CHECK-NEXT:    [[MUL_EPIL:%.*]] = mul <2 x i32> [[L_4_EPIL]], [[L_12_EPIL]]
 ; CHECK-NEXT:    [[GEP_DST_EPIL:%.*]] = getelementptr <2 x i32>, ptr [[DST]], i64 [[INDVARS_IV_UNR]]

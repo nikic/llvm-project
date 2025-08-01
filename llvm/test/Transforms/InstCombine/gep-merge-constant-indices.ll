@@ -143,9 +143,9 @@ define ptr @notDivisible(ptr %p) {
 define ptr @partialConstant2(ptr %p, i64 %a) {
 ; CHECK-LABEL: @partialConstant2(
 ; CHECK-NEXT:    [[DOTIDX:%.*]] = shl nsw i64 [[A:%.*]], 5
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr i8, ptr [[P:%.*]], i64 20
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr i8, ptr [[TMP1]], i64 [[DOTIDX]]
-; CHECK-NEXT:    ret ptr [[TMP2]]
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr i8, ptr [[TMP1:%.*]], i64 [[DOTIDX]]
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr i8, ptr [[TMP2]], i64 20
+; CHECK-NEXT:    ret ptr [[TMP3]]
 ;
   %1 = getelementptr inbounds i32, ptr %p, i64 1
   %2 = getelementptr inbounds [4 x i64], ptr %1, i64 %a, i64 2

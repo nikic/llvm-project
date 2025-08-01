@@ -2676,6 +2676,26 @@ static Instruction *canonicalizeGEPOfConstGEPI8(GetElementPtrInst &GEP,
   return nullptr;
 }
 
+/// Canonicalize gep(gep(p, C), x) to gep(gep(p, x), C).
+static Instruction *canonicalizeConstGEPOrder(GetElementPtrInst &GEP,
+                                              GEPOperator *Src,
+                                              IRBuilderBase &Builder) {
+  if (!Src->hasOneUse() || !Src->hasAllConstantIndices() ||
+      GEP.hasAllConstantIndices())
+    return nullptr;
+
+  SmallVector<Value *> GEPIndices(GEP.indices());
+  SmallVector<Value *> SrcIndices(Src->indices());
+  GEPNoWrapFlags Flags = GEPNoWrapFlags::none();
+  if (GEP.hasNoUnsignedWrap() && Src->hasNoUnsignedWrap())
+    Flags = GEP.getNoWrapFlags() & Src->getNoWrapFlags();
+  Value *NewGEP =
+      Builder.CreateGEP(GEP.getSourceElementType(), Src->getPointerOperand(),
+                        GEPIndices, "", Flags);
+  return GetElementPtrInst::Create(Src->getSourceElementType(), NewGEP,
+                                   SrcIndices, Flags);
+}
+
 Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
                                              GEPOperator *Src) {
   // Combine Indices - If the source pointer to this getelementptr instruction
@@ -2685,6 +2705,9 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
     return nullptr;
 
   if (auto *I = canonicalizeGEPOfConstGEPI8(GEP, Src, *this))
+    return I;
+
+  if (auto *I = canonicalizeConstGEPOrder(GEP, Src, Builder))
     return I;
 
   // For constant GEPs, use a more general offset-based folding approach.
