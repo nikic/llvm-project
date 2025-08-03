@@ -6938,6 +6938,7 @@ const ConstantRange &ScalarEvolution::getRangeRef(
       }
     }
 
+#if 0
     // A range of Phi is a subset of union of all ranges of its input.
     if (PHINode *Phi = dyn_cast<PHINode>(V)) {
       // Make sure that we do not run over cycled Phis.
@@ -6958,6 +6959,7 @@ const ConstantRange &ScalarEvolution::getRangeRef(
         (void)Erased;
       }
     }
+#endif
 
     // vscale can't be equal to zero
     if (const auto *II = dyn_cast<IntrinsicInst>(V))
