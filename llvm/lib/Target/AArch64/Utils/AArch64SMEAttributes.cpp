@@ -7,7 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "AArch64SMEAttributes.h"
+#include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/RuntimeLibcalls.h"
 #include <cassert>
 
 using namespace llvm;
@@ -77,19 +79,42 @@ SMEAttrs::SMEAttrs(const AttributeList &Attrs) {
     Bitmask |= encodeZT0State(StateValue::New);
 }
 
-void SMEAttrs::addKnownFunctionAttrs(StringRef FuncName) {
+void SMEAttrs::addKnownFunctionAttrs(StringRef FuncName,
+                                     const TargetLowering &TLI) {
+  struct SMERoutineAttr {
+    RTLIB::Libcall LC{RTLIB::UNKNOWN_LIBCALL};
+    unsigned Attrs{SMEAttrs::Normal};
+  };
+
+  static constexpr unsigned SMCompatiableABIRoutine =
+      SMEAttrs::SM_Compatible | SMEAttrs::SME_ABI_Routine;
+  static constexpr unsigned SMCompatiableABIRoutineInZA =
+      SMCompatiableABIRoutine | encodeZAState(StateValue::In);
+
+  // Table of SME routine -> Known attributes.
+  static constexpr SMERoutineAttr SMERoutineAttrs[]{
+      {RTLIB::SMEABI_SME_STATE, SMCompatiableABIRoutine},
+      {RTLIB::SMEABI_TPIDR2_SAVE, SMCompatiableABIRoutine},
+      {RTLIB::SMEABI_GET_CURRENT_VG, SMCompatiableABIRoutine},
+      {RTLIB::SMEABI_SME_STATE_SIZE, SMCompatiableABIRoutine},
+      {RTLIB::SMEABI_SME_SAVE, SMCompatiableABIRoutine},
+      {RTLIB::SMEABI_SME_RESTORE, SMCompatiableABIRoutine},
+      {RTLIB::SMEABI_ZA_DISABLE, SMCompatiableABIRoutineInZA},
+      {RTLIB::SMEABI_TPIDR2_RESTORE, SMCompatiableABIRoutineInZA},
+      {RTLIB::SC_MEMCPY, SMEAttrs::SM_Compatible},
+      {RTLIB::SC_MEMMOVE, SMEAttrs::SM_Compatible},
+      {RTLIB::SC_MEMSET, SMEAttrs::SM_Compatible},
+      {RTLIB::SC_MEMCHR, SMEAttrs::SM_Compatible},
+  };
+
   unsigned KnownAttrs = SMEAttrs::Normal;
-  if (FuncName == "__arm_tpidr2_save" || FuncName == "__arm_sme_state")
-    KnownAttrs |= (SMEAttrs::SM_Compatible | SMEAttrs::SME_ABI_Routine);
-  if (FuncName == "__arm_tpidr2_restore")
-    KnownAttrs |= SMEAttrs::SM_Compatible | encodeZAState(StateValue::In) |
-                  SMEAttrs::SME_ABI_Routine;
-  if (FuncName == "__arm_sc_memcpy" || FuncName == "__arm_sc_memset" ||
-      FuncName == "__arm_sc_memmove" || FuncName == "__arm_sc_memchr")
-    KnownAttrs |= SMEAttrs::SM_Compatible;
-  if (FuncName == "__arm_sme_save" || FuncName == "__arm_sme_restore" ||
-      FuncName == "__arm_sme_state_size")
-    KnownAttrs |= SMEAttrs::SM_Compatible | SMEAttrs::SME_ABI_Routine;
+  for (auto [LC, Attrs] : SMERoutineAttrs) {
+    if (TLI.getLibcallName(LC) == FuncName) {
+      KnownAttrs = Attrs;
+      break;
+    }
+  }
+
   set(KnownAttrs);
 }
 
@@ -110,11 +135,11 @@ bool SMECallAttrs::requiresSMChange() const {
   return true;
 }
 
-SMECallAttrs::SMECallAttrs(const CallBase &CB)
+SMECallAttrs::SMECallAttrs(const CallBase &CB, const TargetLowering *TLI)
     : CallerFn(*CB.getFunction()), CalledFn(SMEAttrs::Normal),
       Callsite(CB.getAttributes()), IsIndirect(CB.isIndirectCall()) {
   if (auto *CalledFunction = CB.getCalledFunction())
-    CalledFn = SMEAttrs(*CalledFunction, SMEAttrs::InferAttrsFromName::Yes);
+    CalledFn = SMEAttrs(*CalledFunction, TLI);
 
   // FIXME: We probably should not allow SME attributes on direct calls but
   // clang duplicates streaming mode attributes at each callsite.

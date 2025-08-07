@@ -13,6 +13,8 @@
 
 namespace llvm {
 
+class TargetLowering;
+
 class Function;
 class CallBase;
 class AttributeList;
@@ -48,17 +50,17 @@ public:
     CallSiteFlags_Mask = ZT0_Undef
   };
 
-  enum class InferAttrsFromName { No, Yes };
-
   SMEAttrs() = default;
   SMEAttrs(unsigned Mask) { set(Mask); }
-  SMEAttrs(const Function &F, InferAttrsFromName Infer = InferAttrsFromName::No)
+  SMEAttrs(const Function &F, const TargetLowering *TLI = nullptr)
       : SMEAttrs(F.getAttributes()) {
-    if (Infer == InferAttrsFromName::Yes)
-      addKnownFunctionAttrs(F.getName());
+    if (TLI)
+      addKnownFunctionAttrs(F.getName(), *TLI);
   }
   SMEAttrs(const AttributeList &L);
-  SMEAttrs(StringRef FuncName) { addKnownFunctionAttrs(FuncName); };
+  SMEAttrs(StringRef FuncName, const TargetLowering &TLI) {
+    addKnownFunctionAttrs(FuncName, TLI);
+  };
 
   void set(unsigned M, bool Enable = true);
 
@@ -82,7 +84,7 @@ public:
   static StateValue decodeZAState(unsigned Bitmask) {
     return static_cast<StateValue>((Bitmask & ZA_Mask) >> ZA_Shift);
   }
-  static unsigned encodeZAState(StateValue S) {
+  static constexpr unsigned encodeZAState(StateValue S) {
     return static_cast<unsigned>(S) << ZA_Shift;
   }
 
@@ -146,7 +148,7 @@ public:
   }
 
 private:
-  void addKnownFunctionAttrs(StringRef FuncName);
+  void addKnownFunctionAttrs(StringRef FuncName, const TargetLowering &TLI);
 };
 
 /// SMECallAttrs is a utility class to hold the SMEAttrs for a callsite. It has
@@ -163,7 +165,7 @@ public:
                SMEAttrs Callsite = SMEAttrs::Normal)
       : CallerFn(Caller), CalledFn(Callee), Callsite(Callsite) {}
 
-  SMECallAttrs(const CallBase &CB);
+  SMECallAttrs(const CallBase &CB, const TargetLowering *TLI);
 
   SMEAttrs &caller() { return CallerFn; }
   SMEAttrs &callee() { return IsIndirect ? Callsite : CalledFn; }
