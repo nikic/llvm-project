@@ -16,6 +16,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/ValueLattice.h"
 #include "llvm/Analysis/ValueLatticeUtils.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -1994,8 +1995,11 @@ void SCCPInstVisitor::handlePredicate(Instruction *I, Value *CopyOf,
     // For non-integer values or integer constant expressions, only
     // propagate equal constants or not-constants.
     addAdditionalUser(OtherOp, I);
-    mergeInValue(IV, I, CondVal);
-    return;
+    if (CondVal.isNotConstant() ||
+        canReplacePointersIfEqual(CopyOf, OtherOp, DL)) {
+      mergeInValue(IV, I, CondVal);
+      return;
+    }
   } else if (Pred == CmpInst::ICMP_NE && CondVal.isConstant()) {
     // Propagate inequalities.
     addAdditionalUser(OtherOp, I);
