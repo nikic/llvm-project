@@ -78,15 +78,13 @@ enum LocalNum {
   LN_Last
 };
 
-// Associate global and local DFS info with defs (PInfo set) and uses (U set),
-// so we can sort them into a global domination ordering.
+// Associate global and local DFS info with defs (PredicateBase *) and uses
+// (Use *), so we can sort them into a global domination ordering.
 struct ValueDFS {
   int DFSIn = 0;
   int DFSOut = 0;
   unsigned int LocalNum = LN_Middle;
-  // Only one of U or PInfo will be set.
-  Use *U = nullptr;
-  PredicateBase *PInfo = nullptr;
+  PointerUnion<Use *, PredicateBase *> U;
 };
 
 // This compares ValueDFS structures. Doing so allows us to walk the minimum
@@ -123,18 +121,19 @@ struct ValueDFS_Compare {
     // The order of PredicateInfo definitions at the start of the block does not
     // matter.
     assert(A.LocalNum == LN_First);
-    assert(A.PInfo && B.PInfo && "Must be predicate info def");
+    assert(isa<PredicateBase *>(A.U) && isa<PredicateBase *>(B.U) &&
+           "Must be predicate info def");
     return false;
   }
 
   // For a phi use, or a non-materialized def, return the edge it represents.
   std::pair<BasicBlock *, BasicBlock *> getBlockEdge(const ValueDFS &VD) const {
-    if (VD.U) {
-      auto *PHI = cast<PHINode>(VD.U->getUser());
-      return std::make_pair(PHI->getIncomingBlock(*VD.U), PHI->getParent());
+    if (auto *U = dyn_cast<Use *>(VD.U)) {
+      auto *PHI = cast<PHINode>(U->getUser());
+      return std::make_pair(PHI->getIncomingBlock(*U), PHI->getParent());
     }
     // This is really a non-materialized def.
-    return ::getBlockEdge(VD.PInfo);
+    return ::getBlockEdge(cast<PredicateBase *>(VD.U));
   }
 
   // For two phi related values, return the ordering.
@@ -162,24 +161,22 @@ struct ValueDFS_Compare {
     DomTreeNode *DomBDest = DT.getNode(BDest);
     unsigned AIn = DomADest->getDFSNumIn();
     unsigned BIn = DomBDest->getDFSNumIn();
-    bool isAUse = A.U;
-    bool isBUse = B.U;
-    assert((!A.PInfo || !A.U) && (!B.PInfo || !B.U) &&
-           "Def and U cannot be set at the same time");
+    bool isAUse = isa<Use *>(A.U);
+    bool isBUse = isa<Use *>(B.U);
     // Now sort by edge destination and then defs before uses.
     return std::tie(AIn, isAUse) < std::tie(BIn, isBUse);
   }
 
   const Instruction *getDefOrUser(const ValueDFS &VD) const {
-    if (VD.U)
-      return cast<Instruction>(VD.U->getUser());
+    if (auto *U = dyn_cast<Use *>(VD.U))
+      return cast<Instruction>(U->getUser());
 
     // For the purpose of ordering, we pretend the def is right after the
     // assume, because that is where we will insert the info.
-    assert(VD.PInfo && "No use, and no predicateinfo should not occur");
-    assert(isa<PredicateAssume>(VD.PInfo) &&
+    auto *PInfo = cast<PredicateBase *>(VD.U);
+    assert(isa<PredicateAssume>(PInfo) &&
            "Middle of block should only occur for assumes");
-    return cast<PredicateAssume>(VD.PInfo)->AssumeInst->getNextNode();
+    return cast<PredicateAssume>(PInfo)->AssumeInst->getNextNode();
   }
 
   // This performs the necessary local basic block ordering checks to tell
@@ -260,19 +257,21 @@ bool PredicateInfoBuilder::stackIsInScope(const ValueDFSStack &Stack,
   // next to the defs they must go with so that we can know it's time to pop
   // the stack when we hit the end of the phi uses for a given def.
   const ValueDFS &Top = *Stack.back().V;
-  if (Top.LocalNum == LN_Last && Top.PInfo) {
-    if (!VDUse.U)
+  auto *TopPred = dyn_cast<PredicateBase *>(Top.U);
+  if (Top.LocalNum == LN_Last && TopPred) {
+    auto *U = dyn_cast<Use *>(VDUse.U);
+    if (!U)
       return false;
-    auto *PHI = dyn_cast<PHINode>(VDUse.U->getUser());
+    auto *PHI = dyn_cast<PHINode>(U->getUser());
     if (!PHI)
       return false;
     // Check edge
-    BasicBlock *EdgePred = PHI->getIncomingBlock(*VDUse.U);
-    if (EdgePred != getBranchBlock(Top.PInfo))
+    BasicBlock *EdgePred = PHI->getIncomingBlock(*U);
+    if (EdgePred != getBranchBlock(TopPred))
       return false;
 
     // Use dominates, which knows how to handle edge dominance.
-    return DT.dominates(getBlockEdge(Top.PInfo), *VDUse.U);
+    return DT.dominates(getBlockEdge(TopPred), *U);
   }
 
   return VDUse.DFSIn >= Top.DFSIn && VDUse.DFSOut <= Top.DFSOut;
@@ -510,7 +509,7 @@ Value *PredicateInfoBuilder::materializeStack(unsigned int &Counter,
     auto *Op =
         RenameIter == RenameStack.begin() ? OrigOp : (RenameIter - 1)->Def;
     StackEntry &Result = *RenameIter;
-    auto *ValInfo = Result.V->PInfo;
+    auto *ValInfo = cast<PredicateBase *>(Result.V->U);
     ValInfo->RenamedOp = (RenameStack.end() - Start) == RenameStack.begin()
                              ? OrigOp
                              : (RenameStack.end() - Start - 1)->Def;
@@ -587,7 +586,7 @@ void PredicateInfoBuilder::renameUses(SmallVectorImpl<Value *> &OpsToRename) {
           continue;
         VD.DFSIn = DomNode->getDFSNumIn();
         VD.DFSOut = DomNode->getDFSNumOut();
-        VD.PInfo = PossibleCopy;
+        VD.U = PossibleCopy;
         OrderedUses.push_back(VD);
       } else if (isa<PredicateWithEdge>(PossibleCopy)) {
         // If we can only do phi uses, we treat it like it's in the branch
@@ -600,7 +599,7 @@ void PredicateInfoBuilder::renameUses(SmallVectorImpl<Value *> &OpsToRename) {
           if (DomNode) {
             VD.DFSIn = DomNode->getDFSNumIn();
             VD.DFSOut = DomNode->getDFSNumOut();
-            VD.PInfo = PossibleCopy;
+            VD.U = PossibleCopy;
             OrderedUses.push_back(VD);
           }
         } else {
@@ -612,7 +611,7 @@ void PredicateInfoBuilder::renameUses(SmallVectorImpl<Value *> &OpsToRename) {
           if (DomNode) {
             VD.DFSIn = DomNode->getDFSNumIn();
             VD.DFSOut = DomNode->getDFSNumOut();
-            VD.PInfo = PossibleCopy;
+            VD.U = PossibleCopy;
             OrderedUses.push_back(VD);
           }
         }
@@ -646,7 +645,7 @@ void PredicateInfoBuilder::renameUses(SmallVectorImpl<Value *> &OpsToRename) {
       // Sync to our current scope.
       popStackUntilDFSScope(RenameStack, VD);
 
-      if (VD.PInfo) {
+      if (isa<PredicateBase *>(VD.U)) {
         RenameStack.push_back(&VD);
         continue;
       }
@@ -667,12 +666,13 @@ void PredicateInfoBuilder::renameUses(SmallVectorImpl<Value *> &OpsToRename) {
       if (!Result.Def)
         Result.Def = materializeStack(Counter, RenameStack, Op);
 
+      auto *U = cast<Use *>(VD.U);
       LLVM_DEBUG(dbgs() << "Found replacement " << *Result.Def << " for "
-                        << *VD.U->get() << " in " << *(VD.U->getUser())
+                        << *U->get() << " in " << *(U->getUser())
                         << "\n");
-      assert(DT.dominates(cast<Instruction>(Result.Def), *VD.U) &&
+      assert(DT.dominates(cast<Instruction>(Result.Def), *U) &&
              "Predicateinfo def should have dominated this use");
-      VD.U->set(Result.Def);
+      U->set(Result.Def);
     }
   }
 }
