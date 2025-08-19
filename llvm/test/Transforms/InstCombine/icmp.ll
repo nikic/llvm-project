@@ -5393,11 +5393,10 @@ entry:
 
 define i1 @icmp_freeze_sext(i16 %x, i16 %y) {
 ; CHECK-LABEL: @icmp_freeze_sext(
-; CHECK-NEXT:    [[CMP1:%.*]] = icmp uge i16 [[X:%.*]], [[Y:%.*]]
-; CHECK-NEXT:    [[CMP1_FR:%.*]] = freeze i1 [[CMP1]]
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i16 [[Y]], 0
-; CHECK-NEXT:    [[CMP2:%.*]] = or i1 [[TMP1]], [[CMP1_FR]]
-; CHECK-NEXT:    ret i1 [[CMP2]]
+; CHECK-NEXT:    [[Y:%.*]] = freeze i16 [[Y1:%.*]]
+; CHECK-NEXT:    [[X:%.*]] = freeze i16 [[X1:%.*]]
+; CHECK-NEXT:    [[CMP1:%.*]] = icmp uge i16 [[X]], [[Y]]
+; CHECK-NEXT:    ret i1 [[CMP1]]
 ;
   %cmp1 = icmp uge i16 %x, %y
   %ext = sext i1 %cmp1 to i16
