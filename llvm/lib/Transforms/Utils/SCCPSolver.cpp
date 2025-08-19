@@ -520,7 +520,7 @@ class SCCPInstVisitor : public InstVisitor<SCCPInstVisitor> {
   using Edge = std::pair<BasicBlock *, BasicBlock *>;
   DenseSet<Edge> KnownFeasibleEdges;
 
-  DenseMap<Function *, std::unique_ptr<PredicateInfo>> FnPredicateInfo;
+  SmallDenseMap<Function *, std::unique_ptr<PredicateInfo>, 4> FnPredicateInfo;
 
   DenseMap<Value *, SmallSetVector<User *, 2>> AdditionalUsers;
 
