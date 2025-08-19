@@ -1443,9 +1443,10 @@ define <2 x i32> @negate_select_of_negation_poison(<2 x i1> %c, <2 x i32> %x) {
 ; Freeze is transparent as far as negation is concerned
 define i4 @negate_freeze(i4 %x, i4 %y, i4 %z) {
 ; CHECK-LABEL: @negate_freeze(
-; CHECK-NEXT:    [[T0_NEG:%.*]] = sub i4 [[Y:%.*]], [[X:%.*]]
-; CHECK-NEXT:    [[T1_NEG:%.*]] = freeze i4 [[T0_NEG]]
-; CHECK-NEXT:    [[T2:%.*]] = add i4 [[T1_NEG]], [[Z:%.*]]
+; CHECK-NEXT:    [[T1_NEG:%.*]] = freeze i4 [[T0_NEG:%.*]]
+; CHECK-NEXT:    [[Y_FR:%.*]] = freeze i4 [[Y:%.*]]
+; CHECK-NEXT:    [[T0_NEG1:%.*]] = sub i4 [[Y_FR]], [[T1_NEG]]
+; CHECK-NEXT:    [[T2:%.*]] = add i4 [[T0_NEG1]], [[Z:%.*]]
 ; CHECK-NEXT:    ret i4 [[T2]]
 ;
   %t0 = sub i4 %x, %y
@@ -1455,8 +1456,9 @@ define i4 @negate_freeze(i4 %x, i4 %y, i4 %z) {
 }
 define i4 @negate_freeze_extrause(i4 %x, i4 %y, i4 %z) {
 ; CHECK-LABEL: @negate_freeze_extrause(
-; CHECK-NEXT:    [[T0:%.*]] = sub i4 [[X:%.*]], [[Y:%.*]]
-; CHECK-NEXT:    [[T1:%.*]] = freeze i4 [[T0]]
+; CHECK-NEXT:    [[X_FR:%.*]] = freeze i4 [[X:%.*]]
+; CHECK-NEXT:    [[Y_FR:%.*]] = freeze i4 [[Y:%.*]]
+; CHECK-NEXT:    [[T1:%.*]] = sub i4 [[X_FR]], [[Y_FR]]
 ; CHECK-NEXT:    call void @use4(i4 [[T1]])
 ; CHECK-NEXT:    [[T2:%.*]] = sub i4 [[Z:%.*]], [[T1]]
 ; CHECK-NEXT:    ret i4 [[T2]]
