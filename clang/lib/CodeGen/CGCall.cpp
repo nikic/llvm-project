@@ -1048,6 +1048,7 @@ const CGFunctionInfo &CodeGenTypes::arrangeLLVMFunctionInfo(
   // Construct the function info.  We co-allocate the ArgInfos.
   FI = CGFunctionInfo::create(CC, isInstanceMethod, isChainCall, isDelegateCall,
                               info, paramInfos, resultType, argTypes, required);
+  FunctionInfos.InsertNode(FI, insertPos);
 
   // std::unique_ptr<llvm::abi::ABIFunctionInfo> tempFI;
 
