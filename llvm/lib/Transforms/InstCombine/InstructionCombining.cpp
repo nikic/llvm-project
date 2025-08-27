@@ -3431,7 +3431,8 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     // Try to replace ADD + GEP with GEP + GEP.
     Value *Idx1, *Idx2;
     if (match(GEP.getOperand(1),
-              m_OneUse(m_AddLike(m_Value(Idx1), m_Value(Idx2))))) {
+              m_OneUse(m_AddLike(m_Value(Idx1), m_Value(Idx2)))) &&
+        !match(Idx2, m_Negative())) {
       //   %idx = add i64 %idx1, %idx2
       //   %gep = getelementptr i32, ptr %ptr, i64 %idx
       // as:
@@ -3448,7 +3449,8 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     }
     ConstantInt *C;
     if (match(GEP.getOperand(1), m_OneUse(m_SExtLike(m_OneUse(m_NSWAddLike(
-                                     m_Value(Idx1), m_ConstantInt(C))))))) {
+                                     m_Value(Idx1), m_ConstantInt(C)))))) &&
+        !C->isNegative()) {
       // %add = add nsw i32 %idx1, idx2
       // %sidx = sext i32 %add to i64
       // %gep = getelementptr i32, ptr %ptr, i64 %sidx

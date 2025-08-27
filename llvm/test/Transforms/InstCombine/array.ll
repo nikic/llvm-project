@@ -290,9 +290,9 @@ define ptr @gep_inbounds_sext_add_not_nonneg_1(ptr %ptr, i32 %a) {
 ; CHECK-SAME: ptr [[PTR:%.*]], i32 [[A:%.*]]) {
 ; CHECK-NEXT:    [[A_NNEG:%.*]] = icmp sgt i32 [[A]], -1
 ; CHECK-NEXT:    call void @llvm.assume(i1 [[A_NNEG]])
-; CHECK-NEXT:    [[TMP1:%.*]] = zext nneg i32 [[A]] to i64
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr i32, ptr [[PTR]], i64 [[TMP1]]
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr i8, ptr [[TMP2]], i64 -40
+; CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 [[A]], -10
+; CHECK-NEXT:    [[IDX:%.*]] = sext i32 [[ADD]] to i64
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds i32, ptr [[PTR]], i64 [[IDX]]
 ; CHECK-NEXT:    ret ptr [[GEP]]
 ;
   %a.nneg = icmp sgt i32 %a, -1
