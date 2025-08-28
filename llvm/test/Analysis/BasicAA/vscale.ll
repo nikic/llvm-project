@@ -6,8 +6,7 @@
 ; CHECK-DAG:  MustAlias:    <vscale x 4 x i32>* %alloc, <vscale x 4 x i32>* %gep1
 ; CHECK-DAG:  MayAlias:     <vscale x 4 x i32>* %alloc, <vscale x 4 x i32>* %gep2
 ; CHECK-DAG:  MayAlias:     <vscale x 4 x i32>* %gep1, <vscale x 4 x i32>* %gep2
-define void @gep_alloca_const_offset_1() {
-  %alloc = alloca <vscale x 4 x i32>
+define void @gep_alloca_const_offset_1(ptr %alloc) {
   %gep1 = getelementptr <vscale x 4 x i32>, ptr %alloc, i64 0
   %gep2 = getelementptr <vscale x 4 x i32>, ptr %alloc, i64 1
   load <vscale x 4 x i32>, ptr %alloc
@@ -21,8 +20,7 @@ define void @gep_alloca_const_offset_1() {
 ; CHECK-DAG:  MayAlias:     <vscale x 4 x i32>* %alloc, <vscale x 4 x i32>* %gep2
 ; TODO: AliasResult for gep1,gep2 can be improved as MustAlias
 ; CHECK-DAG:  MayAlias:     <vscale x 4 x i32>* %gep1, <vscale x 4 x i32>* %gep2
-define void @gep_alloca_const_offset_2() {
-  %alloc = alloca <vscale x 4 x i32>
+define void @gep_alloca_const_offset_2(ptr %alloc) {
   %gep1 = getelementptr <vscale x 4 x i32>, ptr %alloc, i64 1
   %gep2 = getelementptr <vscale x 4 x i32>, ptr %alloc, i64 1
   load <vscale x 4 x i32>, ptr %alloc
@@ -33,8 +31,8 @@ define void @gep_alloca_const_offset_2() {
 
 ; CHECK-LABEL: gep_alloca_const_offset_3
 ; CHECK-DAG:  MustAlias:    <vscale x 4 x i32>* %alloc, <vscale x 4 x i32>* %gep1
-; CHECK-DAG:  MayAlias:     <vscale x 4 x i32>* %alloc, i32* %gep2
-; CHECK-DAG:  MayAlias:     <vscale x 4 x i32>* %gep1, i32* %gep2
+; CHECK-DAG:  PartialAlias: <vscale x 4 x i32>* %alloc, i32* %gep2
+; CHECK-DAG:  PartialAlias: <vscale x 4 x i32>* %gep1, i32* %gep2
 define void @gep_alloca_const_offset_3() {
   %alloc = alloca <vscale x 4 x i32>
   %gep1 = getelementptr <vscale x 4 x i32>, ptr %alloc, i64 0
@@ -63,8 +61,7 @@ define void @gep_alloca_const_offset_4() {
 ; CHECK-DAG:  MayAlias:     <vscale x 4 x i32>* %alloc, <vscale x 4 x i32>* %gep1
 ; CHECK-DAG:  MayAlias:     <vscale x 4 x i32>* %alloc, <vscale x 4 x i32>* %gep2
 ; CHECK-DAG:  MayAlias:     <vscale x 4 x i32>* %gep1, <vscale x 4 x i32>* %gep2
-define void @gep_alloca_symbolic_offset(i64 %idx1, i64 %idx2) {
-  %alloc = alloca <vscale x 4 x i32>
+define void @gep_alloca_symbolic_offset(ptr %alloc, i64 %idx1, i64 %idx2) {
   %gep1 = getelementptr <vscale x 4 x i32>, ptr %alloc, i64 %idx1
   %gep2 = getelementptr <vscale x 4 x i32>, ptr %alloc, i64 %idx2
   load <vscale x 4 x i32>, ptr %alloc

@@ -103,13 +103,10 @@ static std::optional<TypeSize> getObjectSize(const Value *V,
                                              const TargetLibraryInfo &TLI,
                                              bool NullIsValidLoc,
                                              bool RoundToAlign = false) {
-  uint64_t Size;
   ObjectSizeOpts Opts;
   Opts.RoundToAlign = RoundToAlign;
   Opts.NullIsUnknownSize = NullIsValidLoc;
-  if (getObjectSize(V, Size, DL, &TLI, Opts))
-    return TypeSize::getFixed(Size);
-  return std::nullopt;
+  return getBaseObjectSize(V, DL, &TLI, Opts);
 }
 
 /// Returns true if we can prove that the object specified by V is smaller than
