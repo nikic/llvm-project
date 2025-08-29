@@ -175,6 +175,8 @@ static TypeSize getMinimalExtentFrom(const Value &V,
 /// Returns true if we can prove that the object specified by V has size Size.
 static bool isObjectSize(const Value *V, TypeSize Size, const DataLayout &DL,
                          const TargetLibraryInfo &TLI, bool NullIsValidLoc) {
+  if (!isIdentifiedObject(V))
+    return false;
   std::optional<TypeSize> ObjectSize =
       getObjectSize(V, DL, TLI, NullIsValidLoc);
   return ObjectSize && *ObjectSize == Size;
