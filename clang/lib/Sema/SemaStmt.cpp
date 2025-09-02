@@ -25,6 +25,7 @@
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/AST/TypeOrdering.h"
+#include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
@@ -970,6 +971,34 @@ StmtResult Sema::ActOnIfStmt(SourceLocation IfLoc,
 
   if (!ConstevalOrNegatedConsteval && !elseStmt)
     DiagnoseEmptyStmtBody(RParenLoc, thenStmt, diag::warn_empty_if_body);
+
+  // Checks for if/else-if condition variable usage in else-if/else scope
+  if (elseStmt) {
+    VarDecl *ConditionVar = nullptr;
+
+    if (auto *CondVar = Cond.get().first) {
+      ConditionVar = dyn_cast<VarDecl>(CondVar);
+    }    
+
+    if (ConditionVar) {
+      struct ElseVariableUsageChecker
+        : public RecursiveASTVisitor<ElseVariableUsageChecker> {
+        VarDecl *TargetVar;
+        Sema &SemaRef;
+        ElseVariableUsageChecker(VarDecl *Var, Sema &S) : TargetVar(Var), SemaRef(S) {}
+
+        bool VisitDeclRefExpr(DeclRefExpr *DRE) {
+          if (DRE->getDecl() == TargetVar) {
+            SemaRef.Diag(DRE->getBeginLoc(), diag::warn_out_of_scope_var_usage) << TargetVar->getName();
+          }
+          return true;
+        }
+      };   
+
+      ElseVariableUsageChecker Checker(ConditionVar, *this);
+      Checker.TraverseStmt(elseStmt);
+    }    
+  }
 
   if (ConstevalOrNegatedConsteval ||
       StatementKind == IfStatementKind::Constexpr) {
