@@ -684,28 +684,31 @@ Constant *llvm::ReadByteArrayFromGlobal(const GlobalVariable *GV,
 
 /// If this Offset points exactly to the start of an aggregate element, return
 /// that element, otherwise return nullptr.
-Constant *getConstantAtOffset(Constant *Base, APInt Offset,
-                              const DataLayout &DL) {
+static Constant *getConstantAtOffset(Constant *Base, APInt Offset,
+                                     const DataLayout &DL) {
   if (Offset.isZero())
     return Base;
 
   if (!isa<ConstantAggregate>(Base) && !isa<ConstantDataSequential>(Base))
     return nullptr;
 
-  Type *ElemTy = Base->getType();
-  SmallVector<APInt> Indices = DL.getGEPIndicesForOffset(ElemTy, Offset);
-  if (!Offset.isZero() || !Indices[0].isZero())
-    return nullptr;
-
   Constant *C = Base;
-  for (const APInt &Index : drop_begin(Indices)) {
-    if (Index.isNegative() || Index.getActiveBits() >= 32)
+  Type *ElemTy = Base->getType();
+  while (!Offset.isZero()) {
+    std::optional<APInt> Index = DL.getGEPIndexForOffset(ElemTy, Offset);
+    if (!Index)
       return nullptr;
 
-    C = C->getAggregateElement(Index.getZExtValue());
+    if (Index->isNegative() || Index->getActiveBits() >= 32)
+      return nullptr;
+
+    C = C->getAggregateElement(Index->getZExtValue());
     if (!C)
       return nullptr;
   }
+
+  if (!Offset.isZero())
+    return nullptr;
 
   return C;
 }
@@ -713,15 +716,16 @@ Constant *getConstantAtOffset(Constant *Base, APInt Offset,
 Constant *llvm::ConstantFoldLoadFromConst(Constant *C, Type *Ty,
                                           const APInt &Offset,
                                           const DataLayout &DL) {
-  if (Constant *AtOffset = getConstantAtOffset(C, Offset, DL))
-    if (Constant *Result = ConstantFoldLoadThroughBitcast(AtOffset, Ty, DL))
-      return Result;
-
   // Explicitly check for out-of-bounds access, so we return poison even if the
   // constant is a uniform value.
   TypeSize Size = DL.getTypeAllocSize(C->getType());
   if (!Size.isScalable() && Offset.sge(Size.getFixedValue()))
     return PoisonValue::get(Ty);
+
+  if (!Offset.isNegative())
+    if (Constant *AtOffset = getConstantAtOffset(C, Offset, DL))
+      if (Constant *Result = ConstantFoldLoadThroughBitcast(AtOffset, Ty, DL))
+        return Result;
 
   // Try an offset-independent fold of a uniform value.
   if (Constant *Result = ConstantFoldLoadFromUniformValue(C, Ty, DL))
