@@ -844,6 +844,29 @@ Align DataLayout::getAlignment(Type *Ty, bool abi_or_pref) const {
   }
 }
 
+TypeSize DataLayout::getTypeAllocSize(Type *Ty) const {
+  switch (Ty->getTypeID()) {
+  case Type::ArrayTyID: {
+    // The alignment of the array is the alignment of the element, so there
+    // is no need for further adjustment.
+    auto *ATy = cast<ArrayType>(Ty);
+    return ATy->getNumElements() * getTypeAllocSize(ATy->getElementType());
+  }
+  case Type::StructTyID: {
+    const StructLayout *Layout = getStructLayout(cast<StructType>(Ty));
+    TypeSize Size = Layout->getSizeInBytes();
+
+    if (cast<StructType>(Ty)->isPacked())
+      return Size;
+
+    Align A = std::max(StructABIAlignment, Layout->getAlignment());
+    return alignTo(Size, A.value());
+  }
+  default:
+    return alignTo(getTypeStoreSize(Ty), getABITypeAlign(Ty).value());
+  }
+}
+
 Align DataLayout::getABITypeAlign(Type *Ty) const {
   return getAlignment(Ty, true);
 }
