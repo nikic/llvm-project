@@ -863,10 +863,15 @@ TypeSize DataLayout::getTypeAllocSize(Type *Ty) const {
     return alignTo(Size, A.value());
   }
   case Type::IntegerTyID: {
-    auto *IntTy = cast<IntegerType>(Ty);
-    TypeSize Size = TypeSize::getFixed(divideCeil(IntTy->getBitWidth(), 8));
-    Align A = getIntegerAlignment(IntTy->getBitWidth(), /*ABI=*/true);
+    unsigned BitWidth = Ty->getIntegerBitWidth();
+    TypeSize Size = TypeSize::getFixed(divideCeil(BitWidth, 8));
+    Align A = getIntegerAlignment(BitWidth, /*ABI=*/true);
     return alignTo(Size, A.value());
+  }
+  case Type::PointerTyID: {
+    unsigned AS = Ty->getPointerAddressSpace();
+    TypeSize Size = TypeSize::getFixed(getPointerSize(AS));
+    return alignTo(Size, getPointerABIAlignment(AS).value());
   }
   default:
     return alignTo(getTypeStoreSize(Ty), getABITypeAlign(Ty).value());
