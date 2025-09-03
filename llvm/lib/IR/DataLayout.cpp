@@ -862,6 +862,12 @@ TypeSize DataLayout::getTypeAllocSize(Type *Ty) const {
     Align A = std::max(StructABIAlignment, Layout->getAlignment());
     return alignTo(Size, A.value());
   }
+  case Type::IntegerTyID: {
+    auto *IntTy = cast<IntegerType>(Ty);
+    TypeSize Size = TypeSize::getFixed(divideCeil(IntTy->getBitWidth(), 8));
+    Align A = getIntegerAlignment(IntTy->getBitWidth(), /*ABI=*/true);
+    return alignTo(Size, A.value());
+  }
   default:
     return alignTo(getTypeStoreSize(Ty), getABITypeAlign(Ty).value());
   }
