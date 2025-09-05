@@ -93,6 +93,21 @@ public:
     MultipleOfFunctionAlign,
   };
 
+  struct TypeProperties {
+    TypeSize SizeInBits;
+    TypeSize AllocSize = TypeSize::getZero();
+    Align ABIAlign;
+    Align PrefAlign;
+
+    TypeProperties(TypeSize SizeInBits, Align ABIAlign, Align PrefAlign)
+        : SizeInBits(SizeInBits), ABIAlign(ABIAlign), PrefAlign(PrefAlign) {}
+
+    /// Dummy entry for unsized types.
+    static TypeProperties dummy() {
+      return TypeProperties(TypeSize::getZero(), Align(1), Align(1));
+    }
+  };
+
 private:
   bool BigEndian = false;
 
@@ -127,6 +142,10 @@ private:
 
   /// Pointer type specifications. Sorted and uniqued by address space number.
   SmallVector<PointerSpec, 8> PointerSpecs;
+
+  /// Pre-computed properties for non-parameterized types,
+  /// indexed by the type ID.
+  SmallVector<TypeProperties, 16> TypeProps;
 
   /// The string representation used to create this DataLayout
   std::string StringRepresentation;
@@ -172,6 +191,9 @@ private:
 
   /// Attempts to parse a data layout string.
   Error parseLayoutString(StringRef LayoutString);
+
+  /// Initialize the cached type properties.
+  void initTypeProperties();
 
 public:
   /// Constructs a DataLayout with default values.

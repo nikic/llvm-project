@@ -214,7 +214,9 @@ DataLayout::DataLayout()
     : IntSpecs(ArrayRef(DefaultIntSpecs)),
       FloatSpecs(ArrayRef(DefaultFloatSpecs)),
       VectorSpecs(ArrayRef(DefaultVectorSpecs)),
-      PointerSpecs(ArrayRef(DefaultPointerSpecs)) {}
+      PointerSpecs(ArrayRef(DefaultPointerSpecs)) {
+  initTypeProperties();
+}
 
 DataLayout::DataLayout(StringRef LayoutString) : DataLayout() {
   if (Error Err = parseLayoutString(LayoutString))
@@ -240,6 +242,7 @@ DataLayout &DataLayout::operator=(const DataLayout &Other) {
   PointerSpecs = Other.PointerSpecs;
   StructABIAlignment = Other.StructABIAlignment;
   StructPrefAlignment = Other.StructPrefAlignment;
+  TypeProps = Other.TypeProps;
   return *this;
 }
 
@@ -633,7 +636,68 @@ Error DataLayout::parseLayoutString(StringRef LayoutString) {
                    true);
   }
 
+  initTypeProperties();
   return Error::success();
+}
+
+void DataLayout::initTypeProperties() {
+  // Cache properties of non-parameterized types.
+  TypeProps.clear();
+  for (unsigned TyID = 0; TyID <= Type::TokenTyID; ++TyID) {
+    auto ComputeFloatProperties = [&](unsigned BitWidth) {
+      auto It = lower_bound(FloatSpecs, BitWidth, LessPrimitiveBitWidth());
+      if (It != FloatSpecs.end() && It->BitWidth == BitWidth)
+        return TypeProperties(TypeSize::getFixed(BitWidth), It->ABIAlign,
+                              It->PrefAlign);
+
+      // If we still couldn't find a reasonable default alignment, fall back
+      // to a simple heuristic that the alignment is the first power of two
+      // greater-or-equal to the store size of the type.  This is a reasonable
+      // approximation of reality, and if the user wanted something less
+      // less conservative, they should have specified it explicitly in the data
+      // layout.
+      Align A = Align(PowerOf2Ceil(BitWidth / 8));
+      return TypeProperties(TypeSize::getFixed(BitWidth), A, A);
+    };
+    auto ComputeTypeProperties = [&](unsigned TyID) {
+      switch (TyID) {
+      case Type::HalfTyID:
+        return ComputeFloatProperties(16);
+      case Type::BFloatTyID:
+        return ComputeFloatProperties(16);
+      case Type::FloatTyID:
+        return ComputeFloatProperties(32);
+      case Type::DoubleTyID:
+        return ComputeFloatProperties(64);
+      case Type::X86_FP80TyID:
+        return ComputeFloatProperties(80);
+      case Type::FP128TyID:
+        return ComputeFloatProperties(128);
+      case Type::PPC_FP128TyID:
+        return ComputeFloatProperties(128);
+      case Type::VoidTyID:
+        return TypeProperties::dummy();
+      case Type::LabelTyID:
+        return TypeProperties(TypeSize::getFixed(getPointerSizeInBits(0)),
+                              getPointerABIAlignment(0),
+                              getPointerPrefAlignment(0));
+      case Type::MetadataTyID:
+        return TypeProperties::dummy();
+      case Type::X86_AMXTyID:
+        return TypeProperties(TypeSize::getFixed(8192), Align(64), Align(64));
+      case Type::TokenTyID:
+        return TypeProperties::dummy();
+      default:
+        llvm_unreachable("Unexpected type");
+      }
+    };
+    TypeProperties Props = ComputeTypeProperties(TyID);
+    if (!Props.SizeInBits.isZero())
+      Props.AllocSize = TypeSize::getFixed(
+          alignTo(divideCeil(Props.SizeInBits.getFixedValue(), 8),
+                  Props.ABIAlign.value()));
+    TypeProps.push_back(Props);
+  }
 }
 
 void DataLayout::setPrimitiveSpec(char Specifier, uint32_t BitWidth,
@@ -771,11 +835,13 @@ unsigned DataLayout::getIndexTypeSizeInBits(Type *Ty) const {
   == false) for the requested type \a Ty.
  */
 Align DataLayout::getAlignment(Type *Ty, bool abi_or_pref) const {
-  assert(Ty->isSized() && "Cannot getTypeInfo() on a type that is unsized!");
-  switch (Ty->getTypeID()) {
-  // Early escape for the non-numeric types.
-  case Type::LabelTyID:
-    return abi_or_pref ? getPointerABIAlignment(0) : getPointerPrefAlignment(0);
+  assert(Ty->isSized() && "Cannot getAlignment() on a type that is unsized!");
+  unsigned TyID = Ty->getTypeID();
+  if (TyID <= Type::TokenTyID) {
+    const TypeProperties &Props = TypeProps[TyID];
+    return abi_or_pref ? Props.ABIAlign : Props.PrefAlign;
+  }
+  switch (TyID) {
   case Type::PointerTyID: {
     unsigned AS = cast<PointerType>(Ty)->getAddressSpace();
     return abi_or_pref ? getPointerABIAlignment(AS)
@@ -796,28 +862,6 @@ Align DataLayout::getAlignment(Type *Ty, bool abi_or_pref) const {
   }
   case Type::IntegerTyID:
     return getIntegerAlignment(Ty->getIntegerBitWidth(), abi_or_pref);
-  case Type::HalfTyID:
-  case Type::BFloatTyID:
-  case Type::FloatTyID:
-  case Type::DoubleTyID:
-  // PPC_FP128TyID and FP128TyID have different data contents, but the
-  // same size and alignment, so they look the same here.
-  case Type::PPC_FP128TyID:
-  case Type::FP128TyID:
-  case Type::X86_FP80TyID: {
-    unsigned BitWidth = getTypeSizeInBits(Ty).getFixedValue();
-    auto I = lower_bound(FloatSpecs, BitWidth, LessPrimitiveBitWidth());
-    if (I != FloatSpecs.end() && I->BitWidth == BitWidth)
-      return abi_or_pref ? I->ABIAlign : I->PrefAlign;
-
-    // If we still couldn't find a reasonable default alignment, fall back
-    // to a simple heuristic that the alignment is the first power of two
-    // greater-or-equal to the store size of the type.  This is a reasonable
-    // approximation of reality, and if the user wanted something less
-    // less conservative, they should have specified it explicitly in the data
-    // layout.
-    return Align(PowerOf2Ceil(BitWidth / 8));
-  }
   case Type::FixedVectorTyID:
   case Type::ScalableVectorTyID: {
     unsigned BitWidth = getTypeSizeInBits(Ty).getKnownMinValue();
@@ -833,8 +877,6 @@ Align DataLayout::getAlignment(Type *Ty, bool abi_or_pref) const {
     // count should be enough here.
     return Align(PowerOf2Ceil(getTypeStoreSize(Ty).getKnownMinValue()));
   }
-  case Type::X86_AMXTyID:
-    return Align(64);
   case Type::TargetExtTyID: {
     Type *LayoutTy = cast<TargetExtType>(Ty)->getLayoutType();
     return getAlignment(LayoutTy, abi_or_pref);
@@ -845,6 +887,12 @@ Align DataLayout::getAlignment(Type *Ty, bool abi_or_pref) const {
 }
 
 TypeSize DataLayout::getTypeAllocSize(Type *Ty) const {
+  assert(Ty->isSized() &&
+         "Cannot call getTypeAllocSize() on a type that is unsized!");
+  unsigned TyID = Ty->getTypeID();
+  if (TyID <= Type::TokenTyID)
+    return TypeProps[TyID].AllocSize;
+
   switch (Ty->getTypeID()) {
   case Type::ArrayTyID: {
     // The alignment of the array is the alignment of the element, so there
