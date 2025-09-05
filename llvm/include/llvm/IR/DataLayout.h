@@ -692,9 +692,11 @@ private:
 // well suited to constant folding when called on a specific Type subclass.
 inline TypeSize DataLayout::getTypeSizeInBits(Type *Ty) const {
   assert(Ty->isSized() && "Cannot getTypeInfo() on a type that is unsized!");
+  unsigned TyID = Ty->getTypeID();
+  if (TyID <= Type::TokenTyID)
+    return TypeProps[TyID].SizeInBits;
+  
   switch (Ty->getTypeID()) {
-  case Type::LabelTyID:
-    return TypeSize::getFixed(getPointerSizeInBits(0));
   case Type::PointerTyID:
     return TypeSize::getFixed(
         getPointerSizeInBits(Ty->getPointerAddressSpace()));
@@ -708,22 +710,6 @@ inline TypeSize DataLayout::getTypeSizeInBits(Type *Ty) const {
     return getStructLayout(cast<StructType>(Ty))->getSizeInBits();
   case Type::IntegerTyID:
     return TypeSize::getFixed(Ty->getIntegerBitWidth());
-  case Type::HalfTyID:
-  case Type::BFloatTyID:
-    return TypeSize::getFixed(16);
-  case Type::FloatTyID:
-    return TypeSize::getFixed(32);
-  case Type::DoubleTyID:
-    return TypeSize::getFixed(64);
-  case Type::PPC_FP128TyID:
-  case Type::FP128TyID:
-    return TypeSize::getFixed(128);
-  case Type::X86_AMXTyID:
-    return TypeSize::getFixed(8192);
-  // In memory objects this is always aligned to a higher boundary, but
-  // only 80 bits contain information.
-  case Type::X86_FP80TyID:
-    return TypeSize::getFixed(80);
   case Type::FixedVectorTyID:
   case Type::ScalableVectorTyID: {
     VectorType *VTy = cast<VectorType>(Ty);
