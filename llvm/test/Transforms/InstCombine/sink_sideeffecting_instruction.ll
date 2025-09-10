@@ -381,11 +381,13 @@ define i32 @sink_lifetime3(i1 %c) {
 ; CHECK-LABEL: @sink_lifetime3(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VAR:%.*]] = alloca i32, align 4
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(ptr nonnull [[VAR]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(ptr nonnull [[VAR]])
+; CHECK-NEXT:    [[VAR3:%.*]] = call i32 @unknown(ptr nonnull [[VAR]]) #[[ATTR1]]
 ; CHECK-NEXT:    br i1 [[C:%.*]], label [[EARLY_RETURN:%.*]], label [[USE_BLOCK:%.*]]
 ; CHECK:       early_return:
 ; CHECK-NEXT:    ret i32 0
 ; CHECK:       use_block:
-; CHECK-NEXT:    [[VAR3:%.*]] = call i32 @unknown(ptr nonnull [[VAR]]) #[[ATTR1]]
 ; CHECK-NEXT:    ret i32 [[VAR3]]
 ;
 entry:

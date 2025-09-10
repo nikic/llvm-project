@@ -22,6 +22,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumeBundleQueries.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
@@ -3318,6 +3319,9 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     if (II->getFunction()->hasFnAttribute(Attribute::SanitizeAddress) ||
         II->getFunction()->hasFnAttribute(Attribute::SanitizeMemory) ||
         II->getFunction()->hasFnAttribute(Attribute::SanitizeHWAddress))
+      break;
+
+    if (PointerMayBeCaptured(II->getArgOperand(0), /*ReturnCaptures=*/true))
       break;
 
     if (removeTriviallyEmptyRange(*II, *this, [](const IntrinsicInst &I) {
