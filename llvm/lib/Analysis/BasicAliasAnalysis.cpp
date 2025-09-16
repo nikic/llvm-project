@@ -1004,7 +1004,7 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   // size of the memory access is larger than the integer size, or if TBAA
   // proves it does not alias errno.
   if ((ErrnoMR | Result) != Result) {
-    if (isModOrRefSet(ErrnoMR) && !isIdentifiedFunctionLocal(Object) &&
+    if (isModOrRefSet(ErrnoMR) &&
         AAQI.AAR.aliasErrno(Loc, Call->getModule()) != AliasResult::NoAlias) {
       // Preconditions above are not met, this memory location may alias errno.
       Result |= ErrnoMR;
@@ -1867,9 +1867,11 @@ AliasResult BasicAAResult::aliasCheckRecursive(
 
 AliasResult BasicAAResult::aliasErrno(const MemoryLocation &Loc,
                                       const Module *M) {
-  bool DoesNotAlias =
-      Loc.Size.hasValue() && Loc.Size.getValue() * 8 > TLI.getIntSize();
-  return DoesNotAlias ? AliasResult::NoAlias : AliasResult::MayAlias;
+  if (Loc.Size.hasValue() && Loc.Size.getValue() * 8 > TLI.getIntSize())
+    return AliasResult::NoAlias;
+  if (isIdentifiedFunctionLocal(getUnderlyingObject(Loc.Ptr)))
+    return AliasResult::NoAlias;
+  return AliasResult::MayAlias;
 }
 
 /// Check whether two Values can be considered equivalent.
