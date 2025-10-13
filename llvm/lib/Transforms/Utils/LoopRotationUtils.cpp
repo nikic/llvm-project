@@ -209,7 +209,7 @@ static bool rotationMakesLoopComputable(Loop *L, ScalarEvolution *SE) {
   assert(BI && BI->isConditional() && "need header with conditional exit");
   if (SE && isa<SCEVCouldNotCompute>(SE->getExitCount(L, L->getLoopLatch())) &&
       !isa<SCEVCouldNotCompute>(SE->getExitCount(L, Header)))
-    return true;
+    return false;
   return false;
 }
 
