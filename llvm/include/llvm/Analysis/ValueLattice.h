@@ -42,6 +42,10 @@ class ValueLatticeElement {
     ///  overdefined
     undef,
 
+    /// We can not precisely model the dynamic values this value might take.
+    /// No transitions are allowed after reaching overdefined.
+    overdefined,
+
     /// This Value has a specific constant value.  The constant cannot be undef.
     /// (For constant integers, constantrange is used instead. Integer typed
     /// constantexprs can appear as constant.) Note that the constant state
@@ -70,10 +74,6 @@ class ValueLatticeElement {
     /// Transition allowed to the following states:
     ///  overdefined
     constantrange_including_undef,
-
-    /// We can not precisely model the dynamic values this value might take.
-    /// No transitions are allowed after reaching overdefined.
-    overdefined,
   };
 
   ValueLatticeElementTy Tag : 8;
