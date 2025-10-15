@@ -278,6 +278,8 @@ struct APFloatBase {
   LLVM_ABI static const fltSemantics &Float4E2M1FN() LLVM_READNONE;
   LLVM_ABI static const fltSemantics &x87DoubleExtended() LLVM_READNONE;
 
+  static const fltSemantics semPPCDoubleDouble;
+
   /// A Pseudo fltsemantic used to construct APFloats that cannot conflict with
   /// anything real.
   LLVM_ABI static const fltSemantics &Bogus() LLVM_READNONE;
@@ -911,7 +913,7 @@ class APFloat : public APFloatBase {
     LLVM_ABI explicit Storage(IEEEFloat F, const fltSemantics &S);
     explicit Storage(DoubleAPFloat F, const fltSemantics &S)
         : Double(std::move(F)) {
-      assert(&S == &PPCDoubleDouble());
+      assert(&S == &semPPCDoubleDouble);
     }
 
     template <typename... ArgTypes>
@@ -996,9 +998,9 @@ class APFloat : public APFloatBase {
     static_assert(std::is_same<T, IEEEFloat>::value ||
                   std::is_same<T, DoubleAPFloat>::value);
     if (std::is_same<T, DoubleAPFloat>::value) {
-      return &Semantics == &PPCDoubleDouble();
+      return &Semantics == &semPPCDoubleDouble;
     }
-    return &Semantics != &PPCDoubleDouble();
+    return &Semantics != &semPPCDoubleDouble;
   }
 
   IEEEFloat &getIEEE() {
