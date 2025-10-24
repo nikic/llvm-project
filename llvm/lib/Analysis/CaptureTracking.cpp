@@ -256,7 +256,7 @@ llvm::FindEarliestCapture(const Value *V, Function &F, bool ReturnCaptures,
          "It doesn't make sense to ask whether a global is captured.");
 
   EarliestCaptures CB(ReturnCaptures, F, DT, Mask);
-  PointerMayBeCaptured(V, &CB, MaxUsesToExplore);
+  PointerMayBeCaptured(V, &CB, MaxUsesToExplore == 0 ? 200 : MaxUsesToExplore);
   if (capturesAnything(CB.CC))
     ++NumCapturedBefore;
   else
