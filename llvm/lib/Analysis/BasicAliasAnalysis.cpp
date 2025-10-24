@@ -924,7 +924,7 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   assert(notDifferentParent(Call, Loc.Ptr) &&
          "AliasAnalysis query involving multiple functions!");
 
-  const Value *Object = getUnderlyingObject(Loc.Ptr);
+  const Value *Object = getUnderlyingObjectAggressive(Loc.Ptr);
 
   // Calls marked 'tail' cannot read or write allocas from the current frame
   // because the current frame might be destroyed by the time they run. However,
