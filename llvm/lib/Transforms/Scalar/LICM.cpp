@@ -1514,9 +1514,6 @@ static bool sinkUnusedInvariantsFromPreheaderToExit(
     if (I.mayHaveSideEffects())
       continue;
 
-    if (!canSinkOrHoistInst(I, AA, DT, L, MSSAU, true, SinkFlags, nullptr))
-      continue;
-
     // Determine if there is a use in or before the loop (direct or
     // otherwise).
     bool UsedInLoopOrPreheader = false;
@@ -1532,6 +1529,9 @@ static bool sinkUnusedInvariantsFromPreheaderToExit(
       }
     }
     if (UsedInLoopOrPreheader)
+      continue;
+
+    if (!canSinkOrHoistInst(I, AA, DT, L, MSSAU, true, SinkFlags, nullptr))
       continue;
 
     moveInstructionBefore(I, ExitBlock->getFirstInsertionPt(), *SafetyInfo,
