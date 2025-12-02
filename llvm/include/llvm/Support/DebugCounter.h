@@ -153,9 +153,7 @@ public:
   // contexts where we're certain we won't spawn threads.
   static void enableAllCounters() { instance().Enabled = true; }
 
-  static bool isCountingEnabled() {
-    return instance().Enabled || instance().ShouldPrintCounter;
-  }
+  static bool isCountingEnabled() { return instance().Enabled; }
 
 protected:
   unsigned addCounter(const std::string &Name, const std::string &Desc) {
