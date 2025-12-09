@@ -1033,8 +1033,12 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
       SE->getTypeSizeInBits(AR->getType()) >
       SE->getTypeSizeInBits(ExitCount->getType())) {
     const SCEV *IVInit = AR->getStart();
-    if (!isa<SCEVConstant>(IVInit) || !isa<SCEVConstant>(ExitCount))
-      AR = cast<SCEVAddRecExpr>(SE->getTruncateExpr(AR, ExitCount->getType()));
+    if (!isa<SCEVConstant>(IVInit) || !isa<SCEVConstant>(ExitCount)) {
+      const SCEV *TruncExpr = SE->getTruncateExpr(AR, ExitCount->getType());
+      assert(isa<SCEVAddRecExpr>(TruncExpr) &&
+             "TruncateExpr should be an SCEVAddRecExpr");
+      AR = cast<SCEVAddRecExpr>(TruncExpr);
+    }
   }
 
   const SCEVAddRecExpr *ARBase = UsePostInc ? AR->getPostIncExpr(*SE) : AR;
