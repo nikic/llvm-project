@@ -4520,16 +4520,32 @@ static Value *simplifyWithOpsReplaced(Value *V,
   // TODO: This may be unsound, because it only catches some forms of
   // refinement.
   if (!AllowRefinement) {
-    auto *II = dyn_cast<IntrinsicInst>(I);
-    if (canCreatePoison(cast<Operator>(I), !DropFlags)) {
-      // abs cannot create poison if the value is known to never be int_min.
-      if (II && II->getIntrinsicID() == Intrinsic::abs) {
-        if (!ConstOps[0]->isNotMinSignedValue())
-          return nullptr;
-      } else
-        return nullptr;
-    }
+    auto CanCreatePoison = [&]() {
+      if (!canCreatePoison(cast<Operator>(I), !DropFlags))
+        return false;
 
+      auto *II = dyn_cast<IntrinsicInst>(I);
+      if (!II)
+        return true;
+
+      switch (II->getIntrinsicID()) {
+      case Intrinsic::abs:
+        // abs can only produce poison for IntMin.
+        return !ConstOps[0]->isNotMinSignedValue();
+      case Intrinsic::ctlz:
+      case Intrinsic::cttz: {
+        // ctlz/cttz can only produce poison for zero.
+        auto *CI = dyn_cast<ConstantInt>(ConstOps[0]);
+        return !CI || CI->isZero();
+      }
+      default:
+        return true;
+      }
+    };
+    if (CanCreatePoison())
+      return nullptr;
+
+    auto *II = dyn_cast<IntrinsicInst>(I);
     if (DropFlags && II) {
       // If we're going to change the poison flag of abs/ctz to false, also
       // perform constant folding that way, so we get an integer instead of a
