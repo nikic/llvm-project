@@ -4058,10 +4058,14 @@ LexStart:
     // so it's safe to access member variables after this call returns.
     bool returnedToken = LexIdentifierContinue(Result, CurPtr);
 
-    if (returnedToken && !LexingRawMode && !Is_PragmaLexer &&
-        !ParsingPreprocessorDirective && LangOpts.CPlusPlusModules &&
-        Result.isModuleContextualKeyword() &&
-        PP->HandleModuleContextualKeyword(Result, TokAtPhysicalStartOfLine))
+    if (LLVM_UNLIKELY(returnedToken && !LexingRawMode && !Is_PragmaLexer &&
+                      !ParsingPreprocessorDirective &&
+                      LangOpts.CPlusPlusModules &&
+                      PP->isModuleDirectiveIntroducerAtPhysicalStartOfLine(
+                          TokAtPhysicalStartOfLine) &&
+                      Result.isModuleContextualKeyword() &&
+                      PP->HandleModuleContextualKeyword(
+                          Result, TokAtPhysicalStartOfLine)))
       goto HandleDirective;
     return returnedToken;
   }
@@ -4637,8 +4641,12 @@ bool Lexer::LexDependencyDirectiveToken(Token &Result) {
     Result.setRawIdentifierData(TokPtr);
     if (!isLexingRawMode()) {
       const IdentifierInfo *II = PP->LookUpIdentifierInfo(Result);
-      if (LangOpts.CPlusPlusModules && Result.isModuleContextualKeyword() &&
-          PP->HandleModuleContextualKeyword(Result, Result.isAtStartOfLine())) {
+      if (LLVM_UNLIKELY(LangOpts.CPlusPlusModules &&
+                        PP->isModuleDirectiveIntroducerAtPhysicalStartOfLine(
+                            Result.isAtStartOfLine()) &&
+                        Result.isModuleContextualKeyword() &&
+                        PP->HandleModuleContextualKeyword(
+                            Result, Result.isAtStartOfLine()))) {
         PP->HandleDirective(Result);
         return false;
       }

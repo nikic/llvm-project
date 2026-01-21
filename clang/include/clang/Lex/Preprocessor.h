@@ -1871,6 +1871,18 @@ public:
   /// read is the correct one.
   bool HandleModuleContextualKeyword(Token &Result,
                                      bool TokAtPhysicalStartOfLine);
+  /// Quick check whether current token at physical start of line or previous
+  /// export tok was at physical start of line. This is used as an early-exit
+  /// optimization in the hot Lexer::Lex path.
+  //
+  // Returns true if the current token could potentially be a module directive
+  // introducer.
+  bool isModuleDirectiveIntroducerAtPhysicalStartOfLine(
+      bool TokAtPhysicalStartOfLine) {
+    return TokAtPhysicalStartOfLine ||
+           (LastTokenWasExportKeyword.isValid() &&
+            LastTokenWasExportKeyword.isAtPhysicalStartOfLine());
+  }
 
   /// Get the start location of the first pp-token in main file.
   SourceLocation getMainFileFirstPPTokenLoc() const {
