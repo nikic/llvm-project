@@ -109,7 +109,7 @@ void MCObjectStreamer::addSpecialFragment(MCFragment *Frag) {
 void MCObjectStreamer::appendContents(ArrayRef<char> Contents) {
   ensureHeadroom(Contents.size());
   assert(FragSpace >= Contents.size());
-  llvm::copy(Contents, getCurFragEnd());
+  std::memcpy(getCurFragEnd(), Contents.begin(), Contents.size());
   CurFrag->FixedSize += Contents.size();
   FragSpace -= Contents.size();
 }
