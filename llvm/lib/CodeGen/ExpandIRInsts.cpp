@@ -528,10 +528,12 @@ static void expandFPToI(Instruction *FPToI) {
       PowerOf2Ceil(FloatVal->getType()->getScalarSizeInBits());
   unsigned ExponentWidth = FloatWidth - FPMantissaWidth - 1;
   unsigned ExponentBias = (1 << (ExponentWidth - 1)) - 1;
-  Value *ImplicitBit = Builder.CreateShl(
-      Builder.getIntN(BitWidth, 1), Builder.getIntN(BitWidth, FPMantissaWidth));
+  IntegerType *FloatIntTy = Builder.getIntNTy(FloatWidth);
+  Value *ImplicitBit =
+      Builder.CreateShl(Builder.getIntN(FloatWidth, 1),
+                        Builder.getIntN(FloatWidth, FPMantissaWidth));
   Value *SignificandMask =
-      Builder.CreateSub(ImplicitBit, Builder.getIntN(BitWidth, 1));
+      Builder.CreateSub(ImplicitBit, Builder.getIntN(FloatWidth, 1));
   Value *NegOne = Builder.CreateSExt(
       ConstantInt::getSigned(Builder.getInt32Ty(), -1), IntTy);
   Value *NegInf =
@@ -564,30 +566,29 @@ static void expandFPToI(Instruction *FPToI) {
   if (FloatVal->getType()->isX86_FP80Ty())
     FloatVal0 =
         Builder.CreateFPExt(FloatVal, Type::getFP128Ty(Builder.getContext()));
-  Value *ARep0 =
-      Builder.CreateBitCast(FloatVal0, Builder.getIntNTy(FloatWidth));
-  Value *ARep = Builder.CreateZExt(ARep0, FPToI->getType());
-  Value *PosOrNeg = Builder.CreateICmpSGT(
-      ARep0, ConstantInt::getSigned(Builder.getIntNTy(FloatWidth), -1));
+  Value *ARep = Builder.CreateBitCast(FloatVal0, FloatIntTy);
+  Value *PosOrNeg =
+      Builder.CreateICmpSGT(ARep, ConstantInt::getSigned(FloatIntTy, -1));
   Value *Sign = Builder.CreateSelect(PosOrNeg, ConstantInt::getSigned(IntTy, 1),
                                      ConstantInt::getSigned(IntTy, -1));
   Value *And =
-      Builder.CreateLShr(ARep, Builder.getIntN(BitWidth, FPMantissaWidth));
+      Builder.CreateLShr(ARep, Builder.getIntN(FloatWidth, FPMantissaWidth));
   Value *And2 = Builder.CreateAnd(
-      And, Builder.getIntN(BitWidth, (1 << ExponentWidth) - 1));
+      And, Builder.getIntN(FloatWidth, (1 << ExponentWidth) - 1));
   Value *Abs = Builder.CreateAnd(ARep, SignificandMask);
   Value *Or = Builder.CreateOr(Abs, ImplicitBit);
   Value *Cmp =
-      Builder.CreateICmpULT(And2, Builder.getIntN(BitWidth, ExponentBias));
+      Builder.CreateICmpULT(And2, Builder.getIntN(FloatWidth, ExponentBias));
   Builder.CreateCondBr(Cmp, End, IfEnd);
 
   // if.end:
   Builder.SetInsertPoint(IfEnd);
   Value *Add1 = Builder.CreateAdd(
       And2, ConstantInt::getSigned(
-                IntTy, -static_cast<int64_t>(ExponentBias + BitWidth)));
+                FloatIntTy, -static_cast<int64_t>(ExponentBias + BitWidth)));
   Value *Cmp3 = Builder.CreateICmpULT(
-      Add1, ConstantInt::getSigned(IntTy, -static_cast<int64_t>(BitWidth)));
+      Add1,
+      ConstantInt::getSigned(FloatIntTy, -static_cast<int64_t>(BitWidth)));
   Builder.CreateCondBr(Cmp3, IfThen5, IfEnd9);
 
   // if.then5:
@@ -599,23 +600,26 @@ static void expandFPToI(Instruction *FPToI) {
   // if.end9:
   Builder.SetInsertPoint(IfEnd9);
   Value *Cmp10 = Builder.CreateICmpULT(
-      And2, Builder.getIntN(BitWidth, ExponentBias + FPMantissaWidth));
+      And2, Builder.getIntN(FloatWidth, ExponentBias + FPMantissaWidth));
   Builder.CreateCondBr(Cmp10, IfThen12, IfElse);
 
   // if.then12:
   Builder.SetInsertPoint(IfThen12);
   Value *Sub13 = Builder.CreateSub(
-      Builder.getIntN(BitWidth, ExponentBias + FPMantissaWidth), And2);
-  Value *Shr14 = Builder.CreateLShr(Or, Sub13);
+      Builder.getIntN(FloatWidth, ExponentBias + FPMantissaWidth), And2);
+  Value *Shr14 =
+      Builder.CreateZExtOrTrunc(Builder.CreateLShr(Or, Sub13), IntTy);
   Value *Mul = Builder.CreateMul(Shr14, Sign);
   Builder.CreateBr(End);
 
   // if.else:
   Builder.SetInsertPoint(IfElse);
   Value *Sub15 = Builder.CreateAdd(
-      And2, ConstantInt::getSigned(
-                IntTy, -static_cast<int64_t>(ExponentBias + FPMantissaWidth)));
-  Value *Shl = Builder.CreateShl(Or, Sub15);
+      And2,
+      ConstantInt::getSigned(
+          FloatIntTy, -static_cast<int64_t>(ExponentBias + FPMantissaWidth)));
+  Value *Shl = Builder.CreateShl(Builder.CreateZExtOrTrunc(Or, IntTy),
+                                 Builder.CreateZExtOrTrunc(Sub15, IntTy));
   Value *Mul16 = Builder.CreateMul(Shl, Sign);
   Builder.CreateBr(End);
 
