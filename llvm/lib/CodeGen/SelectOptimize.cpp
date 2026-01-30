@@ -14,7 +14,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -322,7 +322,7 @@ public:
     AU.addRequired<TargetPassConfig>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<BlockFrequencyInfoWrapperPass>();
+    AU.addRequired<LazyBlockFrequencyInfoPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   }
 };
@@ -403,7 +403,7 @@ bool SelectOptimizeImpl::runOnFunction(Function &F, Pass &P) {
     return false;
 
   LI = &P.getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  BFI = &P.getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
+  BFI = &P.getAnalysis<LazyBlockFrequencyInfoPass>().getBFI();
   PSI = &P.getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
   ORE = &P.getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
   TSchedModel.init(TSI);
