@@ -16,6 +16,8 @@
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/IVUsers.h"
+#include "llvm/Analysis/LazyBranchProbabilityInfo.h"
+#include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -197,6 +199,8 @@ void MachineFunctionPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<DominatorTreeWrapperPass>();
   AU.addPreserved<PostDominatorTreeWrapperPass>();
   AU.addPreserved<BranchProbabilityInfoWrapperPass>();
+  AU.addPreserved<LazyBranchProbabilityInfoPass>();
+  AU.addPreserved<LazyBlockFrequencyInfoPass>();
   AU.addPreserved<AAResultsWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
   AU.addPreserved<IVUsersWrapperPass>();
