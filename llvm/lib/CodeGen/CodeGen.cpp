@@ -61,6 +61,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeImplicitNullChecksPass(Registry);
   initializeIndirectBrExpandLegacyPassPass(Registry);
   initializeInitUndefLegacyPass(Registry);
+  initializeInlineAsmPreparePass(Registry);
   initializeInterleavedLoadCombinePass(Registry);
   initializeInterleavedAccessPass(Registry);
   initializeJMCInstrumenterPass(Registry);
