@@ -23,6 +23,8 @@
 #define LLVM_ANALYSIS_PTRUSEVISITOR_H
 
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -127,20 +129,22 @@ protected:
 
   /// A struct of the data needed to visit a particular use.
   ///
-  /// This is used to maintain a worklist fo to-visit uses. This is used to
+  /// This is used to maintain a worklist of to-visit uses. This is used to
   /// make the visit be iterative rather than recursive.
   struct UseToVisit {
     using UseAndIsOffsetKnownPair = PointerIntPair<Use *, 1, bool>;
 
     UseAndIsOffsetKnownPair UseAndIsOffsetKnown;
     APInt Offset;
+    SmallDenseMap<PHINode *, APInt, 2> PHIsInPath;
   };
 
   /// The worklist of to-visit uses.
   SmallVector<UseToVisit, 8> Worklist;
 
-  /// A set of visited uses to break cycles in unreachable code.
-  SmallPtrSet<Use *, 8> VisitedUses;
+  /// Set of visited (Use, Offset) pairs.
+  using UseWithOffset = std::pair<UseToVisit::UseAndIsOffsetKnownPair, APInt>;
+  llvm::DenseSet<UseWithOffset> VisitedUses;
 
   /// @}
 
@@ -157,6 +161,9 @@ protected:
 
   /// The constant offset of the use if that is known.
   APInt Offset;
+
+  /// Map of PHI nodes encountered in the path to the offset at that PHI.
+  SmallDenseMap<PHINode *, APInt, 2> PHIsInPath;
 
   /// @}
 
@@ -196,9 +203,9 @@ protected:
 /// visited! This is because users can be visited multiple times due to
 /// multiple, different uses of pointers derived from the same base.
 ///
-/// A particular Use will only be visited once, but a User may be visited
-/// multiple times, once per Use. This visits may notably have different
-/// offsets.
+/// A particular Use may be visited multiple times if reached with different
+/// offsets. A User may be visited multiple times, once per Use, and each
+/// Use may be visited multiple times with different offsets.
 ///
 /// All visit methods on the underlying InstVisitor return a boolean. This
 /// return short-circuits the visit, stopping it immediately.
@@ -221,15 +228,16 @@ public:
   /// \returns An info struct about the pointer. See \c PtrInfo for details.
   /// We may also need to process Argument pointers, so the input uses is
   /// a common Value type.
-  PtrInfo visitPtr(Value &I) {
+  PtrInfo visitPtr(Value &I, bool TrackOffsets = true) {
     // This must be a pointer type. Get an integer type suitable to hold
     // offsets on this pointer.
     // FIXME: Support a vector of pointers.
     assert(I.getType()->isPointerTy());
     assert(isa<Instruction>(I) || isa<Argument>(I));
     IntegerType *IntIdxTy = cast<IntegerType>(DL.getIndexType(I.getType()));
-    IsOffsetKnown = true;
-    Offset = APInt(IntIdxTy->getBitWidth(), 0);
+    IsOffsetKnown = TrackOffsets;
+    Offset = TrackOffsets ? APInt(IntIdxTy->getBitWidth(), 0) : APInt();
+    PHIsInPath.clear();
     PI.reset();
 
     // Enqueue the uses of this pointer.
@@ -240,10 +248,12 @@ public:
       UseToVisit ToVisit = Worklist.pop_back_val();
       U = ToVisit.UseAndIsOffsetKnown.getPointer();
       IsOffsetKnown = ToVisit.UseAndIsOffsetKnown.getInt();
-      if (IsOffsetKnown)
-        Offset = std::move(ToVisit.Offset);
+      Offset = std::move(ToVisit.Offset);
+      PHIsInPath = std::move(ToVisit.PHIsInPath);
 
       Instruction *I = cast<Instruction>(U->getUser());
+      if (auto PN = dyn_cast<PHINode>(I))
+        PHIsInPath[PN] = Offset;
       static_cast<DerivedT*>(this)->visit(I);
       if (PI.isAborted())
         break;

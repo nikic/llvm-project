@@ -201,7 +201,7 @@ void Lowerer::lowerCoroNoop(IntrinsicInst *II) {
 }
 
 void NoopCoroElider::run(IntrinsicInst *II) {
-  visitPtr(*II);
+  visitPtr(*II, /*TrackOffsets=*/false);
 
   Worklist.clear();
   VisitedUses.clear();
