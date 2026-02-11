@@ -3501,7 +3501,7 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       NewElemTy = ArrayType::get(NewElemTy, Scale.getFixedValue());
     GEP.setSourceElementType(NewElemTy);
     GEP.setResultElementType(NewElemTy);
-    return &GEP;
+    MadeIRChange = true;
   }
 
   // Check to see if the inputs to the PHI node are getelementptr instructions.
