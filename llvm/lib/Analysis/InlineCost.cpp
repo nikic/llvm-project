@@ -2064,12 +2064,14 @@ InlineCostCallAnalyzer::getHotCallSiteThreshold(CallBase &Call,
   // potentially cache the computation of scaled entry frequency, but the added
   // complexity is not worth it unless this scaling shows up high in the
   // profiles.
+#if 0
   const BasicBlock *CallSiteBB = Call.getParent();
   BlockFrequency CallSiteFreq = CallerBFI->getBlockFreq(CallSiteBB);
   BlockFrequency CallerEntryFreq = CallerBFI->getEntryFreq();
   std::optional<BlockFrequency> Limit = CallerEntryFreq.mul(HotCallSiteRelFreq);
   if (Limit && CallSiteFreq >= *Limit)
     return Params.LocallyHotCallSiteThreshold;
+#endif
 
   // Otherwise treat it normally.
   return std::nullopt;
