@@ -430,14 +430,14 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
               // inline through the SCC the function will end up being
               // self-recursive which the inliner bails out on, and inlining
               // within an SCC is necessary for performance.
-              if (CalleeSCC != C &&
-                  CalleeSCC == CG.lookupSCC(CG.get(*NewCallee))) {
+              //if (CalleeSCC != C &&
+              //    CalleeSCC == CG.lookupSCC(CG.get(*NewCallee))) {
                 Attribute NewCBCostMult = Attribute::get(
                     M.getContext(),
                     InlineConstants::FunctionInlineCostMultiplierAttributeName,
                     itostr(CBCostMult * IntraSCCCostMultiplier));
                 ICB->addFnAttr(NewCBCostMult);
-              }
+              //}
             }
           }
         }
