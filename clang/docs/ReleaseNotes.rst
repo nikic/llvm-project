@@ -258,8 +258,19 @@ Improvements to Clang's diagnostics
 - The ``-Wloop-analysis`` warning has been extended to catch more cases of
   variable modification inside lambda expressions (#GH132038).
 
+<<<<<<< ours
 - Clang now emits ``-Wsizeof-pointer-memaccess`` when snprintf/vsnprintf use the sizeof 
   the destination buffer(dynamically allocated) in the len parameter(#GH162366)
+=======
+- ``[[gnu::warning]]`` and ``[[gnu::error]]`` diagnostics now have notes
+  describing inlining locations. When a function with these attributes is
+  called from an inlined context, Clang can now show which functions were
+  inlined to reach the call. When ``-gline-directives-only`` (implied by
+  ``-g1`` or higher) is available, accurate source locations are used;
+  otherwise, a heuristic fallback is used with a note suggesting how to enable
+  debug info for better accuracy.
+
+>>>>>>> theirs
 
 Improvements to Clang's time-trace
 ----------------------------------
