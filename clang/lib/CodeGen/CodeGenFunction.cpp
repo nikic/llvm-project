@@ -76,7 +76,7 @@ static bool shouldEmitLifetimeMarkers(const CodeGenOptions &CGOpts,
 
 CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
     : CodeGenTypeCache(cgm), CGM(cgm), Target(cgm.getTarget()),
-      Builder(cgm, cgm.getModule().getContext(), llvm::ConstantFolder(),
+      Builder(cgm, cgm.getModule().getContext(), cgm.getDataLayout(),
               CGBuilderInserterTy(this)),
       SanOpts(CGM.getLangOpts().Sanitize), CurFPFeatures(CGM.getLangOpts()),
       DebugInfo(CGM.getModuleDebugInfo()),

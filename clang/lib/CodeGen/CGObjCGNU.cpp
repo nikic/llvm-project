@@ -1555,7 +1555,7 @@ class CGObjCGNUstep2 : public CGObjCGNUstep {
 
     llvm::BasicBlock *EntryBB =
         llvm::BasicBlock::Create(VMContext, "entry", LoadFunction);
-    CGBuilderTy B(CGM, VMContext);
+    CGBuilderTy B(CGM, VMContext, CGM.getDataLayout());
     B.SetInsertPoint(EntryBB);
     ConstantInitBuilder builder(CGM);
     auto InitStructBuilder = builder.beginStruct();
@@ -4099,7 +4099,7 @@ llvm::Function *CGObjCGNU::ModuleInitFunction() {
       &TheModule);
   llvm::BasicBlock *EntryBB =
       llvm::BasicBlock::Create(VMContext, "entry", LoadFunction);
-  CGBuilderTy Builder(CGM, VMContext);
+  CGBuilderTy Builder(CGM, VMContext, CGM.getDataLayout());
   Builder.SetInsertPoint(EntryBB);
 
   llvm::FunctionType *FT =

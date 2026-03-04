@@ -3550,7 +3550,7 @@ llvm::Constant *MicrosoftCXXABI::EmitMemberPointerConversion(
   if (CK == CK_ReinterpretMemberPointer)
     return Src;
 
-  CGBuilderTy Builder(CGM, CGM.getLLVMContext());
+  CGBuilderTy Builder(CGM, CGM.getLLVMContext(), CGM.getDataLayout());
   auto *Dst = cast<llvm::Constant>(EmitNonNullMemberPointerConversion(
       SrcTy, DstTy, CK, PathBegin, PathEnd, Src, Builder));
 

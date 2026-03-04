@@ -12,6 +12,7 @@
 #include "Address.h"
 #include "CGValue.h"
 #include "CodeGenTypeCache.h"
+#include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GEPNoWrapFlags.h"
@@ -44,7 +45,7 @@ private:
 
 typedef CGBuilderInserter CGBuilderInserterTy;
 
-typedef llvm::IRBuilder<llvm::ConstantFolder, CGBuilderInserterTy>
+typedef llvm::IRBuilder<llvm::TargetFolder, CGBuilderInserterTy>
     CGBuilderBaseTy;
 
 class CGBuilderTy : public CGBuilderBaseTy {
@@ -89,16 +90,20 @@ class CGBuilderTy : public CGBuilderBaseTy {
   }
 
 public:
-  CGBuilderTy(const CodeGenTypeCache &TypeCache, llvm::LLVMContext &C)
-      : CGBuilderBaseTy(C), TypeCache(TypeCache) {}
   CGBuilderTy(const CodeGenTypeCache &TypeCache, llvm::LLVMContext &C,
-              const llvm::ConstantFolder &F,
-              const CGBuilderInserterTy &Inserter)
-      : CGBuilderBaseTy(C, F, Inserter), TypeCache(TypeCache) {}
+              const llvm::DataLayout &DL)
+      : CGBuilderBaseTy(C, llvm::TargetFolder(DL)), TypeCache(TypeCache) {}
+  CGBuilderTy(const CodeGenTypeCache &TypeCache, llvm::LLVMContext &C,
+              const llvm::DataLayout &DL, const CGBuilderInserterTy &Inserter)
+      : CGBuilderBaseTy(C, llvm::TargetFolder(DL), Inserter),
+        TypeCache(TypeCache) {}
   CGBuilderTy(const CodeGenTypeCache &TypeCache, llvm::Instruction *I)
-      : CGBuilderBaseTy(I), TypeCache(TypeCache) {}
+      : CGBuilderBaseTy(I->getParent(), I->getIterator(),
+                        llvm::TargetFolder(I->getDataLayout())),
+        TypeCache(TypeCache) {}
   CGBuilderTy(const CodeGenTypeCache &TypeCache, llvm::BasicBlock *BB)
-      : CGBuilderBaseTy(BB), TypeCache(TypeCache) {}
+      : CGBuilderBaseTy(BB, llvm::TargetFolder(BB->getDataLayout())),
+        TypeCache(TypeCache) {}
 
   llvm::ConstantInt *getSize(CharUnits N) {
     return llvm::ConstantInt::getSigned(TypeCache.SizeTy, N.getQuantity());

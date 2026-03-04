@@ -130,7 +130,7 @@ private:
 
     llvm::BasicBlock *DummyBlock =
         llvm::BasicBlock::Create(Context, "", DummyFunc);
-    CGBuilderTy FuncBuilder(CGM, Context);
+    CGBuilderTy FuncBuilder(CGM, Context, CGM.getDataLayout());
     FuncBuilder.SetInsertPoint(DummyBlock);
     FuncBuilder.CreateRetVoid();
 
@@ -612,7 +612,7 @@ llvm::Function *CGNVCUDARuntime::makeRegisterGlobalsFn() {
       addUnderscoredPrefixToName("_register_globals"), &TheModule);
   llvm::BasicBlock *EntryBB =
       llvm::BasicBlock::Create(Context, "entry", RegisterKernelsFunc);
-  CGBuilderTy Builder(CGM, Context);
+  CGBuilderTy Builder(CGM, Context, CGM.getDataLayout());
   Builder.SetInsertPoint(EntryBB);
 
   // void __cudaRegisterFunction(void **, const char *, char *, const char *,
@@ -806,7 +806,7 @@ llvm::Function *CGNVCUDARuntime::makeModuleCtorFunction() {
       addUnderscoredPrefixToName("_module_ctor"), &TheModule);
   llvm::BasicBlock *CtorEntryBB =
       llvm::BasicBlock::Create(Context, "entry", ModuleCtorFunc);
-  CGBuilderTy CtorBuilder(CGM, Context);
+  CGBuilderTy CtorBuilder(CGM, Context, CGM.getDataLayout());
 
   CtorBuilder.SetInsertPoint(CtorEntryBB);
 
@@ -1043,7 +1043,7 @@ llvm::Function *CGNVCUDARuntime::makeModuleDtorFunction() {
 
   llvm::BasicBlock *DtorEntryBB =
       llvm::BasicBlock::Create(Context, "entry", ModuleDtorFunc);
-  CGBuilderTy DtorBuilder(CGM, Context);
+  CGBuilderTy DtorBuilder(CGM, Context, CGM.getDataLayout());
   DtorBuilder.SetInsertPoint(DtorEntryBB);
 
   Address GpuBinaryAddr(

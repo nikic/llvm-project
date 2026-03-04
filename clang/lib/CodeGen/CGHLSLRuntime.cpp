@@ -1104,8 +1104,8 @@ static void initializeBuffer(CodeGenModule &CGM, llvm::GlobalVariable *GV,
 
   llvm::BasicBlock *EntryBB =
       llvm::BasicBlock::Create(Ctx, "entry", InitResFunc);
-  CGBuilderTy Builder(CGM, Ctx);
   const DataLayout &DL = CGM.getModule().getDataLayout();
+  CGBuilderTy Builder(CGM, Ctx, DL);
   Builder.SetInsertPoint(EntryBB);
 
   // Make sure the global variable is buffer resource handle
