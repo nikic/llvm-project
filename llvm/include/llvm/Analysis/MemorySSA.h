@@ -1312,8 +1312,7 @@ private:
       // after the pointer are considered as clobbers, which is important to
       // catch loop carried dependences.
       if (!IsGuaranteedLoopInvariant(CurrentElem.Loc.Ptr))
-        CurrentElem.Loc = CurrentElem.Loc.getWithNewSize(
-            LocationSize::beforeOrAfterPointer());
+        CurrentElem.MayHaveLoopCarriedDependency = true;
     } else {
       // Conservatively assume all calls have loop carried dependencies for now.
       CurrentElem.MayHaveLoopCarriedDependency = true;

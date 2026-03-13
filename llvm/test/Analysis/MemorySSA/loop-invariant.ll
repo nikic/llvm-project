@@ -1,10 +1,10 @@
 ; RUN: opt -passes='print<memoryssa>' -disable-output < %s 2>&1 | FileCheck %s
 
-; TODO: The load's MemoryUse can be defined by liveOnEntry. Since
+; The load's MemoryUse can be defined by liveOnEntry. Since
 ; %p2 is a loop invariant and the MemoryLoc of load instr and store inst in
 ; loop block are NoAlias
 ;
-; CHECK: MemoryUse(2)
+; CHECK: MemoryUse(liveOnEntry)
 ; CHECK: %val = load i32, ptr %p2
 define void @gep(ptr %ptr) {
 entry:
@@ -24,7 +24,9 @@ loop:
   br label %loop
 }
 
-; CHECK: MemoryUse(2)
+; CHECK: MemoryUse(liveOnEntry)
+; CHECK-NEXT: %p1 = load ptr, ptr %ptr
+; CHECK: MemoryUse(liveOnEntry)
 ; CHECK-NEXT: %val = load i32, ptr %p2
 define void @load_entry_block(ptr %ptr, ptr %addr) {
 entry:

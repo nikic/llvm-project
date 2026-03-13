@@ -294,7 +294,7 @@ define i32 @dont_merge_noalias_simple(ptr noalias %ptr) {
 ; CHECK-NEXT:  store i16 1, ptr @c, align 2
 
 ; CHECK-LABEL: %for.body
-; NOLIMIT:     ; MemoryUse(1)
+; NOLIMIT:     ; MemoryUse(liveOnEntry)
 ; LIMIT:       ; MemoryUse(4)
 ; CHECK-NEXT:    %lv = load i16, ptr %arrayidx, align 2
 
@@ -326,7 +326,7 @@ define i32 @dont_merge_noalias_complex(ptr noalias %ptr, ptr noalias %another) {
 ; CHECK-NEXT:  store i16 1, ptr @c, align 2
 
 ; CHECK-LABEL: %for.body
-; NOLIMIT:     ; MemoryUse(1)
+; NOLIMIT:     ; MemoryUse(liveOnEntry)
 ; LIMIT:       ; MemoryUse(7)
 ; CHECK-NEXT:    %lv = load i16, ptr %arrayidx, align 2
 
