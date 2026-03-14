@@ -43,6 +43,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/CycleAnalysis.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/MemorySSA.h"
@@ -2757,6 +2758,7 @@ PreservedAnalyses DSEPass::run(Function &F, FunctionAnalysisManager &AM) {
   MemorySSA &MSSA = AM.getResult<MemorySSAAnalysis>(F).getMSSA();
   PostDominatorTree &PDT = AM.getResult<PostDominatorTreeAnalysis>(F);
   LoopInfo &LI = AM.getResult<LoopAnalysis>(F);
+  CycleInfo &CI = AM.getResult<CycleAnalysis>(F);
 
   bool Changed = eliminateDeadStores(F, AA, MSSA, DT, PDT, TLI, LI);
 
