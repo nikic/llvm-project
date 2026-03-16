@@ -20,7 +20,7 @@
 
 namespace llvm {
 
-using CycleInfo = GenericCycleInfo<SSAContext>;
+class CycleInfo : public GenericCycleInfo<SSAContext> {};
 using Cycle = CycleInfo::CycleT;
 
 } // namespace llvm
