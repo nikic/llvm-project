@@ -227,6 +227,7 @@ void GenericCycle<ContextT>::verifyCycleNest() const {
 /// \brief Helper class for computing cycle information.
 template <typename ContextT> class GenericCycleInfoCompute {
   using BlockT = typename ContextT::BlockT;
+  using FunctionT = typename ContextT::FunctionT;
   using CycleInfoT = GenericCycleInfo<ContextT>;
   using CycleT = typename CycleInfoT::CycleT;
 
@@ -269,12 +270,12 @@ template <typename ContextT> class GenericCycleInfoCompute {
 public:
   GenericCycleInfoCompute(CycleInfoT &Info) : Info(Info) {}
 
-  void run(BlockT *EntryBlock);
+  void run(FunctionT *F);
 
   static void updateDepth(CycleT *SubTree);
 
 private:
-  void dfs(BlockT *EntryBlock);
+  void dfs(FunctionT *F, BlockT *EntryBlock);
 };
 
 template <typename ContextT>
@@ -341,10 +342,11 @@ void GenericCycleInfo<ContextT>::addBlockToCycle(BlockT *Block, CycleT *Cycle) {
 
 /// \brief Main function of the cycle info computations.
 template <typename ContextT>
-void GenericCycleInfoCompute<ContextT>::run(BlockT *EntryBlock) {
+void GenericCycleInfoCompute<ContextT>::run(FunctionT *F) {
+  BlockT *EntryBlock = GraphTraits<FunctionT *>::getEntryNode(F);
   LLVM_DEBUG(errs() << "Entry block: " << Info.Context.print(EntryBlock)
                     << "\n");
-  dfs(EntryBlock);
+  dfs(F, EntryBlock);
 
   SmallVector<BlockT *, 8> Worklist;
 
@@ -456,15 +458,13 @@ void GenericCycleInfoCompute<ContextT>::updateDepth(CycleT *SubTree) {
 ///
 /// Fills BlockDFSInfo with start/end counters and BlockPreorder.
 template <typename ContextT>
-void GenericCycleInfoCompute<ContextT>::dfs(BlockT *EntryBlock) {
+void GenericCycleInfoCompute<ContextT>::dfs(FunctionT *F, BlockT *EntryBlock) {
   SmallVector<unsigned, 8> DFSTreeStack;
   SmallVector<BlockT *, 8> TraverseStack;
   unsigned Counter = 0;
   TraverseStack.emplace_back(EntryBlock);
 
-  // TODO: Need access to function.
-  //BlockDFSInfo.reserve(
-  //    GraphTraits<typename ContextT::FunctionT *>::getMaxNumber());
+  BlockDFSInfo.reserve(GraphTraits<FunctionT *>::getMaxNumber(F));
   do {
     BlockT *Block = TraverseStack.back();
     LLVM_DEBUG(errs() << "DFS visiting block: " << Info.Context.print(Block)
@@ -522,7 +522,7 @@ void GenericCycleInfo<ContextT>::compute(FunctionT &F) {
 
   LLVM_DEBUG(errs() << "Computing cycles for function: " << F.getName()
                     << "\n");
-  Compute.run(&F.front());
+  Compute.run(&F);
 }
 
 template <typename ContextT>
