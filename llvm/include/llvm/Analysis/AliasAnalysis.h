@@ -273,6 +273,7 @@ public:
   AliasCacheT AliasCache;
 
   CaptureAnalysis *CA;
+  const CycleInfo *CI;
 
   /// Query depth used to distinguish recursive queries.
   unsigned Depth = 0;
@@ -305,7 +306,9 @@ public:
   /// passes that lazily update the DT while performing AA queries.
   bool UseDominatorTree = true;
 
-  AAQueryInfo(AAResults &AAR, CaptureAnalysis *CA) : AAR(AAR), CA(CA) {}
+  AAQueryInfo(AAResults &AAR, CaptureAnalysis *CA,
+              const CycleInfo *CI = nullptr)
+      : AAR(AAR), CA(CA), CI(CI) {}
 };
 
 /// AAQueryInfo that uses SimpleCaptureAnalysis.
@@ -666,8 +669,9 @@ class BatchAAResults {
 
 public:
   BatchAAResults(AAResults &AAR) : AA(AAR), AAQI(AAR, &SimpleCA) {}
-  BatchAAResults(AAResults &AAR, CaptureAnalysis *CA)
-      : AA(AAR), AAQI(AAR, CA) {}
+  BatchAAResults(AAResults &AAR, CaptureAnalysis *CA,
+                 const CycleInfo *CI = nullptr)
+      : AA(AAR), AAQI(AAR, CA, CI) {}
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
     return AA.alias(LocA, LocB, AAQI);
