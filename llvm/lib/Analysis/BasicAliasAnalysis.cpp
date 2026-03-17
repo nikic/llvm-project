@@ -1902,7 +1902,7 @@ bool BasicAAResult::isValueEqualInPotentialCycles(const Value *V,
   if (!Inst || Inst->getParent()->isEntryBlock())
     return true;
 
-  return isNotInCycle(Inst, getDT(AAQI), /*LI=*/nullptr, /*CI=*/nullptr);
+  return isNotInCycle(Inst, getDT(AAQI), /*LI=*/nullptr, AAQI.CI);
 }
 
 /// Computes the symbolic difference between two de-composed GEPs.
