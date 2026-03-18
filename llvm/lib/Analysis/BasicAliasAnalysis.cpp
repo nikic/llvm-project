@@ -1287,22 +1287,46 @@ AliasResult BasicAAResult::aliasGEP(
   for (unsigned i = 0, e = DecompGEP1.VarIndices.size(); i != e; ++i) {
     const VariableGEPIndex &Index = DecompGEP1.VarIndices[i];
     const APInt &Scale = Index.Scale;
+
+    ConstantRange CR = computeConstantRange(Index.Val.V, /* ForSigned */ false,
+                                            true, &AC, Index.CxtI);
+    KnownBits Known = computeKnownBits(Index.Val.V, DL, &AC, Index.CxtI, DT);
+    CR =
+        CR.intersectWith(ConstantRange::fromKnownBits(Known, /* Signed */ true),
+                         ConstantRange::Signed);
+
     APInt ScaleForGCD = Scale;
     if (!Index.IsNSW)
       ScaleForGCD =
           APInt::getOneBitSet(Scale.getBitWidth(), Scale.countr_zero());
+
+    // If V has known trailing zeros, V is a multiple of 2^VarTZ, so
+    // V*Scale is a multiple of Scale * 2^VarTZ (when no wrapping) or at
+    // least 2^(VarTZ + countr_zero(Scale)) (with wrapping, since trailing
+    // zeros are preserved through multiplication in Z/2^n).
+    unsigned VarTZ = Known.countMinTrailingZeros();
+    if (VarTZ > 0) {
+      APInt TZContrib;
+      if (Index.IsNSW) {
+        // No wrapping: V*Scale is exactly a multiple of |Scale| * 2^VarTZ.
+        // Clamp shift to avoid losing significant bits of Scale.
+        unsigned MaxShift = Scale.getBitWidth() - Scale.abs().getActiveBits();
+        TZContrib = Scale.abs().shl(std::min(VarTZ, MaxShift));
+      } else {
+        // Clamp to BW-1: getOneBitSet requires bitPosition < numBits.
+        unsigned TotalTZ =
+            std::min(VarTZ + Scale.countr_zero(), Scale.getBitWidth() - 1);
+        TZContrib = APInt::getOneBitSet(Scale.getBitWidth(), TotalTZ);
+      }
+      if (TZContrib.ugt(ScaleForGCD.abs()))
+        ScaleForGCD = TZContrib;
+    }
 
     if (i == 0)
       GCD = ScaleForGCD.abs();
     else
       GCD = APIntOps::GreatestCommonDivisor(GCD, ScaleForGCD.abs());
 
-    ConstantRange CR = computeConstantRange(Index.Val.V, /* ForSigned */ false,
-                                            true, &AC, Index.CxtI);
-    KnownBits Known = computeKnownBits(Index.Val.V, DL, &AC, Index.CxtI, DT);
-    CR = CR.intersectWith(
-        ConstantRange::fromKnownBits(Known, /* Signed */ true),
-        ConstantRange::Signed);
     CR = Index.Val.evaluateWith(CR).sextOrTrunc(OffsetRange.getBitWidth());
 
     assert(OffsetRange.getBitWidth() == Scale.getBitWidth() &&
