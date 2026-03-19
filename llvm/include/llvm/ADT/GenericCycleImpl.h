@@ -278,21 +278,14 @@ private:
 };
 
 template <typename ContextT>
-auto GenericCycleInfo<ContextT>::getTopLevelParentCycle(BlockT *Block)
+auto GenericCycleInfo<ContextT>::getTopLevelParentCycle(BlockT *Block) const
     -> CycleT * {
-  auto Cycle = BlockMapTopLevel.find(Block);
-  if (Cycle != BlockMapTopLevel.end())
-    return Cycle->second;
-
-  auto MapIt = BlockMap.find(Block);
-  if (MapIt == BlockMap.end())
+  auto It = BlockMap.find(Block);
+  if (It == BlockMap.end())
     return nullptr;
 
-  auto *C = MapIt->second;
-  while (C->ParentCycle)
-    C = C->ParentCycle;
-  BlockMapTopLevel.try_emplace(Block, C);
-  return C;
+  assert(It->second.TopLevel != nullptr && "Top-level cycle can't be null");
+  return It->second.TopLevel;
 }
 
 template <typename ContextT>
@@ -313,9 +306,9 @@ void GenericCycleInfo<ContextT>::moveTopLevelCycleToNewParent(CycleT *NewParent,
 
   NewParent->Blocks.insert_range(Child->blocks());
 
-  for (auto &It : BlockMapTopLevel)
-    if (It.second == Child)
-      It.second = NewParent;
+  for (auto &It : BlockMap)
+    if (It.second.TopLevel == Child)
+      It.second.TopLevel = NewParent;
   NewParent->clearCache();
   Child->clearCache();
 }
@@ -326,17 +319,17 @@ void GenericCycleInfo<ContextT>::addBlockToCycle(BlockT *Block, CycleT *Cycle) {
   // printing, cycle NewBlock is at the end of list but it should be in the
   // middle to represent actual traversal of a cycle.
   Cycle->appendBlock(Block);
-  BlockMap.try_emplace(Block, Cycle);
 
-  CycleT *ParentCycle = Cycle->getParentCycle();
+  CycleT *TopLevelCycle = Cycle;
+  CycleT *ParentCycle = TopLevelCycle->getParentCycle();
   while (ParentCycle) {
-    Cycle = ParentCycle;
-    Cycle->appendBlock(Block);
-    ParentCycle = Cycle->getParentCycle();
+    TopLevelCycle = ParentCycle;
+    TopLevelCycle->appendBlock(Block);
+    ParentCycle = TopLevelCycle->getParentCycle();
   }
 
-  BlockMapTopLevel.try_emplace(Block, Cycle);
-  Cycle->clearCache();
+  BlockMap.try_emplace(Block, Cycle, TopLevelCycle);
+  TopLevelCycle->clearCache();
 }
 
 /// \brief Main function of the cycle info computations.
@@ -369,7 +362,7 @@ void GenericCycleInfoCompute<ContextT>::run(FunctionT *F) {
     std::unique_ptr<CycleT> NewCycle = std::make_unique<CycleT>();
     NewCycle->appendEntry(HeaderCandidate);
     NewCycle->appendBlock(HeaderCandidate);
-    Info.BlockMap.try_emplace(HeaderCandidate, NewCycle.get());
+    Info.BlockMap.try_emplace(HeaderCandidate, NewCycle.get(), NewCycle.get());
 
     // Helper function to process (non-back-edge) predecessors of a discovered
     // block and either add them to the worklist or recognize that the given
@@ -425,11 +418,10 @@ void GenericCycleInfoCompute<ContextT>::run(FunctionT *F) {
                      << Info.Context.print(BlockParent->getHeader()) << "\n");
         }
       } else {
-        Info.BlockMap.try_emplace(Block, NewCycle.get());
+        Info.BlockMap.try_emplace(Block, NewCycle.get(), NewCycle.get());
         assert(!is_contained(NewCycle->Blocks, Block));
         NewCycle->Blocks.insert(Block);
         ProcessPredecessors(Block);
-        Info.BlockMapTopLevel.try_emplace(Block, NewCycle.get());
       }
     } while (!Worklist.empty());
 
@@ -510,7 +502,6 @@ void GenericCycleInfoCompute<ContextT>::dfs(FunctionT *F, BlockT *EntryBlock) {
 template <typename ContextT> void GenericCycleInfo<ContextT>::clear() {
   TopLevelCycles.clear();
   BlockMap.clear();
-  BlockMapTopLevel.clear();
 }
 
 /// \brief Compute the cycle info for a function.
@@ -544,7 +535,10 @@ void GenericCycleInfo<ContextT>::splitCriticalEdge(BlockT *Pred, BlockT *Succ,
 template <typename ContextT>
 auto GenericCycleInfo<ContextT>::getCycle(const BlockT *Block) const
     -> CycleT * {
-  return BlockMap.lookup(Block);
+  auto It = BlockMap.find(Block);
+  if (It == BlockMap.end())
+    return nullptr;
+  return It->second.InnerMost;
 }
 
 /// \brief Find the innermost cycle containing both given cycles.
@@ -620,7 +614,9 @@ void GenericCycleInfo<ContextT>::verifyCycleNest(bool VerifyFull) const {
       for (BlockT *BB : Cycle->blocks()) {
         auto MapIt = BlockMap.find(BB);
         assert(MapIt != BlockMap.end());
-        assert(Cycle->contains(MapIt->second));
+        assert(Cycle->contains(MapIt->second.InnerMost));
+        assert(MapIt->second.TopLevel == TopCycle);
+        assert(Cycle->contains(BB));
       }
     }
   }
