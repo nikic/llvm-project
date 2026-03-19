@@ -13,16 +13,19 @@ define void @reuse_lcssa_phi_for_add_rec1(ptr %head) {
 ; CHECK-NEXT:    [[IV_2:%.*]] = phi i32 [ 0, %[[ENTRY]] ], [ [[IV_2_NEXT:%.*]], %[[LOOP_1]] ]
 ; CHECK-NEXT:    [[FOR:%.*]] = phi ptr [ [[HEAD]], %[[ENTRY]] ], [ [[L_1:%.*]], %[[LOOP_1]] ]
 ; CHECK-NEXT:    [[L_1]] = load ptr, ptr [[FOR]], align 8
-; CHECK-NEXT:    [[IV_2_NEXT]] = add nuw i32 [[IV_2]], 1
+; CHECK-NEXT:    [[IV_2_NEXT]] = add nuw nsw i32 [[IV_2]], 1
 ; CHECK-NEXT:    [[EC_1:%.*]] = icmp eq ptr [[L_1]], null
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw i64 [[IV]], 1
 ; CHECK-NEXT:    br i1 [[EC_1]], label %[[PH:.*]], label %[[LOOP_1]]
 ; CHECK:       [[PH]]:
 ; CHECK-NEXT:    [[IV_LCSSA:%.*]] = phi i64 [ [[IV]], %[[LOOP_1]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = phi i32 [ [[IV_2_NEXT]], %[[LOOP_1]] ]
+; CHECK-NEXT:    [[IV_2_NEXT_LCSSA:%.*]] = phi i32 [ [[IV_2_NEXT]], %[[LOOP_1]] ]
 ; CHECK-NEXT:    [[SRC_2:%.*]] = tail call noalias noundef dereferenceable_or_null(8) ptr @calloc(i64 1, i64 8)
-; CHECK-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[TMP0]], i32 1)
-; CHECK-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[SMIN]]
+; CHECK-NEXT:    [[TMP0:%.*]] = mul nsw i32 [[IV_2]], -1
+; CHECK-NEXT:    [[TMP6:%.*]] = add i32 [[TMP0]], -2
+; CHECK-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP6]], i32 -2)
+; CHECK-NEXT:    [[TMP11:%.*]] = add i32 [[IV_2_NEXT_LCSSA]], 1
+; CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[SMAX]], [[TMP11]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = zext i32 [[TMP1]] to i64
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP3]], 2

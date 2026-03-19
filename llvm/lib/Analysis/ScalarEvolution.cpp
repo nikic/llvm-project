@@ -9549,8 +9549,19 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromICmp(
   case ICmpInst::ICMP_SGT:
   case ICmpInst::ICMP_UGT: { // while (X > Y)
     bool IsSigned = ICmpInst::isSigned(Pred);
-    ExitLimit EL = howManyGreaterThans(LHS, RHS, L, IsSigned, ControlsOnlyExit,
-                                       AllowPredicates);
+    if (LHS->getType()->isPointerTy()) {
+      LHS = getLosslessPtrToIntExpr(LHS);
+      if (isa<SCEVCouldNotCompute>(LHS))
+        return getCouldNotCompute();
+    }
+    if (RHS->getType()->isPointerTy()) {
+      RHS = getLosslessPtrToIntExpr(RHS);
+      if (isa<SCEVCouldNotCompute>(RHS))
+        return getCouldNotCompute();
+    }
+    ExitLimit EL =
+        howManyLessThans(getNotSCEV(LHS), getNotSCEV(RHS), L, IsSigned,
+                         ControlsOnlyExit, AllowPredicates);
     if (EL.hasAnyInfo())
       return EL;
     break;

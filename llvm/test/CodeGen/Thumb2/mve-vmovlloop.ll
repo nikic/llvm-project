@@ -102,12 +102,12 @@ define void @vmovl_16to32(ptr %d, ptr %s, i32 %n) {
 ; CHECK-NEXT:    it lt
 ; CHECK-NEXT:    poplt {r7, pc}
 ; CHECK-NEXT:  .LBB2_1: @ %for.body.preheader
-; CHECK-NEXT:    mov r3, r2
-; CHECK-NEXT:    cmp r2, #8
-; CHECK-NEXT:    it ge
-; CHECK-NEXT:    movge r3, #8
-; CHECK-NEXT:    subs r3, r2, r3
-; CHECK-NEXT:    add.w r12, r3, #7
+; CHECK-NEXT:    mvns r3, r2
+; CHECK-NEXT:    mvn r12, #8
+; CHECK-NEXT:    cmn.w r3, #9
+; CHECK-NEXT:    csinv r3, r12, r2, le
+; CHECK-NEXT:    add r3, r2
+; CHECK-NEXT:    add.w r12, r3, #8
 ; CHECK-NEXT:    movs r3, #1
 ; CHECK-NEXT:    add.w r3, r3, r12, lsr #3
 ; CHECK-NEXT:    dls lr, r3
@@ -155,9 +155,9 @@ define void @sunken_vmovl(ptr noalias %pTarget, i16 signext %iTargetStride, ptr 
 ; CHECK-NEXT:    .save {r7, lr}
 ; CHECK-NEXT:    push {r7, lr}
 ; CHECK-NEXT:    ldrsh.w r1, [sp, #8]
-; CHECK-NEXT:    vmov.i16 q0, #0x100
 ; CHECK-NEXT:    vldrb.u16 q1, [r2], #8
 ; CHECK-NEXT:    vldrb.u16 q2, [r0], #8
+; CHECK-NEXT:    vmov.i16 q0, #0x100
 ; CHECK-NEXT:    ldr r3, [sp, #12]
 ; CHECK-NEXT:    dlstp.16 lr, r1
 ; CHECK-NEXT:  .LBB3_1: @ %do.body

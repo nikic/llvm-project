@@ -16,14 +16,17 @@ define void @f1(ptr noalias %b, i1 %c, i32 %start) {
 ; CHECK-LABEL: define void @f1(
 ; CHECK-SAME: ptr noalias [[B:%.*]], i1 [[C:%.*]], i32 [[START:%.*]]) {
 ; CHECK-NEXT:  [[ENTRY:.*:]]
-; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[START]], 1
-; CHECK-NEXT:    [[SMIN1:%.*]] = call i32 @llvm.smin.i32(i32 [[START]], i32 1)
-; CHECK-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[SMIN1]]
+; CHECK-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[START]]
+; CHECK-NEXT:    [[SMAX1:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 -2)
+; CHECK-NEXT:    [[TMP7:%.*]] = add i32 [[START]], [[SMAX1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[TMP7]], 2
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i32 [[TMP1]], 2
 ; CHECK-NEXT:    br i1 [[MIN_ITERS_CHECK]], label %[[SCALAR_PH:.*]], label %[[VECTOR_SCEVCHECK:.*]]
 ; CHECK:       [[VECTOR_SCEVCHECK]]:
-; CHECK-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[START]], i32 1)
-; CHECK-NEXT:    [[TMP2:%.*]] = sub i32 [[START]], [[SMIN]]
+; CHECK-NEXT:    [[TMP16:%.*]] = sub i32 -1, [[START]]
+; CHECK-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP16]], i32 -2)
+; CHECK-NEXT:    [[TMP19:%.*]] = add i32 [[START]], [[SMAX]]
+; CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP19]], 1
 ; CHECK-NEXT:    [[TMP3:%.*]] = trunc i32 [[START]] to i16
 ; CHECK-NEXT:    [[TMP4:%.*]] = trunc i32 [[TMP2]] to i16
 ; CHECK-NEXT:    [[TMP5:%.*]] = sub i16 [[TMP3]], [[TMP4]]
@@ -93,14 +96,17 @@ define void @f2(ptr noalias %b, i1 %c, i32 %start) {
 ; CHECK-LABEL: define void @f2(
 ; CHECK-SAME: ptr noalias [[B:%.*]], i1 [[C:%.*]], i32 [[START:%.*]]) {
 ; CHECK-NEXT:  [[ENTRY:.*:]]
-; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[START]], 1
-; CHECK-NEXT:    [[SMIN1:%.*]] = call i32 @llvm.smin.i32(i32 [[START]], i32 1)
-; CHECK-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[SMIN1]]
+; CHECK-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[START]]
+; CHECK-NEXT:    [[SMAX1:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 -2)
+; CHECK-NEXT:    [[TMP7:%.*]] = add i32 [[START]], [[SMAX1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[TMP7]], 2
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i32 [[TMP1]], 2
 ; CHECK-NEXT:    br i1 [[MIN_ITERS_CHECK]], label %[[SCALAR_PH:.*]], label %[[VECTOR_SCEVCHECK:.*]]
 ; CHECK:       [[VECTOR_SCEVCHECK]]:
-; CHECK-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[START]], i32 1)
-; CHECK-NEXT:    [[TMP2:%.*]] = sub i32 [[START]], [[SMIN]]
+; CHECK-NEXT:    [[TMP13:%.*]] = sub i32 -1, [[START]]
+; CHECK-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP13]], i32 -2)
+; CHECK-NEXT:    [[TMP16:%.*]] = add i32 [[START]], [[SMAX]]
+; CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP16]], 1
 ; CHECK-NEXT:    [[TMP3:%.*]] = trunc i32 [[START]] to i16
 ; CHECK-NEXT:    [[TMP4:%.*]] = trunc i32 [[TMP2]] to i16
 ; CHECK-NEXT:    [[TMP5:%.*]] = sub i16 [[TMP3]], [[TMP4]]

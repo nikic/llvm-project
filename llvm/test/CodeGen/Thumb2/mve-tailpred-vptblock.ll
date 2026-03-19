@@ -17,8 +17,8 @@ define void @convert_vptblock(ptr %pchTarget, i16 signext %iTargetStride, ptr %p
 ; CHECK-NEXT:    .vsave {d8, d9, d10, d11, d12, d13}
 ; CHECK-NEXT:    vpush {d8, d9, d10, d11, d12, d13}
 ; CHECK-NEXT:    ldrsh.w r10, [r3]
-; CHECK-NEXT:    mov.w r8, #0
 ; CHECK-NEXT:    ldrd r4, r5, [sp, #88]
+; CHECK-NEXT:    mov.w r8, #0
 ; CHECK-NEXT:    mov r7, r0
 ; CHECK-NEXT:    mov.w r11, #0
 ; CHECK-NEXT:    vidup.u16 q0, r8, #4
@@ -131,12 +131,12 @@ define i32 @else(ptr %s1, ptr %s2, i32 %x, ptr %d, i32 %n) {
 ; CHECK-NEXT:    .save {r7, lr}
 ; CHECK-NEXT:    push {r7, lr}
 ; CHECK-NEXT:    ldr r2, [sp, #8]
-; CHECK-NEXT:    cmp r2, #4
-; CHECK-NEXT:    mov r3, r2
-; CHECK-NEXT:    it ge
-; CHECK-NEXT:    movge r3, #4
-; CHECK-NEXT:    subs r3, r2, r3
-; CHECK-NEXT:    add.w r12, r3, #3
+; CHECK-NEXT:    mvn r12, #4
+; CHECK-NEXT:    mvns r3, r2
+; CHECK-NEXT:    cmn.w r3, #5
+; CHECK-NEXT:    csinv r3, r12, r2, le
+; CHECK-NEXT:    add r3, r2
+; CHECK-NEXT:    add.w r12, r3, #4
 ; CHECK-NEXT:    movs r3, #1
 ; CHECK-NEXT:    add.w r12, r3, r12, lsr #2
 ; CHECK-NEXT:    movs r3, #98

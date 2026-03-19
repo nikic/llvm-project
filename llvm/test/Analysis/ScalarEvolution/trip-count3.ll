@@ -39,9 +39,9 @@ declare void @sha_stream(ptr nocapture, ptr nocapture) nounwind
 define void @sha_stream_bb3_2E_i(ptr %sha_info, ptr %data1, i32, ptr %buffer_addr.0.i.out, ptr %count_addr.0.i.out) nounwind {
 ; CHECK-LABEL: 'sha_stream_bb3_2E_i'
 ; CHECK-NEXT:  Determining loop execution counts for: @sha_stream_bb3_2E_i
-; CHECK-NEXT:  Loop %bb3.i: backedge-taken count is ((63 + (-1 * (63 smin %0)) + %0) /u 64)
+; CHECK-NEXT:  Loop %bb3.i: backedge-taken count is ((64 + (-64 smax (-1 + (-1 * %0))) + %0) /u 64)
 ; CHECK-NEXT:  Loop %bb3.i: constant max backedge-taken count is i32 33554431
-; CHECK-NEXT:  Loop %bb3.i: symbolic max backedge-taken count is ((63 + (-1 * (63 smin %0)) + %0) /u 64)
+; CHECK-NEXT:  Loop %bb3.i: symbolic max backedge-taken count is ((64 + (-64 smax (-1 + (-1 * %0))) + %0) /u 64)
 ; CHECK-NEXT:  Loop %bb3.i: Trip multiple is 1
 ;
 newFuncRoot:

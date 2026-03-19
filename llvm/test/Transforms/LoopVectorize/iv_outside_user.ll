@@ -322,10 +322,10 @@ define void @PR30742(ptr %p) {
 ; CHECK-NEXT:    [[TMP02:%.*]] = icmp slt i32 [[TMP01]], 1
 ; CHECK-NEXT:    [[TMP03:%.*]] = select i1 [[TMP02]], i32 1, i32 [[TMP01]]
 ; CHECK-NEXT:    [[TMP04:%.*]] = add nsw i32 [[TMP03]], -7
-; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[TMP03]], -8
-; CHECK-NEXT:    [[TMP1:%.*]] = add nsw i32 [[TMP03]], -15
-; CHECK-NEXT:    [[SMIN1:%.*]] = call i32 @llvm.smin.i32(i32 [[TMP1]], i32 0)
-; CHECK-NEXT:    [[TMP2:%.*]] = sub i32 [[TMP0]], [[SMIN1]]
+; CHECK-NEXT:    [[TMP0:%.*]] = sub i32 14, [[TMP03]]
+; CHECK-NEXT:    [[SMAX1:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 -1)
+; CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[SMAX1]], -7
+; CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], [[TMP03]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = lshr i32 [[TMP2]], 3
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw i32 [[TMP3]], 1
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK4:%.*]] = icmp ult i32 [[TMP4]], 2
@@ -359,10 +359,10 @@ define void @PR30742(ptr %p) {
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp slt i32 [[TMP09]], 1
 ; CHECK-NEXT:    [[TMP11:%.*]] = select i1 [[TMP10]], i32 1, i32 [[TMP09]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = add nsw i32 [[TMP11]], -7
-; CHECK-NEXT:    [[TMP7:%.*]] = add i32 [[TMP11]], -8
-; CHECK-NEXT:    [[TMP8:%.*]] = add nsw i32 [[TMP11]], -15
-; CHECK-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[TMP8]], i32 0)
-; CHECK-NEXT:    [[TMP10:%.*]] = sub i32 [[TMP7]], [[SMIN]]
+; CHECK-NEXT:    [[TMP8:%.*]] = sub i32 14, [[TMP11]]
+; CHECK-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP8]], i32 -1)
+; CHECK-NEXT:    [[TMP9:%.*]] = add i32 [[SMAX]], -7
+; CHECK-NEXT:    [[TMP10:%.*]] = add i32 [[TMP9]], [[TMP11]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = lshr i32 [[TMP10]], 3
 ; CHECK-NEXT:    [[TMP14:%.*]] = add nuw nsw i32 [[TMP11]], 1
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i32 [[TMP14]], 2
@@ -1120,53 +1120,29 @@ e.exit:
 }
 
 define i32 @test_iv_uniform_with_outside_use_scev_simplification_2(ptr %dst) {
-; VEC-LABEL: define i32 @test_iv_uniform_with_outside_use_scev_simplification_2(
-; VEC-SAME: ptr [[DST:%.*]]) {
-; VEC-NEXT:  [[ENTRY:.*:]]
-; VEC-NEXT:    [[STEP_1:%.*]] = sext i8 0 to i32
-; VEC-NEXT:    [[STEP_2:%.*]] = add nsw i32 [[STEP_1]], 1
-; VEC-NEXT:    br label %[[VECTOR_PH:.*]]
-; VEC:       [[VECTOR_PH]]:
-; VEC-NEXT:    br label %[[VECTOR_BODY:.*]]
-; VEC:       [[VECTOR_BODY]]:
-; VEC-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; VEC-NEXT:    [[OFFSET_IDX:%.*]] = mul i32 [[INDEX]], 2
-; VEC-NEXT:    [[TMP1:%.*]] = add i32 [[OFFSET_IDX]], 2
-; VEC-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i16, ptr [[DST]], i32 [[OFFSET_IDX]]
-; VEC-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i16, ptr [[DST]], i32 [[TMP1]]
-; VEC-NEXT:    store i16 0, ptr [[TMP2]], align 2
-; VEC-NEXT:    store i16 0, ptr [[TMP3]], align 2
-; VEC-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 2
-; VEC-NEXT:    [[TMP6:%.*]] = icmp eq i32 [[INDEX_NEXT]], 4
-; VEC-NEXT:    br i1 [[TMP6]], label %[[MIDDLE_BLOCK:.*]], label %[[VECTOR_BODY]], {{!llvm.loop ![0-9]+}}
-; VEC:       [[MIDDLE_BLOCK]]:
-; VEC-NEXT:    br label %[[E_EXIT:.*]]
-; VEC:       [[E_EXIT]]:
-; VEC-NEXT:    ret i32 8
-;
-; INTERLEAVE-LABEL: define i32 @test_iv_uniform_with_outside_use_scev_simplification_2(
-; INTERLEAVE-SAME: ptr [[DST:%.*]]) {
-; INTERLEAVE-NEXT:  [[ENTRY:.*:]]
-; INTERLEAVE-NEXT:    [[STEP_1:%.*]] = sext i8 0 to i32
-; INTERLEAVE-NEXT:    [[STEP_2:%.*]] = add nsw i32 [[STEP_1]], 1
-; INTERLEAVE-NEXT:    br label %[[VECTOR_PH:.*]]
-; INTERLEAVE:       [[VECTOR_PH]]:
-; INTERLEAVE-NEXT:    br label %[[VECTOR_BODY:.*]]
-; INTERLEAVE:       [[VECTOR_BODY]]:
-; INTERLEAVE-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; INTERLEAVE-NEXT:    [[OFFSET_IDX:%.*]] = mul i32 [[INDEX]], 2
-; INTERLEAVE-NEXT:    [[TMP1:%.*]] = add i32 [[OFFSET_IDX]], 2
-; INTERLEAVE-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i16, ptr [[DST]], i32 [[OFFSET_IDX]]
-; INTERLEAVE-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i16, ptr [[DST]], i32 [[TMP1]]
-; INTERLEAVE-NEXT:    store i16 0, ptr [[TMP2]], align 2
-; INTERLEAVE-NEXT:    store i16 0, ptr [[TMP3]], align 2
-; INTERLEAVE-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 2
-; INTERLEAVE-NEXT:    [[TMP6:%.*]] = icmp eq i32 [[INDEX_NEXT]], 4
-; INTERLEAVE-NEXT:    br i1 [[TMP6]], label %[[MIDDLE_BLOCK:.*]], label %[[VECTOR_BODY]], {{!llvm.loop ![0-9]+}}
-; INTERLEAVE:       [[MIDDLE_BLOCK]]:
-; INTERLEAVE-NEXT:    br label %[[E_EXIT:.*]]
-; INTERLEAVE:       [[E_EXIT]]:
-; INTERLEAVE-NEXT:    ret i32 8
+; CHECK-LABEL: define i32 @test_iv_uniform_with_outside_use_scev_simplification_2(
+; CHECK-SAME: ptr [[DST:%.*]]) {
+; CHECK-NEXT:  [[ENTRY:.*:]]
+; CHECK-NEXT:    [[STEP_1:%.*]] = sext i8 0 to i32
+; CHECK-NEXT:    [[STEP_2:%.*]] = add nsw i32 [[STEP_1]], 1
+; CHECK-NEXT:    br label %[[VECTOR_PH:.*]]
+; CHECK:       [[VECTOR_PH]]:
+; CHECK-NEXT:    br label %[[VECTOR_BODY:.*]]
+; CHECK:       [[VECTOR_BODY]]:
+; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[OFFSET_IDX:%.*]] = mul i32 [[INDEX]], 2
+; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[OFFSET_IDX]], 2
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i16, ptr [[DST]], i32 [[OFFSET_IDX]]
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i16, ptr [[DST]], i32 [[TMP0]]
+; CHECK-NEXT:    store i16 0, ptr [[TMP1]], align 2
+; CHECK-NEXT:    store i16 0, ptr [[TMP2]], align 2
+; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 2
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[INDEX_NEXT]], 4
+; CHECK-NEXT:    br i1 [[TMP3]], label %[[MIDDLE_BLOCK:.*]], label %[[VECTOR_BODY]], {{!llvm.loop ![0-9]+}}
+; CHECK:       [[MIDDLE_BLOCK]]:
+; CHECK-NEXT:    br label %[[E_EXIT:.*]]
+; CHECK:       [[E_EXIT]]:
+; CHECK-NEXT:    ret i32 8
 ;
 entry:
   %step.1 = sext i8 0 to i32

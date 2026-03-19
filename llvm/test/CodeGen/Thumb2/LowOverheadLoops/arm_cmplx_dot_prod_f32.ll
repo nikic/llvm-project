@@ -4,24 +4,19 @@
 define void @arm_cmplx_dot_prod_f32(ptr %pSrcA, ptr %pSrcB, i32 %numSamples, ptr nocapture %realResult, ptr nocapture %imagResult) {
 ; CHECK-LABEL: arm_cmplx_dot_prod_f32:
 ; CHECK:       @ %bb.0: @ %entry
-; CHECK-NEXT:    .save {r4, r5, r7, lr}
-; CHECK-NEXT:    push {r4, r5, r7, lr}
+; CHECK-NEXT:    .save {r4, r5, r6, lr}
+; CHECK-NEXT:    push {r4, r5, r6, lr}
 ; CHECK-NEXT:    .vsave {d8, d9}
 ; CHECK-NEXT:    vpush {d8, d9}
 ; CHECK-NEXT:    ldr.w r12, [sp, #32]
 ; CHECK-NEXT:    cmp r2, #8
 ; CHECK-NEXT:    blo .LBB0_6
 ; CHECK-NEXT:  @ %bb.1: @ %while.body.preheader
-; CHECK-NEXT:    lsrs r4, r2, #2
-; CHECK-NEXT:    mov.w lr, #2
-; CHECK-NEXT:    cmp r4, #2
+; CHECK-NEXT:    mov.w r4, #-1
+; CHECK-NEXT:    add.w lr, r4, r2, lsr #2
 ; CHECK-NEXT:    vldrw.u32 q2, [r1], #32
 ; CHECK-NEXT:    vldrw.u32 q1, [r0], #32
-; CHECK-NEXT:    it lt
-; CHECK-NEXT:    lsrlt.w lr, r2, #2
-; CHECK-NEXT:    rsb r4, lr, r2, lsr #2
 ; CHECK-NEXT:    vmov.i32 q0, #0x0
-; CHECK-NEXT:    add.w lr, r4, #1
 ; CHECK-NEXT:  .LBB0_2: @ %while.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vcmla.f32 q0, q1, q2, #0
@@ -78,7 +73,7 @@ define void @arm_cmplx_dot_prod_f32(ptr %pSrcA, ptr %pSrcB, i32 %numSamples, ptr
 ; CHECK-NEXT:    vstr s0, [r3]
 ; CHECK-NEXT:    vstr s2, [r12]
 ; CHECK-NEXT:    vpop {d8, d9}
-; CHECK-NEXT:    pop {r4, r5, r7, pc}
+; CHECK-NEXT:    pop {r4, r5, r6, pc}
 entry:
   %cmp = icmp ugt i32 %numSamples, 7
   br i1 %cmp, label %while.body.preheader, label %if.else

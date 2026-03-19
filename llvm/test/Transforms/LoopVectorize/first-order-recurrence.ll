@@ -2579,9 +2579,10 @@ for.end:
 define i32 @sink_into_replication_region(i32 %y) {
 ; UNROLL-NO-IC-LABEL: @sink_into_replication_region(
 ; UNROLL-NO-IC-NEXT:  bb:
-; UNROLL-NO-IC-NEXT:    [[TMP0:%.*]] = add i32 [[Y:%.*]], 1
-; UNROLL-NO-IC-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[Y]], i32 1)
-; UNROLL-NO-IC-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[SMIN]]
+; UNROLL-NO-IC-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[Y:%.*]]
+; UNROLL-NO-IC-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 -2)
+; UNROLL-NO-IC-NEXT:    [[TMP52:%.*]] = add i32 [[Y]], [[SMAX]]
+; UNROLL-NO-IC-NEXT:    [[TMP1:%.*]] = add i32 [[TMP52]], 2
 ; UNROLL-NO-IC-NEXT:    br label [[VECTOR_PH:%.*]]
 ; UNROLL-NO-IC:       vector.ph:
 ; UNROLL-NO-IC-NEXT:    [[N_RND_UP:%.*]] = add i32 [[TMP1]], 7
@@ -2693,9 +2694,10 @@ define i32 @sink_into_replication_region(i32 %y) {
 ;
 ; UNROLL-NO-VF-LABEL: @sink_into_replication_region(
 ; UNROLL-NO-VF-NEXT:  bb:
-; UNROLL-NO-VF-NEXT:    [[TMP0:%.*]] = add i32 [[Y:%.*]], 1
-; UNROLL-NO-VF-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[Y]], i32 1)
-; UNROLL-NO-VF-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[SMIN]]
+; UNROLL-NO-VF-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[Y:%.*]]
+; UNROLL-NO-VF-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 -2)
+; UNROLL-NO-VF-NEXT:    [[TMP4:%.*]] = add i32 [[Y]], [[SMAX]]
+; UNROLL-NO-VF-NEXT:    [[TMP1:%.*]] = add i32 [[TMP4]], 2
 ; UNROLL-NO-VF-NEXT:    br label [[VECTOR_PH:%.*]]
 ; UNROLL-NO-VF:       vector.ph:
 ; UNROLL-NO-VF-NEXT:    [[N_RND_UP:%.*]] = add i32 [[TMP1]], 1
@@ -2741,9 +2743,10 @@ define i32 @sink_into_replication_region(i32 %y) {
 ;
 ; SINK-AFTER-LABEL: @sink_into_replication_region(
 ; SINK-AFTER-NEXT:  bb:
-; SINK-AFTER-NEXT:    [[TMP0:%.*]] = add i32 [[Y:%.*]], 1
-; SINK-AFTER-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[Y]], i32 1)
-; SINK-AFTER-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[SMIN]]
+; SINK-AFTER-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[Y:%.*]]
+; SINK-AFTER-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 -2)
+; SINK-AFTER-NEXT:    [[TMP28:%.*]] = add i32 [[Y]], [[SMAX]]
+; SINK-AFTER-NEXT:    [[TMP1:%.*]] = add i32 [[TMP28]], 2
 ; SINK-AFTER-NEXT:    br label [[VECTOR_PH:%.*]]
 ; SINK-AFTER:       vector.ph:
 ; SINK-AFTER-NEXT:    [[N_RND_UP:%.*]] = add i32 [[TMP1]], 3
@@ -2833,9 +2836,10 @@ define i32 @sink_into_replication_region_multiple(ptr %x, i32 %y) {
 ; CHECK-LABEL: @sink_into_replication_region_multiple(
 ; UNROLL-NO-IC-LABEL: @sink_into_replication_region_multiple(
 ; UNROLL-NO-IC-NEXT:  bb:
-; UNROLL-NO-IC-NEXT:    [[TMP0:%.*]] = add i32 [[Y:%.*]], 1
-; UNROLL-NO-IC-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[Y]], i32 1)
-; UNROLL-NO-IC-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[SMIN]]
+; UNROLL-NO-IC-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[Y:%.*]]
+; UNROLL-NO-IC-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 -2)
+; UNROLL-NO-IC-NEXT:    [[TMP2:%.*]] = add i32 [[Y]], [[SMAX]]
+; UNROLL-NO-IC-NEXT:    [[TMP1:%.*]] = add i32 [[TMP2]], 2
 ; UNROLL-NO-IC-NEXT:    br label [[VECTOR_PH:%.*]]
 ; UNROLL-NO-IC:       vector.ph:
 ; UNROLL-NO-IC-NEXT:    [[N_RND_UP:%.*]] = add i32 [[TMP1]], 7
@@ -3017,9 +3021,10 @@ define i32 @sink_into_replication_region_multiple(ptr %x, i32 %y) {
 ;
 ; UNROLL-NO-VF-LABEL: @sink_into_replication_region_multiple(
 ; UNROLL-NO-VF-NEXT:  bb:
-; UNROLL-NO-VF-NEXT:    [[TMP0:%.*]] = add i32 [[Y:%.*]], 1
-; UNROLL-NO-VF-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[Y]], i32 1)
-; UNROLL-NO-VF-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[SMIN]]
+; UNROLL-NO-VF-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[Y:%.*]]
+; UNROLL-NO-VF-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 -2)
+; UNROLL-NO-VF-NEXT:    [[TMP2:%.*]] = add i32 [[Y]], [[SMAX]]
+; UNROLL-NO-VF-NEXT:    [[TMP1:%.*]] = add i32 [[TMP2]], 2
 ; UNROLL-NO-VF-NEXT:    br label [[VECTOR_PH:%.*]]
 ; UNROLL-NO-VF:       vector.ph:
 ; UNROLL-NO-VF-NEXT:    [[N_RND_UP:%.*]] = add i32 [[TMP1]], 1
@@ -3077,9 +3082,10 @@ define i32 @sink_into_replication_region_multiple(ptr %x, i32 %y) {
 ;
 ; SINK-AFTER-LABEL: @sink_into_replication_region_multiple(
 ; SINK-AFTER-NEXT:  bb:
-; SINK-AFTER-NEXT:    [[TMP0:%.*]] = add i32 [[Y:%.*]], 1
-; SINK-AFTER-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[Y]], i32 1)
-; SINK-AFTER-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[SMIN]]
+; SINK-AFTER-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[Y:%.*]]
+; SINK-AFTER-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 -2)
+; SINK-AFTER-NEXT:    [[TMP2:%.*]] = add i32 [[Y]], [[SMAX]]
+; SINK-AFTER-NEXT:    [[TMP1:%.*]] = add i32 [[TMP2]], 2
 ; SINK-AFTER-NEXT:    br label [[VECTOR_PH:%.*]]
 ; SINK-AFTER:       vector.ph:
 ; SINK-AFTER-NEXT:    [[N_RND_UP:%.*]] = add i32 [[TMP1]], 3

@@ -49,12 +49,12 @@ define i32 @bad(ptr readonly %x, ptr nocapture readonly %y, i32 %n) {
 ; CHECK-LABEL: bad:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    push {r7, lr}
-; CHECK-NEXT:    mov r3, r2
-; CHECK-NEXT:    cmp r2, #4
-; CHECK-NEXT:    it ge
-; CHECK-NEXT:    movge r3, #4
-; CHECK-NEXT:    subs r3, r2, r3
-; CHECK-NEXT:    add.w r12, r3, #3
+; CHECK-NEXT:    mvns r3, r2
+; CHECK-NEXT:    mvn r12, #4
+; CHECK-NEXT:    cmn.w r3, #5
+; CHECK-NEXT:    csinv r3, r12, r2, le
+; CHECK-NEXT:    add r3, r2
+; CHECK-NEXT:    add.w r12, r3, #4
 ; CHECK-NEXT:    movs r3, #1
 ; CHECK-NEXT:    add.w r3, r3, r12, lsr #2
 ; CHECK-NEXT:    mov.w r12, #0

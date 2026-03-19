@@ -66,8 +66,12 @@ define void @while_gt(i32 %i, i32 %N, ptr nocapture %A) strictfp {
 ; CHECK-DEC-NEXT:    [[CMP4:%.*]] = icmp sgt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-DEC-NEXT:    br i1 [[CMP4]], label [[WHILE_BODY_PREHEADER:%.*]], label [[WHILE_END:%.*]]
 ; CHECK-DEC:       while.body.preheader:
-; CHECK-DEC-NEXT:    [[TMP0:%.*]] = sub i32 [[I]], [[N]]
-; CHECK-DEC-NEXT:    call void @llvm.set.loop.iterations.i32(i32 [[TMP0]]) #[[ATTR0]]
+; CHECK-DEC-NEXT:    [[TMP0:%.*]] = sub i32 0, [[I]]
+; CHECK-DEC-NEXT:    [[TMP4:%.*]] = sub i32 -1, [[N]]
+; CHECK-DEC-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 [[TMP4]])
+; CHECK-DEC-NEXT:    [[TMP2:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-DEC-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; CHECK-DEC-NEXT:    call void @llvm.set.loop.iterations.i32(i32 [[TMP3]]) #[[ATTR0]]
 ; CHECK-DEC-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-DEC:       while.body:
 ; CHECK-DEC-NEXT:    [[I_ADDR_05:%.*]] = phi i32 [ [[DEC:%.*]], [[WHILE_BODY]] ], [ [[I]], [[WHILE_BODY_PREHEADER]] ]
@@ -85,8 +89,12 @@ define void @while_gt(i32 %i, i32 %N, ptr nocapture %A) strictfp {
 ; CHECK-PHI-NEXT:    [[CMP4:%.*]] = icmp sgt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-PHI-NEXT:    br i1 [[CMP4]], label [[WHILE_BODY_PREHEADER:%.*]], label [[WHILE_END:%.*]]
 ; CHECK-PHI:       while.body.preheader:
-; CHECK-PHI-NEXT:    [[TMP0:%.*]] = sub i32 [[I]], [[N]]
-; CHECK-PHI-NEXT:    [[TMP1:%.*]] = call i32 @llvm.start.loop.iterations.i32(i32 [[TMP0]]) #[[ATTR0]]
+; CHECK-PHI-NEXT:    [[TMP0:%.*]] = sub i32 0, [[I]]
+; CHECK-PHI-NEXT:    [[TMP5:%.*]] = sub i32 -1, [[N]]
+; CHECK-PHI-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 [[TMP5]])
+; CHECK-PHI-NEXT:    [[TMP6:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-PHI-NEXT:    [[TMP7:%.*]] = add i32 [[TMP6]], 1
+; CHECK-PHI-NEXT:    [[TMP1:%.*]] = call i32 @llvm.start.loop.iterations.i32(i32 [[TMP7]]) #[[ATTR0]]
 ; CHECK-PHI-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-PHI:       while.body:
 ; CHECK-PHI-NEXT:    [[I_ADDR_05:%.*]] = phi i32 [ [[DEC:%.*]], [[WHILE_BODY]] ], [ [[I]], [[WHILE_BODY_PREHEADER]] ]
@@ -123,9 +131,12 @@ define void @while_gte(i32 %i, i32 %N, ptr nocapture %A) strictfp {
 ; CHECK-DEC-NEXT:    [[CMP4:%.*]] = icmp slt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-DEC-NEXT:    br i1 [[CMP4]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
 ; CHECK-DEC:       while.body.preheader:
-; CHECK-DEC-NEXT:    [[TMP0:%.*]] = add i32 [[I]], 1
-; CHECK-DEC-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[N]]
-; CHECK-DEC-NEXT:    call void @llvm.set.loop.iterations.i32(i32 [[TMP1]]) #[[ATTR0]]
+; CHECK-DEC-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[I]]
+; CHECK-DEC-NEXT:    [[TMP1:%.*]] = sub i32 -1, [[N]]
+; CHECK-DEC-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 [[TMP1]])
+; CHECK-DEC-NEXT:    [[TMP4:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-DEC-NEXT:    [[TMP3:%.*]] = add i32 [[TMP4]], 2
+; CHECK-DEC-NEXT:    call void @llvm.set.loop.iterations.i32(i32 [[TMP3]]) #[[ATTR0]]
 ; CHECK-DEC-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-DEC:       while.body:
 ; CHECK-DEC-NEXT:    [[I_ADDR_05:%.*]] = phi i32 [ [[DEC:%.*]], [[WHILE_BODY]] ], [ [[I]], [[WHILE_BODY_PREHEADER]] ]
@@ -143,9 +154,12 @@ define void @while_gte(i32 %i, i32 %N, ptr nocapture %A) strictfp {
 ; CHECK-PHI-NEXT:    [[CMP4:%.*]] = icmp slt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-PHI-NEXT:    br i1 [[CMP4]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
 ; CHECK-PHI:       while.body.preheader:
-; CHECK-PHI-NEXT:    [[TMP0:%.*]] = add i32 [[I]], 1
-; CHECK-PHI-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[N]]
-; CHECK-PHI-NEXT:    [[TMP2:%.*]] = call i32 @llvm.start.loop.iterations.i32(i32 [[TMP1]]) #[[ATTR0]]
+; CHECK-PHI-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[I]]
+; CHECK-PHI-NEXT:    [[TMP1:%.*]] = sub i32 -1, [[N]]
+; CHECK-PHI-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 [[TMP1]])
+; CHECK-PHI-NEXT:    [[TMP6:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-PHI-NEXT:    [[TMP7:%.*]] = add i32 [[TMP6]], 2
+; CHECK-PHI-NEXT:    [[TMP2:%.*]] = call i32 @llvm.start.loop.iterations.i32(i32 [[TMP7]]) #[[ATTR0]]
 ; CHECK-PHI-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-PHI:       while.body:
 ; CHECK-PHI-NEXT:    [[I_ADDR_05:%.*]] = phi i32 [ [[DEC:%.*]], [[WHILE_BODY]] ], [ [[I]], [[WHILE_BODY_PREHEADER]] ]

@@ -523,8 +523,8 @@ define void @changing_end_bound7(i32 %start, ptr %n_addr, ptr %addr) {
 ; CHECK-LABEL: 'changing_end_bound7'
 ; CHECK-NEXT:  Determining loop execution counts for: @changing_end_bound7
 ; CHECK-NEXT:  Loop %loop: Unpredictable backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable constant max backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable symbolic max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is i32 -1
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is i32 -1
 ;
 entry:
   br label %loop

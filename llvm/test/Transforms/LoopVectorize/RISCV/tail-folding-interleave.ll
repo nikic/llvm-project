@@ -570,9 +570,10 @@ exit:
 define i32 @load_factor_4_reverse(i64 %n, ptr noalias %a) {
 ; IF-EVL-LABEL: @load_factor_4_reverse(
 ; IF-EVL-NEXT:  entry:
-; IF-EVL-NEXT:    [[TMP0:%.*]] = add nsw i64 [[N:%.*]], -1
-; IF-EVL-NEXT:    [[SMIN:%.*]] = call i64 @llvm.smin.i64(i64 [[TMP0]], i64 0)
-; IF-EVL-NEXT:    [[TMP1:%.*]] = sub i64 [[N]], [[SMIN]]
+; IF-EVL-NEXT:    [[TMP0:%.*]] = sub i64 0, [[N:%.*]]
+; IF-EVL-NEXT:    [[SMAX:%.*]] = call i64 @llvm.smax.i64(i64 [[TMP0]], i64 -1)
+; IF-EVL-NEXT:    [[TMP2:%.*]] = add i64 [[N]], [[SMAX]]
+; IF-EVL-NEXT:    [[TMP1:%.*]] = add i64 [[TMP2]], 1
 ; IF-EVL-NEXT:    br label [[VECTOR_PH:%.*]]
 ; IF-EVL:       vector.ph:
 ; IF-EVL-NEXT:    [[TMP4:%.*]] = call <vscale x 4 x i64> @llvm.stepvector.nxv4i64()
@@ -614,9 +615,10 @@ define i32 @load_factor_4_reverse(i64 %n, ptr noalias %a) {
 ;
 ; NO-VP-LABEL: @load_factor_4_reverse(
 ; NO-VP-NEXT:  entry:
-; NO-VP-NEXT:    [[TMP0:%.*]] = add nsw i64 [[N:%.*]], -1
-; NO-VP-NEXT:    [[SMIN:%.*]] = call i64 @llvm.smin.i64(i64 [[TMP0]], i64 0)
-; NO-VP-NEXT:    [[TMP1:%.*]] = sub i64 [[N]], [[SMIN]]
+; NO-VP-NEXT:    [[TMP0:%.*]] = sub i64 0, [[N:%.*]]
+; NO-VP-NEXT:    [[SMAX:%.*]] = call i64 @llvm.smax.i64(i64 [[TMP0]], i64 -1)
+; NO-VP-NEXT:    [[TMP23:%.*]] = add i64 [[N]], [[SMAX]]
+; NO-VP-NEXT:    [[TMP1:%.*]] = add i64 [[TMP23]], 1
 ; NO-VP-NEXT:    [[TMP2:%.*]] = call i64 @llvm.vscale.i64()
 ; NO-VP-NEXT:    [[TMP3:%.*]] = shl nuw i64 [[TMP2]], 2
 ; NO-VP-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP1]], [[TMP3]]

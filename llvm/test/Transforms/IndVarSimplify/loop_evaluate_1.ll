@@ -28,10 +28,16 @@ define i32 @test2(i32 %arg) {
 ; CHECK-LABEL: @test2(
 ; CHECK-NEXT:  bb:
 ; CHECK-NEXT:    [[TMP:%.*]] = icmp ugt i32 [[ARG:%.*]], 10
-; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[ARG]], -11
+; CHECK-NEXT:    br i1 [[TMP]], label [[BB7_LOOPEXIT:%.*]], label [[BB7:%.*]]
+; CHECK:       bb7.loopexit:
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i32 1, [[ARG]]
+; CHECK-NEXT:    [[UMAX:%.*]] = call i32 @llvm.umax.i32(i32 [[TMP3]], i32 -11)
+; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[ARG]], [[UMAX]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = lshr i32 [[TMP0]], 1
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nuw i32 [[TMP1]], 1
-; CHECK-NEXT:    [[TMP8:%.*]] = select i1 [[TMP]], i32 [[TMP2]], i32 0
+; CHECK-NEXT:    br label [[BB7]]
+; CHECK:       bb7:
+; CHECK-NEXT:    [[TMP8:%.*]] = phi i32 [ 0, [[BB:%.*]] ], [ [[TMP2]], [[BB7_LOOPEXIT]] ]
 ; CHECK-NEXT:    ret i32 [[TMP8]]
 ;
 bb:

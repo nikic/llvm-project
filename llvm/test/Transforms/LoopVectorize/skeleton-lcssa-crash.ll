@@ -134,10 +134,11 @@ define void @test2(ptr %dst) {
 ; CHECK-NEXT:    [[INDVAR_LCSSA:%.*]] = phi i32 [ [[INDVAR]], [[LOOP_2]] ]
 ; CHECK-NEXT:    [[IV_1_LCSSA:%.*]] = phi i64 [ [[IV_1]], [[LOOP_2]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = and i64 [[IV_1_LCSSA]], 4294967295
+; CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[INDVAR_LCSSA]], -1001
+; CHECK-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP2]], i32 -2)
 ; CHECK-NEXT:    [[TMP1:%.*]] = mul i32 [[INDVAR_LCSSA]], -1
-; CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1000
-; CHECK-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[TMP2]], i32 1)
-; CHECK-NEXT:    [[TMP3:%.*]] = sub i32 [[TMP2]], [[SMIN]]
+; CHECK-NEXT:    [[TMP6:%.*]] = add i32 [[TMP1]], 1001
+; CHECK-NEXT:    [[TMP3:%.*]] = add i32 [[SMAX]], [[TMP6]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = zext i32 [[TMP3]] to i64
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nuw nsw i64 [[TMP4]], 1
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP5]], 2

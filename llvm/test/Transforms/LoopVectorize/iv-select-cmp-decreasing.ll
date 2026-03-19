@@ -1225,9 +1225,10 @@ define i64 @select_decreasing_induction_icmp_non_const_start(ptr %a, ptr %b, i64
 ; IC1VF4-LABEL: define i64 @select_decreasing_induction_icmp_non_const_start(
 ; IC1VF4-SAME: ptr [[A:%.*]], ptr [[B:%.*]], i64 [[RDX_START:%.*]], i64 [[N:%.*]]) {
 ; IC1VF4-NEXT:  [[ENTRY:.*]]:
-; IC1VF4-NEXT:    [[TMP0:%.*]] = add i64 [[N]], 1
-; IC1VF4-NEXT:    [[UMIN:%.*]] = call i64 @llvm.umin.i64(i64 [[N]], i64 1)
-; IC1VF4-NEXT:    [[TMP1:%.*]] = sub i64 [[TMP0]], [[UMIN]]
+; IC1VF4-NEXT:    [[TMP0:%.*]] = sub i64 -1, [[N]]
+; IC1VF4-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[TMP0]], i64 -2)
+; IC1VF4-NEXT:    [[TMP6:%.*]] = add i64 [[N]], [[UMAX]]
+; IC1VF4-NEXT:    [[TMP1:%.*]] = add i64 [[TMP6]], 2
 ; IC1VF4-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP1]], 4
 ; IC1VF4-NEXT:    br i1 [[MIN_ITERS_CHECK]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; IC1VF4:       [[VECTOR_PH]]:
@@ -1290,9 +1291,10 @@ define i64 @select_decreasing_induction_icmp_non_const_start(ptr %a, ptr %b, i64
 ; IC4VF4-LABEL: define i64 @select_decreasing_induction_icmp_non_const_start(
 ; IC4VF4-SAME: ptr [[A:%.*]], ptr [[B:%.*]], i64 [[RDX_START:%.*]], i64 [[N:%.*]]) {
 ; IC4VF4-NEXT:  [[ENTRY:.*]]:
-; IC4VF4-NEXT:    [[TMP0:%.*]] = add i64 [[N]], 1
-; IC4VF4-NEXT:    [[UMIN:%.*]] = call i64 @llvm.umin.i64(i64 [[N]], i64 1)
-; IC4VF4-NEXT:    [[TMP1:%.*]] = sub i64 [[TMP0]], [[UMIN]]
+; IC4VF4-NEXT:    [[TMP0:%.*]] = sub i64 -1, [[N]]
+; IC4VF4-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[TMP0]], i64 -2)
+; IC4VF4-NEXT:    [[TMP7:%.*]] = add i64 [[N]], [[UMAX]]
+; IC4VF4-NEXT:    [[TMP1:%.*]] = add i64 [[TMP7]], 2
 ; IC4VF4-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP1]], 16
 ; IC4VF4-NEXT:    br i1 [[MIN_ITERS_CHECK]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; IC4VF4:       [[VECTOR_PH]]:
@@ -1400,9 +1402,10 @@ define i64 @select_decreasing_induction_icmp_non_const_start(ptr %a, ptr %b, i64
 ; IC4VF1-LABEL: define i64 @select_decreasing_induction_icmp_non_const_start(
 ; IC4VF1-SAME: ptr [[A:%.*]], ptr [[B:%.*]], i64 [[RDX_START:%.*]], i64 [[N:%.*]]) {
 ; IC4VF1-NEXT:  [[ENTRY:.*]]:
-; IC4VF1-NEXT:    [[TMP0:%.*]] = add i64 [[N]], 1
-; IC4VF1-NEXT:    [[UMIN:%.*]] = call i64 @llvm.umin.i64(i64 [[N]], i64 1)
-; IC4VF1-NEXT:    [[TMP1:%.*]] = sub i64 [[TMP0]], [[UMIN]]
+; IC4VF1-NEXT:    [[TMP0:%.*]] = sub i64 -1, [[N]]
+; IC4VF1-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[TMP0]], i64 -2)
+; IC4VF1-NEXT:    [[TMP6:%.*]] = add i64 [[N]], [[UMAX]]
+; IC4VF1-NEXT:    [[TMP1:%.*]] = add i64 [[TMP6]], 2
 ; IC4VF1-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP1]], 4
 ; IC4VF1-NEXT:    br i1 [[MIN_ITERS_CHECK]], label %[[EXIT:.*]], label %[[VECTOR_PH:.*]]
 ; IC4VF1:       [[VECTOR_PH]]:

@@ -91,32 +91,34 @@ define void @dont_remat_predicated_vctp(ptr %arg, ptr %arg1, ptr %arg2, ptr %arg
 ; CHECK-NEXT:    push {r4, r5, r6, lr}
 ; CHECK-NEXT:    vpush {d8, d9, d10, d11, d12, d13}
 ; CHECK-NEXT:    sub sp, #8
-; CHECK-NEXT:    ldrd r6, r12, [sp, #72]
-; CHECK-NEXT:    movs r4, #4
-; CHECK-NEXT:    cmp.w r12, #4
+; CHECK-NEXT:    ldrd r5, r12, [sp, #72]
+; CHECK-NEXT:    mvn r4, #4
+; CHECK-NEXT:    mvn.w r6, r12
+; CHECK-NEXT:    cmn.w r6, #5
+; CHECK-NEXT:    csinv r6, r4, r12, le
+; CHECK-NEXT:    movs r4, #1
+; CHECK-NEXT:    add r6, r12
 ; CHECK-NEXT:    vmvn.i32 q0, #0x80000000
-; CHECK-NEXT:    csel r5, r12, r4, lt
+; CHECK-NEXT:    adds r6, #4
 ; CHECK-NEXT:    vmov.i32 q1, #0x3f
-; CHECK-NEXT:    sub.w r5, r12, r5
-; CHECK-NEXT:    add.w lr, r5, #3
-; CHECK-NEXT:    movs r5, #1
-; CHECK-NEXT:    add.w lr, r5, lr, lsr #2
+; CHECK-NEXT:    add.w lr, r4, r6, lsr #2
+; CHECK-NEXT:    movs r6, #4
 ; CHECK-NEXT:  .LBB1_1: @ %bb6
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vctp.32 r12
 ; CHECK-NEXT:    sub.w r12, r12, #4
 ; CHECK-NEXT:    vpst
-; CHECK-NEXT:    vctpt.32 r4
+; CHECK-NEXT:    vctpt.32 r6
 ; CHECK-NEXT:    vstr p0, [sp, #4] @ 4-byte Spill
 ; CHECK-NEXT:    vpst
 ; CHECK-NEXT:    vldrwt.u32 q3, [r1], #16
 ; CHECK-NEXT:    vabs.s32 q4, q3
 ; CHECK-NEXT:    vcls.s32 q2, q4
 ; CHECK-NEXT:    vshl.u32 q4, q4, q2
-; CHECK-NEXT:    vadd.i32 q2, q2, r5
+; CHECK-NEXT:    vadd.i32 q2, q2, r4
 ; CHECK-NEXT:    vshr.u32 q5, q4, #24
 ; CHECK-NEXT:    vand q5, q5, q1
-; CHECK-NEXT:    vldrw.u32 q6, [r6, q5, uxtw #2]
+; CHECK-NEXT:    vldrw.u32 q6, [r5, q5, uxtw #2]
 ; CHECK-NEXT:    vqrdmulh.s32 q5, q6, q4
 ; CHECK-NEXT:    vqsub.s32 q5, q0, q5
 ; CHECK-NEXT:    vqrdmulh.s32 q5, q6, q5

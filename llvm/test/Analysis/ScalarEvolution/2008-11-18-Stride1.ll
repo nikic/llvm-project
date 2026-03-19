@@ -10,9 +10,9 @@ define i32 @f(i32 %x) nounwind readnone {
 ;
 ; CHECK-LABEL: 'f'
 ; CHECK-NEXT:  Determining loop execution counts for: @f
-; CHECK-NEXT:  Loop %bb: backedge-taken count is ((-5 + %x) /u 3)
+; CHECK-NEXT:  Loop %bb: backedge-taken count is (((-2 + (-1 * (1 umin (-2 + (-5 umax (2 + (-1 * %x))) + %x)))<nuw><nsw> + (-5 umax (2 + (-1 * %x))) + %x) /u 3) + (1 umin (-2 + (-5 umax (2 + (-1 * %x))) + %x)))
 ; CHECK-NEXT:  Loop %bb: constant max backedge-taken count is i32 1431655764
-; CHECK-NEXT:  Loop %bb: symbolic max backedge-taken count is ((-5 + %x) /u 3)
+; CHECK-NEXT:  Loop %bb: symbolic max backedge-taken count is (((-2 + (-1 * (1 umin (-2 + (-5 umax (2 + (-1 * %x))) + %x)))<nuw><nsw> + (-5 umax (2 + (-1 * %x))) + %x) /u 3) + (1 umin (-2 + (-5 umax (2 + (-1 * %x))) + %x)))
 ; CHECK-NEXT:  Loop %bb: Trip multiple is 1
 ;
 entry:

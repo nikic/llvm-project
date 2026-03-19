@@ -154,11 +154,11 @@ define void @s_4(i32 %start, ptr %cond) {
 ; CHECK-NEXT:    --> %c U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
 ; CHECK-NEXT:  Determining loop execution counts for: @s_4
 ; CHECK-NEXT:  Loop %loop: <multiple exits> Unpredictable backedge-taken count.
-; CHECK-NEXT:    exit count for loop: ((2 + (-1 * (-1000 smin %start)) + %start) /u 3)
+; CHECK-NEXT:    exit count for loop: (((1 + (-1 * (1 umin (1 + (999 smax (-1 + (-1 * %start))) + %start)))<nuw><nsw> + (999 smax (-1 + (-1 * %start))) + %start) /u 3) + (1 umin (1 + (999 smax (-1 + (-1 * %start))) + %start)))
 ; CHECK-NEXT:    exit count for be: ***COULDNOTCOMPUTE***
 ; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is i32 715828216
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((2 + (-1 * (-1000 smin %start)) + %start) /u 3)
-; CHECK-NEXT:    symbolic max exit count for loop: ((2 + (-1 * (-1000 smin %start)) + %start) /u 3)
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (((1 + (-1 * (1 umin (1 + (999 smax (-1 + (-1 * %start))) + %start)))<nuw><nsw> + (999 smax (-1 + (-1 * %start))) + %start) /u 3) + (1 umin (1 + (999 smax (-1 + (-1 * %start))) + %start)))
+; CHECK-NEXT:    symbolic max exit count for loop: (((1 + (-1 * (1 umin (1 + (999 smax (-1 + (-1 * %start))) + %start)))<nuw><nsw> + (999 smax (-1 + (-1 * %start))) + %start) /u 3) + (1 umin (1 + (999 smax (-1 + (-1 * %start))) + %start)))
 ; CHECK-NEXT:    symbolic max exit count for be: ***COULDNOTCOMPUTE***
 ;
 entry:

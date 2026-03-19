@@ -24,6 +24,7 @@ define i32 @main(ptr %ptr) {
 ; CHECK-NEXT:    [[CMP8:%.*]] = icmp eq i32 [[CONV17]], 0
 ; CHECK-NEXT:    br i1 [[CMP8]], label [[FOR_BODY_LR_PH:%.*]], label [[FOR_END12:%.*]]
 ; CHECK:       for.body.lr.ph:
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i32 -1, [[TMP0]]
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[STOREMERGE_IN9:%.*]] = phi i32 [ [[TMP0]], [[FOR_BODY_LR_PH]] ], [ [[ADD:%.*]], [[FOR_INC9:%.*]] ]
@@ -35,16 +36,19 @@ define i32 @main(ptr %ptr) {
 ; CHECK-NEXT:    [[DOTPROMOTED:%.*]] = load i32, ptr @a, align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = add i8 [[CONV3]], -1
 ; CHECK-NEXT:    [[TMP2:%.*]] = zext i8 [[TMP1]] to i32
-; CHECK-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
-; CHECK-NEXT:    [[UMIN1:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP0]], i32 [[TMP2]])
-; CHECK-NEXT:    [[TMP4:%.*]] = sub i32 [[TMP3]], [[UMIN1]]
-; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i32 [[TMP4]], 24
+; CHECK-NEXT:    [[TMP11:%.*]] = sub i32 -1, [[TMP2]]
+; CHECK-NEXT:    [[UMAX2:%.*]] = call i32 @llvm.umax.i32(i32 [[TMP3]], i32 [[TMP11]])
+; CHECK-NEXT:    [[TMP18:%.*]] = add i32 [[UMAX2]], 2
+; CHECK-NEXT:    [[TMP4:%.*]] = add i32 [[TMP18]], [[TMP2]]
+; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i32 [[TMP4]], 28
 ; CHECK-NEXT:    br i1 [[MIN_ITERS_CHECK]], label [[SCALAR_PH:%.*]], label [[VECTOR_SCEVCHECK:%.*]]
 ; CHECK:       vector.scevcheck:
 ; CHECK-NEXT:    [[TMP5:%.*]] = add i8 [[CONV3]], -1
 ; CHECK-NEXT:    [[TMP6:%.*]] = zext i8 [[TMP5]] to i32
-; CHECK-NEXT:    [[UMIN:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP0]], i32 [[TMP6]])
-; CHECK-NEXT:    [[TMP7:%.*]] = sub i32 [[TMP6]], [[UMIN]]
+; CHECK-NEXT:    [[TMP19:%.*]] = sub i32 -1, [[TMP6]]
+; CHECK-NEXT:    [[UMAX:%.*]] = call i32 @llvm.umax.i32(i32 [[TMP3]], i32 [[TMP19]])
+; CHECK-NEXT:    [[TMP21:%.*]] = add i32 [[UMAX]], 1
+; CHECK-NEXT:    [[TMP7:%.*]] = add i32 [[TMP21]], [[TMP6]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = trunc i32 [[TMP7]] to i8
 ; CHECK-NEXT:    [[TMP9:%.*]] = sub i8 [[TMP5]], [[TMP8]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp ugt i8 [[TMP9]], [[TMP5]]

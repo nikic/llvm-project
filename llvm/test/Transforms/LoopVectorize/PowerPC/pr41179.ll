@@ -6,11 +6,12 @@ define void @foo(ptr %start, ptr %end) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[START2:%.*]] = ptrtoint ptr [[START:%.*]] to i64
 ; CHECK-NEXT:    [[END1:%.*]] = ptrtoint ptr [[END:%.*]] to i64
-; CHECK-NEXT:    [[TMP0:%.*]] = trunc i64 [[END1]] to i32
-; CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[END1]], -1
-; CHECK-NEXT:    [[UMIN:%.*]] = call i64 @llvm.umin.i64(i64 [[START2]], i64 [[TMP1]])
+; CHECK-NEXT:    [[TMP0:%.*]] = sub i64 0, [[END1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = sub i64 -1, [[START2]]
+; CHECK-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[TMP0]], i64 [[TMP1]])
+; CHECK-NEXT:    [[UMIN:%.*]] = add i64 [[END1]], [[UMAX]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[UMIN]] to i32
-; CHECK-NEXT:    [[TMP3:%.*]] = sub i32 [[TMP0]], [[TMP2]]
+; CHECK-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i32 [[TMP3]], 2
 ; CHECK-NEXT:    br i1 [[MIN_ITERS_CHECK]], label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
 ; CHECK:       vector.ph:
@@ -43,7 +44,7 @@ define void @foo(ptr %start, ptr %end) {
 ; CHECK-NEXT:    [[G:%.*]] = getelementptr i8, ptr [[END]], i32 [[ADD]]
 ; CHECK-NEXT:    store i8 0, ptr [[G]], align 1
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ult ptr [[START]], [[G]]
-; CHECK-NEXT:    br i1 [[CMP]], label [[WHILE_BODY]], label [[WHILE_END_LOOPEXIT]], !llvm.loop [[LOOP2:![0-9]+]]
+; CHECK-NEXT:    br i1 [[CMP]], label [[WHILE_BODY]], label [[WHILE_END_LOOPEXIT]], !llvm.loop [[LOOP3:![0-9]+]]
 ; CHECK:       while.end.loopexit:
 ; CHECK-NEXT:    ret void
 ;

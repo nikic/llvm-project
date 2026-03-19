@@ -64,13 +64,13 @@ define void @smin_to_smax(i32 %n) {
 ; CHECK-LABEL: 'smin_to_smax'
 ; CHECK-NEXT:  Classifying expressions for: @smin_to_smax
 ; CHECK-NEXT:    %i.011 = phi i32 [ %n, %for.body.lr.ph ], [ %dec, %for.body ]
-; CHECK-NEXT:    --> {%n,+,-1}<nsw><%for.body> U: full-set S: full-set Exits: (0 smin %n) LoopDispositions: { %for.body: Computable }
+; CHECK-NEXT:    --> {%n,+,-1}<nsw><%for.body> U: full-set S: full-set Exits: (-1 + (-1 * (-1 smax (-1 + (-1 * %n))))<nsw>)<nsw> LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %dec = add nsw i32 %i.011, -1
-; CHECK-NEXT:    --> {(-1 + %n),+,-1}<nw><%for.body> U: full-set S: full-set Exits: (-1 + (0 smin %n)) LoopDispositions: { %for.body: Computable }
+; CHECK-NEXT:    --> {(-1 + %n),+,-1}<nw><%for.body> U: full-set S: full-set Exits: (-2 + (-1 * (-1 smax (-1 + (-1 * %n))))<nsw>) LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @smin_to_smax
-; CHECK-NEXT:  Loop %for.body: backedge-taken count is ((-1 * (0 smin %n)) + %n)
+; CHECK-NEXT:  Loop %for.body: backedge-taken count is (1 + (-1 smax (-1 + (-1 * %n))) + %n)
 ; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is i32 2147483647
-; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is ((-1 * (0 smin %n)) + %n)
+; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is (1 + (-1 smax (-1 + (-1 * %n))) + %n)
 ; CHECK-NEXT:  Loop %for.body: Trip multiple is 1
 ;
 entry:

@@ -115,9 +115,10 @@ define i32 @consecutive_ptr_reverse(ptr %a, i64 %n) {
 ; CHECK-LABEL: define i32 @consecutive_ptr_reverse(
 ; CHECK-SAME: ptr [[A:%.*]], i64 [[N:%.*]]) {
 ; CHECK-NEXT:  [[ENTRY:.*]]:
-; CHECK-NEXT:    [[TMP0:%.*]] = add nsw i64 [[N]], -1
-; CHECK-NEXT:    [[SMIN:%.*]] = call i64 @llvm.smin.i64(i64 [[TMP0]], i64 0)
-; CHECK-NEXT:    [[TMP1:%.*]] = sub i64 [[N]], [[SMIN]]
+; CHECK-NEXT:    [[TMP0:%.*]] = sub i64 0, [[N]]
+; CHECK-NEXT:    [[SMAX:%.*]] = call i64 @llvm.smax.i64(i64 [[TMP0]], i64 -1)
+; CHECK-NEXT:    [[TMP8:%.*]] = add i64 [[N]], [[SMAX]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[TMP8]], 1
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP1]], 4
 ; CHECK-NEXT:    br i1 [[MIN_ITERS_CHECK]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; CHECK:       [[VECTOR_PH]]:
@@ -161,9 +162,10 @@ define i32 @consecutive_ptr_reverse(ptr %a, i64 %n) {
 ; INTER-LABEL: define i32 @consecutive_ptr_reverse(
 ; INTER-SAME: ptr [[A:%.*]], i64 [[N:%.*]]) {
 ; INTER-NEXT:  [[ENTRY:.*]]:
-; INTER-NEXT:    [[TMP0:%.*]] = add nsw i64 [[N]], -1
-; INTER-NEXT:    [[SMIN:%.*]] = call i64 @llvm.smin.i64(i64 [[TMP0]], i64 0)
-; INTER-NEXT:    [[TMP1:%.*]] = sub i64 [[N]], [[SMIN]]
+; INTER-NEXT:    [[TMP0:%.*]] = sub i64 0, [[N]]
+; INTER-NEXT:    [[SMAX:%.*]] = call i64 @llvm.smax.i64(i64 [[TMP0]], i64 -1)
+; INTER-NEXT:    [[TMP8:%.*]] = add i64 [[N]], [[SMAX]]
+; INTER-NEXT:    [[TMP1:%.*]] = add i64 [[TMP8]], 1
 ; INTER-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP1]], 4
 ; INTER-NEXT:    br i1 [[MIN_ITERS_CHECK]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; INTER:       [[VECTOR_PH]]:
@@ -373,9 +375,10 @@ define i32 @interleaved_access_reverse(ptr %p, i64 %n) {
 ; CHECK-LABEL: define i32 @interleaved_access_reverse(
 ; CHECK-SAME: ptr [[P:%.*]], i64 [[N:%.*]]) {
 ; CHECK-NEXT:  [[ENTRY:.*]]:
-; CHECK-NEXT:    [[TMP0:%.*]] = add nsw i64 [[N]], -1
-; CHECK-NEXT:    [[SMIN:%.*]] = call i64 @llvm.smin.i64(i64 [[TMP0]], i64 0)
-; CHECK-NEXT:    [[TMP1:%.*]] = sub i64 [[N]], [[SMIN]]
+; CHECK-NEXT:    [[TMP0:%.*]] = sub i64 0, [[N]]
+; CHECK-NEXT:    [[SMAX:%.*]] = call i64 @llvm.smax.i64(i64 [[TMP0]], i64 -1)
+; CHECK-NEXT:    [[TMP18:%.*]] = add i64 [[N]], [[SMAX]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[TMP18]], 1
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP1]], 4
 ; CHECK-NEXT:    br i1 [[MIN_ITERS_CHECK]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; CHECK:       [[VECTOR_PH]]:
@@ -446,9 +449,10 @@ define i32 @interleaved_access_reverse(ptr %p, i64 %n) {
 ; INTER-LABEL: define i32 @interleaved_access_reverse(
 ; INTER-SAME: ptr [[P:%.*]], i64 [[N:%.*]]) {
 ; INTER-NEXT:  [[ENTRY:.*]]:
-; INTER-NEXT:    [[TMP0:%.*]] = add nsw i64 [[N]], -1
-; INTER-NEXT:    [[SMIN:%.*]] = call i64 @llvm.smin.i64(i64 [[TMP0]], i64 0)
-; INTER-NEXT:    [[TMP1:%.*]] = sub i64 [[N]], [[SMIN]]
+; INTER-NEXT:    [[TMP0:%.*]] = sub i64 0, [[N]]
+; INTER-NEXT:    [[SMAX:%.*]] = call i64 @llvm.smax.i64(i64 [[TMP0]], i64 -1)
+; INTER-NEXT:    [[TMP5:%.*]] = add i64 [[N]], [[SMAX]]
+; INTER-NEXT:    [[TMP1:%.*]] = add i64 [[TMP5]], 1
 ; INTER-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP1]], 4
 ; INTER-NEXT:    br i1 [[MIN_ITERS_CHECK]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; INTER:       [[VECTOR_PH]]:

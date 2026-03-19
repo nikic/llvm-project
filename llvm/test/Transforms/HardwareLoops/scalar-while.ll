@@ -122,7 +122,11 @@ define void @while_gt(i32 %i, i32 %N, ptr nocapture %A) {
 ; CHECK-DEC-NEXT:    [[CMP4:%.*]] = icmp sgt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-DEC-NEXT:    br i1 [[CMP4]], label [[WHILE_BODY_PREHEADER:%.*]], label [[WHILE_END:%.*]]
 ; CHECK-DEC:       while.body.preheader:
-; CHECK-DEC-NEXT:    [[TMP0:%.*]] = sub i32 [[I]], [[N]]
+; CHECK-DEC-NEXT:    [[TMP3:%.*]] = sub i32 0, [[I]]
+; CHECK-DEC-NEXT:    [[TMP4:%.*]] = sub i32 -1, [[N]]
+; CHECK-DEC-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP3]], i32 [[TMP4]])
+; CHECK-DEC-NEXT:    [[TMP2:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-DEC-NEXT:    [[TMP0:%.*]] = add i32 [[TMP2]], 1
 ; CHECK-DEC-NEXT:    call void @llvm.set.loop.iterations.i32(i32 [[TMP0]])
 ; CHECK-DEC-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-DEC:       while.body:
@@ -140,7 +144,11 @@ define void @while_gt(i32 %i, i32 %N, ptr nocapture %A) {
 ; CHECK-PHI-NEXT:    [[CMP4:%.*]] = icmp sgt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-PHI-NEXT:    br i1 [[CMP4]], label [[WHILE_BODY_PREHEADER:%.*]], label [[WHILE_END:%.*]]
 ; CHECK-PHI:       while.body.preheader:
-; CHECK-PHI-NEXT:    [[TMP0:%.*]] = sub i32 [[I]], [[N]]
+; CHECK-PHI-NEXT:    [[TMP5:%.*]] = sub i32 0, [[I]]
+; CHECK-PHI-NEXT:    [[TMP6:%.*]] = sub i32 -1, [[N]]
+; CHECK-PHI-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP5]], i32 [[TMP6]])
+; CHECK-PHI-NEXT:    [[TMP7:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-PHI-NEXT:    [[TMP0:%.*]] = add i32 [[TMP7]], 1
 ; CHECK-PHI-NEXT:    [[TMP1:%.*]] = call i32 @llvm.start.loop.iterations.i32(i32 [[TMP0]])
 ; CHECK-PHI-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-PHI:       while.body:
@@ -160,7 +168,11 @@ define void @while_gt(i32 %i, i32 %N, ptr nocapture %A) {
 ; CHECK-NESTED-NEXT:    [[CMP4:%.*]] = icmp sgt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-NESTED-NEXT:    br i1 [[CMP4]], label [[WHILE_BODY_PREHEADER:%.*]], label [[WHILE_END:%.*]]
 ; CHECK-NESTED:       while.body.preheader:
-; CHECK-NESTED-NEXT:    [[TMP0:%.*]] = sub i32 [[I]], [[N]]
+; CHECK-NESTED-NEXT:    [[TMP3:%.*]] = sub i32 0, [[I]]
+; CHECK-NESTED-NEXT:    [[TMP4:%.*]] = sub i32 -1, [[N]]
+; CHECK-NESTED-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP3]], i32 [[TMP4]])
+; CHECK-NESTED-NEXT:    [[TMP2:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-NESTED-NEXT:    [[TMP0:%.*]] = add i32 [[TMP2]], 1
 ; CHECK-NESTED-NEXT:    call void @llvm.set.loop.iterations.i32(i32 [[TMP0]])
 ; CHECK-NESTED-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-NESTED:       while.body:
@@ -176,9 +188,13 @@ define void @while_gt(i32 %i, i32 %N, ptr nocapture %A) {
 ; CHECK-GUARD-LABEL: @while_gt(
 ; CHECK-GUARD-NEXT:  entry:
 ; CHECK-GUARD-NEXT:    [[CMP4:%.*]] = icmp sgt i32 [[I:%.*]], [[N:%.*]]
-; CHECK-GUARD-NEXT:    [[TMP0:%.*]] = sub i32 [[I]], [[N]]
 ; CHECK-GUARD-NEXT:    br i1 [[CMP4]], label [[WHILE_BODY_PREHEADER:%.*]], label [[WHILE_END:%.*]]
 ; CHECK-GUARD:       while.body.preheader:
+; CHECK-GUARD-NEXT:    [[TMP3:%.*]] = sub i32 0, [[I]]
+; CHECK-GUARD-NEXT:    [[TMP4:%.*]] = sub i32 -1, [[N]]
+; CHECK-GUARD-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP3]], i32 [[TMP4]])
+; CHECK-GUARD-NEXT:    [[TMP2:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-GUARD-NEXT:    [[TMP0:%.*]] = add i32 [[TMP2]], 1
 ; CHECK-GUARD-NEXT:    call void @llvm.set.loop.iterations.i32(i32 [[TMP0]])
 ; CHECK-GUARD-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-GUARD:       while.body:
@@ -194,9 +210,13 @@ define void @while_gt(i32 %i, i32 %N, ptr nocapture %A) {
 ; CHECK-PHIGUARD-LABEL: @while_gt(
 ; CHECK-PHIGUARD-NEXT:  entry:
 ; CHECK-PHIGUARD-NEXT:    [[CMP4:%.*]] = icmp sgt i32 [[I:%.*]], [[N:%.*]]
-; CHECK-PHIGUARD-NEXT:    [[TMP0:%.*]] = sub i32 [[I]], [[N]]
 ; CHECK-PHIGUARD-NEXT:    br i1 [[CMP4]], label [[WHILE_BODY_PREHEADER:%.*]], label [[WHILE_END:%.*]]
 ; CHECK-PHIGUARD:       while.body.preheader:
+; CHECK-PHIGUARD-NEXT:    [[TMP5:%.*]] = sub i32 0, [[I]]
+; CHECK-PHIGUARD-NEXT:    [[TMP6:%.*]] = sub i32 -1, [[N]]
+; CHECK-PHIGUARD-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP5]], i32 [[TMP6]])
+; CHECK-PHIGUARD-NEXT:    [[TMP7:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-PHIGUARD-NEXT:    [[TMP0:%.*]] = add i32 [[TMP7]], 1
 ; CHECK-PHIGUARD-NEXT:    [[TMP1:%.*]] = call i32 @llvm.start.loop.iterations.i32(i32 [[TMP0]])
 ; CHECK-PHIGUARD-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-PHIGUARD:       while.body:
@@ -233,8 +253,11 @@ define void @while_gte(i32 %i, i32 %N, ptr nocapture %A) {
 ; CHECK-DEC-NEXT:    [[CMP4:%.*]] = icmp slt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-DEC-NEXT:    br i1 [[CMP4]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
 ; CHECK-DEC:       while.body.preheader:
-; CHECK-DEC-NEXT:    [[TMP0:%.*]] = add i32 [[I]], 1
-; CHECK-DEC-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[N]]
+; CHECK-DEC-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[I]]
+; CHECK-DEC-NEXT:    [[TMP3:%.*]] = sub i32 -1, [[N]]
+; CHECK-DEC-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 [[TMP3]])
+; CHECK-DEC-NEXT:    [[TMP4:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-DEC-NEXT:    [[TMP1:%.*]] = add i32 [[TMP4]], 2
 ; CHECK-DEC-NEXT:    call void @llvm.set.loop.iterations.i32(i32 [[TMP1]])
 ; CHECK-DEC-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-DEC:       while.body:
@@ -252,8 +275,11 @@ define void @while_gte(i32 %i, i32 %N, ptr nocapture %A) {
 ; CHECK-PHI-NEXT:    [[CMP4:%.*]] = icmp slt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-PHI-NEXT:    br i1 [[CMP4]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
 ; CHECK-PHI:       while.body.preheader:
-; CHECK-PHI-NEXT:    [[TMP0:%.*]] = add i32 [[I]], 1
-; CHECK-PHI-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[N]]
+; CHECK-PHI-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[I]]
+; CHECK-PHI-NEXT:    [[TMP6:%.*]] = sub i32 -1, [[N]]
+; CHECK-PHI-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 [[TMP6]])
+; CHECK-PHI-NEXT:    [[TMP7:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-PHI-NEXT:    [[TMP1:%.*]] = add i32 [[TMP7]], 2
 ; CHECK-PHI-NEXT:    [[TMP2:%.*]] = call i32 @llvm.start.loop.iterations.i32(i32 [[TMP1]])
 ; CHECK-PHI-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-PHI:       while.body:
@@ -273,8 +299,11 @@ define void @while_gte(i32 %i, i32 %N, ptr nocapture %A) {
 ; CHECK-NESTED-NEXT:    [[CMP4:%.*]] = icmp slt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-NESTED-NEXT:    br i1 [[CMP4]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
 ; CHECK-NESTED:       while.body.preheader:
-; CHECK-NESTED-NEXT:    [[TMP0:%.*]] = add i32 [[I]], 1
-; CHECK-NESTED-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[N]]
+; CHECK-NESTED-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[I]]
+; CHECK-NESTED-NEXT:    [[TMP3:%.*]] = sub i32 -1, [[N]]
+; CHECK-NESTED-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 [[TMP3]])
+; CHECK-NESTED-NEXT:    [[TMP4:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-NESTED-NEXT:    [[TMP1:%.*]] = add i32 [[TMP4]], 2
 ; CHECK-NESTED-NEXT:    call void @llvm.set.loop.iterations.i32(i32 [[TMP1]])
 ; CHECK-NESTED-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-NESTED:       while.body:
@@ -292,8 +321,11 @@ define void @while_gte(i32 %i, i32 %N, ptr nocapture %A) {
 ; CHECK-GUARD-NEXT:    [[CMP4:%.*]] = icmp slt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-GUARD-NEXT:    br i1 [[CMP4]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
 ; CHECK-GUARD:       while.body.preheader:
-; CHECK-GUARD-NEXT:    [[TMP0:%.*]] = add i32 [[I]], 1
-; CHECK-GUARD-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[N]]
+; CHECK-GUARD-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[I]]
+; CHECK-GUARD-NEXT:    [[TMP3:%.*]] = sub i32 -1, [[N]]
+; CHECK-GUARD-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 [[TMP3]])
+; CHECK-GUARD-NEXT:    [[TMP4:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-GUARD-NEXT:    [[TMP1:%.*]] = add i32 [[TMP4]], 2
 ; CHECK-GUARD-NEXT:    call void @llvm.set.loop.iterations.i32(i32 [[TMP1]])
 ; CHECK-GUARD-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-GUARD:       while.body:
@@ -311,8 +343,11 @@ define void @while_gte(i32 %i, i32 %N, ptr nocapture %A) {
 ; CHECK-PHIGUARD-NEXT:    [[CMP4:%.*]] = icmp slt i32 [[I:%.*]], [[N:%.*]]
 ; CHECK-PHIGUARD-NEXT:    br i1 [[CMP4]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
 ; CHECK-PHIGUARD:       while.body.preheader:
-; CHECK-PHIGUARD-NEXT:    [[TMP0:%.*]] = add i32 [[I]], 1
-; CHECK-PHIGUARD-NEXT:    [[TMP1:%.*]] = sub i32 [[TMP0]], [[N]]
+; CHECK-PHIGUARD-NEXT:    [[TMP0:%.*]] = sub i32 -1, [[I]]
+; CHECK-PHIGUARD-NEXT:    [[TMP6:%.*]] = sub i32 -1, [[N]]
+; CHECK-PHIGUARD-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[TMP0]], i32 [[TMP6]])
+; CHECK-PHIGUARD-NEXT:    [[TMP7:%.*]] = add i32 [[I]], [[SMAX]]
+; CHECK-PHIGUARD-NEXT:    [[TMP1:%.*]] = add i32 [[TMP7]], 2
 ; CHECK-PHIGUARD-NEXT:    [[TMP2:%.*]] = call i32 @llvm.start.loop.iterations.i32(i32 [[TMP1]])
 ; CHECK-PHIGUARD-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK-PHIGUARD:       while.body:
