@@ -1308,10 +1308,12 @@ private:
       // to unknown guarantees that any memory accesses that access locations
       // after the pointer are considered as clobbers, which is important to
       // catch loop carried dependences.
-      if (!IsGuaranteedLoopInvariant(CurrentElem.Loc.Ptr))
+      if (!IsGuaranteedLoopInvariant(CurrentElem.Loc.Ptr)) {
         // TODO: We should be using MayBeCrossIteration here as well.
         CurrentElem.Loc = CurrentElem.Loc.getWithNewSize(
             LocationSize::beforeOrAfterPointer());
+        CurrentElem.MayBeCrossIteration = true;
+      }
     } else {
       // We can't easily analyze invariance for calls, so conservatively assume
       // they may be introducing cross-iteration dependences for any phi
