@@ -14,6 +14,7 @@
 #include "llvm/Transforms/Utils/MoveAutoInit.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/CycleAnalysis.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -95,7 +96,8 @@ static BasicBlock *usersDominator(const MemoryLocation &ML, Instruction *I,
   return CurrentDominator;
 }
 
-static bool runMoveAutoInit(Function &F, DominatorTree &DT, MemorySSA &MSSA) {
+static bool runMoveAutoInit(Function &F, DominatorTree &DT, CycleInfo &CI,
+                            MemorySSA &MSSA) {
   BasicBlock &EntryBB = F.getEntryBlock();
   SmallVector<std::pair<Instruction *, BasicBlock *>> JobList;
 
@@ -117,57 +119,11 @@ static bool runMoveAutoInit(Function &F, DominatorTree &DT, MemorySSA &MSSA) {
     if (UsersDominator == &EntryBB)
       continue;
 
-    // Traverse the CFG to detect cycles `UsersDominator` would be part of.
-    SmallPtrSet<BasicBlock *, 8> TransitiveSuccessors;
-    SmallVector<BasicBlock *> WorkList(successors(UsersDominator));
-    bool HasCycle = false;
-    while (!WorkList.empty()) {
-      BasicBlock *CurrBB = WorkList.pop_back_val();
-      if (CurrBB == UsersDominator)
-        // No early exit because we want to compute the full set of transitive
-        // successors.
-        HasCycle = true;
-      for (BasicBlock *Successor : successors(CurrBB)) {
-        if (!TransitiveSuccessors.insert(Successor).second)
-          continue;
-        WorkList.push_back(Successor);
-      }
-    }
-
-    // Don't insert if that could create multiple execution of I,
-    // but we can insert it in the non back-edge predecessors, if it exists.
-    if (HasCycle) {
-      BasicBlock *UsersDominatorHead = UsersDominator;
-      while (BasicBlock *UniquePredecessor =
-                 UsersDominatorHead->getUniquePredecessor())
-        UsersDominatorHead = UniquePredecessor;
-
-      if (UsersDominatorHead == &EntryBB)
-        continue;
-
-      BasicBlock *DominatingPredecessor = nullptr;
-      for (BasicBlock *Pred : predecessors(UsersDominatorHead)) {
-        // If one of the predecessor of the dominator also transitively is a
-        // successor, moving to the dominator would do the inverse of loop
-        // hoisting, and we don't want that.
-        if (TransitiveSuccessors.count(Pred))
-          continue;
-
-        if (!DT.isReachableFromEntry(Pred))
-          continue;
-        if (!DT.dominates(Pred, UsersDominatorHead))
-          continue;
-        DominatingPredecessor =
-            DominatingPredecessor
-                ? DT.findNearestCommonDominator(DominatingPredecessor, Pred)
-                : Pred;
-      }
-
-      if (!DominatingPredecessor || DominatingPredecessor == &EntryBB)
-        continue;
-
-      UsersDominator = DominatingPredecessor;
-    }
+    // The entries of a cycle are siblings in the dominator tree. As such, we
+    // can take the idom of the header block to get a block that dominates all
+    // entries.
+    while (Cycle *C = CI.getTopLevelParentCycle(UsersDominator))
+      UsersDominator = DT.getNode(C->getHeader())->getIDom()->getBlock();
 
     // CatchSwitchInst blocks can only have one instruction, so they are not
     // good candidates for insertion.
@@ -212,12 +168,12 @@ PreservedAnalyses MoveAutoInitPass::run(Function &F,
                                         FunctionAnalysisManager &AM) {
 
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &CI = AM.getResult<CycleAnalysis>(F);
   auto &MSSA = AM.getResult<MemorySSAAnalysis>(F).getMSSA();
-  if (!runMoveAutoInit(F, DT, MSSA))
+  if (!runMoveAutoInit(F, DT, CI, MSSA))
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
-  PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<MemorySSAAnalysis>();
   PA.preserveSet<CFGAnalyses>();
   return PA;
