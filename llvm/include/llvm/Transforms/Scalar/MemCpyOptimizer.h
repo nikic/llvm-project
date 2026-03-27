@@ -26,6 +26,7 @@ class BatchAAResults;
 class AssumptionCache;
 class CallBase;
 class CallInst;
+class CycleInfo;
 class DominatorTree;
 class EarliestEscapeAnalysis;
 class Function;
@@ -48,6 +49,7 @@ class MemCpyOptPass : public PassInfoMixin<MemCpyOptPass> {
   AssumptionCache *AC = nullptr;
   DominatorTree *DT = nullptr;
   PostDominatorTree *PDT = nullptr;
+  CycleInfo *CI = nullptr;
   MemorySSA *MSSA = nullptr;
   MemorySSAUpdater *MSSAU = nullptr;
   EarliestEscapeAnalysis *EEA = nullptr;
@@ -61,7 +63,7 @@ private:
   // Helper functions
   bool runImpl(Function &F, TargetLibraryInfo *TLI, AAResults *AA,
                AssumptionCache *AC, DominatorTree *DT, PostDominatorTree *PDT,
-               MemorySSA *MSSA);
+               CycleInfo*CI, MemorySSA *MSSA);
   bool processStore(StoreInst *SI, BasicBlock::iterator &BBI);
   bool processStoreOfLoad(StoreInst *SI, LoadInst *LI, const DataLayout &DL,
                           BasicBlock::iterator &BBI);

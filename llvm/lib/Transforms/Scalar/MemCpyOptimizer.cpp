@@ -22,6 +22,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/CycleAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Loads.h"
@@ -1657,16 +1658,9 @@ bool MemCpyOptPass::performStackMoveOptzn(Instruction *Load, Instruction *Store,
         // between whole blocks.
         BasicBlock *BB = UI->getParent();
 
-        // If A comes before B, then B is definitively reachable from A.
-        if (UI->comesBefore(Store))
-          return false;
-
-        // If the user's parent block is entry, no predecessor exists.
-        if (BB->isEntryBlock())
-          return true;
-
-        // Otherwise, continue doing the normal per-BB CFG walk.
-        ReachabilityWorklist.append(succ_begin(BB), succ_end(BB));
+        // UI can reach Store only it comes before it, or they are part of a
+        // cycle.
+        return !UI->comesBefore(Store) && !CI->getCycle(BB);
       } else {
         ReachabilityWorklist.push_back(UI->getParent());
       }
@@ -1681,7 +1675,7 @@ bool MemCpyOptPass::performStackMoveOptzn(Instruction *Load, Instruction *Store,
   // Bailout if Dest may have any ModRef before Store.
   if (!ReachabilityWorklist.empty() &&
       isPotentiallyReachableFromMany(ReachabilityWorklist, Store->getParent(),
-                                     nullptr, DT, nullptr))
+                                     nullptr, DT, nullptr, CI))
     return false;
 
   // Check that, from after the Load to the end of the BB,
@@ -2231,9 +2225,10 @@ PreservedAnalyses MemCpyOptPass::run(Function &F, FunctionAnalysisManager &AM) {
   auto *AC = &AM.getResult<AssumptionAnalysis>(F);
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
   auto *PDT = &AM.getResult<PostDominatorTreeAnalysis>(F);
+  auto *CI = &AM.getResult<CycleAnalysis>(F);
   auto *MSSA = &AM.getResult<MemorySSAAnalysis>(F);
 
-  bool MadeChange = runImpl(F, &TLI, AA, AC, DT, PDT, &MSSA->getMSSA());
+  bool MadeChange = runImpl(F, &TLI, AA, AC, DT, PDT, CI, &MSSA->getMSSA());
   if (!MadeChange)
     return PreservedAnalyses::all();
 
@@ -2246,17 +2241,18 @@ PreservedAnalyses MemCpyOptPass::run(Function &F, FunctionAnalysisManager &AM) {
 bool MemCpyOptPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                             AliasAnalysis *AA_, AssumptionCache *AC_,
                             DominatorTree *DT_, PostDominatorTree *PDT_,
-                            MemorySSA *MSSA_) {
+                            CycleInfo *CI_, MemorySSA *MSSA_) {
   bool MadeChange = false;
   TLI = TLI_;
   AA = AA_;
   AC = AC_;
   DT = DT_;
   PDT = PDT_;
+  CI = CI_;
   MSSA = MSSA_;
   MemorySSAUpdater MSSAU_(MSSA_);
   MSSAU = &MSSAU_;
-  EarliestEscapeAnalysis EEA_(*DT);
+  EarliestEscapeAnalysis EEA_(*DT, nullptr, CI);
   EEA = &EEA_;
 
   while (true) {
