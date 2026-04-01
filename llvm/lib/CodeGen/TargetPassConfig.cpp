@@ -864,13 +864,8 @@ void TargetPassConfig::addIRPasses() {
         addPass(createLoopTermFoldPass());
     }
 
-    // The MergeICmpsPass tries to create memcmp calls by grouping sequences of
-    // loads and compares. ExpandMemCmpPass then tries to expand those calls
-    // into optimally-sized loads and compares. The transforms are enabled by a
-    // target lowering hook.
-    if (!DisableMergeICmps)
-      addPass(createMergeICmpsLegacyPass());
-    addPass(createExpandMemCmpLegacyPass());
+    // MergeICmps and ExpandMemCmp now run in the middle-end optimization
+    // pipeline (see PassBuilderPipelines.cpp). They are no longer needed here.
   }
 
   // Run GC lowering passes for builtin collectors

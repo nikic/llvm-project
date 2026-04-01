@@ -91,7 +91,7 @@
 #include "llvm/CodeGen/EarlyIfConversion.h"
 #include "llvm/CodeGen/EdgeBundles.h"
 #include "llvm/CodeGen/ExpandIRInsts.h"
-#include "llvm/CodeGen/ExpandMemCmp.h"
+#include "llvm/Transforms/Scalar/ExpandMemCmp.h"
 #include "llvm/CodeGen/ExpandPostRAPseudos.h"
 #include "llvm/CodeGen/ExpandReductions.h"
 #include "llvm/CodeGen/FEntryInserter.h"

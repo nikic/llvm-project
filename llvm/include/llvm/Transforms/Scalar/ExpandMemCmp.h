@@ -5,14 +5,19 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// This header is deprecated. Use llvm/Transforms/Scalar/ExpandMemCmp.h instead.
-//
-//===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CODEGEN_EXPANDMEMCMP_H
-#define LLVM_CODEGEN_EXPANDMEMCMP_H
+#ifndef LLVM_TRANSFORMS_SCALAR_EXPANDMEMCMP_H
+#define LLVM_TRANSFORMS_SCALAR_EXPANDMEMCMP_H
 
-#include "llvm/Transforms/Scalar/ExpandMemCmp.h"
+#include "llvm/IR/PassManager.h"
 
-#endif // LLVM_CODEGEN_EXPANDMEMCMP_H
+namespace llvm {
+
+class ExpandMemCmpPass : public PassInfoMixin<ExpandMemCmpPass> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
+};
+
+} // namespace llvm
+
+#endif // LLVM_TRANSFORMS_SCALAR_EXPANDMEMCMP_H
