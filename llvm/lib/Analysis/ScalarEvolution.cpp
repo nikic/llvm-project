@@ -12028,16 +12028,43 @@ bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
     PredBB = ContainingLoop->getLoopPredecessor();
   else
     PredBB = BB->getSinglePredecessor();
-  for (std::pair<const BasicBlock *, const BasicBlock *> Pair(PredBB, BB);
-       Pair.first; Pair = getPredecessorWithUniqueSuccessorForBB(Pair.first)) {
-    const CondBrInst *BlockEntryPredicate =
-        dyn_cast<CondBrInst>(Pair.first->getTerminator());
-    if (!BlockEntryPredicate)
-      continue;
-
-    if (ProveViaCond(BlockEntryPredicate->getCondition(),
-                     BlockEntryPredicate->getSuccessor(0) != Pair.second))
-      return true;
+  // For simplificity, only one merge block is handled.
+  const BasicBlock *MergeBlock = nullptr;
+  unsigned NumVisits = 0;
+  auto ProveViaPredecessorChain = [&](const BasicBlock *Pred,
+                                      const BasicBlock *Succ,
+                                      unsigned MaxNumVisits) {
+    for (std::pair<const BasicBlock *, const BasicBlock *> Pair(Pred, Succ);
+         Pair.first;
+         Pair = getPredecessorWithUniqueSuccessorForBB(Pair.first)) {
+      if (NumVisits++ > MaxNumVisits)
+        return false;
+      const CondBrInst *BlockEntryPredicate =
+          dyn_cast<CondBrInst>(Pair.first->getTerminator());
+      if (BlockEntryPredicate &&
+          ProveViaCond(BlockEntryPredicate->getCondition(),
+                       BlockEntryPredicate->getSuccessor(0) != Pair.second))
+        return true;
+      if (!MergeBlock && Pair.first->hasNPredecessorsOrMore(2))
+        MergeBlock = Pair.first;
+    }
+    return false;
+  };
+  unsigned MaxChainVisits = ~0u; // No limit for the first predecessor chain.
+  if (ProveViaPredecessorChain(PredBB, BB, MaxChainVisits))
+    return true;
+  if (MergeBlock) {
+    // The Chain from MergeBlock to BB consists only of single-predecessor
+    // blocks. If MergeBlock is not in a different loop, and every predecessor
+    // of MergeBlock proves the condition, then BB is guarded by the condition.
+    MaxChainVisits = 128;
+    auto ProveMergeBlockPredecessor = [&](const BasicBlock *Pred) {
+      return ProveViaPredecessorChain(Pred, MergeBlock, MaxChainVisits);
+    };
+    const Loop *MergeBlockLoop = LI.getLoopFor(MergeBlock);
+    if (!MergeBlockLoop || ContainingLoop == MergeBlockLoop)
+      if (all_of(predecessors(MergeBlock), ProveMergeBlockPredecessor))
+        return true;
   }
 
   // Check conditions due to any @llvm.assume intrinsics.
