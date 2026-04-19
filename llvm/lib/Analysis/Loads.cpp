@@ -545,7 +545,7 @@ bool llvm::isSafeToLoadUnconditionally(Value *V, Type *Ty, Align Alignment,
 /// At that point, the value of MaxInstsToScan was already set to '6'
 /// without documented explanation.
 cl::opt<unsigned>
-llvm::DefMaxInstsToScan("available-load-scan-limit", cl::init(6), cl::Hidden,
+llvm::DefMaxInstsToScan("available-load-scan-limit", cl::init(8), cl::Hidden,
   cl::desc("Use this to specify the default maximum number of instructions "
            "to scan backward from a given instruction, when searching for "
            "available loaded value"));
