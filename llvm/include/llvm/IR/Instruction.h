@@ -848,7 +848,9 @@ public:
   LLVM_ABI bool mayReadFromMemory() const LLVM_READONLY;
 
   /// Return true if this instruction may read or write memory.
-  LLVM_ABI bool mayReadOrWriteMemory() const LLVM_READONLY;
+  bool mayReadOrWriteMemory() const {
+    return mayReadFromMemory() || mayWriteToMemory();
+  }
 
   /// Return true if this instruction has an AtomicOrdering of unordered or
   /// higher.

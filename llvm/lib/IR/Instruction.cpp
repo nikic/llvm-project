@@ -1093,16 +1093,48 @@ MemoryEffects Instruction::getMemoryEffects() const {
   }
 }
 
+// This is duplicating the logic from getMemoryEffects() for performance
+// reasons. Computing the full MemoryEffects just to perform a Mod/Ref check
+// is expensive.
+
 bool Instruction::mayReadFromMemory() const {
-  return isRefSet(getMemoryEffects().getModRef());
+  switch (getOpcode()) {
+  default: return false;
+  case Instruction::VAArg:
+  case Instruction::Load:
+  case Instruction::Fence: // FIXME: refine definition of mayReadFromMemory
+  case Instruction::AtomicCmpXchg:
+  case Instruction::AtomicRMW:
+  case Instruction::CatchPad:
+  case Instruction::CatchRet:
+    return true;
+  case Instruction::Call:
+  case Instruction::Invoke:
+  case Instruction::CallBr:
+    return !cast<CallBase>(this)->onlyWritesMemory();
+  case Instruction::Store:
+    return !cast<StoreInst>(this)->isUnordered();
+  }
 }
 
 bool Instruction::mayWriteToMemory() const {
-  return isModSet(getMemoryEffects().getModRef());
-}
-
-bool Instruction::mayReadOrWriteMemory() const {
-  return isModOrRefSet(getMemoryEffects().getModRef());
+  switch (getOpcode()) {
+  default: return false;
+  case Instruction::Fence: // FIXME: refine definition of mayWriteToMemory
+  case Instruction::Store:
+  case Instruction::VAArg:
+  case Instruction::AtomicCmpXchg:
+  case Instruction::AtomicRMW:
+  case Instruction::CatchPad:
+  case Instruction::CatchRet:
+    return true;
+  case Instruction::Call:
+  case Instruction::Invoke:
+  case Instruction::CallBr:
+    return !cast<CallBase>(this)->onlyReadsMemory();
+  case Instruction::Load:
+    return !cast<LoadInst>(this)->isUnordered();
+  }
 }
 
 bool Instruction::isAtomic() const {
