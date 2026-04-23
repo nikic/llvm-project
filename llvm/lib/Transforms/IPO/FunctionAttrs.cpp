@@ -241,27 +241,20 @@ checkFunctionMemoryAccess(Function &F, bool ThisBody, AAResults &AAR,
       continue;
     }
 
-    ModRefInfo MR = ModRefInfo::NoModRef;
-    if (I.mayWriteToMemory())
-      MR |= ModRefInfo::Mod;
-    if (I.mayReadFromMemory())
-      MR |= ModRefInfo::Ref;
-    if (MR == ModRefInfo::NoModRef)
+    MemoryEffects InstME = I.getMemoryEffects();
+    if (InstME.doesNotAccessMemory())
       continue;
 
     std::optional<MemoryLocation> Loc = MemoryLocation::getOrNone(&I);
     if (!Loc) {
       // If no location is known, conservatively assume anything can be
       // accessed.
-      ME |= MemoryEffects(MR);
+      ME |= MemoryEffects(InstME.getModRef());
       continue;
     }
 
-    // Volatile operations may access inaccessible memory.
-    if (I.isVolatile())
-      ME |= MemoryEffects::inaccessibleMemOnly(MR);
-
-    addLocAccess(ME, *Loc, MR, AAR);
+    ME |= InstME.getWithoutLoc(IRMemLocation::ArgMem);
+    addLocAccess(ME, *Loc, InstME.getModRef(IRMemLocation::ArgMem), AAR);
   }
 
   return {OrigME & ME, RecursiveArgME};
