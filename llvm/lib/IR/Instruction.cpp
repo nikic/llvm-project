@@ -1052,44 +1052,57 @@ bool Instruction::isUsedOutsideOfBlock(const BasicBlock *BB) const {
   return false;
 }
 
-bool Instruction::mayReadFromMemory() const {
+MemoryEffects Instruction::getMemoryEffects() const {
   switch (getOpcode()) {
-  default: return false;
+  default:
+    return MemoryEffects::none();
   case Instruction::VAArg:
-  case Instruction::Load:
-  case Instruction::Fence: // FIXME: refine definition of mayReadFromMemory
-  case Instruction::AtomicCmpXchg:
-  case Instruction::AtomicRMW:
+    return MemoryEffects::argMemOnly();
   case Instruction::CatchPad:
   case Instruction::CatchRet:
-    return true;
+  case Instruction::Fence:
+  case Instruction::AtomicCmpXchg:
+  case Instruction::AtomicRMW:
+    return MemoryEffects::unknown();
   case Instruction::Call:
   case Instruction::Invoke:
   case Instruction::CallBr:
-    return !cast<CallBase>(this)->onlyWritesMemory();
-  case Instruction::Store:
-    return !cast<StoreInst>(this)->isUnordered();
+    return cast<CallBase>(this)->getMemoryEffects();
+  case Instruction::Load: {
+    auto *LI = cast<LoadInst>(this);
+    if (isStrongerThanMonotonic(LI->getOrdering()))
+      return MemoryEffects::unknown();
+
+    MemoryEffects ME = MemoryEffects::argMemOnly(
+        LI->isUnordered() ? ModRefInfo::Ref : ModRefInfo::ModRef);
+    if (LI->isVolatile())
+      ME |= MemoryEffects::inaccessibleMemOnly();
+    return ME;
+  }
+  case Instruction::Store: {
+    auto *SI = cast<StoreInst>(this);
+    if (isStrongerThanMonotonic(SI->getOrdering()))
+      return MemoryEffects::unknown();
+
+    MemoryEffects ME = MemoryEffects::argMemOnly(
+        SI->isUnordered() ? ModRefInfo::Mod : ModRefInfo::ModRef);
+    if (SI->isVolatile())
+      ME |= MemoryEffects::inaccessibleMemOnly();
+    return ME;
+  }
   }
 }
 
+bool Instruction::mayReadFromMemory() const {
+  return isRefSet(getMemoryEffects().getModRef());
+}
+
 bool Instruction::mayWriteToMemory() const {
-  switch (getOpcode()) {
-  default: return false;
-  case Instruction::Fence: // FIXME: refine definition of mayWriteToMemory
-  case Instruction::Store:
-  case Instruction::VAArg:
-  case Instruction::AtomicCmpXchg:
-  case Instruction::AtomicRMW:
-  case Instruction::CatchPad:
-  case Instruction::CatchRet:
-    return true;
-  case Instruction::Call:
-  case Instruction::Invoke:
-  case Instruction::CallBr:
-    return !cast<CallBase>(this)->onlyReadsMemory();
-  case Instruction::Load:
-    return !cast<LoadInst>(this)->isUnordered();
-  }
+  return isModSet(getMemoryEffects().getModRef());
+}
+
+bool Instruction::mayReadOrWriteMemory() const {
+  return isModOrRefSet(getMemoryEffects().getModRef());
 }
 
 bool Instruction::isAtomic() const {

@@ -24,6 +24,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Support/ModRef.h"
 #include <cstdint>
 #include <utility>
 
@@ -836,6 +837,10 @@ public:
     return Opcode == Xor;
   }
 
+  /// Return memory effects of the instruction. argmem here refers to the
+  /// operands of the instruction.
+  LLVM_ABI MemoryEffects getMemoryEffects() const LLVM_READONLY;
+
   /// Return true if this instruction may modify memory.
   LLVM_ABI bool mayWriteToMemory() const LLVM_READONLY;
 
@@ -843,9 +848,7 @@ public:
   LLVM_ABI bool mayReadFromMemory() const LLVM_READONLY;
 
   /// Return true if this instruction may read or write memory.
-  bool mayReadOrWriteMemory() const {
-    return mayReadFromMemory() || mayWriteToMemory();
-  }
+  LLVM_ABI bool mayReadOrWriteMemory() const LLVM_READONLY;
 
   /// Return true if this instruction has an AtomicOrdering of unordered or
   /// higher.
