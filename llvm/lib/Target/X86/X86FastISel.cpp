@@ -21,6 +21,7 @@
 #include "X86Subtarget.h"
 #include "X86TargetMachine.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
+#include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/FastISel.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
@@ -3273,18 +3274,22 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
   // the value from FuncInfo.ValueMap.
   // However, i1 is promoted to i8 and return i8 defined by ABI, so FastISel can
   // lower it without switching to DAGISel.
-  MVT RetVT = MVT::Other;
-  if (!isTypeLegal(CLI.RetTy, RetVT) && !CLI.RetTy->isVoidTy()) {
-    if (RetVT == MVT::Other)
-      return false; // Unknown type, let DAG ISel handle it.
+  SmallVector<Type *> OutTys;
+  ComputeValueTypes(DL, CLI.RetTy, OutTys);
+  for (Type *OutTy : OutTys) {
+    MVT RetVT = MVT::Other;
+    if (!isTypeLegal(OutTy, RetVT)) {
+      if (RetVT == MVT::Other)
+        return false; // Unknown type, let DAG ISel handle it.
 
-    // RetVT is not MVT::Other, it must be simple now. It is something rely on
-    // the logic of isTypeLegal().
-    MVT ABIVT = TLI.getRegisterTypeForCallingConv(CLI.RetTy->getContext(),
-                                                  CLI.CallConv, RetVT);
-    MVT RegVT = TLI.getRegisterType(CLI.RetTy->getContext(), RetVT);
-    if (ABIVT != RegVT)
-      return false;
+      // RetVT is not MVT::Other, it must be simple now. It is something rely on
+      // the logic of isTypeLegal().
+      MVT ABIVT = TLI.getRegisterTypeForCallingConv(CLI.RetTy->getContext(),
+                                                    CLI.CallConv, RetVT);
+      MVT RegVT = TLI.getRegisterType(CLI.RetTy->getContext(), RetVT);
+      if (ABIVT != RegVT)
+        return false;
+    }
   }
 
   // Call / invoke instructions with NoCfCheck attribute require special
