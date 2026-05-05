@@ -3749,6 +3749,7 @@ const SCEV *ScalarEvolution::getUDivExactExpr(SCEVUse LHS, SCEVUse RHS) {
   if (!Mul || !Mul->hasNoUnsignedWrap())
     return getUDivExpr(LHS, RHS);
 
+#if 0
   if (const SCEVConstant *RHSCst = dyn_cast<SCEVConstant>(RHS)) {
     // If the mulexpr multiplies by a constant, then that constant must be the
     // first element of the mulexpr.
@@ -3787,6 +3788,7 @@ const SCEV *ScalarEvolution::getUDivExactExpr(SCEVUse LHS, SCEVUse RHS) {
       return getMulExpr(Operands);
     }
   }
+#endif
 
   return getUDivExpr(LHS, RHS);
 }
