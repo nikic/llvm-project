@@ -302,7 +302,7 @@ class UserValue {
 
   /// Set of interval start indexes that have been trimmed to the
   /// lexical scope.
-  SmallSet<SlotIndex, 2> trimmedDefs;
+  SmallSet<SlotIndex, 2, std::set<SlotIndex>> trimmedDefs;
 
   /// Insert a DBG_VALUE into MBB at Idx for DbgValue.
   void insertDebugValue(MachineBasicBlock *MBB, SlotIndex StartIdx,

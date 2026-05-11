@@ -422,7 +422,7 @@ public:
   }
   void writeBody() override;
 
-  llvm::SmallSet<std::string, 8> features;
+  llvm::SmallSet<std::string, 8, std::set<std::string>> features;
 };
 
 class RelocSection : public SyntheticSection {

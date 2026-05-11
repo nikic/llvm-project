@@ -347,7 +347,7 @@ static void
 computeDiff(const StringMap<InstCountAndStackSize> &FuncNameToSizeInfoA,
             const StringMap<InstCountAndStackSize> &FuncNameToSizeInfoB,
             DiffsCategorizedByFilesPresent &DiffsByFilesPresent) {
-  SmallSet<std::string, 10> FuncNames;
+  SmallSet<std::string, 10, std::set<std::string>> FuncNames;
   for (const auto &FuncName : FuncNameToSizeInfoA.keys())
     FuncNames.insert(FuncName.str());
   for (const auto &FuncName : FuncNameToSizeInfoB.keys())

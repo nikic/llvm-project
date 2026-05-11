@@ -1011,7 +1011,7 @@ Error WasmObjectFile::parseProducersSection(ReadContext &Ctx) {
 }
 
 Error WasmObjectFile::parseTargetFeaturesSection(ReadContext &Ctx) {
-  llvm::SmallSet<std::string, 8> FeaturesSeen;
+  llvm::SmallSet<std::string, 8, std::set<std::string>> FeaturesSeen;
   uint32_t FeatureCount = readVaruint32(Ctx);
   for (size_t I = 0; I < FeatureCount; ++I) {
     wasm::WasmFeatureEntry Feature;

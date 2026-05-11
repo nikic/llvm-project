@@ -67,10 +67,11 @@ private:
   // AvailableCaps. AvailableCaps is the complete set of capabilities that are
   // available to the current target. AllCaps is the set of capabilities that
   // are required by the current module.
-  SmallSet<Capability::Capability, 8> AllCaps;
+  SmallSet<Capability::Capability, 8, std::set<Capability::Capability>> AllCaps;
   DenseSet<unsigned> AvailableCaps;
 
-  SmallSet<Extension::Extension, 4> AllExtensions;
+  SmallSet<Extension::Extension, 4, std::set<Extension::Extension>>
+      AllExtensions;
   VersionTuple MinVersion; // 0 if no min version is defined.
   VersionTuple MaxVersion; // 0 if no max version is defined.
   // Add capabilities to AllCaps, recursing through their implicitly declared
@@ -91,7 +92,8 @@ public:
     MaxVersion = VersionTuple();
   }
   const CapabilityList &getMinimalCapabilities() const { return MinimalCaps; }
-  const SmallSet<Extension::Extension, 4> &getExtensions() const {
+  const SmallSet<Extension::Extension, 4, std::set<Extension::Extension>> &
+  getExtensions() const {
     return AllExtensions;
   }
   // Add a list of capabilities, ensuring AllCaps captures all the implicitly

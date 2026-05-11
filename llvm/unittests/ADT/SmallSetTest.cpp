@@ -100,7 +100,7 @@ TEST(SmallSetTest, InsertPerfectFwd) {
   };
 
   {
-    SmallSet<Value, 4> S;
+    SmallSet<Value, 4, std::set<Value>> S;
     Value V1(1), V2(2);
 
     S.insert(V1);
@@ -110,7 +110,7 @@ TEST(SmallSetTest, InsertPerfectFwd) {
     EXPECT_EQ(V2.Moved, true);
   }
   {
-    SmallSet<Value, 1> S;
+    SmallSet<Value, 1, std::set<Value>> S;
     Value V1(1), V2(2);
 
     S.insert(V1);
@@ -206,7 +206,7 @@ TEST(SmallSetTest, IteratorInt) {
 TEST(SmallSetTest, IteratorString) {
   // Test SmallSetIterator for SmallSet with a type with non-trivial
   // ctors/dtors.
-  SmallSet<std::string, 2> s1;
+  SmallSet<std::string, 2, std::set<std::string>> s1;
 
   s1.insert("str 1");
   s1.insert("str 2");
@@ -235,7 +235,7 @@ TEST(SmallSetTest, IteratorString) {
 TEST(SmallSetTest, IteratorIncMoveCopy) {
   // Test SmallSetIterator for SmallSet with a type with non-trivial
   // ctors/dtors.
-  SmallSet<std::string, 2> s1;
+  SmallSet<std::string, 2, std::set<std::string>> s1;
 
   s1.insert("str 1");
   s1.insert("str 2");
@@ -262,7 +262,7 @@ TEST(SmallSetTest, IteratorDerefConst) {
   EXPECT_TRUE(is_const_ref<decltype(*sint.begin())> &&
               is_const_ref<decltype(*sint.end())>);
 
-  SmallSet<std::string, 4> sstr;
+  SmallSet<std::string, 4, std::set<std::string>> sstr;
   EXPECT_TRUE(is_const_ref<decltype(sstr)::const_iterator::reference>);
   EXPECT_TRUE(is_const_ref<decltype(*sstr.begin())> &&
               is_const_ref<decltype(*sstr.end())>);

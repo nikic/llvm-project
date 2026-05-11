@@ -12769,7 +12769,7 @@ ARMAsmParser::FilterNearMisses(SmallVectorImpl<NearMissInfo> &NearMissesIn,
   // variants of an instruction that take 8- and 16-bit immediates, we want
   // to only report the widest one.
   std::multimap<unsigned, unsigned> OperandMissesSeen;
-  SmallSet<FeatureBitset, 4> FeatureMissesSeen;
+  SmallSet<FeatureBitset, 4, std::set<FeatureBitset>> FeatureMissesSeen;
   bool ReportedTooFewOperands = false;
 
   unsigned MnemonicOpsEndInd = getMnemonicOpsEndInd(Operands);

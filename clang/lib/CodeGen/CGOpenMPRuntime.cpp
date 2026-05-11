@@ -7344,7 +7344,9 @@ private:
   llvm::DenseMap<CanonicalDeclPtr<const VarDecl>, bool> FirstPrivateDecls;
 
   /// Set of defaultmap clause kinds that use firstprivate behavior.
-  llvm::SmallSet<OpenMPDefaultmapClauseKind, 4> DefaultmapFirstprivateKinds;
+  llvm::SmallSet<OpenMPDefaultmapClauseKind, 4,
+                 std::set<OpenMPDefaultmapClauseKind>>
+      DefaultmapFirstprivateKinds;
 
   /// Map between device pointer declarations and their expression components.
   /// The key value for declarations in 'this' is null.

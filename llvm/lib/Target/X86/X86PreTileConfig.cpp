@@ -286,7 +286,7 @@ bool X86PreTileConfigImpl::runOnMachineFunction(MachineFunction &MF) {
   // Iterate MF to collect information.
   MRI = &MF.getRegInfo();
   MLI = GetMLI();
-  SmallSet<MIRef, 8> CfgNeedInsert;
+  SmallSet<MIRef, 8, std::set<MIRef>> CfgNeedInsert;
   SmallVector<MachineBasicBlock *, 8> CfgLiveInBBs;
   for (auto &MBB : MF) {
     size_t Pos = 0;
@@ -371,13 +371,13 @@ bool X86PreTileConfigImpl::runOnMachineFunction(MachineFunction &MF) {
   }
 
   DebugLoc DL;
-  SmallSet<MIRef, 8> VisitedOrInserted;
+  SmallSet<MIRef, 8, std::set<MIRef>> VisitedOrInserted;
   int SS = MF.getFrameInfo().CreateStackObject(
       ST.getTileConfigSize(), ST.getTileConfigAlignment(), false);
 
   // Try to insert for the tile config live in points.
   for (const auto &I : CfgNeedInsert) {
-    SmallSet<MIRef, 8> InsertPoints;
+    SmallSet<MIRef, 8, std::set<MIRef>> InsertPoints;
     SmallVector<MIRef, 8> WorkList({I});
     while (!WorkList.empty()) {
       MIRef I = WorkList.pop_back_val();

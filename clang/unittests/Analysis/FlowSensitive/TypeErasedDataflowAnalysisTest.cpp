@@ -511,7 +511,7 @@ TEST_F(DataflowAnalysisTest, JoinBoolLValues) {
 }
 
 struct FunctionCallLattice {
-  using FunctionSet = llvm::SmallSet<std::string, 8>;
+  using FunctionSet = llvm::SmallSet<std::string, 8, std::set<std::string>>;
   FunctionSet CalledFunctions;
 
   bool operator==(const FunctionCallLattice &Other) const {

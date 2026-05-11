@@ -409,7 +409,8 @@ TYPED_TEST(DenseMapTest, ConstIteratorTest) {
 // element type is a pointer.
 template <typename T, unsigned N>
 using UniversalSmallSet =
-    std::conditional_t<std::is_pointer_v<T>, SmallPtrSet<T, N>, SmallSet<T, N>>;
+    std::conditional_t<std::is_pointer_v<T>, SmallPtrSet<T, N>,
+                       SmallSet<T, N, std::set<T>>>;
 
 TYPED_TEST(DenseMapTest, KeysValuesIterator) {
   UniversalSmallSet<typename TypeParam::key_type, 10> Keys;

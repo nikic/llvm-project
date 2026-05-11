@@ -20,8 +20,10 @@
 namespace llvm {
 namespace MachO {
 
-using PlatformSet = SmallSet<PlatformType, 3>;
-using PlatformVersionSet = SmallSet<std::pair<PlatformType, VersionTuple>, 3>;
+using PlatformSet = SmallSet<PlatformType, 3, std::set<PlatformType>>;
+using PlatformVersionSet =
+    SmallSet<std::pair<PlatformType, VersionTuple>, 3,
+             std::set<std::pair<PlatformType, VersionTuple>>>;
 
 LLVM_ABI PlatformType mapToPlatformType(PlatformType Platform, bool WantSim);
 LLVM_ABI PlatformType mapToPlatformType(const Triple &Target);

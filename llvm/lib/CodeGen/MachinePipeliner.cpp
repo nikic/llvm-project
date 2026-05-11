@@ -2360,7 +2360,7 @@ static void computeLiveOuts(MachineFunction &MF, RegPressureTracker &RPTracker,
   const TargetRegisterInfo *TRI = MF.getSubtarget().getRegisterInfo();
   MachineRegisterInfo &MRI = MF.getRegInfo();
   SmallVector<VRegMaskOrUnit, 8> LiveOutRegs;
-  SmallSet<VirtRegOrUnit, 4> Uses;
+  SmallSet<VirtRegOrUnit, 4, std::set<VirtRegOrUnit>> Uses;
   for (SUnit *SU : NS) {
     const MachineInstr *MI = SU->getInstr();
     if (MI->isPHI())

@@ -679,8 +679,9 @@ RawMemProfReader::peekBuildIds(MemoryBuffer *DataBuffer) {
   // The runtime uses dl_iterate_phdr and the "... first object visited by
   // callback is the main program."
   // https://man7.org/linux/man-pages/man3/dl_iterate_phdr.3.html
+  // FIXME: Use SmallSetVector instead.
   llvm::SetVector<std::string, std::vector<std::string>,
-                  llvm::SmallSet<std::string, 10>>
+                  llvm::SmallSet<std::string, 10, std::set<std::string>>>
       BuildIds;
   while (Next < DataBuffer->getBufferEnd()) {
     const auto *Header = reinterpret_cast<const memprof::Header *>(Next);

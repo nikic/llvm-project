@@ -778,7 +778,8 @@ bool TypeInfer::EnforceSameSize(TypeSetByHwMode &A, TypeSetByHwMode &B) {
   if (B.empty())
     Changed |= EnforceAny(B);
 
-  using TypeSizeSet = SmallSet<TypeSize, 2, TypeSizeComparator>;
+  using TypeSizeSet =
+      SmallSet<TypeSize, 2, std::set<TypeSize, TypeSizeComparator>>;
 
   auto NoSize = [](const TypeSizeSet &Sizes, MVT T) -> bool {
     return !Sizes.contains(T.getSizeInBits());

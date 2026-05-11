@@ -2846,7 +2846,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
   std::vector<std::string> OutputConstraints;
 
   // Keep track of defined physregs.
-  llvm::SmallSet<std::string, 8> PhysRegOutputs;
+  llvm::SmallSet<std::string, 8, std::set<std::string>> PhysRegOutputs;
 
   // An inline asm can be marked readonly if it meets the following conditions:
   //  - it doesn't have any sideeffects

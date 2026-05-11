@@ -2885,7 +2885,7 @@ void tools::AddStaticDeviceLibs(Compilation *C, const Tool *T,
   LibraryPaths.emplace_back(DefaultLibPath.c_str());
 
   // Build list of Static Device Libraries SDLs specified by -l option
-  llvm::SmallSet<std::string, 16> SDLNames;
+  llvm::SmallSet<std::string, 16, std::set<std::string>> SDLNames;
   static const StringRef HostOnlyArchives[] = {
       "omp", "cudart", "m", "gcc", "gcc_s", "pthread", "hip_hcc"};
   for (auto SDLName : DriverArgs.getAllArgValues(options::OPT_l)) {

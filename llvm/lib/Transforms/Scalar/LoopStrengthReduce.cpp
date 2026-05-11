@@ -4530,7 +4530,8 @@ void LSRInstance::GenerateCrossUseConstantOffsets() {
   // a list of work to do and do the work in a separate step so that we're
   // not adding formulae and register counts while we're searching.
   SmallVector<WorkItem, 32> WorkItems;
-  SmallSet<std::pair<size_t, Immediate>, 32, KeyOrderSizeTAndImmediate>
+  SmallSet<std::pair<size_t, Immediate>, 32,
+           std::set<std::pair<size_t, Immediate>, KeyOrderSizeTAndImmediate>>
       UniqueItems;
   for (const SCEV *Reg : Sequence) {
     const ImmMapTy &Imms = Map.find(Reg)->second;

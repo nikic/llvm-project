@@ -1648,7 +1648,9 @@ void SemaRISCV::handleInterruptAttr(Decl *D, const ParsedAttr &AL) {
   bool HasSiFiveCLICType = false;
   bool HasUnaryType = false;
 
-  SmallSet<RISCVInterruptAttr::InterruptType, 2> Types;
+  SmallSet<RISCVInterruptAttr::InterruptType, 2,
+           std::set<RISCVInterruptAttr::InterruptType>>
+      Types;
   for (unsigned ArgIndex = 0; ArgIndex < AL.getNumArgs(); ++ArgIndex) {
     RISCVInterruptAttr::InterruptType Type;
     StringRef TypeString;

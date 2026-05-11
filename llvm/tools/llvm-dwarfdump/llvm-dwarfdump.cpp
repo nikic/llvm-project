@@ -558,7 +558,8 @@ static void filterByAccelName(
 static void findAllApple(
     DWARFContext &DICtx, raw_ostream &OS,
     std::function<StringRef(uint64_t RegNum, bool IsEH)> GetNameForDWARFReg) {
-  MapVector<StringRef, llvm::SmallSet<DWARFDie, 2>> NameToDies;
+  MapVector<StringRef, llvm::SmallSet<DWARFDie, 2, std::set<DWARFDie>>>
+      NameToDies;
 
   auto PushDIEs = [&](const AppleAcceleratorTable &Accel) {
     for (const auto &Entry : Accel.entries()) {

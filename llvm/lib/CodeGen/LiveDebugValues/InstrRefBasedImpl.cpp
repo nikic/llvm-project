@@ -2569,7 +2569,7 @@ void InstrRefBasedLDV::placeMLocPHIs(
   // store them to one side.
   SmallSet<Register, 32> RegUnitsToPHIUp;
   SmallSet<LocIdx, 32> NormalLocsToPHI;
-  SmallSet<SpillLocationNo, 32> StackSlots;
+  SmallSet<SpillLocationNo, 32, std::set<SpillLocationNo>> StackSlots;
   for (auto Location : MTracker->locations()) {
     LocIdx L = Location.Idx;
     if (MTracker->isSpill(L)) {

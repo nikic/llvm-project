@@ -8641,7 +8641,7 @@ protected:
 
   /// Mapping from *single* memory location kinds, e.g., LOCAL_MEM with the
   /// value of NO_LOCAL_MEM, to the accesses encountered for this memory kind.
-  using AccessSet = SmallSet<AccessInfo, 2, AccessInfo>;
+  using AccessSet = SmallSet<AccessInfo, 2, std::set<AccessInfo, AccessInfo>>;
   std::array<AccessSet *, llvm::ConstantLog2<VALID_STATE>()>
       AccessKind2Accesses;
 
@@ -11481,7 +11481,7 @@ struct AAPotentialValuesFloating : AAPotentialValuesImpl {
   void genericValueTraversal(Attributor &A, Value *InitialV) {
     SmallMapVector<const Function *, LivenessInfo, 4> LivenessAAs;
 
-    SmallSet<ItemInfo, 16> Visited;
+    SmallSet<ItemInfo, 16, std::set<ItemInfo>> Visited;
     SmallVector<ItemInfo, 16> Worklist;
     Worklist.push_back({{*InitialV, getCtxI()}, AA::AnyScope});
 

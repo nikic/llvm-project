@@ -15,6 +15,7 @@
 #define LLVM_ADT_SMALLSET_H
 
 #include "llvm/ADT/ADL.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -29,13 +30,13 @@ namespace llvm {
 
 /// SmallSetIterator - This class implements a const_iterator for SmallSet by
 /// delegating to the underlying SmallVector or Set iterators.
-template <typename T, unsigned N, typename C>
+template <typename T, unsigned N, typename SetTy>
 class SmallSetIterator
-    : public iterator_facade_base<SmallSetIterator<T, N, C>,
+    : public iterator_facade_base<SmallSetIterator<T, N, SetTy>,
                                   std::forward_iterator_tag, T, std::ptrdiff_t,
                                   const T *, const T &> {
 private:
-  using SetIterTy = typename std::set<T, C>::const_iterator;
+  using SetIterTy = typename SetTy::const_iterator;
   using VecIterTy = typename SmallVector<T, N>::const_iterator;
 
   /// Iterators to the parts of the SmallSet containing the data. They are set
@@ -129,14 +130,13 @@ public:
 /// SmallSet - This maintains a set of unique values, optimizing for the case
 /// when the set is small (less than N).  In this case, the set can be
 /// maintained with no mallocs.  If the set gets large, we expand to using an
-/// std::set to maintain reasonable lookup times.
-template <typename T, unsigned N, typename C = std::less<T>>
-class SmallSet {
+/// SetTy (DenseSet<T> by default) to maintain reasonable lookup times.
+template <typename T, unsigned N, typename SetTy = DenseSet<T>> class SmallSet {
   /// Use a SmallVector to hold the elements here (even though it will never
   /// reach its 'large' stage) to avoid calling the default ctors of elements
   /// we will never use.
   SmallVector<T, N> Vector;
-  std::set<T, C> Set;
+  SetTy Set;
 
   // In small mode SmallPtrSet uses linear search for the elements, so it is
   // not a good idea to choose this value too high. You may consider using a
@@ -147,7 +147,7 @@ public:
   using key_type = T;
   using size_type = size_t;
   using value_type = T;
-  using const_iterator = SmallSetIterator<T, N, C>;
+  using const_iterator = SmallSetIterator<T, N, SetTy>;
 
   SmallSet() = default;
   SmallSet(const SmallSet &) = default;

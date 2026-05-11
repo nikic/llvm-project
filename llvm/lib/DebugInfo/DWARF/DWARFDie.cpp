@@ -346,7 +346,7 @@ DWARFDie::findRecursively(ArrayRef<dwarf::Attribute> Attrs) const {
   // Empirically we rarely see a depth of more than 3 when dealing with valid
   // DWARF. This corresponds to following the DW_AT_abstract_origin and
   // DW_AT_specification just once.
-  SmallSet<DWARFDie, 3> Seen;
+  SmallSet<DWARFDie, 3, std::set<DWARFDie>> Seen;
   Seen.insert(*this);
 
   while (!Worklist.empty()) {

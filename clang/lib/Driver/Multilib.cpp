@@ -393,15 +393,18 @@ template <> struct llvm::yaml::MappingTraits<MultilibSet::FlagMatcher> {
 };
 
 template <>
-struct llvm::yaml::MappingContextTraits<custom_flag::ValueDetail,
-                                        llvm::SmallSet<std::string, 32>> {
-  static void mapping(llvm::yaml::IO &io, custom_flag::ValueDetail &V,
-                      llvm::SmallSet<std::string, 32> &) {
+struct llvm::yaml::MappingContextTraits<
+    custom_flag::ValueDetail,
+    llvm::SmallSet<std::string, 32, std::set<std::string>>> {
+  static void
+  mapping(llvm::yaml::IO &io, custom_flag::ValueDetail &V,
+          llvm::SmallSet<std::string, 32, std::set<std::string>> &) {
     io.mapRequired("Name", V.Name);
     io.mapOptional("MacroDefines", V.MacroDefines);
   }
-  static std::string validate(IO &io, custom_flag::ValueDetail &V,
-                              llvm::SmallSet<std::string, 32> &NameSet) {
+  static std::string
+  validate(IO &io, custom_flag::ValueDetail &V,
+           llvm::SmallSet<std::string, 32, std::set<std::string>> &NameSet) {
     if (V.Name.empty())
       return "custom flag value requires a name";
     if (!NameSet.insert(V.Name).second)
@@ -411,10 +414,12 @@ struct llvm::yaml::MappingContextTraits<custom_flag::ValueDetail,
 };
 
 template <>
-struct llvm::yaml::MappingContextTraits<custom_flag::Declaration,
-                                        llvm::SmallSet<std::string, 32>> {
-  static void mapping(llvm::yaml::IO &io, custom_flag::Declaration &V,
-                      llvm::SmallSet<std::string, 32> &NameSet) {
+struct llvm::yaml::MappingContextTraits<
+    custom_flag::Declaration,
+    llvm::SmallSet<std::string, 32, std::set<std::string>>> {
+  static void
+  mapping(llvm::yaml::IO &io, custom_flag::Declaration &V,
+          llvm::SmallSet<std::string, 32, std::set<std::string>> &NameSet) {
     io.mapRequired("Name", V.Name);
     io.mapRequired("Values", V.ValueList, NameSet);
     std::string DefaultValueName;
@@ -428,8 +433,9 @@ struct llvm::yaml::MappingContextTraits<custom_flag::Declaration,
       }
     }
   }
-  static std::string validate(IO &io, custom_flag::Declaration &V,
-                              llvm::SmallSet<std::string, 32> &) {
+  static std::string
+  validate(IO &io, custom_flag::Declaration &V,
+           llvm::SmallSet<std::string, 32, std::set<std::string>> &) {
     if (V.Name.empty())
       return "custom flag requires a name";
     if (V.ValueList.empty())
@@ -445,7 +451,7 @@ template <> struct llvm::yaml::MappingTraits<MultilibSetSerialization> {
     io.mapRequired("MultilibVersion", M.MultilibVersion);
     io.mapRequired("Variants", M.Multilibs);
     io.mapOptional("Groups", M.Groups);
-    llvm::SmallSet<std::string, 32> NameSet;
+    llvm::SmallSet<std::string, 32, std::set<std::string>> NameSet;
     io.mapOptionalWithContext("Flags", M.CustomFlagDeclarations, NameSet);
     io.mapOptional("Mappings", M.FlagMatchers);
   }

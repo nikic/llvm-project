@@ -350,7 +350,7 @@ void SIWholeQuadMode::markDefs(const MachineInstr &UseMI, LiveRange &LR,
   };
   using VisitKey = std::pair<const VNInfo *, LaneBitmask>;
   SmallVector<PhiEntry, 2> PhiStack;
-  SmallSet<VisitKey, 4> Visited;
+  SmallSet<VisitKey, 4, std::set<VisitKey>> Visited;
   LaneBitmask DefinedLanes;
   unsigned NextPredIdx = 0; // Only used for processing phi nodes
   do {

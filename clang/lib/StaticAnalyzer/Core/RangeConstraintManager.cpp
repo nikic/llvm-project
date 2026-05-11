@@ -2199,7 +2199,8 @@ private:
 
 bool ConstraintAssignor::assignSymExprToConst(const SymExpr *Sym,
                                               const llvm::APSInt &Constraint) {
-  llvm::SmallSet<EquivalenceClass, 4> SimplifiedClasses;
+  llvm::SmallSet<EquivalenceClass, 4, std::set<EquivalenceClass>>
+      SimplifiedClasses;
   // Iterate over all equivalence classes and try to simplify them.
   ClassMembersTy Members = State->get<ClassMembers>();
   for (std::pair<EquivalenceClass, SymbolSet> ClassToSymbolSet : Members) {

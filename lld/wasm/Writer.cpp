@@ -588,7 +588,8 @@ void Writer::finalizeSections() {
 void Writer::populateTargetFeatures() {
   StringMap<std::string> used;
   StringMap<std::string> disallowed;
-  SmallSet<std::string, 8> &allowed = out.targetFeaturesSec->features;
+  SmallSet<std::string, 8, std::set<std::string>> &allowed =
+      out.targetFeaturesSec->features;
   bool tlsUsed = false;
 
   if (ctx.isPic) {
@@ -675,7 +676,7 @@ void Writer::populateTargetFeatures() {
   // Validate the disallowed constraints for each file
   for (ObjFile *file : ctx.objectFiles) {
     StringRef fileName(file->getName());
-    SmallSet<std::string, 8> objectFeatures;
+    SmallSet<std::string, 8, std::set<std::string>> objectFeatures;
     for (const auto &feature : file->getWasmObj()->getTargetFeatures()) {
       if (feature.Prefix == WASM_FEATURE_PREFIX_DISALLOWED)
         continue;

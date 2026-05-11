@@ -1075,7 +1075,7 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
         (C.getInputArgs().hasArg(options::OPT_offload_arch_EQ) &&
          !(IsCuda || IsHIP))));
 
-  llvm::SmallSet<Action::OffloadKind, 4> Kinds;
+  llvm::SmallSet<Action::OffloadKind, 4, std::set<Action::OffloadKind>> Kinds;
   const std::pair<bool, Action::OffloadKind> ActiveKinds[] = {
       {IsCuda, Action::OFK_Cuda},
       {IsHIP, Action::OFK_HIP},

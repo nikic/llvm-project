@@ -19,7 +19,7 @@
 namespace llvm {
 class LLVM_ABI LostDebugLocObserver : public GISelChangeObserver {
   StringRef DebugType;
-  SmallSet<DebugLoc, 4> LostDebugLocs;
+  SmallSet<DebugLoc, 4, std::set<DebugLoc>> LostDebugLocs;
   SmallPtrSet<MachineInstr *, 4> PotentialMIsForDebugLocs;
   unsigned NumLostDebugLocs = 0;
 

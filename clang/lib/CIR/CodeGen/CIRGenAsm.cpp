@@ -297,7 +297,7 @@ mlir::LogicalResult CIRGenFunction::emitAsmStmt(const AsmStmt &s) {
   SmallVector<std::string> outputConstraints;
 
   // Keep track of defined physregs.
-  llvm::SmallSet<std::string, 8> physRegOutputs;
+  llvm::SmallSet<std::string, 8, std::set<std::string>> physRegOutputs;
 
   // An inline asm can be marked readonly if it meets the following conditions:
   //  - it doesn't have any sideeffects

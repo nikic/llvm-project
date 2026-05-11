@@ -46,8 +46,12 @@ private:
   VersionTuple SPIRVVersion;
   VersionTuple OpenCLVersion;
 
-  SmallSet<SPIRV::Extension::Extension, 4> AvailableExtensions;
-  SmallSet<SPIRV::InstructionSet::InstructionSet, 4> AvailableExtInstSets;
+  SmallSet<SPIRV::Extension::Extension, 4,
+           std::set<SPIRV::Extension::Extension>>
+      AvailableExtensions;
+  SmallSet<SPIRV::InstructionSet::InstructionSet, 4,
+           std::set<SPIRV::InstructionSet::InstructionSet>>
+      AvailableExtInstSets;
   std::unique_ptr<SPIRVGlobalRegistry> GR;
 
   SPIRVInstrInfo InstrInfo;
@@ -100,7 +104,8 @@ public:
   // TODO: implement command line args or other ways to determine this.
   bool hasOpenCLFullProfile() const { return true; }
   bool hasOpenCLImageSupport() const { return true; }
-  const SmallSet<SPIRV::Extension::Extension, 4> &
+  const SmallSet<SPIRV::Extension::Extension, 4,
+                 std::set<SPIRV::Extension::Extension>> &
   getAllAvailableExtensions() const {
     return AvailableExtensions;
   }

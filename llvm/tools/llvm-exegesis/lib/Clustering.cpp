@@ -263,7 +263,8 @@ void BenchmarkClustering::stabilize(unsigned NumOpcodes) {
     bool operator<(const OpcodeAndConfig &O) const { return Tie() < O.Tie(); }
     bool operator!=(const OpcodeAndConfig &O) const { return Tie() != O.Tie(); }
   };
-  std::map<OpcodeAndConfig, SmallSet<ClusterId, 1>> OpcodeConfigToClusterIDs;
+  std::map<OpcodeAndConfig, SmallSet<ClusterId, 1, std::set<ClusterId>>>
+      OpcodeConfigToClusterIDs;
   // Populate OpcodeConfigToClusterIDs and UnstableOpcodes data structures.
   assert(ClusterIdForPoint_.size() == Points_.size() && "size mismatch");
   for (auto Point : zip(Points_, ClusterIdForPoint_)) {
@@ -271,12 +272,14 @@ void BenchmarkClustering::stabilize(unsigned NumOpcodes) {
     if (!ClusterIdOfPoint.isValid())
       continue; // Only process fully valid clusters.
     const OpcodeAndConfig Key(std::get<0>(Point));
-    SmallSet<ClusterId, 1> &ClusterIDsOfOpcode = OpcodeConfigToClusterIDs[Key];
+    SmallSet<ClusterId, 1, std::set<ClusterId>> &ClusterIDsOfOpcode =
+        OpcodeConfigToClusterIDs[Key];
     ClusterIDsOfOpcode.insert(ClusterIdOfPoint);
   }
 
   for (const auto &OpcodeConfigToClusterID : OpcodeConfigToClusterIDs) {
-    const SmallSet<ClusterId, 1> &ClusterIDs = OpcodeConfigToClusterID.second;
+    const SmallSet<ClusterId, 1, std::set<ClusterId>> &ClusterIDs =
+        OpcodeConfigToClusterID.second;
     const OpcodeAndConfig &Key = OpcodeConfigToClusterID.first;
     // We only care about unstable instructions.
     if (ClusterIDs.size() < 2)

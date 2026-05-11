@@ -9032,7 +9032,7 @@ SDValue SystemZTargetLowering::combineSELECT_CCMASK(
       return *MergedSDValsSet.begin();
     if (MergedSDValsSet.size() == 2) {
       auto BeginIt = MergedSDValsSet.begin();
-      SDValue NewTrueVal = *BeginIt, NewFalseVal = *next(BeginIt);
+      SDValue NewTrueVal = *BeginIt, NewFalseVal = *std::next(BeginIt);
       if (NewTrueVal == FalseVal || NewFalseVal == TrueVal)
         std::swap(NewTrueVal, NewFalseVal);
       int NewCCMask = 0;

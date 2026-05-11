@@ -47,7 +47,9 @@ static cl::list<SPIRV::Capability::Capability>
                                             "SPIR-V Shader capability")));
 // Use sets instead of cl::list to check "if contains" condition
 struct AvoidCapabilitiesSet {
-  SmallSet<SPIRV::Capability::Capability, 4> S;
+  SmallSet<SPIRV::Capability::Capability, 4,
+           std::set<SPIRV::Capability::Capability>>
+      S;
   AvoidCapabilitiesSet() { S.insert_range(AvoidCapabilities); }
 };
 
