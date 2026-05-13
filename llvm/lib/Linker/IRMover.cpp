@@ -1434,6 +1434,18 @@ static std::string adjustInlineAsm(const std::string &InlineAsm,
   return InlineAsm;
 }
 
+/// "Inaccessible memory" refers to memory that is not accessible from the
+/// current module. After linking two modules, the memory may become accessible.
+/// Account for this by copying the inaccessiblemem effects to the othermem
+/// effects.
+static std::optional<MemoryEffects> adjustMemoryEffects(MemoryEffects ME) {
+  MemoryEffects NewME = ME | MemoryEffects::otherMemOnly(
+                                 ME.getModRef(IRMemLocation::InaccessibleMem));
+  if (ME != NewME)
+    return NewME;
+  return std::nullopt;
+}
+
 void IRLinker::updateAttributes(GlobalValue &GV) {
   /// Remove nocallback attribute while linking, because nocallback attribute
   /// indicates that the function is only allowed to jump back into caller's
@@ -1450,14 +1462,23 @@ void IRLinker::updateAttributes(GlobalValue &GV) {
   /// containing its caller and callee, removing the attribute doesn't hurt as
   /// it has no effect on definitions in the same module.
   if (auto *F = dyn_cast<Function>(&GV)) {
-    if (!F->isIntrinsic())
+    if (!F->isIntrinsic()) {
       F->removeFnAttr(llvm::Attribute::NoCallback);
+      if (auto NewME = adjustMemoryEffects(F->getMemoryEffects()))
+        F->setMemoryEffects(*NewME);
+    }
 
     // Remove nocallback attribute when it is on a call-site.
-    for (BasicBlock &BB : *F)
-      for (Instruction &I : BB)
-        if (CallBase *CI = dyn_cast<CallBase>(&I))
+    for (BasicBlock &BB : *F) {
+      for (Instruction &I : BB) {
+        if (CallBase *CI = dyn_cast<CallBase>(&I)) {
           CI->removeFnAttr(Attribute::NoCallback);
+          if (auto NewME =
+                  adjustMemoryEffects(CI->getAttributes().getMemoryEffects()))
+            CI->setMemoryEffects(*NewME);
+        }
+      }
+    }
   }
 }
 
