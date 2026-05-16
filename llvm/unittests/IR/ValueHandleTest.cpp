@@ -489,6 +489,7 @@ TEST_F(ValueHandle, PoisoningVH_DoesNotFollowRAUW) {
   PoisoningVH<Value> VH(BitcastV.get());
   BitcastV->replaceAllUsesWith(ConstantV);
   EXPECT_TRUE(DenseMapInfo<PoisoningVH<Value>>::isEqual(VH, BitcastV.get()));
+  VH = nullptr;
 }
 
 TEST_F(ValueHandle, AssertingVH_MoveConstructor) {
@@ -564,7 +565,8 @@ TEST_F(ValueHandle, PoisoningVH_Asserts) {
   // But a use does.
   EXPECT_DEATH((void)*VH, "Accessed a poisoned value handle!");
 
-  // Don't clear anything out here as destroying the handles should be fine.
+  // Destroying a PoisoningVH also asserts, so clear it now.
+  VH = nullptr;
 }
 
 #endif // LLVM_ENABLE_ABI_BREAKING_CHECKS

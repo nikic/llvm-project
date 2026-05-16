@@ -544,8 +544,7 @@ public:
       : CallbackVH(RHS), Poisoned(RHS.Poisoned) {}
 
   ~PoisoningVH() {
-    if (Poisoned)
-      clearValPtr();
+    assert(!Poisoned && "Destroying a poisoned value handle!");
   }
 
   PoisoningVH &operator=(const PoisoningVH &RHS) {
