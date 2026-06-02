@@ -303,10 +303,10 @@ UseCaptureInfo llvm::DetermineUseCaptureKind(const Use &U, const Value *Base) {
     assert(Call->isDataOperand(&U) && "Non-callee must be data operand");
     CaptureInfo CI = Call->getCaptureInfo(Call->getDataOperandNo(&U));
 
-    // If the call is readonly and doesn't return a value, only the address
-    // may be captured.
+    // If the call is readonly, the call itself can only capture the address,
+    // while the return value may capture both address and provenance.
     CaptureComponents Mask = CaptureComponents::All;
-    if (Call->onlyReadsMemory() && Call->getType()->isVoidTy())
+    if (Call->onlyReadsMemory())
       Mask = CaptureComponents::Address;
 
     return UseCaptureInfo(CI.getOtherComponents() & Mask,

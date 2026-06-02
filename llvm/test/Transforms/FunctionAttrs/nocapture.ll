@@ -224,7 +224,7 @@ define ptr @lookup_bit(ptr %q, i32 %bitno) readnone nounwind {
 define i1 @c7(ptr %q, i32 %bitno) {
 ; FNATTRS: Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(read, inaccessiblemem: none, target_mem: none)
 ; FNATTRS-LABEL: define i1 @c7
-; FNATTRS-SAME: (ptr readonly [[Q:%.*]], i32 [[BITNO:%.*]]) #[[ATTR6:[0-9]+]] {
+; FNATTRS-SAME: (ptr readonly captures(address) [[Q:%.*]], i32 [[BITNO:%.*]]) #[[ATTR6:[0-9]+]] {
 ; FNATTRS-NEXT:    [[PTR:%.*]] = call ptr @lookup_bit(ptr [[Q]], i32 [[BITNO]])
 ; FNATTRS-NEXT:    [[VAL:%.*]] = load i1, ptr [[PTR]], align 1
 ; FNATTRS-NEXT:    ret i1 [[VAL]]

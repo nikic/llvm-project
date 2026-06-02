@@ -934,6 +934,9 @@ bool llvm::isBaseOfObject(const Value *V) {
 
 bool llvm::isEscapeSource(const Value *V) {
   if (auto *CB = dyn_cast<CallBase>(V)) {
+    if (CB->onlyReadsMemory())
+      return false;
+
     if (isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(
             CB, /*MustPreserveOffset=*/true))
       return false;

@@ -181,7 +181,7 @@ define void @test_atomicrmw(ptr %p) {
 define void @test_ptrmask(ptr %p) {
 ; FNATTRS: Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: write)
 ; FNATTRS-LABEL: define {{[^@]+}}@test_ptrmask
-; FNATTRS-SAME: (ptr writeonly [[P:%.*]]) #[[ATTR3]] {
+; FNATTRS-SAME: (ptr writeonly captures(address) [[P:%.*]]) #[[ATTR3]] {
 ; FNATTRS-NEXT:    [[MASK:%.*]] = call ptr @llvm.ptrmask.p0.i64(ptr [[P]], i64 -5)
 ; FNATTRS-NEXT:    store i8 0, ptr [[MASK]], align 1
 ; FNATTRS-NEXT:    ret void
