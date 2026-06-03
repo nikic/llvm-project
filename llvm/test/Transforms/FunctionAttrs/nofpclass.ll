@@ -265,7 +265,7 @@ define internal float @nofpclass_non_call_user(float %arg, ptr %ptr) {
 
 define float @call_nofpclass_non_call_user(float %arg, ptr %ptr, ptr %fptr.ptr) {
 ; CHECK-LABEL: define float @call_nofpclass_non_call_user(
-; CHECK-SAME: float [[ARG:%.*]], ptr [[PTR:%.*]], ptr writeonly captures(none) initializes((0, 8)) [[FPTR_PTR:%.*]]) #[[ATTR0]] {
+; CHECK-SAME: float [[ARG:%.*]], ptr [[PTR:%.*]], ptr writeonly captures(none) initializes((0, 8)) [[FPTR_PTR:%.*]]) #[[ATTR4:[0-9]+]] {
 ; CHECK-NEXT:    [[RET:%.*]] = call nofpclass(nan) float @nofpclass_non_call_user(float nofpclass(nan) [[ARG]], ptr [[PTR]])
 ; CHECK-NEXT:    store ptr @nofpclass_non_call_user, ptr [[FPTR_PTR]], align 8
 ; CHECK-NEXT:    ret float [[RET]]
@@ -308,10 +308,11 @@ define float @caller_transitive_nonan(float %arg, ptr %ptr) {
   ret float %ret
 }
 ;.
-; CHECK: attributes #[[ATTR0]] = { nofree norecurse nosync nounwind memory(argmem: readwrite, inaccessiblemem: readwrite) }
-; CHECK: attributes #[[ATTR1]] = { nofree nosync nounwind memory(argmem: readwrite, inaccessiblemem: readwrite) }
+; CHECK: attributes #[[ATTR0]] = { nofree norecurse nosync nounwind memory(argmem: read, inaccessiblemem: readwrite) }
+; CHECK: attributes #[[ATTR1]] = { nofree nosync nounwind memory(argmem: read, inaccessiblemem: readwrite) }
 ; CHECK: attributes #[[ATTR2]] = { mustprogress nofree norecurse nosync nounwind willreturn memory(none) }
 ; CHECK: attributes #[[ATTR3]] = { mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: read) }
+; CHECK: attributes #[[ATTR4]] = { nofree norecurse nosync nounwind memory(argmem: readwrite, inaccessiblemem: readwrite) }
 ;.
 ; CHECK: [[META0]] = !{i32 3}
 ;.

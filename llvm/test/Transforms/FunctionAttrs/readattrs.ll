@@ -346,7 +346,7 @@ define <4 x i32> @test12_2(<4 x ptr> %ptrs) {
 }
 
 define i32 @volatile_load(ptr %p) {
-; FNATTRS: Function Attrs: nofree norecurse nosync nounwind memory(argmem: readwrite, inaccessiblemem: readwrite)
+; FNATTRS: Function Attrs: nofree norecurse nosync nounwind memory(argmem: read, inaccessiblemem: readwrite)
 ; FNATTRS-LABEL: define {{[^@]+}}@volatile_load
 ; FNATTRS-SAME: (ptr [[P:%.*]]) #[[ATTR11:[0-9]+]] {
 ; FNATTRS-NEXT:    [[LOAD:%.*]] = load volatile i32, ptr [[P]], align 4

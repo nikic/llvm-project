@@ -1075,13 +1075,12 @@ MemoryEffects Instruction::getMemoryEffects() const {
     if (isStrongerThanMonotonic(Ordering))
       return MemoryEffects::unknown();
 
+    MemoryEffects Res = isStrongerThanUnordered(Ordering)
+                            ? MemoryEffects::argMemOnly()
+                            : MemoryEffects::argMemOnly(BaseMR);
     if (IsVolatile)
-      return MemoryEffects::inaccessibleOrArgMemOnly();
-
-    if (isStrongerThanUnordered(Ordering))
-      return MemoryEffects::argMemOnly();
-
-    return MemoryEffects::argMemOnly(BaseMR);
+      Res |= MemoryEffects::inaccessibleMemOnly();
+    return Res;
   };
   switch (getOpcode()) {
   default:

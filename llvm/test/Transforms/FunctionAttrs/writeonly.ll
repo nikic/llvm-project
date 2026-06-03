@@ -145,7 +145,7 @@ define void @test_readwrite(ptr %p) {
 }
 
 define void @test_volatile(ptr %p) {
-; FNATTRS: Function Attrs: nofree norecurse nosync nounwind memory(argmem: readwrite, inaccessiblemem: readwrite)
+; FNATTRS: Function Attrs: nofree norecurse nosync nounwind memory(argmem: write, inaccessiblemem: readwrite)
 ; FNATTRS-LABEL: define {{[^@]+}}@test_volatile
 ; FNATTRS-SAME: (ptr [[P:%.*]]) #[[ATTR6:[0-9]+]] {
 ; FNATTRS-NEXT:    store volatile i8 0, ptr [[P]], align 1
