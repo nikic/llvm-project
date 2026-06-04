@@ -3681,6 +3681,12 @@ foldCondBranchOnValueKnownInPredecessorImpl(CondBrInst *BI, DomTreeUpdater *DTU,
       InsertPt->cloneDebugInfoFrom(&*SrcDbgCursor);
     InsertPt->cloneDebugInfoFrom(BI);
 
+    // TranslateMap is keyed on BB's original instructions/PHIs via AssertingVH,
+    // which do not auto-erase on deletion. It is no longer read, and the
+    // removePredecessor/MergeBlockIntoPredecessor below may delete BB's PHIs
+    // (keys), so clear it now.
+    TranslateMap.clear();
+
     BB->removePredecessor(EdgeBB);
     UncondBrInst *EdgeBI = cast<UncondBrInst>(EdgeBB->getTerminator());
     EdgeBI->setSuccessor(0, RealDest);

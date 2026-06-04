@@ -909,7 +909,7 @@ static void propagateMemProfHelper(const CallBase *OrigCall,
 static void
 propagateMemProfMetadata(Function *Callee, CallBase &CB,
                          bool ContainsMemProfMetadata,
-                         const ValueMap<const Value *, WeakTrackingVH> &VMap,
+                         const ValueToValueMapTy &VMap,
                          OptimizationRemarkEmitter *ORE) {
   MDNode *CallsiteMD = CB.getMetadata(LLVMContext::MD_callsite);
   // Only need to update if the inlined callsite had callsite metadata, or if
@@ -966,7 +966,7 @@ static void collectPointerReturningCalls(Value *RetVal,
 /// unrelated calls in the wrapper body.
 static void
 propagateAllocTokenMetadata(Function *CalledFunc, CallBase &CB,
-                            const ValueMap<const Value *, WeakTrackingVH> &VMap,
+                            const ValueToValueMapTy &VMap,
                             ClonedCodeInfo &InlinedFunctionInfo) {
   MDNode *AllocTokenMD = CB.getMetadata(LLVMContext::MD_alloc_token);
   if (!AllocTokenMD)
@@ -2176,7 +2176,7 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
 
 void llvm::updateProfileCallee(
     Function *Callee, int64_t EntryDelta,
-    const ValueMap<const Value *, WeakTrackingVH> *VMap) {
+    const ValueToValueMapTy *VMap) {
   auto CalleeCount = Callee->getEntryCount();
   if (!CalleeCount)
     return;

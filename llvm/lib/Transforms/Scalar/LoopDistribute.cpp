@@ -223,6 +223,12 @@ public:
           Unused.push_back(NewInst);
         }
 
+    // This is the last use of VMap. Clear it now so the original loop's
+    // instructions (which are keys here) can be deleted below: VMap's
+    // AssertingVH keys do not auto-erase, so a stale key would trip the
+    // "asserting value handle still pointed to this value" check on deletion.
+    VMap.clear();
+
     // Delete the instructions backwards, as it has a reduced likelihood of
     // having to update as many def-use and use-def chains.
     for (auto *Inst : reverse(Unused)) {

@@ -715,6 +715,12 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
   RewriteUsesOfClonedInstructions(OrigHeader, OrigPreheader, ValueMap, SE,
                                   &InsertedPHIs);
 
+  // ValueMap/ValueMapMSSA are keyed on OrigHeader instructions (held by
+  // AssertingVH, which do not auto-erase on deletion). They are no longer
+  // needed, and OrigHeader is merged away below, so release them now.
+  ValueMap.clear();
+  ValueMapMSSA.clear();
+
   // Attach debug records to the new phis if that phi uses a value that
   // previously had debug metadata attached. This keeps the debug info
   // up-to-date in the loop body.

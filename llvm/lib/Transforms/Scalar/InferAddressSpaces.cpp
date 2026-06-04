@@ -1623,6 +1623,12 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
     }
   }
 
+  // The maps are keyed on the old (soon to be dead) values via AssertingVH,
+  // which does not auto-erase on deletion. They are no longer needed, so clear
+  // them before deleting the dead instructions.
+  ValueWithNewAddrSpace.clear();
+  VMap.clear();
+
   for (Instruction *I : DeadInstructions)
     RecursivelyDeleteTriviallyDeadInstructions(I);
 

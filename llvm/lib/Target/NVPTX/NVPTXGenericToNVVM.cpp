@@ -102,6 +102,10 @@ bool GenericToNVVM::runOnModule(Module &M) {
   for (auto I = GVMap.begin(), E = GVMap.end(); I != E; ++I)
     VM[I->first] = I->second;
 
+  // VM's AssertingVH keys don't auto-erase, so drop them before the original
+  // global variables (the keys) are deleted by eraseFromParent() below.
+  VM.clear();
+
   // Walk through the global variable  initializers, and replace any use of
   // original global variables in GVMap with a use of the corresponding copies
   // in GVMap.  The copies need to be bitcast to the original global variable

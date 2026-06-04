@@ -491,6 +491,9 @@ llvm::UnrollAndJamLoop(Loop *L, unsigned Count, unsigned TripCount,
   if (CompletelyUnroll) {
     while (PHINode *Phi = dyn_cast<PHINode>(ForeBlocksFirst[0]->begin())) {
       Phi->replaceAllUsesWith(Phi->getIncomingValueForBlock(Preheader));
+      // Phi is a key in LastValueMap; remove it before deleting it, since the
+      // map's AssertingVH keys do not auto-erase on deletion.
+      LastValueMap.erase(Phi);
       Phi->eraseFromParent();
     }
   } else {
@@ -498,6 +501,11 @@ llvm::UnrollAndJamLoop(Loop *L, unsigned Count, unsigned TripCount,
     updatePHIBlocksAndValues(ForeBlocksFirst[0], AftBlocksLast[0],
                              AftBlocksLast.back(), LastValueMap);
   }
+
+  // LastValueMap is no longer needed. Clear it now, since later steps (e.g.
+  // simplifyLoopAfterUnroll) delete original-loop instructions that are keys in
+  // it, and its AssertingVH keys do not auto-erase on deletion.
+  LastValueMap.clear();
 
   for (unsigned It = 1; It != Count; It++) {
     // Remap ForeBlock successors from previous iteration to this

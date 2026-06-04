@@ -31,6 +31,12 @@ serializeModule(const Module &M, GVPredicate ShouldCloneDef,
     return false;
   });
 
+  // VMap's keys are AssertingVH<const Value> and do not auto-erase when their
+  // key Values are deleted. UpdateClonedDefSource (e.g. DeleteExtractedDefs)
+  // deletes source GlobalValues that are keys here, so clear VMap after its
+  // last read (CloneModule above) to avoid a dangling asserting handle.
+  VMap.clear();
+
   if (UpdateClonedDefSource)
     for (auto *GV : ClonedDefsInSrc)
       UpdateClonedDefSource(*GV);

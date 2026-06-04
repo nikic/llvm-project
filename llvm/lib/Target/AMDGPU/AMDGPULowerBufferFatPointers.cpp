@@ -1632,6 +1632,10 @@ void SplitPtrStructs::killAndReplaceSplitInstructions(
     });
 
     if (I->use_empty()) {
+      // RsrcParts/OffParts use AssertingVH keys that don't auto-erase, so drop
+      // the entries for `I` before deleting it.
+      RsrcParts.erase(I);
+      OffParts.erase(I);
       I->eraseFromParent();
       continue;
     }
@@ -1644,6 +1648,10 @@ void SplitPtrStructs::killAndReplaceSplitInstructions(
     copyMetadata(Struct, I);
     Struct->takeName(I);
     I->replaceAllUsesWith(Struct);
+    // RsrcParts/OffParts use AssertingVH keys that don't auto-erase, so drop
+    // the entries for `I` before deleting it.
+    RsrcParts.erase(I);
+    OffParts.erase(I);
     I->eraseFromParent();
   }
 }
@@ -2557,6 +2565,7 @@ bool AMDGPULowerBufferFatPointers::run(Module &M, const TargetMachine &TM) {
   FatPtrConstMaterializer Materializer(&StructTM, CloneMap);
 
   ValueMapper LowerInFuncs(CloneMap, RF_None, &StructTM, &Materializer);
+  SmallVector<Function *> FunctionsToErase;
   for (auto [F, InterfaceChange] : NeedsRemap) {
     Function *NewF = F;
     if (InterfaceChange)
@@ -2572,13 +2581,18 @@ bool AMDGPULowerBufferFatPointers::run(Module &M, const TargetMachine &TM) {
       NeedsPostProcess.push_back(NewF);
     if (InterfaceChange) {
       F->replaceAllUsesWith(NewF);
-      F->eraseFromParent();
+      // Defer erasing F until after CloneMap is cleared below. CloneMap holds
+      // AssertingVH keys (which do not auto-erase) that reference F's values, so
+      // deleting F while they remain mapped would trip the asserting handle.
+      FunctionsToErase.push_back(F);
     }
     Changed = true;
   }
   StructTM.clear();
   IntTM.clear();
   CloneMap.clear();
+  for (Function *F : FunctionsToErase)
+    F->eraseFromParent();
 
   SplitPtrStructs Splitter(DL, M.getContext(), &TM);
   for (Function *F : NeedsPostProcess)

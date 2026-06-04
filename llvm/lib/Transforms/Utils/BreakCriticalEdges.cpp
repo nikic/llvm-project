@@ -414,6 +414,11 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
       for (Instruction &I : *DirectSucc)
         RemapSourceAtom(&I, VMap);
 
+    // VMap is keyed on Target's original instructions via AssertingVH, which do
+    // not auto-erase on deletion. It is not read after this point, and Target's
+    // PHIs (keys) are erased in the fix-up loop below, so clear it now.
+    VMap.clear();
+
     BlockFrequency BlockFreqForDirectSucc;
     SmallVector<DominatorTree::UpdateType, 8> DTUpdates;
     SmallPtrSet<BasicBlock *, 8> SeenSrcs;

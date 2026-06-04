@@ -48,7 +48,7 @@ class Instruction;
 class LoopBlocksRPO;
 template <typename T, unsigned int N> class SmallSetVector;
 
-using ValueToValueMapTy = ValueMap<const Value *, WeakTrackingVH>;
+// ValueToValueMapTy is defined in llvm/IR/ValueMap.h.
 using PhiToDefMap = SmallDenseMap<MemoryPhi *, MemoryAccess *>;
 using CFGUpdate = cfg::Update<BasicBlock *>;
 

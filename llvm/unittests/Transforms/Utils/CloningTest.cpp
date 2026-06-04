@@ -188,6 +188,9 @@ TEST_F(CloneInstruction, Attributes) {
                     Returns);
   EXPECT_FALSE(F2->arg_begin()->hasNoCaptureAttr());
 
+  // VMap keys reference F1's values; clear it before deleting F1 since the
+  // AssertingVH keys do not auto-erase on deletion.
+  VMap.clear();
   delete F1;
   delete F2;
 }
@@ -213,6 +216,9 @@ TEST_F(CloneInstruction, CallingConvention) {
                     Returns);
   EXPECT_EQ(CallingConv::Cold, F2->getCallingConv());
 
+  // VMap keys reference F1's values; clear it before deleting F1 since the
+  // AssertingVH keys do not auto-erase on deletion.
+  VMap.clear();
   delete F1;
   delete F2;
 }
@@ -263,6 +269,9 @@ TEST_F(CloneInstruction, DuplicateInstructionsToSplit) {
   EXPECT_EQ(AddSplit->getNextNode(), MulSplit);
   EXPECT_EQ(MulSplit->getNextNode(), Split->getTerminator());
 
+  // Mapping keys reference F's instructions; clear it before deleting F since
+  // the AssertingVH keys do not auto-erase on deletion.
+  Mapping.clear();
   delete F;
 }
 
@@ -316,6 +325,9 @@ TEST_F(CloneInstruction, DuplicateInstructionsToSplitBlocksEq1) {
   EXPECT_EQ(Split->getSingleSuccessor(), BB2);
   EXPECT_EQ(BB2->getSingleSuccessor(), Split);
 
+  // Mapping keys reference F's instructions; clear it before deleting F since
+  // the AssertingVH keys do not auto-erase on deletion.
+  Mapping.clear();
   delete F;
 }
 
@@ -365,6 +377,9 @@ TEST_F(CloneInstruction, DuplicateInstructionsToSplitBlocksEq2) {
   EXPECT_EQ(Split->getSingleSuccessor(), BB2);
   EXPECT_EQ(BB2->getSingleSuccessor(), Split);
 
+  // Mapping keys reference F's instructions; clear it before deleting F since
+  // the AssertingVH keys do not auto-erase on deletion.
+  Mapping.clear();
   delete F;
 }
 

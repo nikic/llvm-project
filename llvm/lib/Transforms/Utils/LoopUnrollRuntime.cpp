@@ -1069,6 +1069,11 @@ bool llvm::UnrollRuntimeLoopRemainder(
                   NewPreHeader, VMap, DT, LI, PreserveLCSSA, *SE);
   }
 
+  // VMap is no longer read past this point. Its keys are AssertingVH<const
+  // Value>, which do not auto-erase when the key Value is deleted; clear it
+  // before the simplification/block-removal below can delete original Values.
+  VMap.clear();
+
   // If this loop is nested, then the loop unroller changes the code in the any
   // of its parent loops, so the Scalar Evolution pass needs to be run again.
   SE->forgetTopmostLoop(L);

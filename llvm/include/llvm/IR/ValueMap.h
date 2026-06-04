@@ -86,13 +86,9 @@ class ValueMap {
 
   using ValueMapCVH = ValueMapCallbackVH<KeyT, ValueT, Config>;
   using MapT = DenseMap<ValueMapCVH, ValueT, DenseMapInfo<ValueMapCVH>>;
-  using MDMapT = DenseMap<const Metadata *, TrackingMDRef>;
-  /// Map {(InlinedAt, old atom number) -> new atom number}.
-  using DMAtomT = SmallDenseMap<std::pair<Metadata *, uint64_t>, uint64_t>;
   using ExtraData = typename Config::ExtraData;
 
   MapT Map;
-  std::optional<MDMapT> MDMap;
   ExtraData Data;
 
 public:
@@ -112,26 +108,6 @@ public:
   ValueMap &operator=(const ValueMap &) = delete;
   ValueMap &operator=(ValueMap &&) = delete;
 
-  bool hasMD() const { return bool(MDMap); }
-  MDMapT &MD() {
-    if (!MDMap)
-      MDMap.emplace();
-    return *MDMap;
-  }
-  std::optional<MDMapT> &getMDMap() { return MDMap; }
-  /// Map {(InlinedAt, old atom number) -> new atom number}.
-  DMAtomT AtomMap;
-
-  /// Get the mapped metadata, if it's in the map.
-  std::optional<Metadata *> getMappedMD(const Metadata *MD) const {
-    if (!MDMap)
-      return std::nullopt;
-    auto Where = MDMap->find(MD);
-    if (Where == MDMap->end())
-      return std::nullopt;
-    return Where->second.get();
-  }
-
   using iterator = ValueMapIteratorImpl<MapT, KeyT, false>;
   using const_iterator = ValueMapIteratorImpl<MapT, KeyT, true>;
 
@@ -146,11 +122,7 @@ public:
   /// Grow the map so that it has at least Size buckets. Does not shrink
   void reserve(size_t Size) { Map.reserve(Size); }
 
-  void clear() {
-    Map.clear();
-    MDMap.reset();
-    AtomMap.clear();
-  }
+  void clear() { Map.clear(); }
 
   /// Return 1 if the specified key is in the map, 0 otherwise.
   size_type count(const KeyT &Val) const {
@@ -374,6 +346,202 @@ using ValueMapIterator = ValueMapIteratorImpl<DenseMapT, KeyT, false>;
 
 template <typename DenseMapT, typename KeyT>
 using ValueMapConstIterator = ValueMapIteratorImpl<DenseMapT, KeyT, true>;
+
+/// Iterator for ValueToValueMapTy.  Dereferences to a proxy exposing \c first as
+/// a raw <tt>const Value *</tt> (unwrapped from the AssertingVH key) and \c
+/// second as a reference to the WeakTrackingVH, so existing call sites that
+/// pass \c first to \c dyn_cast or use it as a map key keep working.
+template <bool IsConst> class ValueToValueMapIterator {
+  using MapT = DenseMap<AssertingVH<const Value>, WeakTrackingVH>;
+  using BaseT = std::conditional_t<IsConst, typename MapT::const_iterator,
+                                   typename MapT::iterator>;
+  using KeyT = const Value *;
+  using ValueT = WeakTrackingVH;
+
+  BaseT I;
+
+public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = std::pair<KeyT, ValueT>;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
+  ValueToValueMapIterator() = default;
+  ValueToValueMapIterator(BaseT I) : I(I) {}
+
+  // Allow conversion from iterator to const_iterator.
+  template <bool C = IsConst, typename = std::enable_if_t<C>>
+  ValueToValueMapIterator(const ValueToValueMapIterator<false> &Other)
+      : I(Other.base()) {}
+
+  BaseT base() const { return I; }
+
+  struct ValueTypeProxy {
+    const KeyT first;
+    std::conditional_t<IsConst, const ValueT &, ValueT &> second;
+
+    ValueTypeProxy *operator->() { return this; }
+
+    operator std::pair<KeyT, ValueT>() const {
+      return std::make_pair(first, second);
+    }
+  };
+
+  ValueTypeProxy operator*() const {
+    ValueTypeProxy Result = {I->first, I->second};
+    return Result;
+  }
+
+  ValueTypeProxy operator->() const { return operator*(); }
+
+  bool operator==(const ValueToValueMapIterator &RHS) const {
+    return I == RHS.I;
+  }
+  bool operator!=(const ValueToValueMapIterator &RHS) const {
+    return I != RHS.I;
+  }
+
+  ValueToValueMapIterator &operator++() { // Preincrement
+    ++I;
+    return *this;
+  }
+  ValueToValueMapIterator operator++(int) { // Postincrement
+    ValueToValueMapIterator tmp = *this;
+    ++*this;
+    return tmp;
+  }
+};
+
+/// Map from a (source) Value to a tracked (cloned) Value, used by IR cloning
+/// and linking (see \a ValueToValueMapTy).
+///
+/// Unlike the generic \a ValueMap, the keys are \a AssertingVH rather than
+/// tracking callback handles.  In release builds an \a AssertingVH is a trivial
+/// pointer wrapper, so insertions and lookups avoid the per-entry use-list
+/// maintenance that \a ValueMap incurs.  This is safe because the keys are the
+/// read-only *source* values being cloned: they are normally neither deleted
+/// nor RAUW'd while the map is live.  Because \a AssertingVH does not follow
+/// RAUW and does not auto-erase on deletion (it instead asserts on deletion in
+/// builds with ABI breaking checks), any caller that does delete or RAUW a key
+/// while the map is alive must update the map manually.
+///
+/// In addition to the value mapping, this holds the side tables used by the
+/// value mapper when cloning: a lazily-created metadata map (\a MD()) and a
+/// source-atom map (\a AtomMap).
+class ValueToValueMapTy {
+  using KeyT = const Value *;
+  using ValueT = WeakTrackingVH;
+  using MapT = DenseMap<AssertingVH<const Value>, ValueT>;
+  using MDMapT = DenseMap<const Metadata *, TrackingMDRef>;
+  /// Map {(InlinedAt, old atom number) -> new atom number}.
+  using DMAtomT = SmallDenseMap<std::pair<Metadata *, uint64_t>, uint64_t>;
+
+  MapT Map;
+  std::optional<MDMapT> MDMap;
+
+public:
+  using key_type = KeyT;
+  using mapped_type = ValueT;
+  using value_type = std::pair<KeyT, ValueT>;
+  using size_type = unsigned;
+  using iterator = ValueToValueMapIterator<false>;
+  using const_iterator = ValueToValueMapIterator<true>;
+
+  explicit ValueToValueMapTy(unsigned NumInitBuckets = 64)
+      : Map(NumInitBuckets) {}
+  // Like ValueMap, this can't be copied nor moved.
+  ValueToValueMapTy(const ValueToValueMapTy &) = delete;
+  ValueToValueMapTy(ValueToValueMapTy &&) = delete;
+  ValueToValueMapTy &operator=(const ValueToValueMapTy &) = delete;
+  ValueToValueMapTy &operator=(ValueToValueMapTy &&) = delete;
+
+  bool hasMD() const { return bool(MDMap); }
+  MDMapT &MD() {
+    if (!MDMap)
+      MDMap.emplace();
+    return *MDMap;
+  }
+  std::optional<MDMapT> &getMDMap() { return MDMap; }
+  /// Map {(InlinedAt, old atom number) -> new atom number}.
+  DMAtomT AtomMap;
+
+  /// Get the mapped metadata, if it's in the map.
+  std::optional<Metadata *> getMappedMD(const Metadata *MD) const {
+    if (!MDMap)
+      return std::nullopt;
+    auto Where = MDMap->find(MD);
+    if (Where == MDMap->end())
+      return std::nullopt;
+    return Where->second.get();
+  }
+
+  iterator begin() { return iterator(Map.begin()); }
+  iterator end() { return iterator(Map.end()); }
+  const_iterator begin() const { return const_iterator(Map.begin()); }
+  const_iterator end() const { return const_iterator(Map.end()); }
+
+  bool empty() const { return Map.empty(); }
+  size_type size() const { return Map.size(); }
+
+  /// Grow the map so that it has at least Size buckets. Does not shrink
+  void reserve(size_t Size) { Map.reserve(Size); }
+
+  void clear() {
+    Map.clear();
+    MDMap.reset();
+    AtomMap.clear();
+  }
+
+  /// Return 1 if the specified key is in the map, 0 otherwise.
+  size_type count(KeyT Val) const {
+    return Map.find_as(Val) == Map.end() ? 0 : 1;
+  }
+
+  iterator find(KeyT Val) { return iterator(Map.find_as(Val)); }
+  const_iterator find(KeyT Val) const {
+    return const_iterator(Map.find_as(Val));
+  }
+
+  /// lookup - Return the entry for the specified key, or a default
+  /// constructed value if no such entry exists.
+  ValueT lookup(KeyT Val) const {
+    typename MapT::const_iterator I = Map.find_as(Val);
+    return I != Map.end() ? I->second : ValueT();
+  }
+
+  // Inserts key,value pair into the map if the key isn't already in the map.
+  // If the key is already in the map, it returns false and doesn't update the
+  // value.
+  std::pair<iterator, bool> insert(const value_type &KV) {
+    auto Result = Map.insert(std::make_pair(AssertingVH<const Value>(KV.first),
+                                            KV.second));
+    return std::make_pair(iterator(Result.first), Result.second);
+  }
+  std::pair<iterator, bool> insert(value_type &&KV) {
+    auto Result = Map.insert(std::make_pair(
+        AssertingVH<const Value>(KV.first), std::move(KV.second)));
+    return std::make_pair(iterator(Result.first), Result.second);
+  }
+
+  /// insert - Range insertion of pairs.
+  template <typename InputIt> void insert(InputIt I, InputIt E) {
+    for (; I != E; ++I)
+      insert(*I);
+  }
+
+  bool erase(KeyT Val) {
+    typename MapT::iterator I = Map.find_as(Val);
+    if (I == Map.end())
+      return false;
+
+    Map.erase(I);
+    return true;
+  }
+  void erase(iterator I) { Map.erase(I.base()); }
+
+  ValueT &operator[](KeyT Key) { return Map[Key]; }
+};
 
 } // end namespace llvm
 

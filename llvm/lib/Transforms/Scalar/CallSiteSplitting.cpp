@@ -367,6 +367,11 @@ static void splitCallSite(CallBase &CB,
       DTU.applyUpdatesPermissive({{DominatorTree::Delete, BB, TailBB}});
     }
 
+    // ValueToValueMaps use AssertingVH keys (TailBB's original instructions),
+    // which do not auto-erase; clear them before deleting TailBB below.
+    for (auto &Mapping : ValueToValueMaps)
+      Mapping.clear();
+
     // Erase the tail block once done with musttail patching
     DTU.deleteBB(TailBB);
     return;
@@ -405,6 +410,11 @@ static void splitCallSite(CallBase &CB,
       CurrentI->replaceAllUsesWith(NewPN);
     }
     CurrentI->dropDbgRecords();
+    // ValueToValueMaps use AssertingVH keys, which do not auto-erase when the
+    // key Value is deleted. Drop CurrentI (an original TailBB instruction used
+    // as a map key) from the maps before erasing it.
+    for (auto &Mapping : ValueToValueMaps)
+      Mapping.erase(CurrentI);
     CurrentI->eraseFromParent();
     // We are done once we handled the first original instruction in TailBB.
     if (CurrentI == OriginalBeginInst)

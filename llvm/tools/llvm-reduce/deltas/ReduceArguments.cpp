@@ -167,6 +167,10 @@ void llvm::reduceArgumentsDeltaPass(Oracle &O, ReducerWorkItem &WorkItem) {
         ArgIndexesToKeep.insert(Index);
 
     auto *ClonedFunc = CloneFunction(F, VMap);
+    // VMap is keyed on F's values via AssertingVH, which do not auto-erase on
+    // deletion. It is no longer needed after cloning, and the steps below delete
+    // F's instructions (e.g. recursive calls) and F itself, so clear it now.
+    VMap.clear();
     // In order to preserve function order, we move Clone after old Function
     ClonedFunc->takeName(F);
     ClonedFunc->removeFromParent();

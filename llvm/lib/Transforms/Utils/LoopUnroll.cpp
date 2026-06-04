@@ -1285,6 +1285,9 @@ llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   for (PHINode *PN : OrigPHINode) {
     if (CompletelyUnroll) {
       PN->replaceAllUsesWith(PN->getIncomingValueForBlock(Preheader));
+      // PN is a key in LastValueMap; remove it before deleting it, since the
+      // map's AssertingVH keys do not auto-erase on deletion.
+      LastValueMap.erase(PN);
       PN->eraseFromParent();
     } else if (ULO.Count > 1) {
       if (Reductions.contains(PN))
@@ -1301,6 +1304,11 @@ llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
       PN->addIncoming(InVal, Latches.back());
     }
   }
+
+  // LastValueMap is no longer needed. Clear it now, since later unrolling steps
+  // (e.g. simplifyLoopAfterUnroll) delete original-loop instructions that are
+  // keys in it, and its AssertingVH keys do not auto-erase on deletion.
+  LastValueMap.clear();
 
   // Connect latches of the unrolled iterations to the headers of the next
   // iteration. Currently they point to the header of the same iteration.

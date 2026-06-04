@@ -197,6 +197,12 @@ static void substituteOperandWithArgument(Function *OldF,
       NewUser->setOperand(Op->getOperandNo(), NewArg);
   }
 
+  // VMap/OldValMap are keyed on OldF's values via AssertingVH, which do not
+  // auto-erase on deletion. They are no longer read, and the steps below delete
+  // OldF's instructions (e.g. recursive calls) and OldF itself, so clear now.
+  VMap.clear();
+  OldValMap.clear();
+
   // Replace all OldF uses with NewF.
   replaceFunctionCalls(OldF, NewF);
 

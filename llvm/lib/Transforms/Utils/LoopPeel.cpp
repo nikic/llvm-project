@@ -1392,6 +1392,14 @@ void llvm::peelLoop(Loop *L, unsigned PeelCount, bool PeelLast, LoopInfo *LI,
     }
   }
 
+  // VMap/LVMap are keyed on original-loop Values via AssertingVH, which (unlike
+  // the old callback-based ValueMap) does not auto-erase when a key Value is
+  // deleted. Drop all entries now, after their last read above, so the
+  // subsequent simplifyLoop() (and the caller's simplifyLoopAfterUnroll()) can
+  // delete original-loop instructions without tripping the asserting handle.
+  VMap.clear();
+  LVMap.clear();
+
   // Update Metadata for count of peeled off iterations.
   unsigned AlreadyPeeled = 0;
   if (auto Peeled = getOptionalIntLoopAttribute(L, PeeledCountMetaData))

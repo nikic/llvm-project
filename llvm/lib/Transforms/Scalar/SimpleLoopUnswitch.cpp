@@ -2545,6 +2545,11 @@ static void unswitchNontrivialInvariants(
   for (std::unique_ptr<ValueToValueMapTy> &VMap : VMaps)
     buildClonedLoops(L, ExitBlocks, *VMap, LI, NonChildClonedLoops);
 
+  // The VMaps are keyed on original-loop values (held by AssertingVH, which do
+  // not auto-erase on deletion). We're done reading them, and the next step
+  // deletes blocks from the original loop, so release the maps now.
+  VMaps.clear();
+
   // Now that our cloned loops have been built, we can update the original loop.
   // First we delete the dead blocks from it and then we rebuild the loop
   // structure taking these deletions into account.

@@ -371,6 +371,10 @@ void splitAndWriteThinLTOBitcode(
           return HasTypeMetadata(GVar);
         return false;
       }));
+  // VMap is keyed on the original module's GlobalValues via AssertingVH, which
+  // do not auto-erase on deletion. It is not read after CloneModule, and
+  // filterModule() below deletes globals of M (the keys), so clear it now.
+  VMap.clear();
   StripDebugInfo(*MergedM);
   MergedM->setModuleInlineAsm("");
 
