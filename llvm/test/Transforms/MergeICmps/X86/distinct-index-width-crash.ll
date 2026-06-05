@@ -14,12 +14,19 @@ define void @fat_ptrs(ptr dereferenceable(16) %a, ptr dereferenceable(16) %b) {
 ; CHECK-NEXT:  bb0:
 ; CHECK-NEXT:    [[PTR_A1:%.*]] = getelementptr inbounds [2 x i64], ptr [[A:%.*]], i32 0, i32 1
 ; CHECK-NEXT:    [[PTR_B1:%.*]] = getelementptr inbounds [2 x i64], ptr [[B:%.*]], i32 0, i32 1
-; CHECK-NEXT:    br label %"bb1+bb2"
-; CHECK:       "bb1+bb2":
-; CHECK-NEXT:    [[MEMCMP:%.*]] = call i32 @memcmp(ptr [[A]], ptr [[B]], i32 16)
-; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i32 [[MEMCMP]], 0
 ; CHECK-NEXT:    br label [[BB3:%.*]]
+; CHECK:       bb1:
+; CHECK-NEXT:    [[A0:%.*]] = load i64, ptr [[A]], align 4
+; CHECK-NEXT:    [[B0:%.*]] = load i64, ptr [[B]], align 4
+; CHECK-NEXT:    [[COND0:%.*]] = icmp eq i64 [[A0]], [[B0]]
+; CHECK-NEXT:    br i1 [[COND0]], label [[BB2:%.*]], label [[BB4:%.*]]
+; CHECK:       bb2:
+; CHECK-NEXT:    [[A1:%.*]] = load i64, ptr [[PTR_A1]], align 4
+; CHECK-NEXT:    [[B1:%.*]] = load i64, ptr [[PTR_B1]], align 4
+; CHECK-NEXT:    [[COND1:%.*]] = icmp eq i64 [[A1]], [[B1]]
+; CHECK-NEXT:    br label [[BB4]]
 ; CHECK:       bb3:
+; CHECK-NEXT:    [[NECESSARY:%.*]] = phi i1 [ [[COND1]], [[BB2]] ], [ false, [[BB3]] ]
 ; CHECK-NEXT:    ret void
 ;
 bb0:

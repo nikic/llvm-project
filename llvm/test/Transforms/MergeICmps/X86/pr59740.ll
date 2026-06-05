@@ -114,19 +114,27 @@ bb2:                                               ; preds = %bb0, %bb1
 ; https://alive2.llvm.org/ce/z/Zi2Z3Y
 define noundef i1 @partial_sequent_eq(ptr nocapture readonly dereferenceable(16) %s0, ptr nocapture readonly dereferenceable(16) %s1) {
 ; CHECK-LABEL: @partial_sequent_eq(
-; CHECK-NEXT:  bb01:
+; CHECK-NEXT:  bb0:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[S0:%.*]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[S1:%.*]], align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i32 [[TMP0]], [[TMP1]]
-; CHECK-NEXT:    br i1 [[TMP2]], label %"bb1+bb2", label [[BB3:%.*]]
-; CHECK:       "bb1+bb2":
+; CHECK-NEXT:    br i1 [[TMP2]], label [[BB1:%.*]], label [[BB3:%.*]]
+; CHECK:       bb1:
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds [[STRUCT1_S:%.*]], ptr [[S0]], i64 0, i32 2
+; CHECK-NEXT:    [[V2:%.*]] = load i32, ptr [[TMP3]], align 8
 ; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds [[STRUCT1_S]], ptr [[S1]], i64 0, i32 2
-; CHECK-NEXT:    [[MEMCMP:%.*]] = call i32 @memcmp(ptr [[TMP3]], ptr [[TMP4]], i64 5)
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i32 [[MEMCMP]], 0
+; CHECK-NEXT:    [[V3:%.*]] = load i32, ptr [[TMP4]], align 8
+; CHECK-NEXT:    [[CMP1:%.*]] = icmp eq i32 [[V2]], [[V3]]
+; CHECK-NEXT:    br i1 [[CMP1]], label [[BB2:%.*]], label [[BB3]]
+; CHECK:       bb2:
+; CHECK-NEXT:    [[S6:%.*]] = getelementptr inbounds [[STRUCT1_S]], ptr [[S0]], i64 0, i32 3
+; CHECK-NEXT:    [[V6:%.*]] = load i8, ptr [[S6]], align 1
+; CHECK-NEXT:    [[S7:%.*]] = getelementptr inbounds [[STRUCT1_S]], ptr [[S1]], i64 0, i32 3
+; CHECK-NEXT:    [[V7:%.*]] = load i8, ptr [[S7]], align 1
+; CHECK-NEXT:    [[CMP3:%.*]] = icmp eq i8 [[V6]], [[V7]]
 ; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
-; CHECK-NEXT:    [[CMP:%.*]] = phi i1 [ false, [[BB01:%.*]] ], [ [[TMP5]], %"bb1+bb2" ]
+; CHECK-NEXT:    [[CMP:%.*]] = phi i1 [ false, [[BB0:%.*]] ], [ false, [[BB1]] ], [ [[CMP3]], [[BB2]] ]
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
 bb0:
