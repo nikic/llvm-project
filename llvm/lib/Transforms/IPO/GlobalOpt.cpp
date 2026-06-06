@@ -1972,10 +1972,12 @@ OptimizeFunctions(Module &M,
     // some more complicated logic to break these cycles.
     // Notify the analysis manager that we've modified the function's CFG.
     if (!F.isDeclaration()) {
+#if 0
       if (removeUnreachableBlocks(F)) {
         Changed = true;
         ChangedCFGCallback(F);
       }
+#endif
     }
 
     Changed |= processGlobal(F, GetTTI, GetTLI, LookupDomTree);
