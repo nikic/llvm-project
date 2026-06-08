@@ -162,13 +162,6 @@ static BCEAtom visitICmpLoadOperand(Value *const Val, BaseIdentifier &BaseId) {
     return {};
   }
 
-  if (!isDereferenceablePointer(Addr, LoadI->getType(), DL)) {
-    LLVM_DEBUG(dbgs() << "not dereferenceable\n");
-    // We need to make sure that we can do comparison in any order, so we
-    // require memory to be unconditionally dereferenceable.
-    return {};
-  }
-
   APInt Offset = APInt(DL.getIndexTypeSizeInBits(Addr->getType()), 0);
   Value *Base = Addr;
   auto *GEP = dyn_cast<GetElementPtrInst>(Addr);
@@ -415,6 +408,8 @@ public:
 
   BCECmpChain(const std::vector<BasicBlock *> &Blocks, PHINode &Phi,
               AliasAnalysis &AA);
+
+  bool isDereferenceable();
 
   bool simplify(const TargetLibraryInfo &TLI, AliasAnalysis &AA,
                 DomTreeUpdater &DTU);
@@ -734,6 +729,26 @@ static BasicBlock *mergeComparisons(ArrayRef<BCECmpBlock> Comparisons,
   return BB;
 }
 
+bool BCECmpChain::isDereferenceable() {
+  for (const auto &Blocks : MergedBlocks_) {
+    const BCECmpBlock &LowestBlock = Blocks.front();
+    const Value *Lhs = LowestBlock.Lhs().LoadI->getPointerOperand();
+    const Value *Rhs = LowestBlock.Rhs().LoadI->getPointerOperand();
+    const DataLayout &DL = LowestBlock.Lhs().LoadI->getDataLayout();
+
+    unsigned SizeInBits = 0;
+    for (const BCECmpBlock &Block : Blocks)
+      SizeInBits += Block.SizeBits();
+
+    APInt Size(64, SizeInBits / 8);
+    SimplifyQuery SQ(DL, &EntryBlock_->front());
+    if (!isDereferenceableAndAlignedPointer(Lhs, Align(1), Size, SQ) ||
+        !isDereferenceableAndAlignedPointer(Rhs, Align(1), Size, SQ))
+      return false;
+  }
+  return true;
+}
+
 bool BCECmpChain::simplify(const TargetLibraryInfo &TLI, AliasAnalysis &AA,
                            DomTreeUpdater &DTU) {
   assert(atLeastOneMerged() && "simplifying trivial BCECmpChain");
@@ -885,6 +900,11 @@ static bool processPhi(PHINode &Phi, const TargetLibraryInfo &TLI,
 
   if (!CmpChain.atLeastOneMerged()) {
     LLVM_DEBUG(dbgs() << "skip: nothing merged\n");
+    return false;
+  }
+
+  if (!CmpChain.isDereferenceable()) {
+    LLVM_DEBUG(dbgs() << "not dereferenceable\n");
     return false;
   }
 
