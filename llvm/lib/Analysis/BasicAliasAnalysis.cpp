@@ -983,10 +983,10 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   //
   // We model calls that can return twice (setjmp) as clobbering non-escaping
   // objects, to model any accesses that may occur prior to the second return.
-  // As an exception, ignore allocas, as setjmp is not required to preserve
-  // non-volatile stores for them.
+  // While not strictly required, we also do this for allocas, to handle
+  // non-volatile stack allocations across setjmp more conservatively.
   if (isModOrRefSet(OtherMR) && !isa<Constant>(Object) && Call != Object &&
-      (isa<AllocaInst>(Object) || !Call->hasFnAttr(Attribute::ReturnsTwice))) {
+      !Call->hasFnAttr(Attribute::ReturnsTwice)) {
     CaptureComponents CC = AAQI.CA->getCapturesBefore(
         Object, Call, /*OrAt=*/false, /*ReturnCaptures=*/false);
     if (capturesNothing(CC))

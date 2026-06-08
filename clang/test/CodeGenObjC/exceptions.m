@@ -58,7 +58,9 @@ int f2(void) {
     // CHECK-NEXT: [[T1:%.*]] = load i32, ptr [[X]]
     // CHECK-NEXT: [[T2:%.*]] = add nsw i32 [[T1]], -1
 
-    // CHECK: store i32 6, ptr [[X]]
+    // CHECK: [[T3:%.*]] = load i32, ptr [[X]]
+    // CHECK-NEXT: [[T4:%.*]] = add nsw i32 [[T3]], 1
+    // CHECK-NEXT: store i32 [[T4]], ptr [[X]]
     x++;
     // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(ptr nonnull elementtype(i32) [[X]]
     // CHECK-NEXT: call void @foo()

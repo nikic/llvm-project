@@ -36,7 +36,8 @@ if.end:
   ret i32 %res
 }
 
-; We are still allowed to optimize non-volatile accesses to allocas.
+; We are still allowed to optimize non-volatile accesses to allocas,
+; but avoid doing it as a matter of QoI.
 define i32 @test_alloca() {
 ; CHECK-LABEL: define i32 @test_alloca() {
 ; CHECK-NEXT:    [[ALLOC:%.*]] = alloca i43, align 8
@@ -49,7 +50,8 @@ define i32 @test_alloca() {
 ; CHECK-NEXT:    call void @longjmp()
 ; CHECK-NEXT:    unreachable
 ; CHECK:       [[IF_END]]:
-; CHECK-NEXT:    ret i32 10
+; CHECK-NEXT:    [[RES:%.*]] = load i32, ptr [[ALLOC]], align 4
+; CHECK-NEXT:    ret i32 [[RES]]
 ;
   %alloc = alloca i43
   store i32 10, ptr %alloc, align 4

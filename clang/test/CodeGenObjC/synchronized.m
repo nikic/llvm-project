@@ -39,6 +39,7 @@ void foo(id a) {
     // CHECK: unreachable
 
     // CHECK:      call void @objc_exception_try_exit
+    // CHECK-NEXT: load ptr, ptr [[SYNC]]
     // CHECK-NEXT: call i32 @objc_sync_exit
     // CHECK: ret void
     return;
@@ -50,6 +51,7 @@ void foo(id a) {
 int f0(id a) {
   // We can optimize the ret to a constant as we can figure out
   // that x isn't stored to within the synchronized block.
+  // TODO: This currently doesn't happen due to conservative setjmp handling.
 
   // CHECK: [[X:%.*]] = alloca i32
   // CHECK: store i32 1, ptr [[X]]
@@ -57,7 +59,8 @@ int f0(id a) {
   @synchronized((x++, a)) {    
   }
 
-  // CHECK: ret i32 1
+  // CHECK: [[T:%.*]] = load i32, ptr [[X]]
+  // CHECK: ret i32 [[T]]
   return x;
 }
 
