@@ -553,8 +553,9 @@ static Loop *getTopMostExitingLoop(const BasicBlock *ExitBB,
 ///
 /// This routine should only be called when loop code leading to the branch has
 /// been validated as trivial (no side effects). This routine checks if the
-/// condition is invariant and one of the successors is a loop exit. This
-/// allows us to unswitch without duplicating the loop, making it trivial.
+/// condition is invariant and one of the successors is a loop exit or a loop
+/// latch with no side-effects. This allows us to unswitch without duplicating
+/// the loop, making it trivial.
 ///
 /// If this routine fails to unswitch the branch it returns false.
 ///
@@ -591,6 +592,48 @@ static bool unswitchTrivialBranch(Loop &L, CondBrInst &BI, DominatorTree &DT,
     }
   }
 
+  std::optional<int> LatchIdx = std::nullopt;
+  if (FullUnswitch && L.getUniqueLatchExitBlock() != nullptr)
+    if (BI.getSuccessor(0) == L.getLoopLatch() &&
+        L.contains(BI.getSuccessor(1)))
+      LatchIdx = 0;
+    else if (BI.getSuccessor(1) == L.getLoopLatch() &&
+             L.contains(BI.getSuccessor(0)))
+      LatchIdx = 1;
+
+  bool ModifiedBranch = false;
+  if (LatchIdx &&
+      areLoopExitPHIsLoopInvariant(L, *L.getLoopLatch(),
+                                   *L.getUniqueLatchExitBlock()) &&
+      !llvm::any_of(*L.getLoopLatch(),
+                    [](Instruction &I) { return I.mayHaveSideEffects(); })) {
+
+    // We need to prove the loop is finite, otherwise this change will convert
+    // it to a finite loop. This conservative check is good enough as we are
+    // mostly interested in perfect countable loop nests that perform
+    // calculations on arrays.
+    const SCEV *MaxBECount = SE->getConstantMaxBackedgeTakenCount(&L);
+    if (!isa<SCEVCouldNotCompute>(MaxBECount)) {
+      SmallVector<cfg::Update<BasicBlock *>, 2> Updates;
+      Updates.push_back({cfg::UpdateKind::Delete, BI.getParent(),
+                         BI.getSuccessor(*LatchIdx)});
+      Updates.push_back({cfg::UpdateKind::Insert, BI.getParent(),
+                         L.getUniqueLatchExitBlock()});
+      L.getLoopLatch()->removePredecessor(BI.getParent());
+      BI.setSuccessor(*LatchIdx, L.getUniqueLatchExitBlock());
+      for (PHINode &PN : L.getUniqueLatchExitBlock()->phis()) {
+        Value *V = PN.getIncomingValueForBlock(L.getLoopLatch());
+        PN.addIncoming(V, BI.getParent());
+      }
+      if (MSSAU)
+        MSSAU->applyUpdates(Updates, DT);
+      else
+        DT.applyUpdates(Updates);
+
+      ModifiedBranch = true;
+    }
+  }
+
   // Check that one of the branch's successors exits, and which one.
   bool ExitDirection = true;
   int LoopExitSuccIdx = 0;
@@ -606,7 +649,8 @@ static bool unswitchTrivialBranch(Loop &L, CondBrInst &BI, DominatorTree &DT,
   }
   auto *ContinueBB = BI.getSuccessor(1 - LoopExitSuccIdx);
   auto *ParentBB = BI.getParent();
-  if (!areLoopExitPHIsLoopInvariant(L, *ParentBB, *LoopExitBB)) {
+  if (!ModifiedBranch &&
+      !areLoopExitPHIsLoopInvariant(L, *ParentBB, *LoopExitBB)) {
     LLVM_DEBUG(dbgs() << "   Loop exit PHI's aren't loop-invariant!\n");
     return false;
   }
