@@ -2748,8 +2748,10 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
     // instructions shouldn't factor into the cost computation, but until then,
     // hack around it here.
     // Similarly, skip pseudo-probes.
+#if 0
     if (I.isDebugOrPseudoInst())
       continue;
+#endif
 
     // Skip ephemeral values.
     if (EphValues.count(&I))

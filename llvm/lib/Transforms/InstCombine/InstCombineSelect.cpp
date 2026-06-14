@@ -1520,7 +1520,7 @@ static Instruction *foldSelectCtlzToCttz(ICmpInst *ICI, Value *TrueVal,
   if (!match(Ctlz, m_Ctlz(m_Value(), m_Value())))
     return nullptr;
 
-  if (TrueVal != Ctlz && !match(TrueVal, m_SpecificInt(BitWidth)))
+  if (!match(TrueVal, m_SpecificInt(BitWidth)))
     return nullptr;
 
   Value *X = ICI->getOperand(0);
@@ -1530,7 +1530,7 @@ static Instruction *foldSelectCtlzToCttz(ICmpInst *ICI, Value *TrueVal,
 
   Function *F = Intrinsic::getOrInsertDeclaration(
       II->getModule(), Intrinsic::cttz, II->getType());
-  return CallInst::Create(F, {X, II->getArgOperand(1)});
+  return CallInst::Create(F, {X, Builder.getFalse()});
 }
 
 /// Attempt to fold a cttz/ctlz followed by a icmp plus select into a single
@@ -2459,8 +2459,10 @@ Instruction *InstCombinerImpl::foldSelectInstWithICmp(SelectInst &SI,
   if (Value *V = foldSelectICmpAndZeroShl(ICI, TrueVal, FalseVal, Builder))
     return replaceInstUsesWith(SI, V);
 
+#if 0
   if (Instruction *V = foldSelectCtlzToCttz(ICI, TrueVal, FalseVal, Builder))
     return V;
+#endif
 
   if (Instruction *V = foldSelectZeroOrOnes(ICI, TrueVal, FalseVal, Builder))
     return V;
