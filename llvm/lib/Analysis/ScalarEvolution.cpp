@@ -12855,8 +12855,8 @@ bool ScalarEvolution::isImpliedCondOperandsViaMatchingDiff(
   // Restrict to cases involving loop recurrences - that's where this
   // pattern arises (correlated IV comparisons). This avoids calling
   // getMinusSCEV on arbitrary non-loop expressions.
-  if (!isa<SCEVAddRecExpr>(LHS) && !isa<SCEVAddRecExpr>(RHS) &&
-      !isa<SCEVAddRecExpr>(FoundLHS) && !isa<SCEVAddRecExpr>(FoundRHS))
+  if ((!isa<SCEVAddRecExpr>(LHS) && !isa<SCEVAddRecExpr>(RHS)) ||
+      (!isa<SCEVAddRecExpr>(FoundLHS) && !isa<SCEVAddRecExpr>(FoundRHS)))
     return false;
 
   // Compute differences. For pointer-typed operands sharing the same base,
