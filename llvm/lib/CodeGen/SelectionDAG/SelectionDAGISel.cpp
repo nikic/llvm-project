@@ -4461,6 +4461,18 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
           }
         }
 
+        if (!Res->memoperands_empty()) {
+          bool AllEqual =
+              Res->memoperands().size() == FilteredMemRefs.size() &&
+              all_of(zip_equal(Res->memoperands(), FilteredMemRefs),
+                     [](const std::tuple<const MachineMemOperand *,
+                                         const MachineMemOperand *> &Pair) {
+                       return *std::get<0>(Pair) == *std::get<1>(Pair);
+                     });
+          if (!AllEqual)
+            append_range(FilteredMemRefs, Res->memoperands());
+        }
+
         CurDAG->setNodeMemRefs(Res, FilteredMemRefs);
       }
 
