@@ -2192,7 +2192,7 @@ ABIArgInfo X86_64ABIInfo::getIndirectReturnResult(QualType Ty) const {
       return getNaturalAlignIndirect(Ty, getDataLayout().getAllocaAddrSpace());
 
     llvm::Type *IRTy = CGT.ConvertType(Ty);
-    return (isPromotableIntegerTypeForABI(Ty) ? ABIArgInfo::getExtend(Ty, IRTy)
+    return (isPromotableIntegerTypeForABI(Ty) ? ABIArgInfo::getDirect()
                                               : ABIArgInfo::getDirect(IRTy));
   }
 
@@ -2232,7 +2232,7 @@ ABIArgInfo X86_64ABIInfo::getIndirectResult(QualType Ty,
       Ty = ED->getIntegerType();
 
     llvm::Type *IRTy = CGT.ConvertType(Ty);
-    return (isPromotableIntegerTypeForABI(Ty) ? ABIArgInfo::getExtend(Ty, IRTy)
+    return (isPromotableIntegerTypeForABI(Ty) ? ABIArgInfo::getDirect()
                                               : ABIArgInfo::getDirect(IRTy));
   }
 
@@ -2643,7 +2643,7 @@ ABIArgInfo X86_64ABIInfo::classifyReturnType(QualType RetTy) const {
 
       if (RetTy->isIntegralOrEnumerationType() &&
           isPromotableIntegerTypeForABI(RetTy))
-        return ABIArgInfo::getExtend(RetTy);
+        return ABIArgInfo::getDirect();
     }
 
     if (ResType->isIntegerTy(128)) {
@@ -2793,7 +2793,7 @@ X86_64ABIInfo::classifyArgumentType(QualType Ty, unsigned freeIntRegs,
 
       if (Ty->isIntegralOrEnumerationType() &&
           isPromotableIntegerTypeForABI(Ty))
-        return ABIArgInfo::getExtend(Ty, CGT.ConvertType(Ty));
+        return ABIArgInfo::getDirect();
     }
 
     if (ResType->isIntegerTy(128)) {
