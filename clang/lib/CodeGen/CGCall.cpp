@@ -2800,8 +2800,7 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
           // FIXME: inaccessiblemem could cause issues if LTO makes the
           // previously inaccessible memory accessible after linking.
           FuncAttrs.addMemoryAttr(
-              llvm::MemoryEffects::inaccessibleOrErrnoMemOnly(
-                  llvm::ModRefInfo::ModRef, llvm::ModRefInfo::Mod));
+              llvm::MemoryEffects::inaccessibleMemOnly());
         }
       }
       const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(Fn);
