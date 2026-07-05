@@ -2257,11 +2257,13 @@ private:
                               const SCEV *RHS, const SCEV *FoundLHS,
                               const SCEV *FoundRHS, unsigned Depth = 0);
 
+public:
   /// Test whether the condition described by Pred, LHS, and RHS is true.
   /// Use only simple non-recursive types of checks, such as range analysis etc.
   bool isKnownViaNonRecursiveReasoning(CmpPredicate Pred, SCEVUse LHS,
                                        SCEVUse RHS);
 
+private:
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
   /// true.
