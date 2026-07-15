@@ -59,6 +59,7 @@ class MemorySSAUpdater;
 class NonLocalDepResult;
 class OptimizationRemarkEmitter;
 class PHINode;
+class PostDominatorTree;
 class TargetLibraryInfo;
 class Value;
 class IntrinsicInst;
@@ -247,6 +248,7 @@ private:
 
   MemoryDependenceResults *MD = nullptr;
   DominatorTree *DT = nullptr;
+  PostDominatorTree *PDT = nullptr;
   const TargetLibraryInfo *TLI = nullptr;
   AssumptionCache *AC = nullptr;
   SetVector<BasicBlock *> DeadBlocks;
@@ -352,8 +354,8 @@ private:
   using UnavailBlkVect = SmallVector<BasicBlock *, 64>;
 
   bool runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
-               const TargetLibraryInfo &RunTLI, AAResults &RunAA,
-               MemoryDependenceResults *RunMD, LoopInfo &LI,
+               PostDominatorTree &RunPDT, const TargetLibraryInfo &RunTLI,
+               AAResults &RunAA, MemoryDependenceResults *RunMD, LoopInfo &LI,
                OptimizationRemarkEmitter *ORE, MemorySSA *MSSA = nullptr);
 
   // List of critical edges to be split between iterations.
@@ -506,6 +508,14 @@ private:
   bool
   propagateEquality(Value *LHS, Value *RHS,
                     const std::variant<BasicBlockEdge, Instruction *> &Root);
+  /// Given that LHS and RHS are known to be equal along the \p Root edge (one
+  /// of them being a constant), clone expressions that are solely built from
+  /// the non-constant value and are used outside the block(s) dominated by
+  /// \p Root into that dominated region with the constant substituted in.
+  /// This exposes further constant folding for uses that propagateEquality
+  /// cannot handle because they are not a direct use of LHS.
+  bool propagateConstExpressions(Value *LHS, Value *RHS,
+                                 const BasicBlockEdge &Root);
   bool processFoldableCondBr(CondBrInst *BI);
   void addDeadBlock(BasicBlock *BB);
   void assignValNumForDeadCode();

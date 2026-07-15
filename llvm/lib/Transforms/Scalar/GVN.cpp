@@ -41,6 +41,7 @@
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/PHITransAddr.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Attributes.h"
@@ -144,6 +145,11 @@ static cl::opt<uint32_t> MaxNumInsnsPerBlock(
     "gvn-max-num-insns", cl::Hidden, cl::init(100),
     cl::desc("Max number of instructions to scan in each basic block in GVN "
              "(default = 100)"));
+
+static cl::opt<bool> GVNPropagateConstExp(
+    "gvn-const-expr-prop", cl::ReallyHidden, cl::init(true),
+    cl::desc("Propagate expressions defined outside the dominating blocks "
+             "for equality checks"));
 
 struct llvm::GVNPass::Expression {
   uint32_t Opcode;
@@ -883,6 +889,7 @@ PreservedAnalyses GVNPass::run(Function &F, FunctionAnalysisManager &AM) {
   // behavior, but until then don't change the order here.
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &PDT = AM.getResult<PostDominatorTreeAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
   auto *MemDep =
@@ -895,7 +902,7 @@ PreservedAnalyses GVNPass::run(Function &F, FunctionAnalysisManager &AM) {
     MSSA = &AM.getResult<MemorySSAAnalysis>(F);
   }
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
-  bool Changed = runImpl(F, AC, DT, TLI, AA, MemDep, LI, &ORE,
+  bool Changed = runImpl(F, AC, DT, PDT, TLI, AA, MemDep, LI, &ORE,
                          MSSA ? &MSSA->getMSSA() : nullptr);
   if (!Changed)
     return PreservedAnalyses::all();
@@ -3083,6 +3090,151 @@ void GVNPass::assignBlockRPONumber(Function &F) {
   InvalidBlockRPONumbers = false;
 }
 
+namespace {
+
+/// Check if \p Expr is an expression involving only \p Base and/or constants.
+bool isExprBuiltFromOnly(Value *Expr, Value *Base) {
+  if (isa<Constant>(Expr))
+    return false;
+  if (Expr == Base)
+    return true;
+  if (!isa<Instruction>(Expr))
+    return false;
+  if (!isa<CastInst, BinaryOperator, UnaryOperator>(Expr))
+    return false;
+  if (auto *II = dyn_cast<IntrinsicInst>(Expr))
+    if (II->getIntrinsicID() == Intrinsic::fake_use)
+      return false;
+  auto *ExprInst = cast<Instruction>(Expr);
+  bool UsedAtleastOnce = false;
+  for (unsigned i = 0, e = ExprInst->getNumOperands(); i != e; ++i) {
+    auto *Op = ExprInst->getOperand(i);
+    if (isa<Constant>(Op))
+      continue;
+    if (!isExprBuiltFromOnly(Op, Base))
+      return false;
+    UsedAtleastOnce = true;
+  }
+  return UsedAtleastOnce;
+}
+
+/// Clone the valid-use expression \p Expr, replacing any use of \p OldVal
+/// with \p NewVal, inserting the cloned instructions right before
+/// \p InsertPt. This avoids creating a new expression for the same value
+/// more than once and keeps the clone as close as possible to its first use.
+Value *cloneExprReplacingOperand(Value *Expr, const Value *OldVal,
+                                 Value *NewVal, Instruction *InsertPt) {
+  if (isa<Constant>(Expr))
+    return Expr;
+  if (Expr == OldVal)
+    return NewVal;
+  if (!isa<Instruction>(Expr))
+    return nullptr;
+  // Only handle Cast, BinOp, UnaryOp for now.
+  if (!isa<CastInst, BinaryOperator, UnaryOperator>(Expr))
+    return nullptr;
+  auto *ExprInst = cast<Instruction>(Expr);
+  SmallVector<Value *, 4> NewOps;
+  for (unsigned i = 0, e = ExprInst->getNumOperands(); i != e; ++i) {
+    auto *Op = ExprInst->getOperand(i);
+    auto *NewOp = cloneExprReplacingOperand(Op, OldVal, NewVal, InsertPt);
+    if (!NewOp)
+      return nullptr;
+    NewOps.push_back(NewOp);
+  }
+  auto *NewInst = ExprInst->clone();
+  for (unsigned i = 0, e = NewOps.size(); i != e; ++i)
+    NewInst->setOperand(i, NewOps[i]);
+
+  NewInst->insertBefore(InsertPt->getIterator());
+  LLVM_DEBUG(dbgs() << "ConstPropExpr: Cloning Inst " << *NewInst << "\n");
+  return NewInst;
+}
+
+} // end anonymous namespace
+
+/// LHS and RHS are known to be equal along the \p Root edge, with one of
+/// them being a constant. Look for instructions dominated by \p Root that
+/// use an expression built solely from the non-constant value but whose
+/// operand is defined outside the region dominated by \p Root (so
+/// propagateEquality's direct-use replacement cannot reach it). Clone such
+/// expressions into the dominated region with the constant substituted in,
+/// exposing further constant folding. Returns whether a change was made.
+bool GVNPass::propagateConstExpressions(Value *LHS, Value *RHS,
+                                        const BasicBlockEdge &Root) {
+  if (!GVNPropagateConstExp || !LHS->getType()->isIntegerTy() ||
+      !(isa<Constant>(LHS) || isa<Constant>(RHS)))
+    return false;
+  if (!isa<Constant>(RHS))
+    std::swap(LHS, RHS);
+  if (!DT || !PDT)
+    return false;
+  if (!isOnlyReachableViaThisEdge(Root, DT))
+    return false;
+
+  BasicBlock *RootBB = const_cast<BasicBlock *>(Root.getEnd());
+
+  if (PDT->dominates(Root.getEnd(), Root.getStart()))
+    return false;
+
+  for (const BasicBlock *BB : successors(Root.getStart())) {
+    if (BB != Root.getEnd() &&
+        (PDT->dominates(Root.getEnd(), BB) ||
+         isPotentiallyReachable(BB, Root.getEnd())))
+      return false;
+  }
+
+  bool ChangedIR = false;
+  for (BasicBlock *BB : depth_first(RootBB)) {
+    if (!DT->dominates(Root.getEnd(), BB))
+      continue;
+    if (PDT->dominates(BB, Root.getStart()))
+      break;
+    for (Instruction &I : *BB) {
+      if (isa<PHINode>(&I))
+        continue;
+      if (auto *II = dyn_cast<IntrinsicInst>(&I))
+        if (II->getIntrinsicID() == Intrinsic::fake_use)
+          continue;
+
+      for (unsigned OpNum = 0; OpNum < I.getNumOperands(); ++OpNum) {
+        Value *Op = I.getOperand(OpNum);
+        if (!isa<Instruction>(Op) || !isExprBuiltFromOnly(Op, LHS))
+          continue;
+
+        Instruction *OpInst = cast<Instruction>(Op);
+        if (DT->dominates(Root.getEnd(), OpInst->getParent()))
+          continue;
+
+        Value *ClonedExpr = cloneExprReplacingOperand(OpInst, LHS, RHS, &I);
+        if (!ClonedExpr || ClonedExpr == OpInst)
+          continue;
+
+        LLVM_DEBUG(dbgs() << "ConstPropExpr: From: " << I);
+        I.setOperand(OpNum, ClonedExpr);
+        LLVM_DEBUG(dbgs() << "\nConstPropExpr: To: " << I << "\n");
+
+        if (isa<Instruction>(ClonedExpr) && ClonedExpr->hasOneUse()) {
+          auto *CI = cast<Instruction>(ClonedExpr);
+          const DataLayout &DL = I.getDataLayout();
+          if (Value *V = simplifyInstruction(CI, {DL, TLI, DT, AC})) {
+            I.setOperand(OpNum, V);
+            LLVM_DEBUG(dbgs() << "ConstPropExpr: Optimized instruction: " << I
+                              << "\n");
+          }
+          ++NumGVNEqProp;
+        }
+        ChangedIR = true;
+      }
+    }
+  }
+
+  if (ChangedIR)
+    LLVM_DEBUG(dbgs() << "ConstPropExpr: With " << *LHS << " == " << *RHS
+                      << "\n");
+  return ChangedIR;
+}
+
 /// The given values are known to be equal in every use
 /// dominated by 'Root'.  Exploit this, for example by replacing 'LHS' with
 /// 'RHS' everywhere in the scope.  Returns whether a change was made.
@@ -3354,10 +3506,25 @@ bool GVNPass::processInstruction(Instruction *I) {
     Value *TrueVal = ConstantInt::getTrue(TrueSucc->getContext());
     BasicBlockEdge TrueE(Parent, TrueSucc);
     Changed |= propagateEquality(BranchCond, TrueVal, TrueE);
+    Changed |= propagateConstExpressions(BranchCond, TrueVal, TrueE);
 
     Value *FalseVal = ConstantInt::getFalse(FalseSucc->getContext());
     BasicBlockEdge FalseE(Parent, FalseSucc);
     Changed |= propagateEquality(BranchCond, FalseVal, FalseE);
+    Changed |= propagateConstExpressions(BranchCond, FalseVal, FalseE);
+
+    // If the condition is a comparison, also propagate the equality (or
+    // disequality) between its operands into whichever edge it is known to
+    // hold along, e.g. for "if (x == 5) ... " propagate x == 5 into the
+    // true edge. This mirrors the equality propagateEquality() itself
+    // derives from CmpInst equivalences.
+    if (CmpInst *Cmp = dyn_cast<CmpInst>(BranchCond)) {
+      Value *Op0 = Cmp->getOperand(0), *Op1 = Cmp->getOperand(1);
+      if (Cmp->isEquivalence(/*Invert=*/false))
+        Changed |= propagateConstExpressions(Op0, Op1, TrueE);
+      if (Cmp->isEquivalence(/*Invert=*/true))
+        Changed |= propagateConstExpressions(Op0, Op1, FalseE);
+    }
 
     return Changed;
   }
@@ -3379,6 +3546,7 @@ bool GVNPass::processInstruction(Instruction *I) {
       if (SwitchEdges.lookup(Dst) == 1) {
         BasicBlockEdge E(Parent, Dst);
         Changed |= propagateEquality(SwitchCond, Case.getCaseValue(), E);
+        Changed |= propagateConstExpressions(SwitchCond, Case.getCaseValue(), E);
       }
     }
     return Changed;
@@ -3449,11 +3617,13 @@ bool GVNPass::processInstruction(Instruction *I) {
 
 /// runOnFunction - This is the main transformation entry point for a function.
 bool GVNPass::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
-                      const TargetLibraryInfo &RunTLI, AAResults &RunAA,
-                      MemoryDependenceResults *RunMD, LoopInfo &LI,
-                      OptimizationRemarkEmitter *RunORE, MemorySSA *MSSA) {
+                      PostDominatorTree &RunPDT, const TargetLibraryInfo &RunTLI,
+                      AAResults &RunAA, MemoryDependenceResults *RunMD,
+                      LoopInfo &LI, OptimizationRemarkEmitter *RunORE,
+                      MemorySSA *MSSA) {
   AC = &RunAC;
   DT = &RunDT;
+  PDT = &RunPDT;
   VN.setDomTree(DT);
   TLI = &RunTLI;
   AA = &RunAA;
@@ -4012,6 +4182,7 @@ public:
     return Impl.runImpl(
         F, getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F),
         getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+        getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree(),
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
         getAnalysis<AAResultsWrapperPass>().getAAResults(),
         Impl.isMemDepEnabled()
@@ -4025,6 +4196,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<PostDominatorTreeWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     if (Impl.isMemDepEnabled())
@@ -4051,6 +4223,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(MemoryDependenceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
