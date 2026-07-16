@@ -1717,8 +1717,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
 
   // Merge functions if requested. It has a better chance to merge functions
   // after ConstantMerge folded jump tables.
-  if (PTO.MergeFunctions)
-    MPM.addPass(MergeFunctionsPass());
+  MPM.addPass(MergeFunctionsPass());
 
   if (PTO.CallGraphProfile && !isLTOPreLink(LTOPhase))
     MPM.addPass(CGProfilePass(isLTOPostLink(LTOPhase)));
