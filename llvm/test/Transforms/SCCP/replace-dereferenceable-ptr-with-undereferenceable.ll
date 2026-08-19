@@ -39,7 +39,7 @@ define i32 @eq_dereferenceable(ptr %p) {
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq ptr [[P:%.*]], @x
 ; CHECK-NEXT:    br i1 [[CMP]], label [[IF_THEN:%.*]], label [[IF_END:%.*]]
 ; CHECK:       if.then:
-; CHECK-NEXT:    store i32 2, ptr @x, align 4
+; CHECK-NEXT:    store i32 2, ptr [[P]], align 4
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr @y, align 4
