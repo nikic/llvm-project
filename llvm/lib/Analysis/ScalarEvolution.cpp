@@ -2367,11 +2367,28 @@ bool ScalarEvolution::willNotOverflow(Instruction::BinaryOps BinOp, bool Signed,
 
   const SCEV *A = (this->*Extension)(
       (this->*Operation)(LHS, RHS, SCEV::FlagAnyWrap, 0), WideTy, 0);
-  const SCEV *LHSB = (this->*Extension)(LHS, WideTy, 0);
-  const SCEV *RHSB = (this->*Extension)(RHS, WideTy, 0);
-  const SCEV *B = (this->*Operation)(LHSB, RHSB, SCEV::FlagAnyWrap, 0);
-  if (A == B)
+
+  auto WillNotOverflowWithoutContext = [&]() {
+    // If the narrow expression produces a plain SCEV node with the same
+    // operands (i.e. no folding occurred), directly use the nowrap flags on
+    // the SCEV node, and skip creating the wide expression.
+    if (BinOp == Instruction::Add &&
+        match(A, m_scev_c_Add(m_scev_Specific(LHS), m_scev_Specific(RHS))))
+      return Signed ? cast<SCEVAddExpr>(A)->hasNoSignedWrap()
+                    : cast<SCEVAddExpr>(A)->hasNoUnsignedWrap();
+    if (BinOp == Instruction::Mul &&
+        match(A, m_scev_c_Mul(m_scev_Specific(LHS), m_scev_Specific(RHS))))
+      return Signed ? cast<SCEVMulExpr>(A)->hasNoSignedWrap()
+                    : cast<SCEVMulExpr>(A)->hasNoUnsignedWrap();
+
+    const SCEV *LHSB = (this->*Extension)(LHS, WideTy, 0);
+    const SCEV *RHSB = (this->*Extension)(RHS, WideTy, 0);
+    const SCEV *B = (this->*Operation)(LHSB, RHSB, SCEV::FlagAnyWrap, 0);
+    return A == B;
+  };
+  if (WillNotOverflowWithoutContext())
     return true;
+
   // Can we use context to prove the fact we need?
   if (!CtxI)
     return false;
