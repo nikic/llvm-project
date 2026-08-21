@@ -170,7 +170,7 @@ static void collectTransitivePredecessors(
   assert(CurLoop->contains(BB) && "Should only be called for loop blocks!");
   if (BB == CurLoop->getHeader())
     return;
-  SmallVector<const BasicBlock *, 4> WorkList;
+  SmallVector<const BasicBlock *, 16> WorkList;
   for (const auto *Pred : predecessors(BB)) {
     if (!CurLoop->contains(Pred))
       continue;
@@ -214,7 +214,7 @@ bool LoopSafetyInfo::allLoopPathsLeadToBlockImpl(
     const Loop *CurLoop, const BasicBlock *BB, const DominatorTree *DT) const {
   // Collect all transitive predecessors of BB in the same loop. This set will
   // be a subset of the blocks within the loop.
-  SmallPtrSet<const BasicBlock *, 4> Predecessors;
+  SmallPtrSet<const BasicBlock *, 16> Predecessors;
   collectTransitivePredecessors(CurLoop, BB, Predecessors);
 
   // Bail out if a latch block is part of the predecessor set. In this case
@@ -307,7 +307,7 @@ bool ICFLoopSafetyInfo::doesNotWriteMemoryBefore(const BasicBlock *BB,
 
   // Collect all transitive predecessors of BB in the same loop. This set will
   // be a subset of the blocks within the loop.
-  SmallPtrSet<const BasicBlock *, 4> Predecessors;
+  SmallPtrSet<const BasicBlock *, 16> Predecessors;
   collectTransitivePredecessors(CurLoop, BB, Predecessors);
   // Find if there any instruction in either predecessor that could write
   // to memory.
