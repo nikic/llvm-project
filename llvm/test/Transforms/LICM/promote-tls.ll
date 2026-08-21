@@ -204,17 +204,18 @@ define ptr @test_neg_not_malloc(i32 %n) {
 ; CHECK-NEXT:    [[MEM:%.*]] = call dereferenceable(16) ptr @not_malloc(i64 16)
 ; CHECK-NEXT:    br label [[FOR_BODY_LR_PH:%.*]]
 ; CHECK:       for.body.lr.ph:
+; CHECK-NEXT:    [[MEM_PROMOTED:%.*]] = load i32, ptr [[MEM]], align 4
 ; CHECK-NEXT:    br label [[FOR_HEADER:%.*]]
 ; CHECK:       for.header:
-; CHECK-NEXT:    [[I_02:%.*]] = phi i32 [ 0, [[FOR_BODY_LR_PH]] ], [ [[INC:%.*]], [[FOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[OLD:%.*]] = load i32, ptr [[MEM]], align 4
+; CHECK-NEXT:    [[OLD:%.*]] = phi i32 [ [[MEM_PROMOTED]], [[FOR_BODY_LR_PH]] ], [ [[NEW:%.*]], [[FOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[I_02:%.*]] = phi i32 [ 0, [[FOR_BODY_LR_PH]] ], [ [[INC:%.*]], [[FOR_BODY]] ]
 ; CHECK-NEXT:    [[GUARD:%.*]] = load volatile ptr, ptr @p, align 8
 ; CHECK-NEXT:    [[EXITCMP:%.*]] = icmp eq ptr [[GUARD]], null
 ; CHECK-NEXT:    br i1 [[EXITCMP]], label [[FOR_BODY]], label [[EARLY_EXIT:%.*]]
 ; CHECK:       early-exit:
 ; CHECK-NEXT:    ret ptr null
 ; CHECK:       for.body:
-; CHECK-NEXT:    [[NEW:%.*]] = add i32 [[OLD]], 1
+; CHECK-NEXT:    [[NEW]] = add i32 [[OLD]], 1
 ; CHECK-NEXT:    store i32 [[NEW]], ptr [[MEM]], align 4
 ; CHECK-NEXT:    [[INC]] = add nsw i32 [[I_02]], 1
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[INC]], [[N:%.*]]

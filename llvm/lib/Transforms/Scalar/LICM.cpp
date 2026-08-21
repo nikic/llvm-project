@@ -2342,11 +2342,13 @@ collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L) {
   auto IsPotentiallyPromotable = [L](const Instruction *I) {
     if (const auto *SI = dyn_cast<StoreInst>(I)) {
       const Value *PtrOp = SI->getPointerOperand();
-      return !isa<ConstantData>(PtrOp) && L->isLoopInvariant(PtrOp);
+      return !isa<ConstantData>(PtrOp) && L->isLoopInvariant(PtrOp) &&
+             SI->isUnordered();
     }
     if (const auto *LI = dyn_cast<LoadInst>(I)) {
       const Value *PtrOp = LI->getPointerOperand();
-      return !isa<ConstantData>(PtrOp) && L->isLoopInvariant(PtrOp);
+      return !isa<ConstantData>(PtrOp) && L->isLoopInvariant(PtrOp) &&
+             LI->isUnordered();
     }
     return false;
   };
@@ -2355,8 +2357,14 @@ collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L) {
   SmallPtrSet<Value *, 16> AttemptingPromotion;
   foreachMemoryAccess(MSSA, L, [&](Instruction *I) {
     if (IsPotentiallyPromotable(I)) {
+      // We can't use conditional AA metadata, which may not actually get
+      // executed.
+      MemoryLocation Loc = MemoryLocation::get(I);
+      Loc.AATags = AAMDNodes();
+
       AttemptingPromotion.insert(I);
-      AST.add(I);
+      AST.add(Loc,
+              isa<LoadInst>(I) ? AliasSet::RefAccess : AliasSet::ModAccess);
     }
   });
 

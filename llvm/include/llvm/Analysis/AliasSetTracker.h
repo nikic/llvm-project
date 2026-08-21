@@ -66,18 +66,21 @@ class AliasSet : public ilist_node<AliasSet> {
   // Use when the tracker holding this set is saturated.
   unsigned AliasAny : 1;
 
+public:
   /// The kinds of access this alias set models.
   ///
   /// We keep track of whether this alias set merely refers to the locations of
   /// memory (and not any particular access), whether it modifies or references
   /// the memory, or whether it does both. The lattice goes from "NoAccess" to
   /// either RefAccess or ModAccess, then to ModRefAccess as necessary.
+  // TODO: Use ModRefInfo instead.
   enum AccessLattice {
     NoAccess = 0,
     RefAccess = 1,
     ModAccess = 2,
     ModRefAccess = RefAccess | ModAccess
   };
+private:
   unsigned Access : 2;
 
   /// The kind of alias relationship between pointers of the set.
@@ -185,7 +188,8 @@ public:
   ///   3. If the instruction aliases multiple sets, merge the sets, and add
   ///      the instruction to the result.
   ///
-  LLVM_ABI void add(const MemoryLocation &Loc);
+  LLVM_ABI void add(const MemoryLocation &Loc,
+                    AliasSet::AccessLattice A = AliasSet::NoAccess);
   LLVM_ABI void add(LoadInst *LI);
   LLVM_ABI void add(StoreInst *SI);
   LLVM_ABI void add(VAArgInst *VAAI);
