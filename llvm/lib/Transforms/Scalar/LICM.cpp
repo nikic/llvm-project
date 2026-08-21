@@ -226,7 +226,9 @@ static void foreachMemoryAccess(MemorySSA *MSSA, Loop *L,
 using PointersAndHasReadsOutsideSet =
     std::pair<SmallSetVector<Value *, 8>, bool>;
 static SmallVector<PointersAndHasReadsOutsideSet, 0>
-collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L);
+collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L,
+                           const LoopSafetyInfo &SafetyInfo,
+                           const DominatorTree *DT);
 
 namespace {
 struct LoopInvariantCodeMotion {
@@ -520,7 +522,7 @@ bool LoopInvariantCodeMotion::runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI,
       do {
         LocalPromoted = false;
         for (auto [PointerMustAliases, HasReadsOutsideSet] :
-             collectPromotionCandidates(MSSA, AA, L)) {
+             collectPromotionCandidates(MSSA, AA, L, SafetyInfo, DT)) {
           LocalPromoted |= promoteLoopAccessesToScalars(
               PointerMustAliases, ExitBlocks, InsertPts, MSSAInsertPts, PIC, LI,
               DT, AC, TLI, TTI, L, MSSAU, &SafetyInfo, ORE,
@@ -2335,7 +2337,9 @@ static void foreachMemoryAccess(MemorySSA *MSSA, Loop *L,
 // The bool indicates whether there might be reads outside the set, in which
 // case only loads may be promoted.
 static SmallVector<PointersAndHasReadsOutsideSet, 0>
-collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L) {
+collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L,
+                           const LoopSafetyInfo &SafetyInfo,
+                           const DominatorTree *DT) {
   BatchAAResults BatchAA(*AA);
   AliasSetTracker AST(BatchAA);
 
@@ -2360,7 +2364,8 @@ collectPromotionCandidates(MemorySSA *MSSA, AliasAnalysis *AA, Loop *L) {
       // We can't use conditional AA metadata, which may not actually get
       // executed.
       MemoryLocation Loc = MemoryLocation::get(I);
-      Loc.AATags = AAMDNodes();
+      if (Loc.AATags && !SafetyInfo.isGuaranteedToExecute(*I, DT, L))
+        Loc.AATags = AAMDNodes();
 
       AttemptingPromotion.insert(I);
       AST.add(Loc,

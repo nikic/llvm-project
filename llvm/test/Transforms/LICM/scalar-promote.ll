@@ -231,18 +231,20 @@ define void @test6(i32 %n, ptr nocapture %a, ptr %gi) {
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp slt i32 0, [[N]]
 ; CHECK-NEXT:    br i1 [[CMP1]], label %[[FOR_BODY_LR_PH:.*]], label %[[FOR_END:.*]]
 ; CHECK:       [[FOR_BODY_LR_PH]]:
+; CHECK-NEXT:    [[GI_PROMOTED:%.*]] = load i32, ptr [[GI]], align 4, !tbaa [[INT_TBAA0]]
 ; CHECK-NEXT:    br label %[[FOR_BODY:.*]]
 ; CHECK:       [[FOR_BODY]]:
-; CHECK-NEXT:    [[STOREMERGE2:%.*]] = phi i32 [ 0, %[[FOR_BODY_LR_PH]] ], [ [[INC:%.*]], %[[FOR_BODY]] ]
+; CHECK-NEXT:    [[INC1:%.*]] = phi i32 [ [[GI_PROMOTED]], %[[FOR_BODY_LR_PH]] ], [ [[INC:%.*]], %[[FOR_BODY]] ]
+; CHECK-NEXT:    [[STOREMERGE2:%.*]] = phi i32 [ 0, %[[FOR_BODY_LR_PH]] ], [ [[INC]], %[[FOR_BODY]] ]
 ; CHECK-NEXT:    [[IDXPROM:%.*]] = sext i32 [[STOREMERGE2]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[A]], i64 [[IDXPROM]]
 ; CHECK-NEXT:    store float 0.000000e+00, ptr [[ARRAYIDX]], align 4, !tbaa [[FLOAT_TBAA4:![0-9]+]]
-; CHECK-NEXT:    [[INC1:%.*]] = load i32, ptr [[GI]], align 4, !tbaa [[INT_TBAA0]]
 ; CHECK-NEXT:    [[INC]] = add nsw i32 [[INC1]], 1
-; CHECK-NEXT:    store i32 [[INC]], ptr [[GI]], align 4, !tbaa [[INT_TBAA0]]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[INC]], [[N]]
 ; CHECK-NEXT:    br i1 [[CMP]], label %[[FOR_BODY]], label %[[FOR_COND_FOR_END_CRIT_EDGE:.*]]
 ; CHECK:       [[FOR_COND_FOR_END_CRIT_EDGE]]:
+; CHECK-NEXT:    [[INC_LCSSA:%.*]] = phi i32 [ [[INC]], %[[FOR_BODY]] ]
+; CHECK-NEXT:    store i32 [[INC_LCSSA]], ptr [[GI]], align 4, !tbaa [[INT_TBAA0]]
 ; CHECK-NEXT:    br label %[[FOR_END]]
 ; CHECK:       [[FOR_END]]:
 ; CHECK-NEXT:    ret void
