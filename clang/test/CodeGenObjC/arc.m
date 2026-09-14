@@ -9,7 +9,7 @@
 // ARC-ALIEN: declare extern_weak void @llvm.objc.storeStrong(ptr, ptr)
 // ARC-ALIEN: declare extern_weak ptr @llvm.objc.retain(ptr returned)
 // ARC-ALIEN: declare extern_weak ptr @llvm.objc.autoreleaseReturnValue(ptr returned)
-// ARC-ALIEN: declare ptr @objc_msgSend(ptr, ptr, ...) [[NLB:#[0-9]+]]
+// ARC-ALIEN: declare ptr @objc_msgSend(ptr noundef, ptr noundef, ...) [[NLB:#[0-9]+]]
 // ARC-ALIEN: declare extern_weak void @llvm.objc.release(ptr)
 // ARC-ALIEN: declare extern_weak ptr @llvm.objc.retainAutoreleasedReturnValue(ptr)
 // ARC-ALIEN: declare extern_weak ptr @llvm.objc.initWeak(ptr, ptr)
@@ -22,7 +22,7 @@
 // ARC-NATIVE: declare void @llvm.objc.storeStrong(ptr, ptr)
 // ARC-NATIVE: declare ptr @llvm.objc.retain(ptr returned)
 // ARC-NATIVE: declare ptr @llvm.objc.autoreleaseReturnValue(ptr returned)
-// ARC-NATIVE: declare ptr @objc_msgSend(ptr, ptr, ...) [[NLB:#[0-9]+]]
+// ARC-NATIVE: declare ptr @objc_msgSend(ptr noundef, ptr noundef, ...) [[NLB:#[0-9]+]]
 // ARC-NATIVE: declare void @llvm.objc.release(ptr)
 // ARC-NATIVE: declare ptr @llvm.objc.retainAutoreleasedReturnValue(ptr)
 // ARC-NATIVE: declare ptr @llvm.objc.initWeak(ptr, ptr)
@@ -1399,6 +1399,6 @@ void test72(id a, id b) {
   __strong id t[] = (__strong id[]){a, b};
 }
 
-// ARC-ALIEN: attributes [[NLB]] = { nonlazybind }
-// ARC-NATIVE: attributes [[NLB]] = { nonlazybind }
+// ARC-ALIEN: attributes [[NLB]] = { nonlazybind{{.*}} }
+// ARC-NATIVE: attributes [[NLB]] = { nonlazybind{{.*}} }
 // CHECK: attributes [[NUW]] = { nounwind }

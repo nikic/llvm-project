@@ -43,6 +43,21 @@ using namespace CodeGen;
 
 namespace {
 
+/// Build the type of a variadic runtime function with the given signature.
+/// The QualType overload of CreateRuntimeFunction takes the whole function
+/// type because a return type plus an argument list cannot express "...".
+///
+/// Note that these use void * rather than id: this runtime is also used in
+/// translation units where the id typedef has never been declared, so
+/// ASTContext::getObjCIdType() can be null here. The LLVM type is the same
+/// either way.
+QualType getVariadicFnType(ASTContext &Ctx, QualType ResultTy,
+                           ArrayRef<QualType> ArgTys) {
+  FunctionProtoType::ExtProtoInfo EPI;
+  EPI.Variadic = true;
+  return Ctx.getFunctionType(ResultTy, ArgTys, EPI);
+}
+
 /// Class that lazily initialises the runtime function.  Avoids inserting the
 /// types and the function declaration into a module if they're not used, and
 /// avoids constructing the type more than once if it's used more than once.
@@ -2540,8 +2555,12 @@ llvm::Value *CGObjCGNU::GetClassNamed(CodeGenFunction &CGF,
   if (!isWeak)
     EmitClassRef(Name);
 
+  // id objc_lookup_class(const char *, ...)
+  ASTContext &Ctx = CGM.getContext();
   llvm::FunctionCallee ClassLookupFn = CGM.CreateRuntimeFunction(
-      llvm::FunctionType::get(IdTy, PtrToInt8Ty, true), "objc_lookup_class");
+      getVariadicFnType(Ctx, Ctx.VoidPtrTy,
+                        {Ctx.getPointerType(Ctx.CharTy.withConst())}),
+      "objc_lookup_class");
   return CGF.EmitNounwindRuntimeCall(ClassLookupFn, ClassName);
 }
 
@@ -2822,14 +2841,12 @@ CGObjCGNU::GenerateMessageSendSuper(CodeGenFunction &CGF,
     ReceiverClass = EnforceType(Builder, ReceiverClass, IdTy);
   } else {
     if (isCategoryImpl) {
-      llvm::FunctionCallee classLookupFunction = nullptr;
-      if (IsClassMessage)  {
-        classLookupFunction = CGM.CreateRuntimeFunction(llvm::FunctionType::get(
-              IdTy, PtrTy, true), "objc_get_meta_class");
-      } else {
-        classLookupFunction = CGM.CreateRuntimeFunction(llvm::FunctionType::get(
-              IdTy, PtrTy, true), "objc_get_class");
-      }
+      // id objc_get_class(const char *, ...)
+      ASTContext &Ctx = CGM.getContext();
+      QualType LookupTy =
+          getVariadicFnType(Ctx, Ctx.VoidPtrTy, {Ctx.VoidPtrTy});
+      llvm::FunctionCallee classLookupFunction = CGM.CreateRuntimeFunction(
+          LookupTy, IsClassMessage ? "objc_get_meta_class" : "objc_get_class");
       ReceiverClass = Builder.CreateCall(classLookupFunction,
           MakeConstantString(Class->getNameAsString()));
     } else {
@@ -3079,8 +3096,9 @@ CGObjCGNU::GenerateMessageSend(CodeGenFunction &CGF,
       }
       // The actual types here don't matter - we're going to bitcast the
       // function anyway
-      imp = CGM.CreateRuntimeFunction(llvm::FunctionType::get(IdTy, IdTy, true),
-                                      name)
+      ASTContext &Ctx = CGM.getContext();
+      imp = CGM.CreateRuntimeFunction(
+                   getVariadicFnType(Ctx, Ctx.VoidPtrTy, {Ctx.VoidPtrTy}), name)
                 .getCallee();
     }
 
@@ -4157,10 +4175,10 @@ llvm::Function *CGObjCGNU::ModuleInitFunction() {
   CGBuilderTy Builder(CGM, VMContext);
   Builder.SetInsertPoint(EntryBB);
 
-  llvm::FunctionType *FT =
-    llvm::FunctionType::get(Builder.getVoidTy(), module->getType(), true);
-  llvm::FunctionCallee Register =
-      CGM.CreateRuntimeFunction(FT, "__objc_exec_class");
+  // void __objc_exec_class(void *module, ...)
+  ASTContext &Ctx = CGM.getContext();
+  llvm::FunctionCallee Register = CGM.CreateRuntimeFunction(
+      getVariadicFnType(Ctx, Ctx.VoidTy, {Ctx.VoidPtrTy}), "__objc_exec_class");
   Builder.CreateCall(Register, module);
 
   if (!ClassAliases.empty()) {

@@ -48,6 +48,16 @@ using namespace CodeGen;
 
 namespace {
 
+/// Build the type of a variadic runtime function with the given signature.
+/// The QualType overload of CreateRuntimeFunction takes the whole function
+/// type because a return type plus an argument list cannot express "...".
+QualType getVariadicFnType(ASTContext &Ctx, QualType ResultTy,
+                           ArrayRef<QualType> ArgTys) {
+  FunctionProtoType::ExtProtoInfo EPI;
+  EPI.Variadic = true;
+  return Ctx.getFunctionType(ResultTy, ArgTys, EPI);
+}
+
 // FIXME: We should find a nicer way to make the labels for metadata, string
 // concatenation is lame.
 
@@ -66,9 +76,11 @@ private:
   llvm::FunctionCallee getMessageSendFn() const {
     // Add the non-lazy-bind attribute, since objc_msgSend is likely to
     // be called a lot.
-    llvm::Type *params[] = {ObjectPtrTy, SelectorPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(ObjectPtrTy, params, true), "objc_msgSend",
+        getVariadicFnType(Ctx, Ctx.getObjCIdType(),
+                          {Ctx.getObjCIdType(), Ctx.getObjCSelType()}),
+        "objc_msgSend",
         llvm::AttributeList::get(CGM.getLLVMContext(),
                                  llvm::AttributeList::FunctionIndex,
                                  llvm::Attribute::NonLazyBind));
@@ -80,9 +92,10 @@ private:
   /// by indirect reference in the first argument, and therefore the
   /// self and selector parameters are shifted over by one.
   llvm::FunctionCallee getMessageSendStretFn() const {
-    llvm::Type *params[] = {ObjectPtrTy, SelectorPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(CGM.VoidTy, params, true),
+        getVariadicFnType(Ctx, Ctx.VoidTy,
+                          {Ctx.getObjCIdType(), Ctx.getObjCSelType()}),
         "objc_msgSend_stret");
   }
 
@@ -92,9 +105,10 @@ private:
   /// floating-point stack; without a special entrypoint, the nil case
   /// would be unbalanced.
   llvm::FunctionCallee getMessageSendFpretFn() const {
-    llvm::Type *params[] = {ObjectPtrTy, SelectorPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(CGM.DoubleTy, params, true),
+        getVariadicFnType(Ctx, Ctx.DoubleTy,
+                          {Ctx.getObjCIdType(), Ctx.getObjCSelType()}),
         "objc_msgSend_fpret");
   }
 
@@ -120,9 +134,10 @@ private:
   /// semantics.  The class passed is the superclass of the current
   /// class.
   llvm::FunctionCallee getMessageSendSuperFn() const {
-    llvm::Type *params[] = {SuperPtrTy, SelectorPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(ObjectPtrTy, params, true),
+        getVariadicFnType(Ctx, Ctx.getObjCIdType(),
+                          {Ctx.VoidPtrTy, Ctx.getObjCSelType()}),
         "objc_msgSendSuper");
   }
 
@@ -131,9 +146,10 @@ private:
   /// A slightly different messenger used for super calls.  The class
   /// passed is the current class.
   llvm::FunctionCallee getMessageSendSuperFn2() const {
-    llvm::Type *params[] = {SuperPtrTy, SelectorPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(ObjectPtrTy, params, true),
+        getVariadicFnType(Ctx, Ctx.getObjCIdType(),
+                          {Ctx.VoidPtrTy, Ctx.getObjCSelType()}),
         "objc_msgSendSuper2");
   }
 
@@ -142,9 +158,10 @@ private:
   ///
   /// The messenger used for super calls which return an aggregate indirectly.
   llvm::FunctionCallee getMessageSendSuperStretFn() const {
-    llvm::Type *params[] = {Int8PtrTy, SuperPtrTy, SelectorPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(CGM.VoidTy, params, true),
+        getVariadicFnType(Ctx, Ctx.VoidTy,
+                          {Ctx.VoidPtrTy, Ctx.VoidPtrTy, Ctx.getObjCSelType()}),
         "objc_msgSendSuper_stret");
   }
 
@@ -153,9 +170,10 @@ private:
   ///
   /// objc_msgSendSuper_stret with the super2 semantics.
   llvm::FunctionCallee getMessageSendSuperStretFn2() const {
-    llvm::Type *params[] = {Int8PtrTy, SuperPtrTy, SelectorPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(CGM.VoidTy, params, true),
+        getVariadicFnType(Ctx, Ctx.VoidTy,
+                          {Ctx.VoidPtrTy, Ctx.VoidPtrTy, Ctx.getObjCSelType()}),
         "objc_msgSendSuper2_stret");
   }
 
@@ -602,43 +620,48 @@ public:
 
   llvm::FunctionCallee getMessageSendFixupFn() {
     // id objc_msgSend_fixup(id, struct message_ref_t*, ...)
-    llvm::Type *params[] = {ObjectPtrTy, MessageRefPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(ObjectPtrTy, params, true),
+        getVariadicFnType(Ctx, Ctx.getObjCIdType(),
+                          {Ctx.getObjCIdType(), Ctx.VoidPtrTy}),
         "objc_msgSend_fixup");
   }
 
   llvm::FunctionCallee getMessageSendFpretFixupFn() {
     // id objc_msgSend_fpret_fixup(id, struct message_ref_t*, ...)
-    llvm::Type *params[] = {ObjectPtrTy, MessageRefPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(ObjectPtrTy, params, true),
+        getVariadicFnType(Ctx, Ctx.getObjCIdType(),
+                          {Ctx.getObjCIdType(), Ctx.VoidPtrTy}),
         "objc_msgSend_fpret_fixup");
   }
 
   llvm::FunctionCallee getMessageSendStretFixupFn() {
     // id objc_msgSend_stret_fixup(id, struct message_ref_t*, ...)
-    llvm::Type *params[] = {ObjectPtrTy, MessageRefPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(ObjectPtrTy, params, true),
+        getVariadicFnType(Ctx, Ctx.getObjCIdType(),
+                          {Ctx.getObjCIdType(), Ctx.VoidPtrTy}),
         "objc_msgSend_stret_fixup");
   }
 
   llvm::FunctionCallee getMessageSendSuper2FixupFn() {
     // id objc_msgSendSuper2_fixup (struct objc_super *,
     //                              struct _super_message_ref_t*, ...)
-    llvm::Type *params[] = {SuperPtrTy, SuperMessageRefPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(ObjectPtrTy, params, true),
+        getVariadicFnType(Ctx, Ctx.getObjCIdType(),
+                          {Ctx.VoidPtrTy, Ctx.VoidPtrTy}),
         "objc_msgSendSuper2_fixup");
   }
 
   llvm::FunctionCallee getMessageSendSuper2StretFixupFn() {
     // id objc_msgSendSuper2_stret_fixup(struct objc_super *,
     //                                   struct _super_message_ref_t*, ...)
-    llvm::Type *params[] = {SuperPtrTy, SuperMessageRefPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(ObjectPtrTy, params, true),
+        getVariadicFnType(Ctx, Ctx.getObjCIdType(),
+                          {Ctx.VoidPtrTy, Ctx.VoidPtrTy}),
         "objc_msgSendSuper2_stret_fixup");
   }
 
@@ -4938,9 +4961,9 @@ llvm::Function *CGObjCCommonMac::GenerateMethodSelectorStub(
   if (I != MethodSelectorStubs.end())
     return I->second;
 
-  auto *FnTy = llvm::FunctionType::get(
-      ObjCTypes.ObjectPtrTy, {ObjCTypes.ObjectPtrTy, ObjCTypes.SelectorPtrTy},
-      /*IsVarArg=*/true);
+  ASTContext &Ctx = CGM.getContext();
+  QualType FnTy = getVariadicFnType(
+      Ctx, Ctx.getObjCIdType(), {Ctx.getObjCIdType(), Ctx.getObjCSelType()});
   std::string FnName;
 
   if (ClassName.data())

@@ -23,4 +23,4 @@
 // CHECK-IR: ret void
 
 // CHECK-IR: attributes #0 = { noinline nounwind {{.*}} }
-// CHECK-IR: attributes #1 = { nonlazybind }
+// CHECK-IR: attributes #1 = { nonlazybind{{.*}} }

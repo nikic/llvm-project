@@ -261,13 +261,17 @@ const EHPersonality &EHPersonality::get(CodeGenFunction &CGF) {
 
 static llvm::FunctionCallee getPersonalityFn(CodeGenModule &CGM,
                                              const EHPersonality &Personality) {
-  llvm::FunctionType *FTy;
+  ASTContext &Ctx = CGM.getContext();
+  // The Wasm personality has a fixed signature; the others are declared as
+  // int (...) so that the actual arguments can vary by target.
+  if (Personality.isWasmPersonality())
+    return CGM.CreateRuntimeFunction(Ctx.IntTy, {Ctx.VoidPtrTy},
+                                     Personality.PersonalityFn,
+                                     llvm::AttributeList(), /*Local=*/true);
 
-  if (Personality.isWasmPersonality()) {
-    FTy = llvm::FunctionType::get(CGM.Int32Ty, {CGM.VoidPtrTy}, false);
-  } else {
-    FTy = llvm::FunctionType::get(CGM.Int32Ty, true);
-  }
+  FunctionProtoType::ExtProtoInfo EPI;
+  EPI.Variadic = true;
+  QualType FTy = Ctx.getFunctionType(Ctx.IntTy, {}, EPI);
   return CGM.CreateRuntimeFunction(FTy, Personality.PersonalityFn,
                                    llvm::AttributeList(), /*Local=*/true);
 }

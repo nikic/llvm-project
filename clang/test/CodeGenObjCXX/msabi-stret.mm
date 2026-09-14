@@ -13,5 +13,5 @@ S f() {
   return [I m:S()];
 }
 
-// CHECK: declare dso_local void @objc_msgSend_stret(ptr, ptr, ...)
-// CHECK-NOT: declare dllimport void @objc_msgSend(ptr, ptr, ...)
+// CHECK: declare dso_local void @objc_msgSend_stret(ptr noundef, ptr noundef, ...)
+// CHECK-NOT: declare dllimport void @objc_msgSend(ptr noundef, ptr noundef, ...)

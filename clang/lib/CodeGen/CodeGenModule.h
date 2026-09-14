@@ -1415,12 +1415,23 @@ public:
                         llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
                         bool Local = false, bool AssumeConvergent = false);
 
-  /// Create or return a runtime function declaration with the specified type
-  /// and name. If \p AssumeConvergent is true, the call will have the
-  /// convergent attribute added.
+  /// Create or return a runtime function declaration with the specified
+  /// (non-variadic) signature and name. If \p AssumeConvergent is true, the
+  /// call will have the convergent attribute added.
   llvm::FunctionCallee
   CreateRuntimeFunction(QualType ReturnTy, ArrayRef<QualType> ArgTys,
                         StringRef Name,
+                        llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
+                        bool Local = false, bool AssumeConvergent = false);
+
+  /// Create or return a runtime function declaration with the specified
+  /// function type and name. \p FTy must be a FunctionProtoType. Prefer the
+  /// overload taking a return type and an argument list; this one is for
+  /// runtime functions that need something the plain signature cannot express,
+  /// such as a variadic parameter list. If \p AssumeConvergent is true, the
+  /// call will have the convergent attribute added.
+  llvm::FunctionCallee
+  CreateRuntimeFunction(QualType FTy, StringRef Name,
                         llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
                         bool Local = false, bool AssumeConvergent = false);
 

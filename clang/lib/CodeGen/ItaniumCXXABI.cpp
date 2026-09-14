@@ -5296,11 +5296,12 @@ void XLCXXABI::registerGlobalDtor(CodeGenFunction &CGF, const VarDecl &D,
                                   llvm::FunctionCallee Dtor,
                                   llvm::Constant *Addr) {
   if (D.getTLSKind() != VarDecl::TLS_None) {
-    llvm::PointerType *PtrTy = CGF.DefaultPtrTy;
-
     // extern "C" int __pt_atexit_np(int flags, int(*)(int,...), ...);
-    llvm::FunctionType *AtExitTy =
-        llvm::FunctionType::get(CGM.IntTy, {CGM.IntTy, PtrTy}, true);
+    ASTContext &Ctx = CGM.getContext();
+    FunctionProtoType::ExtProtoInfo EPI;
+    EPI.Variadic = true;
+    QualType AtExitTy =
+        Ctx.getFunctionType(Ctx.IntTy, {Ctx.IntTy, Ctx.VoidPtrTy}, EPI);
 
     // Fetch the actual function.
     llvm::FunctionCallee AtExit =

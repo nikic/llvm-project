@@ -215,7 +215,7 @@ int f() {
 // CHECK: br label
 
 // LINUX: declare i32 @__cxa_thread_atexit(ptr, ptr, ptr)
-// AIX: declare i32 @__pt_atexit_np(i32, ptr, ...)
+// AIX: declare noundef signext i32 @__pt_atexit_np(i32 noundef signext, ptr noundef, ...)
 // DARWIN: declare i32 @_tlv_atexit(ptr, ptr, ptr)
 
 // DARWIN: declare cxx_fast_tlscc noundef ptr @_ZTWN1VIcE1mE()

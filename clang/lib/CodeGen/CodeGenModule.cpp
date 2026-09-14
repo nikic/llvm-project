@@ -5923,13 +5923,20 @@ static void setWindowsItaniumDLLImport(CodeGenModule &CGM, bool Local,
 llvm::FunctionCallee CodeGenModule::CreateRuntimeFunction(
     QualType ReturnTy, ArrayRef<QualType> ArgTys, StringRef Name,
     llvm::AttributeList ExtraAttrs, bool Local, bool AssumeConvergent) {
+  QualType FTy = Context.getFunctionType(ReturnTy, ArgTys,
+                                         FunctionProtoType::ExtProtoInfo());
+  return CreateRuntimeFunction(FTy, Name, ExtraAttrs, Local, AssumeConvergent);
+}
+
+llvm::FunctionCallee
+CodeGenModule::CreateRuntimeFunction(QualType FTy, StringRef Name,
+                                     llvm::AttributeList ExtraAttrs, bool Local,
+                                     bool AssumeConvergent) {
   if (AssumeConvergent) {
     ExtraAttrs =
         ExtraAttrs.addFnAttribute(VMContext, llvm::Attribute::Convergent);
   }
 
-  QualType FTy = Context.getFunctionType(ReturnTy, ArgTys,
-                                         FunctionProtoType::ExtProtoInfo());
   const CGFunctionInfo &Info = getTypes().arrangeFreeFunctionType(
       Context.getCanonicalType(FTy).castAs<FunctionProtoType>());
   auto *ConvTy = getTypes().GetFunctionType(Info);

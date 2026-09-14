@@ -1831,13 +1831,18 @@ static RValue EmitMSVCRTSetJmp(CodeGenFunction &CGF, MSVCSetJmpKind SJKind,
   }
 
   // Mark the call site and declaration with ReturnsTwice.
-  llvm::Type *ArgTypes[2] = {CGF.Int8PtrTy, Arg1Ty};
+  //   int _setjmp(void *buf, void *frame);
+  //   int _setjmp3(void *buf, int count, ...);
+  ASTContext &Ctx = CGF.getContext();
+  QualType Arg1QTy = IsVarArg ? Ctx.IntTy : Ctx.VoidPtrTy;
+  FunctionProtoType::ExtProtoInfo EPI;
+  EPI.Variadic = IsVarArg;
+  QualType FnTy = Ctx.getFunctionType(Ctx.IntTy, {Ctx.VoidPtrTy, Arg1QTy}, EPI);
   llvm::AttributeList ReturnsTwiceAttr = llvm::AttributeList::get(
       CGF.getLLVMContext(), llvm::AttributeList::FunctionIndex,
       llvm::Attribute::ReturnsTwice);
   llvm::FunctionCallee SetJmpFn = CGF.CGM.CreateRuntimeFunction(
-      llvm::FunctionType::get(CGF.IntTy, ArgTypes, IsVarArg), Name,
-      ReturnsTwiceAttr, /*Local=*/true);
+      FnTy, Name, ReturnsTwiceAttr, /*Local=*/true);
 
   llvm::Value *Buf = CGF.Builder.CreateBitOrPointerCast(
       CGF.EmitScalarExpr(E->getArg(0)), CGF.Int8PtrTy);

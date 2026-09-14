@@ -1670,9 +1670,12 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   if (CurCodeDecl->hasAttr<PersonalityAttr>()) {
     StringRef Identifier =
         CurCodeDecl->getAttr<PersonalityAttr>()->getRoutine()->getName();
+    // Declared as int (...): the arguments vary by target.
+    FunctionProtoType::ExtProtoInfo EPI;
+    EPI.Variadic = true;
+    QualType FTy = getContext().getFunctionType(getContext().IntTy, {}, EPI);
     llvm::FunctionCallee PersonalityRoutine =
-        CGM.CreateRuntimeFunction(llvm::FunctionType::get(CGM.Int32Ty, true),
-                                  Identifier, {}, /*local=*/true);
+        CGM.CreateRuntimeFunction(FTy, Identifier, {}, /*local=*/true);
     Fn->setPersonalityFn(cast<llvm::Constant>(PersonalityRoutine.getCallee()));
   }
 

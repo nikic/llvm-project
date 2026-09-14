@@ -91,7 +91,7 @@ int test_root_test0(Root *r) {
   return [r test0];
 }
 
-// CHECK: declare ptr @"objc_msgSend$test0"(ptr, ptr, ...)
+// CHECK: declare ptr @"objc_msgSend$test0"(ptr noundef, ptr noundef, ...)
 
 int test_root_test0_dollar(Root *r) {
   // CHECK-LABEL: define{{.*}} i32 @test_root_test0_dollar(
@@ -99,7 +99,7 @@ int test_root_test0_dollar(Root *r) {
   return [r test$0];
 }
 
-// CHECK: declare ptr @"objc_msgSend$test$0"(ptr, ptr, ...)
+// CHECK: declare ptr @"objc_msgSend$test$0"(ptr noundef, ptr noundef, ...)
 
 int test_root_class0() {
   // CHECK-LABEL: define{{.*}} i32 @test_root_class0(
@@ -108,8 +108,8 @@ int test_root_class0() {
   return [Root class0];
 }
 
-// INST_STUB: declare ptr @"objc_msgSend$class0"(ptr, ptr, ...)
-// CLASS_STUB: declare ptr @"objc_msgSendClass$class0$_OBJC_CLASS_$_Root"(ptr, ptr, ...)
+// INST_STUB: declare ptr @"objc_msgSend$class0"(ptr noundef, ptr noundef, ...)
+// CLASS_STUB: declare ptr @"objc_msgSendClass$class0$_OBJC_CLASS_$_Root"(ptr noundef, ptr noundef, ...)
 
 int test_root2_class0() {
   // CHECK-LABEL: define{{.*}} i32 @test_root2_class0(
@@ -118,7 +118,7 @@ int test_root2_class0() {
   return [Root2 class0];
 }
 
-// CLASS_STUB: declare ptr @"objc_msgSendClass$class0$_OBJC_CLASS_$_Root2"(ptr, ptr, ...)
+// CLASS_STUB: declare ptr @"objc_msgSendClass$class0$_OBJC_CLASS_$_Root2"(ptr noundef, ptr noundef, ...)
 
 int test_root_class0_inst(Root *r) {
   // CHECK-LABEL: define{{.*}} i32 @test_root_class0_inst(
@@ -129,7 +129,7 @@ int test_root_class0_inst(Root *r) {
   return [r class0];
 }
 
-// CLASS_STUB: declare ptr @"objc_msgSend$class0"(ptr, ptr, ...)
+// CLASS_STUB: declare ptr @"objc_msgSend$class0"(ptr noundef, ptr noundef, ...)
 
 int test_root_class0_dollar() {
   // CHECK-LABEL: define{{.*}} i32 @test_root_class0_dollar(
@@ -137,7 +137,7 @@ int test_root_class0_dollar() {
   return [Root class0$];
 }
 
-// CHECK: declare ptr @"objc_msgSend$class0$"(ptr, ptr, ...)
+// CHECK: declare ptr @"objc_msgSend$class0$"(ptr noundef, ptr noundef, ...)
 
 int test_id_class0(id r) {
   // CHECK-LABEL: define{{.*}} i32 @test_id_class0(
@@ -151,7 +151,7 @@ int test_root_test1(Root *r) {
   return [r test1: 42];
 }
 
-// CHECK: declare ptr @"objc_msgSend$test1:"(ptr, ptr, ...)
+// CHECK: declare ptr @"objc_msgSend$test1:"(ptr noundef, ptr noundef, ...)
 
 int test_root_test2(Root *r) {
   // CHECK-LABEL: define{{.*}} i32 @test_root_test2(
@@ -160,7 +160,7 @@ int test_root_test2(Root *r) {
 
 }
 
-// CHECK: declare ptr @"objc_msgSend$test2:withA:"(ptr, ptr, ...)
+// CHECK: declare ptr @"objc_msgSend$test2:withA:"(ptr noundef, ptr noundef, ...)
 
 int test_extension(Foo *f) {
   // CHECK-LABEL: define{{.*}} i32 @test_extension
@@ -168,7 +168,7 @@ int test_extension(Foo *f) {
   return [f methodInExtension];
 }
 
-// CHECK: declare ptr @"objc_msgSend$methodInExtension"(ptr, ptr, ...)
+// CHECK: declare ptr @"objc_msgSend$methodInExtension"(ptr noundef, ptr noundef, ...)
 
 int test_class_method_extension(void) {
   // CHECK-LABEL: define{{.*}} i32 @test_class_method_extension
@@ -177,8 +177,8 @@ int test_class_method_extension(void) {
   return [Foo classMethodInExtension];
 }
 
-// INST_STUB: declare ptr @"objc_msgSend$classMethodInExtension"(ptr, ptr, ...)
-// CLASS_STUB: declare ptr @"objc_msgSendClass$classMethodInExtension$_OBJC_CLASS_$_Foo"(ptr, ptr, ...)
+// INST_STUB: declare ptr @"objc_msgSend$classMethodInExtension"(ptr noundef, ptr noundef, ...)
+// CLASS_STUB: declare ptr @"objc_msgSendClass$classMethodInExtension$_OBJC_CLASS_$_Foo"(ptr noundef, ptr noundef, ...)
 
 int test_category(Foo *f) {
   // CHECK-LABEL: define{{.*}} i32 @test_category
@@ -186,7 +186,7 @@ int test_category(Foo *f) {
   return [f methodInCategory];
 }
 
-// CHECK: declare ptr @"objc_msgSend$methodInCategory"(ptr, ptr, ...)
+// CHECK: declare ptr @"objc_msgSend$methodInCategory"(ptr noundef, ptr noundef, ...)
 
 int test_class_method_category(void) {
   // CHECK-LABEL: define{{.*}} i32 @test_class_method_category
@@ -195,8 +195,8 @@ int test_class_method_category(void) {
   return [Foo classMethodInCategory];
 }
 
-// INST_STUB: declare ptr @"objc_msgSend$classMethodInCategory"(ptr, ptr, ...)
-// CLASS_STUB: declare ptr @"objc_msgSendClass$classMethodInCategory$_OBJC_CLASS_$_Foo"(ptr, ptr, ...)
+// INST_STUB: declare ptr @"objc_msgSend$classMethodInCategory"(ptr noundef, ptr noundef, ...)
+// CLASS_STUB: declare ptr @"objc_msgSendClass$classMethodInCategory$_OBJC_CLASS_$_Foo"(ptr noundef, ptr noundef, ...)
 
 void test_class_method_objc_runtime_name(void) {
   // CHECK-LABEL: define{{.*}} void @test_class_method_objc_runtime_name(
@@ -223,7 +223,7 @@ int test_category_nodecl(Foo *f) {
   return [f methodInCategoryNoDecl];
 }
 
-// CHECK: declare ptr @"objc_msgSend$methodInCategoryNoDecl"(ptr, ptr, ...)
+// CHECK: declare ptr @"objc_msgSend$methodInCategoryNoDecl"(ptr noundef, ptr noundef, ...)
 
 
 // === Test the special case where there's no method, but only a selector.
@@ -241,4 +241,4 @@ void test_fastenum_rawsel(NSArray *array) {
     use(x);
 }
 
-// CHECK: declare ptr @"objc_msgSend$countByEnumeratingWithState:objects:count:"(ptr, ptr, ...)
+// CHECK: declare ptr @"objc_msgSend$countByEnumeratingWithState:objects:count:"(ptr noundef, ptr noundef, ...)
