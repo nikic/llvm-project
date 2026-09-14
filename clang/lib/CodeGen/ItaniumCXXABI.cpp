@@ -1450,11 +1450,9 @@ void ItaniumCXXABI::emitVirtualObjectDelete(CodeGenFunction &CGF,
 
 void ItaniumCXXABI::emitRethrow(CodeGenFunction &CGF, bool isNoReturn) {
   // void __cxa_rethrow();
-
-  llvm::FunctionType *FTy =
-    llvm::FunctionType::get(CGM.VoidTy, /*isVarArg=*/false);
-
-  llvm::FunctionCallee Fn = CGM.CreateRuntimeFunction(FTy, "__cxa_rethrow");
+  ASTContext &Ctx = getContext();
+  llvm::FunctionCallee Fn =
+      CGM.CreateRuntimeFunction(Ctx.VoidTy, {}, "__cxa_rethrow");
 
   if (isNoReturn)
     CGF.EmitNoreturnRuntimeCallOrInvoke(Fn, {});
@@ -1464,11 +1462,9 @@ void ItaniumCXXABI::emitRethrow(CodeGenFunction &CGF, bool isNoReturn) {
 
 static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM) {
   // void *__cxa_allocate_exception(size_t thrown_size);
-
-  llvm::FunctionType *FTy =
-    llvm::FunctionType::get(CGM.Int8PtrTy, CGM.SizeTy, /*isVarArg=*/false);
-
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_allocate_exception");
+  ASTContext &Ctx = CGM.getContext();
+  return CGM.CreateRuntimeFunction(Ctx.VoidPtrTy, {Ctx.getSizeType()},
+                                   "__cxa_allocate_exception");
 }
 
 static llvm::FunctionCallee getThrowFn(CodeGenModule &CGM) {
@@ -1550,8 +1546,8 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
 
 static llvm::FunctionCallee getBadCastFn(CodeGenFunction &CGF) {
   // void __cxa_bad_cast();
-  llvm::FunctionType *FTy = llvm::FunctionType::get(CGF.VoidTy, false);
-  return CGF.CGM.CreateRuntimeFunction(FTy, "__cxa_bad_cast");
+  return CGF.CGM.CreateRuntimeFunction(CGF.getContext().VoidTy, {},
+                                       "__cxa_bad_cast");
 }
 
 /// Compute the src2dst_offset hint as described in the
@@ -1608,9 +1604,8 @@ static CharUnits computeOffsetHint(ASTContext &Context,
 
 static llvm::FunctionCallee getBadTypeidFn(CodeGenFunction &CGF) {
   // void __cxa_bad_typeid();
-  llvm::FunctionType *FTy = llvm::FunctionType::get(CGF.VoidTy, false);
-
-  return CGF.CGM.CreateRuntimeFunction(FTy, "__cxa_bad_typeid");
+  return CGF.CGM.CreateRuntimeFunction(CGF.getContext().VoidTy, {},
+                                       "__cxa_bad_typeid");
 }
 
 bool ItaniumCXXABI::shouldTypeidBeNullChecked(QualType SrcRecordTy) {
@@ -2291,10 +2286,9 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
   // __llvm_omp_indirect_call_lookup.
   if (CGM.getLangOpts().OpenMPIsTargetDevice) {
     auto *NewPtrTy = CGM.VoidPtrTy;
-    llvm::Type *RtlFnArgs[] = {NewPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     llvm::FunctionCallee DeviceRtlFn = CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(NewPtrTy, RtlFnArgs, false),
-        "__llvm_omp_indirect_call_lookup");
+        Ctx.VoidPtrTy, {Ctx.VoidPtrTy}, "__llvm_omp_indirect_call_lookup");
     auto *BackupTy = VTable->getType();
     // Need to convert to generic address space
     VTable = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(VTable, NewPtrTy);
@@ -2587,10 +2581,9 @@ Address ItaniumCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
        CGM.getCodeGenOpts().SanitizeAddressPoisonCustomArrayCookie)) {
     // The store to the CookiePtr does not need to be instrumented.
     SI->setNoSanitizeMetadata();
-    llvm::FunctionType *FTy =
-        llvm::FunctionType::get(CGM.VoidTy, NumElementsPtr.getType(), false);
-    llvm::FunctionCallee F =
-        CGM.CreateRuntimeFunction(FTy, "__asan_poison_cxx_array_cookie");
+    ASTContext &Ctx = CGM.getContext();
+    llvm::FunctionCallee F = CGM.CreateRuntimeFunction(
+        Ctx.VoidTy, {Ctx.VoidPtrTy}, "__asan_poison_cxx_array_cookie");
     CGF.Builder.CreateCall(F, NumElementsPtr.emitRawPointer(CGF));
   }
 
@@ -2618,10 +2611,9 @@ llvm::Value *ItaniumCXXABI::readArrayCookieImpl(CodeGenFunction &CGF,
   // cookie, otherwise return 0 to avoid an infinite loop calling DTORs.
   // We can't simply ignore this load using nosanitize metadata because
   // the metadata may be lost.
-  llvm::FunctionType *FTy =
-      llvm::FunctionType::get(CGF.SizeTy, CGF.DefaultPtrTy, false);
-  llvm::FunctionCallee F =
-      CGM.CreateRuntimeFunction(FTy, "__asan_load_cxx_array_cookie");
+  ASTContext &Ctx = CGM.getContext();
+  llvm::FunctionCallee F = CGM.CreateRuntimeFunction(
+      Ctx.getSizeType(), {Ctx.VoidPtrTy}, "__asan_load_cxx_array_cookie");
   return CGF.Builder.CreateCall(F, numElementsPtr.emitRawPointer(CGF));
 }
 
@@ -4903,26 +4895,22 @@ void ItaniumCXXABI::emitCXXStructor(GlobalDecl GD) {
 
 static llvm::FunctionCallee getBeginCatchFn(CodeGenModule &CGM) {
   // void *__cxa_begin_catch(void*);
-  llvm::FunctionType *FTy = llvm::FunctionType::get(
-      CGM.Int8PtrTy, CGM.Int8PtrTy, /*isVarArg=*/false);
-
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_begin_catch");
+  ASTContext &Ctx = CGM.getContext();
+  return CGM.CreateRuntimeFunction(Ctx.VoidPtrTy, {Ctx.VoidPtrTy},
+                                   "__cxa_begin_catch");
 }
 
 static llvm::FunctionCallee getEndCatchFn(CodeGenModule &CGM) {
   // void __cxa_end_catch();
-  llvm::FunctionType *FTy =
-      llvm::FunctionType::get(CGM.VoidTy, /*isVarArg=*/false);
-
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_end_catch");
+  return CGM.CreateRuntimeFunction(CGM.getContext().VoidTy, {},
+                                   "__cxa_end_catch");
 }
 
 static llvm::FunctionCallee getGetExceptionPtrFn(CodeGenModule &CGM) {
   // void *__cxa_get_exception_ptr(void*);
-  llvm::FunctionType *FTy = llvm::FunctionType::get(
-      CGM.Int8PtrTy, CGM.Int8PtrTy, /*isVarArg=*/false);
-
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_get_exception_ptr");
+  ASTContext &Ctx = CGM.getContext();
+  return CGM.CreateRuntimeFunction(Ctx.VoidPtrTy, {Ctx.VoidPtrTy},
+                                   "__cxa_get_exception_ptr");
 }
 
 namespace {

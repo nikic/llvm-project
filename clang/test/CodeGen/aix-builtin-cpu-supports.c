@@ -166,6 +166,6 @@
 // CHECKOP-NEXT:   ret i32 %conv
 // CHECKOP-NEXT: }
 
-// SYSCALL: declare i64 @getsystemcfg(i32)
+// SYSCALL: declare i64 @getsystemcfg(i32 noundef)
 
 

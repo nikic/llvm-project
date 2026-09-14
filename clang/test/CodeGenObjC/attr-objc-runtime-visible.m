@@ -14,6 +14,6 @@ __attribute__((objc_runtime_name("MyRuntimeVisibleClass")))
 // CHECK: [[CLASSNAME:@.*]] = private unnamed_addr constant [22 x i8] c"MyRuntimeVisibleClass
 // CHECK: define{{.*}} ptr @getClass() #0 {
 Class getClass(void) {
-  // CHECK: call ptr @objc_lookUpClass(ptr [[CLASSNAME]]) #2
+  // CHECK: call ptr @objc_lookUpClass(ptr [[CLASSNAME]]) #3
   return [A class];
 }

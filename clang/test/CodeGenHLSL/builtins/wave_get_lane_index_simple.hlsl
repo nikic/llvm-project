@@ -15,7 +15,7 @@ int test_1() {
   return WaveGetLaneIndex();
 }
 
-// CHECK-SPIRV: declare spir_func i32 @__hlsl_wave_get_lane_index() [[A1:#[0-9]+]]
+// CHECK-SPIRV: declare spir_func noundef i32 @__hlsl_wave_get_lane_index() [[A1:#[0-9]+]]
 // CHECK-DXIL: declare i32 @llvm.dx.wave.getlaneindex() [[A1:#[0-9]+]]
 
 // CHECK-DAG: attributes [[A0]] = { {{.*}}convergent{{.*}} }

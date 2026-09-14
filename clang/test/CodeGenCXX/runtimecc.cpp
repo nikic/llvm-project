@@ -38,7 +38,7 @@ namespace test1 {
 // CHECK-NEXT: unreachable
 }
 
-// CHECK: declare ptr @__cxa_allocate_exception(i32)
+// CHECK: declare noundef ptr @__cxa_allocate_exception(i32 noundef)
 
 // CHECK: declare void @__cxa_throw(ptr, ptr, ptr)
 

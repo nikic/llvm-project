@@ -349,11 +349,9 @@ void CodeGenFunction::registerGlobalDtorWithAtExit(llvm::Constant *dtorStub) {
   assert(dtorStub->getType()->isPointerTy() &&
          "Argument to atexit has a wrong type.");
 
-  llvm::FunctionType *atexitTy =
-      llvm::FunctionType::get(IntTy, dtorStub->getType(), false);
-
   llvm::FunctionCallee atexit =
-      CGM.CreateRuntimeFunction(atexitTy, "atexit", llvm::AttributeList(),
+      CGM.CreateRuntimeFunction(getContext().IntTy, {getContext().VoidPtrTy},
+                                "atexit", llvm::AttributeList(),
                                 /*Local=*/true);
   if (llvm::Function *atexitFn = dyn_cast<llvm::Function>(atexit.getCallee()))
     atexitFn->setDoesNotThrow();
@@ -373,11 +371,9 @@ CodeGenFunction::unregisterGlobalDtorWithUnAtExit(llvm::Constant *dtorStub) {
   assert(dtorStub->getType()->isPointerTy() &&
          "Argument to unatexit has a wrong type.");
 
-  llvm::FunctionType *unatexitTy =
-      llvm::FunctionType::get(IntTy, {dtorStub->getType()}, /*isVarArg=*/false);
-
   llvm::FunctionCallee unatexit =
-      CGM.CreateRuntimeFunction(unatexitTy, "unatexit", llvm::AttributeList());
+      CGM.CreateRuntimeFunction(getContext().IntTy, {getContext().VoidPtrTy},
+                                "unatexit", llvm::AttributeList());
 
   cast<llvm::Function>(unatexit.getCallee())->setDoesNotThrow();
 

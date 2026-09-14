@@ -7,4 +7,4 @@ void use_at_available() {
     ;
 }
 
-// CHECK: declare i32 @__isPlatformVersionAtLeast(i32, i32, i32, i32)
+// CHECK: declare i32 @__isPlatformVersionAtLeast(i32 noundef, i32 noundef, i32 noundef, i32 noundef)

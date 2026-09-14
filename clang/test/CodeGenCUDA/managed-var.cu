@@ -187,4 +187,4 @@ __device__ __host__ void f() {
 // NORDC-DAG: __hipRegisterManagedVar({{.*}}, ptr @x, ptr @x.managed, ptr @[[DEVNAMEX]], i64 4, i32 4)
 // NORDC-DAG: __hipRegisterManagedVar({{.*}}, ptr @_ZL2sx, ptr @_ZL2sx.managed, ptr @[[DEVNAMESX]]
 // NORDC-NOT: __hipRegisterManagedVar({{.*}}, ptr @ex, ptr @ex.managed
-// NORDC-DAG: declare void @__hipRegisterManagedVar(ptr, ptr, ptr, ptr, i64, i32)
+// NORDC-DAG: declare void @__hipRegisterManagedVar(ptr noundef, ptr noundef, ptr noundef, ptr noundef, i64 noundef, i32 noundef)

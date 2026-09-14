@@ -774,11 +774,11 @@ void CodeGenFunction::EmitAsanPrologueOrEpilogue(bool Prologue) {
 
   // We will insert calls to __asan_* run-time functions.
   // LLVM AddressSanitizer pass may decide to inline them later.
-  llvm::Type *Args[2] = {IntPtrTy, IntPtrTy};
-  llvm::FunctionType *FTy = llvm::FunctionType::get(CGM.VoidTy, Args, false);
+  QualType UIntPtrTy = Context.getUIntPtrType();
   llvm::FunctionCallee F = CGM.CreateRuntimeFunction(
-      FTy, Prologue ? "__asan_poison_intra_object_redzone"
-                    : "__asan_unpoison_intra_object_redzone");
+      Context.VoidTy, {UIntPtrTy, UIntPtrTy},
+      Prologue ? "__asan_poison_intra_object_redzone"
+               : "__asan_unpoison_intra_object_redzone");
 
   llvm::Value *ThisPtr = LoadCXXThis();
   ThisPtr = Builder.CreatePtrToInt(ThisPtr, IntPtrTy);
@@ -1753,17 +1753,17 @@ static void EmitSanitizerDtorCallback(
   CodeGenFunction::SanitizerScope SanScope(&CGF);
   // Pass in void pointer and size of region as arguments to runtime
   // function
+  ASTContext &Ctx = CGF.getContext();
   SmallVector<llvm::Value *, 2> Args = {Ptr};
-  SmallVector<llvm::Type *, 2> ArgTypes = {CGF.VoidPtrTy};
+  SmallVector<QualType, 2> ArgTypes = {Ctx.VoidPtrTy};
 
   if (PoisonSize.has_value()) {
     Args.emplace_back(llvm::ConstantInt::get(CGF.SizeTy, *PoisonSize));
-    ArgTypes.emplace_back(CGF.SizeTy);
+    ArgTypes.emplace_back(Ctx.getSizeType());
   }
 
-  llvm::FunctionType *FnType =
-      llvm::FunctionType::get(CGF.VoidTy, ArgTypes, false);
-  llvm::FunctionCallee Fn = CGF.CGM.CreateRuntimeFunction(FnType, Name);
+  llvm::FunctionCallee Fn =
+      CGF.CGM.CreateRuntimeFunction(Ctx.VoidTy, ArgTypes, Name);
 
   CGF.EmitNounwindRuntimeCall(Fn, Args);
 }

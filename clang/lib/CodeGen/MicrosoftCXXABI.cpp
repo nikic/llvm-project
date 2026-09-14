@@ -786,11 +786,9 @@ public:
   llvm::FunctionCallee getThrowFn() {
     // _CxxThrowException is passed an exception object and a ThrowInfo object
     // which describes the exception.
-    llvm::Type *Args[] = {CGM.Int8PtrTy, CGM.DefaultPtrTy};
-    llvm::FunctionType *FTy =
-        llvm::FunctionType::get(CGM.VoidTy, Args, /*isVarArg=*/false);
-    llvm::FunctionCallee Throw =
-        CGM.CreateRuntimeFunction(FTy, "_CxxThrowException");
+    ASTContext &Ctx = CGM.getContext();
+    llvm::FunctionCallee Throw = CGM.CreateRuntimeFunction(
+        Ctx.VoidTy, {Ctx.VoidPtrTy, Ctx.VoidPtrTy}, "_CxxThrowException");
     // _CxxThrowException is stdcall on 32-bit x86 platforms.
     if (CGM.getTarget().getTriple().getArch() == llvm::Triple::x86) {
       if (auto *Fn = dyn_cast<llvm::Function>(Throw.getCallee()))
@@ -1004,11 +1002,10 @@ bool MicrosoftCXXABI::shouldTypeidBeNullChecked(QualType SrcRecordTy) {
 
 static llvm::CallBase *emitRTtypeidCall(CodeGenFunction &CGF,
                                         llvm::Value *Argument) {
-  llvm::Type *ArgTypes[] = {CGF.Int8PtrTy};
-  llvm::FunctionType *FTy =
-      llvm::FunctionType::get(CGF.Int8PtrTy, ArgTypes, false);
+  ASTContext &Ctx = CGF.getContext();
   llvm::Value *Args[] = {Argument};
-  llvm::FunctionCallee Fn = CGF.CGM.CreateRuntimeFunction(FTy, "__RTtypeid");
+  llvm::FunctionCallee Fn = CGF.CGM.CreateRuntimeFunction(
+      Ctx.VoidPtrTy, {Ctx.VoidPtrTy}, "__RTtypeid");
   return CGF.EmitRuntimeCallOrInvoke(Fn, Args);
 }
 
@@ -1056,10 +1053,10 @@ llvm::Value *MicrosoftCXXABI::emitDynamicCastCall(
   //   PVOID SrcType,
   //   PVOID TargetType,
   //   BOOL isReference)
-  llvm::Type *ArgTypes[] = {CGF.Int8PtrTy, CGF.Int32Ty, CGF.Int8PtrTy,
-                            CGF.Int8PtrTy, CGF.Int32Ty};
+  ASTContext &Ctx = CGF.getContext();
   llvm::FunctionCallee Function = CGF.CGM.CreateRuntimeFunction(
-      llvm::FunctionType::get(CGF.Int8PtrTy, ArgTypes, false),
+      Ctx.VoidPtrTy,
+      {Ctx.VoidPtrTy, Ctx.LongTy, Ctx.VoidPtrTy, Ctx.VoidPtrTy, Ctx.IntTy},
       "__RTDynamicCast");
   llvm::Value *Args[] = {
       ThisPtr, Offset, SrcRTTI, DestRTTI,
@@ -1075,10 +1072,9 @@ llvm::Value *MicrosoftCXXABI::emitDynamicCastToVoid(CodeGenFunction &CGF,
 
   // PVOID __RTCastToVoid(
   //   PVOID inptr)
-  llvm::Type *ArgTypes[] = {CGF.Int8PtrTy};
+  ASTContext &Ctx = CGF.getContext();
   llvm::FunctionCallee Function = CGF.CGM.CreateRuntimeFunction(
-      llvm::FunctionType::get(CGF.Int8PtrTy, ArgTypes, false),
-      "__RTCastToVoid");
+      Ctx.VoidPtrTy, {Ctx.VoidPtrTy}, "__RTCastToVoid");
   llvm::Value *Args[] = {Value.emitRawPointer(CGF)};
   return CGF.EmitRuntimeCall(Function, Args);
 }
@@ -2411,11 +2407,10 @@ static void emitGlobalDtorWithTLRegDtor(CodeGenFunction &CGF, const VarDecl &VD,
   llvm::Constant *DtorStub = CGF.createAtExitStub(VD, Dtor, Addr);
 
   // extern "C" int __tlregdtor(void (*f)(void));
-  llvm::FunctionType *TLRegDtorTy = llvm::FunctionType::get(
-      CGF.IntTy, DtorStub->getType(), /*isVarArg=*/false);
-
-  llvm::FunctionCallee TLRegDtor = CGF.CGM.CreateRuntimeFunction(
-      TLRegDtorTy, "__tlregdtor", llvm::AttributeList(), /*Local=*/true);
+  ASTContext &Ctx = CGF.getContext();
+  llvm::FunctionCallee TLRegDtor =
+      CGF.CGM.CreateRuntimeFunction(Ctx.IntTy, {Ctx.VoidPtrTy}, "__tlregdtor",
+                                    llvm::AttributeList(), /*Local=*/true);
   if (llvm::Function *TLRegDtorFn =
           dyn_cast<llvm::Function>(TLRegDtor.getCallee()))
     TLRegDtorFn->setDoesNotThrow();
@@ -2510,11 +2505,8 @@ static llvm::GlobalValue *getTlsGuardVar(CodeGenModule &CGM) {
 static llvm::FunctionCallee getDynTlsOnDemandInitFn(CodeGenModule &CGM) {
   // __dyn_tls_on_demand_init comes from the MSVC runtime and triggers
   // dynamic TLS initialization by calling __dyn_tls_init internally.
-  llvm::FunctionType *FTy =
-      llvm::FunctionType::get(llvm::Type::getVoidTy(CGM.getLLVMContext()), {},
-                              /*isVarArg=*/false);
   return CGM.CreateRuntimeFunction(
-      FTy, "__dyn_tls_on_demand_init",
+      CGM.getContext().VoidTy, {}, "__dyn_tls_on_demand_init",
       llvm::AttributeList::get(CGM.getLLVMContext(),
                                llvm::AttributeList::FunctionIndex,
                                llvm::Attribute::NoUnwind),
@@ -2597,11 +2589,9 @@ static ConstantAddress getInitThreadEpochPtr(CodeGenModule &CGM) {
 }
 
 static llvm::FunctionCallee getInitThreadHeaderFn(CodeGenModule &CGM) {
-  llvm::FunctionType *FTy =
-      llvm::FunctionType::get(llvm::Type::getVoidTy(CGM.getLLVMContext()),
-                              CGM.DefaultPtrTy, /*isVarArg=*/false);
+  ASTContext &Ctx = CGM.getContext();
   return CGM.CreateRuntimeFunction(
-      FTy, "_Init_thread_header",
+      Ctx.VoidTy, {Ctx.VoidPtrTy}, "_Init_thread_header",
       llvm::AttributeList::get(CGM.getLLVMContext(),
                                llvm::AttributeList::FunctionIndex,
                                llvm::Attribute::NoUnwind),
@@ -2609,11 +2599,9 @@ static llvm::FunctionCallee getInitThreadHeaderFn(CodeGenModule &CGM) {
 }
 
 static llvm::FunctionCallee getInitThreadFooterFn(CodeGenModule &CGM) {
-  llvm::FunctionType *FTy =
-      llvm::FunctionType::get(llvm::Type::getVoidTy(CGM.getLLVMContext()),
-                              CGM.DefaultPtrTy, /*isVarArg=*/false);
+  ASTContext &Ctx = CGM.getContext();
   return CGM.CreateRuntimeFunction(
-      FTy, "_Init_thread_footer",
+      Ctx.VoidTy, {Ctx.VoidPtrTy}, "_Init_thread_footer",
       llvm::AttributeList::get(CGM.getLLVMContext(),
                                llvm::AttributeList::FunctionIndex,
                                llvm::Attribute::NoUnwind),
@@ -2621,11 +2609,9 @@ static llvm::FunctionCallee getInitThreadFooterFn(CodeGenModule &CGM) {
 }
 
 static llvm::FunctionCallee getInitThreadAbortFn(CodeGenModule &CGM) {
-  llvm::FunctionType *FTy =
-      llvm::FunctionType::get(llvm::Type::getVoidTy(CGM.getLLVMContext()),
-                              CGM.DefaultPtrTy, /*isVarArg=*/false);
+  ASTContext &Ctx = CGM.getContext();
   return CGM.CreateRuntimeFunction(
-      FTy, "_Init_thread_abort",
+      Ctx.VoidTy, {Ctx.VoidPtrTy}, "_Init_thread_abort",
       llvm::AttributeList::get(CGM.getLLVMContext(),
                                llvm::AttributeList::FunctionIndex,
                                llvm::Attribute::NoUnwind),

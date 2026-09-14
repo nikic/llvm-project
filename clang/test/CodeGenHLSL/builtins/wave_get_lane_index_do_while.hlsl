@@ -33,7 +33,7 @@ void main() {
 // CHECK:   ret void
 }
 
-// CHECK-DAG: declare spir_func i32 @__hlsl_wave_get_lane_index() [[A1:#[0-9]+]]
+// CHECK-DAG: declare spir_func noundef i32 @__hlsl_wave_get_lane_index() [[A1:#[0-9]+]]
 
 // CHECK-DAG: attributes [[A0]] = {{{.*}}convergent{{.*}}}
 // CHECK-DAG: attributes [[A1]] = {{{.*}}convergent{{.*}}}

@@ -51,4 +51,4 @@ int main() {
 // CHECK-NEXT:   ret i32 %12
 // CHECK-NEXT: }
 // CHECK-EMPTY: 
-// CHECK-NEXT: declare i64 @getsystemcfg(i32)
+// CHECK-NEXT: declare i64 @getsystemcfg(i32 noundef)

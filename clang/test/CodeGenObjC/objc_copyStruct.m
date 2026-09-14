@@ -12,5 +12,5 @@ struct S {
 @implementation I
 @end
 
-// CHECK: declare {{.*}}void @objc_copyStruct(ptr, ptr, i64, i1, i1)
+// CHECK: declare {{.*}}void @objc_copyStruct(ptr noundef, ptr noundef, i64 noundef, i1 noundef zeroext, i1 noundef zeroext)
 

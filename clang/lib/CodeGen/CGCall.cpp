@@ -6598,9 +6598,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         SanitizerScope SanScope(this);
         llvm::IRBuilder<>::InsertPointGuard IPGuard(Builder);
         Builder.SetInsertPoint(CI);
-        auto *FnType = llvm::FunctionType::get(CGM.VoidTy, /*isVarArg=*/false);
-        llvm::FunctionCallee Fn =
-            CGM.CreateRuntimeFunction(FnType, "__asan_handle_no_return");
+        llvm::FunctionCallee Fn = CGM.CreateRuntimeFunction(
+            getContext().VoidTy, {}, "__asan_handle_no_return");
         EmitNounwindRuntimeCall(Fn);
       }
     }

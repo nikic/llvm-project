@@ -1558,9 +1558,10 @@ Value *CodeGenFunction::EmitHLSLBuiltinExpr(unsigned BuiltinID,
     case llvm::Triple::dxil:
       return EmitIntrinsicCall(Intrinsic::dx_wave_getlaneindex);
     case llvm::Triple::spirv:
-      return EmitRuntimeCall(CGM.CreateRuntimeFunction(
-          llvm::FunctionType::get(IntTy, {}, false),
-          "__hlsl_wave_get_lane_index", {}, false, true));
+      return EmitRuntimeCall(
+          CGM.CreateRuntimeFunction(getContext().UnsignedIntTy, {},
+                                    "__hlsl_wave_get_lane_index", {}, false,
+                                    /*AssumeConvergent=*/true));
     default:
       llvm_unreachable(
           "Intrinsic WaveGetLaneIndex not supported by target architecture");

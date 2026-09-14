@@ -32,11 +32,9 @@ using namespace CodeGen;
 
 static llvm::FunctionCallee getFreeExceptionFn(CodeGenModule &CGM) {
   // void __cxa_free_exception(void *thrown_exception);
-
-  llvm::FunctionType *FTy =
-    llvm::FunctionType::get(CGM.VoidTy, CGM.Int8PtrTy, /*isVarArg=*/false);
-
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_free_exception");
+  ASTContext &Ctx = CGM.getContext();
+  return CGM.CreateRuntimeFunction(Ctx.VoidTy, {Ctx.VoidPtrTy},
+                                   "__cxa_free_exception");
 }
 
 static llvm::FunctionCallee getSehTryBeginFn(CodeGenModule &CGM) {
@@ -53,19 +51,13 @@ static llvm::FunctionCallee getSehTryEndFn(CodeGenModule &CGM) {
 
 static llvm::FunctionCallee getUnexpectedFn(CodeGenModule &CGM) {
   // void __cxa_call_unexpected(void *thrown_exception);
-
-  llvm::FunctionType *FTy =
-    llvm::FunctionType::get(CGM.VoidTy, CGM.Int8PtrTy, /*isVarArg=*/false);
-
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_call_unexpected");
+  ASTContext &Ctx = CGM.getContext();
+  return CGM.CreateRuntimeFunction(Ctx.VoidTy, {Ctx.VoidPtrTy},
+                                   "__cxa_call_unexpected");
 }
 
 llvm::FunctionCallee CodeGenModule::getTerminateFn() {
   // void __terminate();
-
-  llvm::FunctionType *FTy =
-    llvm::FunctionType::get(VoidTy, /*isVarArg=*/false);
-
   StringRef name;
 
   // In C++, use std::terminate().
@@ -83,15 +75,13 @@ llvm::FunctionCallee CodeGenModule::getTerminateFn() {
     name = "objc_terminate";
   else
     name = "abort";
-  return CreateRuntimeFunction(FTy, name);
+  return CreateRuntimeFunction(getContext().VoidTy, {}, name);
 }
 
 static llvm::FunctionCallee getCatchallRethrowFn(CodeGenModule &CGM,
                                                  StringRef Name) {
-  llvm::FunctionType *FTy =
-    llvm::FunctionType::get(CGM.VoidTy, CGM.Int8PtrTy, /*isVarArg=*/false);
-
-  return CGM.CreateRuntimeFunction(FTy, Name);
+  ASTContext &Ctx = CGM.getContext();
+  return CGM.CreateRuntimeFunction(Ctx.VoidTy, {Ctx.VoidPtrTy}, Name);
 }
 
 const EHPersonality EHPersonality::GNU_C = { "__gcc_personality_v0", nullptr };

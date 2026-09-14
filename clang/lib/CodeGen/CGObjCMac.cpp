@@ -216,39 +216,24 @@ public:
   llvm::PointerType *CachePtrTy;
 
   llvm::FunctionCallee getGetPropertyFn() {
-    CodeGen::CodeGenTypes &Types = CGM.getTypes();
     ASTContext &Ctx = CGM.getContext();
     // id objc_getProperty (id, SEL, ptrdiff_t, bool)
-    CanQualType IdType = Ctx.getCanonicalParamType(Ctx.getObjCIdType());
-    CanQualType SelType = Ctx.getCanonicalParamType(Ctx.getObjCSelType());
-    CanQualType Params[] = {
-        IdType, SelType,
-        Ctx.getPointerDiffType()->getCanonicalTypeUnqualified(), Ctx.BoolTy};
-    llvm::FunctionType *FTy = Types.GetFunctionType(
-        Types.arrangeBuiltinFunctionDeclaration(IdType, Params));
-    return CGM.CreateRuntimeFunction(FTy, "objc_getProperty");
+    QualType IdType = Ctx.getObjCIdType();
+    QualType Params[] = {IdType, Ctx.getObjCSelType(), Ctx.getPointerDiffType(),
+                         Ctx.BoolTy};
+    return CGM.CreateRuntimeFunction(IdType, Params, "objc_getProperty");
   }
 
   llvm::FunctionCallee getSetPropertyFn() {
-    CodeGen::CodeGenTypes &Types = CGM.getTypes();
     ASTContext &Ctx = CGM.getContext();
     // void objc_setProperty (id, SEL, ptrdiff_t, id, bool, bool)
-    CanQualType IdType = Ctx.getCanonicalParamType(Ctx.getObjCIdType());
-    CanQualType SelType = Ctx.getCanonicalParamType(Ctx.getObjCSelType());
-    CanQualType Params[] = {
-        IdType,
-        SelType,
-        Ctx.getPointerDiffType()->getCanonicalTypeUnqualified(),
-        IdType,
-        Ctx.BoolTy,
-        Ctx.BoolTy};
-    llvm::FunctionType *FTy = Types.GetFunctionType(
-        Types.arrangeBuiltinFunctionDeclaration(Ctx.VoidTy, Params));
-    return CGM.CreateRuntimeFunction(FTy, "objc_setProperty");
+    QualType IdType = Ctx.getObjCIdType();
+    QualType Params[] = {IdType, Ctx.getObjCSelType(), Ctx.getPointerDiffType(),
+                         IdType, Ctx.BoolTy,           Ctx.BoolTy};
+    return CGM.CreateRuntimeFunction(Ctx.VoidTy, Params, "objc_setProperty");
   }
 
   llvm::FunctionCallee getOptimizedSetPropertyFn(bool atomic, bool copy) {
-    CodeGen::CodeGenTypes &Types = CGM.getTypes();
     ASTContext &Ctx = CGM.getContext();
     // void objc_setProperty_atomic(id self, SEL _cmd,
     //                              id newValue, ptrdiff_t offset);
@@ -259,15 +244,9 @@ public:
     // void objc_setProperty_nonatomic_copy(id self, SEL _cmd,
     //                                      id newValue, ptrdiff_t offset);
 
-    SmallVector<CanQualType, 4> Params;
-    CanQualType IdType = Ctx.getCanonicalParamType(Ctx.getObjCIdType());
-    CanQualType SelType = Ctx.getCanonicalParamType(Ctx.getObjCSelType());
-    Params.push_back(IdType);
-    Params.push_back(SelType);
-    Params.push_back(IdType);
-    Params.push_back(Ctx.getPointerDiffType()->getCanonicalTypeUnqualified());
-    llvm::FunctionType *FTy = Types.GetFunctionType(
-        Types.arrangeBuiltinFunctionDeclaration(Ctx.VoidTy, Params));
+    QualType IdType = Ctx.getObjCIdType();
+    QualType Params[] = {IdType, Ctx.getObjCSelType(), IdType,
+                         Ctx.getPointerDiffType()};
     const char *name;
     if (atomic && copy)
       name = "objc_setProperty_atomic_copy";
@@ -278,22 +257,15 @@ public:
     else
       name = "objc_setProperty_nonatomic";
 
-    return CGM.CreateRuntimeFunction(FTy, name);
+    return CGM.CreateRuntimeFunction(Ctx.VoidTy, Params, name);
   }
 
   llvm::FunctionCallee getCopyStructFn() {
-    CodeGen::CodeGenTypes &Types = CGM.getTypes();
     ASTContext &Ctx = CGM.getContext();
     // void objc_copyStruct (void *, const void *, size_t, bool, bool)
-    SmallVector<CanQualType, 5> Params;
-    Params.push_back(Ctx.VoidPtrTy);
-    Params.push_back(Ctx.VoidPtrTy);
-    Params.push_back(Ctx.getCanonicalSizeType());
-    Params.push_back(Ctx.BoolTy);
-    Params.push_back(Ctx.BoolTy);
-    llvm::FunctionType *FTy = Types.GetFunctionType(
-        Types.arrangeBuiltinFunctionDeclaration(Ctx.VoidTy, Params));
-    return CGM.CreateRuntimeFunction(FTy, "objc_copyStruct");
+    QualType Params[] = {Ctx.VoidPtrTy, Ctx.VoidPtrTy, Ctx.getSizeType(),
+                         Ctx.BoolTy, Ctx.BoolTy};
+    return CGM.CreateRuntimeFunction(Ctx.VoidTy, Params, "objc_copyStruct");
   }
 
   /// This routine declares and returns address of:
@@ -301,128 +273,122 @@ public:
   ///         void *dest, const void *src,
   ///         void (*copyHelper) (void *dest, const void *source));
   llvm::FunctionCallee getCppAtomicObjectFunction() {
-    CodeGen::CodeGenTypes &Types = CGM.getTypes();
     ASTContext &Ctx = CGM.getContext();
     /// void objc_copyCppObjectAtomic(void *dest, const void *src, void
     /// *helper);
-    SmallVector<CanQualType, 3> Params;
-    Params.push_back(Ctx.VoidPtrTy);
-    Params.push_back(Ctx.VoidPtrTy);
-    Params.push_back(Ctx.VoidPtrTy);
-    llvm::FunctionType *FTy = Types.GetFunctionType(
-        Types.arrangeBuiltinFunctionDeclaration(Ctx.VoidTy, Params));
-    return CGM.CreateRuntimeFunction(FTy, "objc_copyCppObjectAtomic");
+    QualType Params[] = {Ctx.VoidPtrTy, Ctx.VoidPtrTy, Ctx.VoidPtrTy};
+    return CGM.CreateRuntimeFunction(Ctx.VoidTy, Params,
+                                     "objc_copyCppObjectAtomic");
   }
 
   llvm::FunctionCallee getEnumerationMutationFn() {
-    CodeGen::CodeGenTypes &Types = CGM.getTypes();
     ASTContext &Ctx = CGM.getContext();
     // void objc_enumerationMutation (id)
-    SmallVector<CanQualType, 1> Params;
-    Params.push_back(Ctx.getCanonicalParamType(Ctx.getObjCIdType()));
-    llvm::FunctionType *FTy = Types.GetFunctionType(
-        Types.arrangeBuiltinFunctionDeclaration(Ctx.VoidTy, Params));
-    return CGM.CreateRuntimeFunction(FTy, "objc_enumerationMutation");
+    return CGM.CreateRuntimeFunction(Ctx.VoidTy, {Ctx.getObjCIdType()},
+                                     "objc_enumerationMutation");
   }
 
   llvm::FunctionCallee getLookUpClassFn() {
-    CodeGen::CodeGenTypes &Types = CGM.getTypes();
     ASTContext &Ctx = CGM.getContext();
     // Class objc_lookUpClass (const char *)
-    SmallVector<CanQualType, 1> Params;
-    Params.push_back(
-        Ctx.getCanonicalType(Ctx.getPointerType(Ctx.CharTy.withConst())));
-    llvm::FunctionType *FTy =
-        Types.GetFunctionType(Types.arrangeBuiltinFunctionDeclaration(
-            Ctx.getCanonicalType(Ctx.getObjCClassType()), Params));
-    return CGM.CreateRuntimeFunction(FTy, "objc_lookUpClass");
+    return CGM.CreateRuntimeFunction(
+        Ctx.getObjCClassType(), {Ctx.getPointerType(Ctx.CharTy.withConst())},
+        "objc_lookUpClass");
   }
 
   /// GcReadWeakFn -- LLVM objc_read_weak (id *src) function.
   llvm::FunctionCallee getGcReadWeakFn() {
     // id objc_read_weak (id *)
-    llvm::Type *args[] = {CGM.DefaultPtrTy};
-    llvm::FunctionType *FTy = llvm::FunctionType::get(ObjectPtrTy, args, false);
-    return CGM.CreateRuntimeFunction(FTy, "objc_read_weak");
+    ASTContext &Ctx = CGM.getContext();
+    QualType IdTy = Ctx.getObjCIdType();
+    return CGM.CreateRuntimeFunction(IdTy, {Ctx.getPointerType(IdTy)},
+                                     "objc_read_weak");
   }
 
   /// GcAssignWeakFn -- LLVM objc_assign_weak function.
   llvm::FunctionCallee getGcAssignWeakFn() {
     // id objc_assign_weak (id, id *)
-    llvm::Type *args[] = {ObjectPtrTy, CGM.DefaultPtrTy};
-    llvm::FunctionType *FTy = llvm::FunctionType::get(ObjectPtrTy, args, false);
-    return CGM.CreateRuntimeFunction(FTy, "objc_assign_weak");
+    ASTContext &Ctx = CGM.getContext();
+    QualType IdTy = Ctx.getObjCIdType();
+    return CGM.CreateRuntimeFunction(IdTy, {IdTy, Ctx.getPointerType(IdTy)},
+                                     "objc_assign_weak");
   }
 
   /// GcAssignGlobalFn -- LLVM objc_assign_global function.
   llvm::FunctionCallee getGcAssignGlobalFn() {
     // id objc_assign_global(id, id *)
-    llvm::Type *args[] = {ObjectPtrTy, CGM.DefaultPtrTy};
-    llvm::FunctionType *FTy = llvm::FunctionType::get(ObjectPtrTy, args, false);
-    return CGM.CreateRuntimeFunction(FTy, "objc_assign_global");
+    ASTContext &Ctx = CGM.getContext();
+    QualType IdTy = Ctx.getObjCIdType();
+    return CGM.CreateRuntimeFunction(IdTy, {IdTy, Ctx.getPointerType(IdTy)},
+                                     "objc_assign_global");
   }
 
   /// GcAssignThreadLocalFn -- LLVM objc_assign_threadlocal function.
   llvm::FunctionCallee getGcAssignThreadLocalFn() {
     // id objc_assign_threadlocal(id src, id * dest)
-    llvm::Type *args[] = {ObjectPtrTy, CGM.DefaultPtrTy};
-    llvm::FunctionType *FTy = llvm::FunctionType::get(ObjectPtrTy, args, false);
-    return CGM.CreateRuntimeFunction(FTy, "objc_assign_threadlocal");
+    ASTContext &Ctx = CGM.getContext();
+    QualType IdTy = Ctx.getObjCIdType();
+    return CGM.CreateRuntimeFunction(IdTy, {IdTy, Ctx.getPointerType(IdTy)},
+                                     "objc_assign_threadlocal");
   }
 
   /// GcAssignIvarFn -- LLVM objc_assign_ivar function.
   llvm::FunctionCallee getGcAssignIvarFn() {
     // id objc_assign_ivar(id, id *, ptrdiff_t)
-    llvm::Type *args[] = {ObjectPtrTy, CGM.DefaultPtrTy, CGM.PtrDiffTy};
-    llvm::FunctionType *FTy = llvm::FunctionType::get(ObjectPtrTy, args, false);
-    return CGM.CreateRuntimeFunction(FTy, "objc_assign_ivar");
+    ASTContext &Ctx = CGM.getContext();
+    QualType IdTy = Ctx.getObjCIdType();
+    return CGM.CreateRuntimeFunction(
+        IdTy, {IdTy, Ctx.getPointerType(IdTy), Ctx.getPointerDiffType()},
+        "objc_assign_ivar");
   }
 
   /// GcMemmoveCollectableFn -- LLVM objc_memmove_collectable function.
   llvm::FunctionCallee GcMemmoveCollectableFn() {
     // void *objc_memmove_collectable(void *dst, const void *src, size_t size)
-    llvm::Type *args[] = {Int8PtrTy, Int8PtrTy, LongTy};
-    llvm::FunctionType *FTy = llvm::FunctionType::get(Int8PtrTy, args, false);
-    return CGM.CreateRuntimeFunction(FTy, "objc_memmove_collectable");
+    ASTContext &Ctx = CGM.getContext();
+    return CGM.CreateRuntimeFunction(
+        Ctx.VoidPtrTy, {Ctx.VoidPtrTy, Ctx.VoidPtrTy, Ctx.getSizeType()},
+        "objc_memmove_collectable");
   }
 
   /// GcAssignStrongCastFn -- LLVM objc_assign_strongCast function.
   llvm::FunctionCallee getGcAssignStrongCastFn() {
     // id objc_assign_strongCast(id, id *)
-    llvm::Type *args[] = {ObjectPtrTy, CGM.DefaultPtrTy};
-    llvm::FunctionType *FTy = llvm::FunctionType::get(ObjectPtrTy, args, false);
-    return CGM.CreateRuntimeFunction(FTy, "objc_assign_strongCast");
+    ASTContext &Ctx = CGM.getContext();
+    QualType IdTy = Ctx.getObjCIdType();
+    return CGM.CreateRuntimeFunction(IdTy, {IdTy, Ctx.getPointerType(IdTy)},
+                                     "objc_assign_strongCast");
   }
 
   /// ExceptionThrowFn - LLVM objc_exception_throw function.
   llvm::FunctionCallee getExceptionThrowFn() {
     // void objc_exception_throw(id)
-    llvm::Type *args[] = {ObjectPtrTy};
-    llvm::FunctionType *FTy = llvm::FunctionType::get(CGM.VoidTy, args, false);
-    return CGM.CreateRuntimeFunction(FTy, "objc_exception_throw");
+    ASTContext &Ctx = CGM.getContext();
+    return CGM.CreateRuntimeFunction(Ctx.VoidTy, {Ctx.getObjCIdType()},
+                                     "objc_exception_throw");
   }
 
   /// ExceptionRethrowFn - LLVM objc_exception_rethrow function.
   llvm::FunctionCallee getExceptionRethrowFn() {
     // void objc_exception_rethrow(void)
-    llvm::FunctionType *FTy = llvm::FunctionType::get(CGM.VoidTy, false);
-    return CGM.CreateRuntimeFunction(FTy, "objc_exception_rethrow");
+    return CGM.CreateRuntimeFunction(CGM.getContext().VoidTy, {},
+                                     "objc_exception_rethrow");
   }
 
   /// SyncEnterFn - LLVM object_sync_enter function.
   llvm::FunctionCallee getSyncEnterFn() {
     // int objc_sync_enter (id)
-    llvm::Type *args[] = {ObjectPtrTy};
-    llvm::FunctionType *FTy = llvm::FunctionType::get(CGM.IntTy, args, false);
-    return CGM.CreateRuntimeFunction(FTy, "objc_sync_enter");
+    ASTContext &Ctx = CGM.getContext();
+    return CGM.CreateRuntimeFunction(Ctx.IntTy, {Ctx.getObjCIdType()},
+                                     "objc_sync_enter");
   }
 
   /// SyncExitFn - LLVM object_sync_exit function.
   llvm::FunctionCallee getSyncExitFn() {
     // int objc_sync_exit (id)
-    llvm::Type *args[] = {ObjectPtrTy};
-    llvm::FunctionType *FTy = llvm::FunctionType::get(CGM.IntTy, args, false);
-    return CGM.CreateRuntimeFunction(FTy, "objc_sync_exit");
+    ASTContext &Ctx = CGM.getContext();
+    return CGM.CreateRuntimeFunction(Ctx.IntTy, {Ctx.getObjCIdType()},
+                                     "objc_sync_exit");
   }
 
   llvm::FunctionCallee getSendFn(bool IsSuper) const {
@@ -520,33 +486,30 @@ public:
 
   /// ExceptionTryEnterFn - LLVM objc_exception_try_enter function.
   llvm::FunctionCallee getExceptionTryEnterFn() {
-    llvm::Type *params[] = {CGM.DefaultPtrTy};
-    return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(CGM.VoidTy, params, false),
-        "objc_exception_try_enter");
+    ASTContext &Ctx = CGM.getContext();
+    return CGM.CreateRuntimeFunction(Ctx.VoidTy, {Ctx.VoidPtrTy},
+                                     "objc_exception_try_enter");
   }
 
   /// ExceptionTryExitFn - LLVM objc_exception_try_exit function.
   llvm::FunctionCallee getExceptionTryExitFn() {
-    llvm::Type *params[] = {CGM.DefaultPtrTy};
-    return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(CGM.VoidTy, params, false),
-        "objc_exception_try_exit");
+    ASTContext &Ctx = CGM.getContext();
+    return CGM.CreateRuntimeFunction(Ctx.VoidTy, {Ctx.VoidPtrTy},
+                                     "objc_exception_try_exit");
   }
 
   /// ExceptionExtractFn - LLVM objc_exception_extract function.
   llvm::FunctionCallee getExceptionExtractFn() {
-    llvm::Type *params[] = {CGM.DefaultPtrTy};
-    return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(ObjectPtrTy, params, false),
-        "objc_exception_extract");
+    ASTContext &Ctx = CGM.getContext();
+    return CGM.CreateRuntimeFunction(Ctx.getObjCIdType(), {Ctx.VoidPtrTy},
+                                     "objc_exception_extract");
   }
 
   /// ExceptionMatchFn - LLVM objc_exception_match function.
   llvm::FunctionCallee getExceptionMatchFn() {
-    llvm::Type *params[] = {ClassPtrTy, ObjectPtrTy};
+    ASTContext &Ctx = CGM.getContext();
     return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(CGM.Int32Ty, params, false),
+        Ctx.IntTy, {Ctx.getObjCClassType(), Ctx.getObjCIdType()},
         "objc_exception_match");
   }
 
@@ -680,14 +643,14 @@ public:
   }
 
   llvm::FunctionCallee getObjCEndCatchFn() {
-    return CGM.CreateRuntimeFunction(llvm::FunctionType::get(CGM.VoidTy, false),
+    return CGM.CreateRuntimeFunction(CGM.getContext().VoidTy, {},
                                      "objc_end_catch");
   }
 
   llvm::FunctionCallee getObjCBeginCatchFn() {
-    llvm::Type *params[] = {Int8PtrTy};
-    return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(Int8PtrTy, params, false), "objc_begin_catch");
+    ASTContext &Ctx = CGM.getContext();
+    return CGM.CreateRuntimeFunction(Ctx.VoidPtrTy, {Ctx.VoidPtrTy},
+                                     "objc_begin_catch");
   }
 
   /// Class objc_loadClassref (void *)

@@ -829,10 +829,9 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       if (RelativeCXXABIVTables)
         return llvm::ConstantPointerNull::get(CGM.GlobalsInt8PtrTy);
 
-      llvm::FunctionType *fnTy =
-          llvm::FunctionType::get(CGM.VoidTy, /*isVarArg=*/false);
       auto *F = cast<llvm::Function>(
-          CGM.CreateRuntimeFunction(fnTy, name).getCallee());
+          CGM.CreateRuntimeFunction(CGM.getContext().VoidTy, {}, name)
+              .getCallee());
       F->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
       // The Microsoft ABI uses the same function name for pure and deleted

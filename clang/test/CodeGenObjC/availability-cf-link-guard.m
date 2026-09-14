@@ -39,7 +39,7 @@ void use_at_available(void) {
 
 // CHECK: @llvm.compiler.used{{.*}}@__clang_at_available_requires_core_foundation_framework
 
-// CHECK: declare i32 @CFBundleGetVersionNumber(ptr)
+// CHECK: declare i32 @CFBundleGetVersionNumber(ptr noundef)
 
 // CHECK-LABEL: linkonce hidden void @__clang_at_available_requires_core_foundation_framework
 // CHECK: call i32 @CFBundleGetVersionNumber(ptr null)

@@ -55,7 +55,7 @@ namespace test4 {
 // CHECK:   ret void
 // CHECK: }
 
-// CHECK: declare i32 @atexit(ptr)
+// CHECK: declare noundef {{(signext )?}}i32 @atexit(ptr noundef)
 
 // CHECK: define internal void @__finalize__ZN5test12t1E() [[ATTR:#[0-9]+]] {
 // CHECK: entry:
@@ -71,7 +71,7 @@ namespace test4 {
 // CHECK:   ret void
 // CHECK: }
 
-// CHECK: declare i32 @unatexit(ptr)
+// CHECK: declare noundef {{(signext )?}}i32 @unatexit(ptr noundef)
 
 // CHECK: define internal void @__cxx_global_var_init.1() [[ATTR:#[0-9]+]] {
 // CHECK: entry:

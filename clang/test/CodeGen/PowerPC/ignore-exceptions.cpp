@@ -12,9 +12,9 @@ void f(void) {
   } catch(...) {
   }
 // CHECK:  %a = alloca %struct.A, align 1
-// CHECK:  %exception = call ptr @__cxa_allocate_exception(i64 4) #1
+// CHECK:  %exception = call ptr @__cxa_allocate_exception(i64 4) #2
 // CHECK:  store i32 1, ptr %exception, align 16
-// CHECK:  call void @__cxa_throw(ptr %exception, ptr @_ZTIi, ptr null) #2
+// CHECK:  call void @__cxa_throw(ptr %exception, ptr @_ZTIi, ptr null) #3
 // CHECK:  unreachable
 
 // CHECK-NOT: invoke

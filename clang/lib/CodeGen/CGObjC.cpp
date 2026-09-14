@@ -2314,9 +2314,8 @@ static llvm::Value *emitObjCValueOperation(CodeGenFunction &CGF,
     return value;
 
   if (!fn) {
-    llvm::FunctionType *fnType =
-      llvm::FunctionType::get(CGF.Int8PtrTy, CGF.Int8PtrTy, false);
-    fn = CGF.CGM.CreateRuntimeFunction(fnType, fnName);
+    ASTContext &Ctx = CGF.getContext();
+    fn = CGF.CGM.CreateRuntimeFunction(Ctx.VoidPtrTy, {Ctx.VoidPtrTy}, fnName);
 
     // We have Native ARC, so set nonlazybind attribute for performance
     if (llvm::Function *f = dyn_cast<llvm::Function>(fn.getCallee()))
@@ -2758,9 +2757,9 @@ void CodeGenFunction::EmitObjCAutoreleasePoolPop(llvm::Value *value) {
     llvm::FunctionCallee &fn =
         CGM.getObjCEntrypoints().objc_autoreleasePoolPopInvoke;
     if (!fn) {
-      llvm::FunctionType *fnType =
-        llvm::FunctionType::get(Builder.getVoidTy(), Int8PtrTy, false);
-      fn = CGM.CreateRuntimeFunction(fnType, "objc_autoreleasePoolPop");
+      fn = CGM.CreateRuntimeFunction(getContext().VoidTy,
+                                     {getContext().VoidPtrTy},
+                                     "objc_autoreleasePoolPop");
       setARCRuntimeFunctionLinkage(CGM, fn);
     }
 
@@ -2890,9 +2889,8 @@ void CodeGenFunction::EmitObjCRelease(llvm::Value *value,
   llvm::FunctionCallee &fn =
       CGM.getObjCEntrypoints().objc_releaseRuntimeFunction;
   if (!fn) {
-    llvm::FunctionType *fnType =
-        llvm::FunctionType::get(Builder.getVoidTy(), Int8PtrTy, false);
-    fn = CGM.CreateRuntimeFunction(fnType, "objc_release");
+    fn = CGM.CreateRuntimeFunction(getContext().VoidTy,
+                                   {getContext().VoidPtrTy}, "objc_release");
     setARCRuntimeFunctionLinkage(CGM, fn);
     // We have Native ARC, so set nonlazybind attribute for performance
     if (llvm::Function *f = dyn_cast<llvm::Function>(fn.getCallee()))
@@ -4035,11 +4033,10 @@ static llvm::Value *emitIsPlatformVersionAtLeast(CodeGenFunction &CGF,
   EmitArgs(Version, CGM.getTarget().getTriple());
 
   if (!CGM.IsPlatformVersionAtLeastFn) {
-    llvm::FunctionType *FTy = llvm::FunctionType::get(
-        CGM.Int32Ty, {CGM.Int32Ty, CGM.Int32Ty, CGM.Int32Ty, CGM.Int32Ty},
-        false);
-    CGM.IsPlatformVersionAtLeastFn =
-        CGM.CreateRuntimeFunction(FTy, "__isPlatformVersionAtLeast");
+    ASTContext &Ctx = CGM.getContext();
+    CGM.IsPlatformVersionAtLeastFn = CGM.CreateRuntimeFunction(
+        Ctx.IntTy, {Ctx.IntTy, Ctx.IntTy, Ctx.IntTy, Ctx.IntTy},
+        "__isPlatformVersionAtLeast");
   }
 
   llvm::Value *Check =
@@ -4055,10 +4052,9 @@ CodeGenFunction::EmitBuiltinAvailable(const VersionTuple &Version) {
     return emitIsPlatformVersionAtLeast(*this, Version);
 
   if (!CGM.IsOSVersionAtLeastFn) {
-    llvm::FunctionType *FTy =
-        llvm::FunctionType::get(Int32Ty, {Int32Ty, Int32Ty, Int32Ty}, false);
-    CGM.IsOSVersionAtLeastFn =
-        CGM.CreateRuntimeFunction(FTy, "__isOSVersionAtLeast");
+    ASTContext &Ctx = getContext();
+    CGM.IsOSVersionAtLeastFn = CGM.CreateRuntimeFunction(
+        Ctx.IntTy, {Ctx.IntTy, Ctx.IntTy, Ctx.IntTy}, "__isOSVersionAtLeast");
   }
 
   std::optional<unsigned> Min = Version.getMinor(),
@@ -4122,14 +4118,12 @@ void CodeGenModule::emitAtAvailableLinkGuard() {
   LinkerOptionsMetadata.push_back(llvm::MDNode::get(Context, Args));
   // Emit a reference to a symbol from CoreFoundation to ensure that
   // CoreFoundation is linked into the final binary.
-  llvm::FunctionType *FTy =
-      llvm::FunctionType::get(Int32Ty, {VoidPtrTy}, false);
-  llvm::FunctionCallee CFFunc =
-      CreateRuntimeFunction(FTy, "CFBundleGetVersionNumber");
+  ASTContext &Ctx = getContext();
+  llvm::FunctionCallee CFFunc = CreateRuntimeFunction(
+      Ctx.UnsignedIntTy, {Ctx.VoidPtrTy}, "CFBundleGetVersionNumber");
 
-  llvm::FunctionType *CheckFTy = llvm::FunctionType::get(VoidTy, {}, false);
   llvm::FunctionCallee CFLinkCheckFuncRef = CreateRuntimeFunction(
-      CheckFTy, "__clang_at_available_requires_core_foundation_framework",
+      Ctx.VoidTy, {}, "__clang_at_available_requires_core_foundation_framework",
       llvm::AttributeList(), /*Local=*/true);
   llvm::Function *CFLinkCheckFunc =
       cast<llvm::Function>(CFLinkCheckFuncRef.getCallee()->stripPointerCasts());

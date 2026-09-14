@@ -7,7 +7,7 @@ void foo1() { throw 1; }
 // _CxxThrowException should not be marked dllimport.
 // MSVC-LABEL: define dso_local void @"?foo1@@YAXXZ"
 // MSVC: call void @_CxxThrowException
-// MSVC: declare dso_local void @_CxxThrowException(ptr, ptr)
+// MSVC: declare dso_local void @_CxxThrowException(ptr noundef, ptr noundef)
 
 // __cxa_throw should be marked dllimport for *-windows-itanium.
 // ITANIUM-LABEL: define dso_local void @_Z4foo1v()
@@ -31,14 +31,14 @@ void foo2() noexcept(true) { bar(); }
 // ITANIUM-LABEL: define linkonce_odr hidden void @__clang_call_terminate(ptr noundef %0)
 // ITANIUM: call ptr @__cxa_begin_catch({{.*}})
 // ITANIUM: call void @_ZSt9terminatev()
-// ITANIUM: declare dllimport ptr @__cxa_begin_catch(ptr)
+// ITANIUM: declare dllimport noundef ptr @__cxa_begin_catch(ptr noundef)
 // ITANIUM: declare dllimport void @_ZSt9terminatev()
 
 // .. not for mingw.
 // GNU-LABEL: define linkonce_odr hidden void @__clang_call_terminate(ptr noundef %0)
 // GNU: call ptr @__cxa_begin_catch({{.*}})
 // GNU: call void @_ZSt9terminatev()
-// GNU: declare dso_local ptr @__cxa_begin_catch(ptr)
+// GNU: declare dso_local noundef ptr @__cxa_begin_catch(ptr noundef)
 // GNU: declare dso_local void @_ZSt9terminatev()
 
 
@@ -50,7 +50,7 @@ T *foo3() { return dynamic_cast<T *>((C *)0); }
 // __RTDynamicCast should not be marked dllimport.
 // MSVC-LABEL: define dso_local noundef ptr @"?foo3@@YAPEAUT@@XZ"
 // MSVC: call ptr @__RTDynamicCast({{.*}})
-// MSVC: declare dso_local ptr @__RTDynamicCast(ptr, i32, ptr, ptr, i32)
+// MSVC: declare dso_local noundef ptr @__RTDynamicCast(ptr noundef, i32 noundef, ptr noundef, ptr noundef, i32 noundef)
 
 // Again, imported
 // ITANIUM-LABEL: define dso_local noundef ptr @_Z4foo3v()
