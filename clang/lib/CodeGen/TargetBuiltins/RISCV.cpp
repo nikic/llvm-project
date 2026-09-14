@@ -964,9 +964,9 @@ emitRVVCreateBuiltin(CodeGenFunction *CGF, const CallExpr *E,
 }
 
 Value *CodeGenFunction::EmitRISCVCpuInit() {
-  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, {VoidPtrTy}, false);
   llvm::FunctionCallee Func =
-      CGM.CreateRuntimeFunction(FTy, "__init_riscv_feature_bits");
+      CGM.CreateRuntimeFunction(getContext().VoidTy, {getContext().VoidPtrTy},
+                                "__init_riscv_feature_bits");
   auto *CalleeGV = cast<llvm::GlobalValue>(Func.getCallee());
   CalleeGV->setDSOLocal(true);
   CalleeGV->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);

@@ -7301,9 +7301,8 @@ BuildVector(ArrayRef<llvm::Value*> Ops) {
 }
 
 Value *CodeGenFunction::EmitAArch64CpuInit() {
-  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, false);
-  llvm::FunctionCallee Func =
-      CGM.CreateRuntimeFunction(FTy, "__init_cpu_features_resolver");
+  llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(
+      getContext().VoidTy, {}, "__init_cpu_features_resolver");
   cast<llvm::GlobalValue>(Func.getCallee())->setDSOLocal(true);
   cast<llvm::GlobalValue>(Func.getCallee())
       ->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);

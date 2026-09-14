@@ -770,16 +770,13 @@ CodeGenFunction::EmitX86CpuSupports(std::array<uint32_t, 4> FeatureMask) {
 }
 
 Value *CodeGenFunction::EmitX86CpuInit() {
-  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy,
-                                                    /*Variadic*/ false);
-  llvm::FunctionCallee Func =
-      CGM.CreateRuntimeFunction(FTy, "__cpu_indicator_init");
+  llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(getContext().VoidTy, {},
+                                                        "__cpu_indicator_init");
   cast<llvm::GlobalValue>(Func.getCallee())->setDSOLocal(true);
   cast<llvm::GlobalValue>(Func.getCallee())
       ->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
   return Builder.CreateCall(Func);
 }
-
 
 Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
                                            const CallExpr *E) {

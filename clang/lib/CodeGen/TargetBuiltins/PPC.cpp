@@ -102,10 +102,9 @@ Value *CodeGenFunction::EmitPPCBuiltinCpu(unsigned BuiltinID,
       FieldValue = Builder.CreateAlignedLoad(Int32Ty, FieldValue,
                                              CharUnits::fromQuantity(4));
     } else if (SupportMethod == SYS_CALL) {
-      llvm::FunctionType *FTy =
-          llvm::FunctionType::get(Int64Ty, Int32Ty, false);
-      llvm::FunctionCallee Func =
-          CGM.CreateRuntimeFunction(FTy, "getsystemcfg");
+      llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(
+          getContext().getIntTypeForBitwidth(64, /*Signed=*/false),
+          {getContext().IntTy}, "getsystemcfg");
 
       FieldValue =
           Builder.CreateCall(Func, {ConstantInt::get(Int32Ty, FieldIdx)});
