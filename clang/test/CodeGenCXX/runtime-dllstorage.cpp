@@ -111,8 +111,10 @@ void l() {
 // CHECK-MS-DYNAMIC-DAG: declare {{.*}} void @_CxxThrowException
 // CHECK-MS-STATIC-DAG: declare {{.*}} void @_CxxThrowException
 // CHECK-MS-DAG: declare dso_local noundef nonnull ptr @"??2@YAPAXI@Z"
-// CHECK-MS-DAG: declare dso_local void @_Init_thread_header(ptr noundef)
-// CHECK-MS-DAG: declare dso_local void @_Init_thread_footer(ptr noundef)
+// CHECK-MS-DAG: declare dso_local void @_Init_thread_header(ptr noundef) [[NOUNWIND:#[0-9]+]]
+// CHECK-MS-DAG: declare dso_local void @_Init_thread_footer(ptr noundef) [[NOUNWIND]]
+// The nounwind here comes from the ExtraAttrs passed to CreateRuntimeFunction.
+// CHECK-MS-DAG: attributes [[NOUNWIND]] = { nounwind{{.*}} }
 
 // CHECK-IA-DAG: @_ZTH1t = dso_local alias void (), ptr @__tls_init
 // CHECK-IA-DAG: declare dso_local i32 @__gxx_personality_v0(...)

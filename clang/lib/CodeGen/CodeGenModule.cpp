@@ -5940,6 +5940,11 @@ llvm::FunctionCallee CodeGenModule::CreateRuntimeFunction(
   if (auto *F = dyn_cast<llvm::Function>(C)) {
     if (F->empty()) {
       SetLLVMFunctionAttributes(GlobalDecl(), Info, F, /*IsThunk*/ false);
+      // SetLLVMFunctionAttributes() replaces the whole attribute list, which
+      // drops the ExtraAttrs that GetOrCreateLLVMFunction() has just added.
+      // Re-apply them.
+      if (ExtraAttrs.hasFnAttrs())
+        F->addFnAttrs(llvm::AttrBuilder(VMContext, ExtraAttrs.getFnAttrs()));
       // FIXME: Set calling-conv properly in ExtProtoInfo
       F->setCallingConv(getRuntimeCC());
       setWindowsItaniumDLLImport(*this, Local, F, Name);
