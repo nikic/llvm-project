@@ -110,7 +110,7 @@ static cl::opt<bool> ExhaustiveSearch(
 
 // Off for now: this changes allocation across a good fraction of the tests.
 static cl::opt<bool> SizeInRealInstrs(
-    "greedy-size-in-real-instrs", cl::Hidden, cl::init(false),
+    "greedy-size-in-real-instrs", cl::Hidden, cl::init(true),
     cl::desc("Measure live range size in instructions that still exist rather "
              "than in slot indexes, which also count instructions erased by "
              "earlier passes"));
