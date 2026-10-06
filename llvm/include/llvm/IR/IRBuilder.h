@@ -59,8 +59,10 @@ class Use;
 ///
 /// By default, this inserts the instruction at the insertion point.
 class LLVM_ABI IRBuilderDefaultInserter {
+  LLVM_DECLARE_VIRTUAL_ANCHOR_FUNCTION();
+
 public:
-  virtual ~IRBuilderDefaultInserter();
+  virtual ~IRBuilderDefaultInserter() = default;
 
   virtual void InsertHelper(Instruction *I, const Twine &Name,
                             BasicBlock::iterator InsertPt) const {
@@ -73,10 +75,12 @@ public:
 /// Provides an 'InsertHelper' that calls a user-provided callback after
 /// performing the default insertion.
 class LLVM_ABI IRBuilderCallbackInserter : public IRBuilderDefaultInserter {
+  LLVM_DECLARE_VIRTUAL_ANCHOR_FUNCTION() override;
+
   std::function<void(Instruction *)> Callback;
 
 public:
-  ~IRBuilderCallbackInserter() override;
+  ~IRBuilderCallbackInserter() override = default;
 
   IRBuilderCallbackInserter(std::function<void(Instruction *)> Callback)
       : Callback(std::move(Callback)) {}
