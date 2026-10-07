@@ -1390,10 +1390,6 @@ bool Instruction::isDebugOrPseudoInst() const {
   return isa<DbgInfoIntrinsic>(this) || isa<PseudoProbeInst>(this);
 }
 
-const DebugLoc &Instruction::getStableDebugLoc() const {
-  return getDebugLoc();
-}
-
 bool Instruction::isAssociative() const {
   if (auto *II = dyn_cast<IntrinsicInst>(this))
     return II->isAssociative();

@@ -556,7 +556,7 @@ public:
 
   /// Fetch the debug location for this node, unless this is a debug intrinsic,
   /// in which case fetch the debug location of the next non-debug node.
-  LLVM_ABI const DebugLoc &getStableDebugLoc() const;
+  LLVM_ABI const DebugLoc &getStableDebugLoc() const { return DbgLoc; }
 
   /// Set or clear the nuw flag on this instruction, which must be an operator
   /// which supports this flag. See LangRef.html for the meaning of this flag.
