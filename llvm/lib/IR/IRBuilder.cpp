@@ -1433,6 +1433,6 @@ CallInst *IRBuilderBase::CreateNonnullAssumption(Value *PtrValue) {
 
 IRBuilderDefaultInserter::~IRBuilderDefaultInserter() = default;
 IRBuilderCallbackInserter::~IRBuilderCallbackInserter() = default;
-IRBuilderFolder::~IRBuilderFolder() = default;
+void IRBuilderFolder::anchor() {}
 void ConstantFolder::anchor() {}
 void NoFolder::anchor() {}
