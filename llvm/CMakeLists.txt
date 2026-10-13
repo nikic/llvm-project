@@ -982,7 +982,7 @@ if(NOT MSVC OR LLVM_BUILD_LLVM_DYLIB_VIS)
   set(CAN_BUILD_LLVM_DYLIB ON)
 endif()
 
-cmake_dependent_option(LLVM_LINK_LLVM_DYLIB "Link tools against the libllvm dynamic library" OFF
+cmake_dependent_option(LLVM_LINK_LLVM_DYLIB "Link tools against the libllvm dynamic library" ON
                        "CAN_BUILD_LLVM_DYLIB" OFF)
 
 set(LLVM_BUILD_LLVM_DYLIB_default OFF)
