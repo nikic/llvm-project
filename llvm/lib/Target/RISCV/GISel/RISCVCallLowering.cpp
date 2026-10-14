@@ -517,8 +517,11 @@ static void markSExt32Registers(MachineFunction &MF,
 
     unsigned BitWidth = IntTy->getBitWidth();
     // An input zero extended from i31 can also be considered sign extended.
-    if ((BitWidth <= 32 && Arg.Flags[0].isSExt()) ||
-        (BitWidth < 32 && Arg.Flags[0].isZExt()))
+    // An explicit extension width below 64 leaves the upper bits undefined.
+    unsigned ExtWidth = Arg.Flags[0].getExtWidth();
+    if ((ExtWidth == 0 || ExtWidth >= 64) &&
+        ((BitWidth <= 32 && Arg.Flags[0].isSExt()) ||
+         (BitWidth < 32 && Arg.Flags[0].isZExt())))
       RVFI->addSExt32Register(Arg.Regs[0]);
   }
 }

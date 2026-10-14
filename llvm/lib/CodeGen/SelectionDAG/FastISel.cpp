@@ -136,8 +136,7 @@ void FastISel::startNewBlock() {
 void FastISel::finishBasicBlock() { flushLocalValueMap(); }
 
 /// Returns true if the call has a zeroext/signext attribute with an explicit
-/// extension width on the return value or any argument. These are not
-/// supported by FastISel.
+/// extension width on the return value or any argument.
 static bool hasExplicitExtWidth(const CallBase &CB) {
   if (CB.getRetExtWidth())
     return true;
@@ -153,10 +152,12 @@ bool FastISel::lowerArguments() {
     // parameter.
     return false;
 
-  // Fallback to SDISel for explicit argument extension widths.
-  for (const Argument &Arg : FuncInfo.Fn->args())
-    if (FuncInfo.Fn->getAttributes().getParamExtWidth(Arg.getArgNo()))
-      return false;
+  // Fallback to SDISel for explicit argument extension widths, unless the
+  // target supports them.
+  if (!supportsExtWidth())
+    for (const Argument &Arg : FuncInfo.Fn->args())
+      if (FuncInfo.Fn->getAttributes().getParamExtWidth(Arg.getArgNo()))
+        return false;
 
   if (!fastLowerArguments())
     return false;
@@ -962,16 +963,19 @@ bool FastISel::selectXRayTypedEvent(const CallInst *I) {
 /// Returns an AttributeList representing the attributes applied to the return
 /// value of the given call.
 static AttributeList getReturnAttrs(FastISel::CallLoweringInfo &CLI) {
-  SmallVector<Attribute::AttrKind, 2> Attrs;
+  LLVMContext &Ctx = CLI.RetTy->getContext();
+  SmallVector<Attribute, 2> Attrs;
   if (CLI.RetSExt)
-    Attrs.push_back(Attribute::SExt);
+    Attrs.push_back(
+        Attribute::getWithExtWidth(Ctx, Attribute::SExt, CLI.RetExtWidth));
   if (CLI.RetZExt)
-    Attrs.push_back(Attribute::ZExt);
+    Attrs.push_back(
+        Attribute::getWithExtWidth(Ctx, Attribute::ZExt, CLI.RetExtWidth));
   if (CLI.IsInReg)
-    Attrs.push_back(Attribute::InReg);
+    Attrs.push_back(Attribute::get(Ctx, Attribute::InReg));
 
-  return AttributeList::get(CLI.RetTy->getContext(), AttributeList::ReturnIndex,
-                            Attrs);
+  return AttributeList::get(Ctx, AttributeList::ReturnIndex,
+                            AttributeSet::get(Ctx, Attrs));
 }
 
 bool FastISel::lowerCallTo(const CallInst *CI, const char *SymName,
@@ -1031,9 +1035,13 @@ bool FastISel::lowerCallTo(CallLoweringInfo &CLI) {
     unsigned NumRegs = TLI.getNumRegisters(CLI.RetTy->getContext(), VT);
     for (unsigned i = 0; i != NumRegs; ++i) {
       ISD::ArgFlagsTy Flags;
-      if (CLI.RetSExt)
+      // If an explicit extension width is specified, the callee extends the
+      // return value to a type at least as large as that width. This is
+      // returned in the same register, but we don't make any assumptions about
+      // the extension here.
+      if (CLI.RetSExt && !CLI.RetExtWidth)
         Flags.setSExt();
-      if (CLI.RetZExt)
+      if (CLI.RetZExt && !CLI.RetExtWidth)
         Flags.setZExt();
       if (CLI.IsInReg)
         Flags.setInReg();
@@ -1053,10 +1061,9 @@ bool FastISel::lowerCallTo(CallLoweringInfo &CLI) {
         FinalType, CLI.CallConv, CLI.IsVarArg, DL);
 
     ISD::ArgFlagsTy Flags;
-    if (Arg.IsZExt)
-      Flags.setZExt();
-    if (Arg.IsSExt)
-      Flags.setSExt();
+    TLI.setArgExtFlags(Flags, CLI.RetTy->getContext(),
+                       TLI.getValueType(DL, Arg.Ty, /*AllowUnknown=*/true),
+                       Arg.IsZExt, Arg.IsSExt, Arg.ExtWidth);
     if (Arg.IsInReg)
       Flags.setInReg();
     if (Arg.IsSRet)
@@ -1587,11 +1594,14 @@ bool FastISel::selectInstruction(const Instruction *I) {
       if (Call->getOperandBundleAt(i).getTagID() != LLVMContext::OB_funclet)
         return false;
 
-  // FastISel does not handle explicit extension widths.
-  if (auto *Call = dyn_cast<CallBase>(I); Call && hasExplicitExtWidth(*Call))
-    return false;
-  if (isa<ReturnInst>(I) && FuncInfo.Fn->getAttributes().getRetExtWidth())
-    return false;
+  // Fallback to SDISel for explicit extension widths, unless the target
+  // supports them.
+  if (!supportsExtWidth()) {
+    if (auto *Call = dyn_cast<CallBase>(I); Call && hasExplicitExtWidth(*Call))
+      return false;
+    if (isa<ReturnInst>(I) && FuncInfo.Fn->getAttributes().getRetExtWidth())
+      return false;
+  }
 
   MIMD = MIMetadata(*I);
 

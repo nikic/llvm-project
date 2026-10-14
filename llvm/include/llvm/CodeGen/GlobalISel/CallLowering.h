@@ -461,6 +461,13 @@ public:
   /// \return true if the target is capable of handling swifterror values that
   /// have been promoted to a specified register. The extended versions of
   /// lowerReturn and lowerCall should be implemented.
+  /// Return true if the target supports zeroext and signext attributes with
+  /// an explicit extension width (see ISD::ArgFlagsTy::getExtWidth()). This
+  /// requires that the target-specific call lowering respects the extension
+  /// width, and that return values are extended to (at least) the extension
+  /// width.
+  virtual bool supportsExtWidth() const { return false; }
+
   virtual bool supportSwiftError() const {
     return false;
   }

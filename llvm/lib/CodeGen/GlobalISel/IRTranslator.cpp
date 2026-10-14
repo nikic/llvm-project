@@ -1154,8 +1154,9 @@ bool IRTranslatorImpl::translateRet(const User &U,
         &RI, &MIRBuilder.getMBB(), SwiftError.getFunctionArg());
   }
 
-  // Explicit extension widths are not supported yet.
-  if (Ret && RI.getFunction()->getAttributes().getRetExtWidth())
+  // Explicit extension widths are only supported if the target opts in.
+  if (Ret && !CLI->supportsExtWidth() &&
+      RI.getFunction()->getAttributes().getRetExtWidth())
     return false;
 
   // The target may mess up with the insertion point, but
@@ -5248,10 +5249,11 @@ bool IRTranslatorImpl::runOnMachineFunction(
     }
   }
 
-  // Explicit extension widths are not supported yet.
-  bool HasArgExtWidth = any_of(F.args(), [&](const Argument &Arg) {
-    return F.getAttributes().getParamExtWidth(Arg.getArgNo()) != 0;
-  });
+  // Explicit extension widths are only supported if the target opts in.
+  bool HasArgExtWidth =
+      !CLI->supportsExtWidth() && any_of(F.args(), [&](const Argument &Arg) {
+        return F.getAttributes().getParamExtWidth(Arg.getArgNo()) != 0;
+      });
   if (HasArgExtWidth ||
       !CLI->lowerFormalArguments(*EntryBuilder, F, VRegArgs, FuncInfo)) {
     OptimizationRemarkMissed R("gisel-ir-translator", "GISelFailure",

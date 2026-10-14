@@ -1862,9 +1862,9 @@ void llvm::GetReturnInfo(CallingConv::ID CC, Type *ReturnType,
     if (attr.hasRetAttr(Attribute::InReg))
       Flags.setInReg();
 
-    // Propagate extension type if any. If an explicit extension width is
-    // specified, the value is extended to a type at least that large instead.
-    if (ExtWidth)
+    // Propagate extension type if any. An explicit extension width that does
+    // not exceed the type is a no-op.
+    if (ExtWidth && ExtWidth <= Ty->getScalarSizeInBits())
       Flags.setNoExt();
     else if (attr.hasRetAttr(Attribute::SExt))
       Flags.setSExt();

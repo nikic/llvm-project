@@ -68,6 +68,7 @@ public:
                            const LoadInst *LI) override;
 
   bool fastLowerArguments() override;
+  bool supportsExtWidth() const override { return true; }
   bool fastLowerCall(CallLoweringInfo &CLI) override;
   bool fastLowerIntrinsicCall(const IntrinsicInst *II) override;
 
@@ -1371,6 +1372,8 @@ bool X86FastISel::X86SelectRet(const Instruction *I) {
             Outs[0].Flags.isZExt() ? ISD::ZERO_EXTEND : ISD::SIGN_EXTEND;
         SrcReg =
             fastEmit_r(SrcVT.getSimpleVT(), DstVT.getSimpleVT(), Op, SrcReg);
+        if (!SrcReg)
+          return false;
       }
     }
 
@@ -3256,7 +3259,12 @@ bool X86FastISel::fastLowerArguments() {
         Arg.hasAttribute(Attribute::Nest))
       return false;
 
+    // Only explicit extension widths that are no-ops are supported.
     Type *ArgTy = Arg.getType();
+    if (F->getAttributes().getParamExtWidth(Arg.getArgNo()) >
+        ArgTy->getScalarSizeInBits())
+      return false;
+
     if (ArgTy->isStructTy() || ArgTy->isArrayTy() || ArgTy->isVectorTy())
       return false;
 
@@ -3472,7 +3480,7 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
     MVT VT;
     auto *TI = dyn_cast<TruncInst>(Val);
     Register ResultReg;
-    if (TI && TI->getType()->isIntegerTy(1) && CLI.CB &&
+    if (TI && TI->getType()->isIntegerTy(1) && CLI.CB && !Flags.isSExt() &&
         (TI->getParent() == CLI.CB->getParent()) && TI->hasOneUse()) {
       Value *PrevVal = TI->getOperand(0);
       ResultReg = getRegForValue(PrevVal);

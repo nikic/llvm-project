@@ -131,12 +131,14 @@ bool CallLowering::lowerCall(MachineIRBuilder &MIRBuilder, const CallBase &CB,
                              std::optional<PtrAuthInfo> PAI,
                              Register ConvergenceCtrlToken,
                              std::function<Register()> GetCalleeReg) const {
-  // Explicit extension widths are not supported yet.
-  if (CB.getRetExtWidth())
-    return false;
-  for (unsigned I = 0, E = CB.arg_size(); I != E; ++I)
-    if (CB.getParamExtWidth(I))
+  // Explicit extension widths are only supported if the target opts in.
+  if (!supportsExtWidth()) {
+    if (CB.getRetExtWidth())
       return false;
+    for (unsigned I = 0, E = CB.arg_size(); I != E; ++I)
+      if (CB.getParamExtWidth(I))
+        return false;
+  }
 
   CallLoweringInfo Info;
   const DataLayout &DL = MIRBuilder.getDataLayout();
@@ -223,6 +225,22 @@ bool CallLowering::lowerCall(MachineIRBuilder &MIRBuilder, const CallBase &CB,
   if (!Info.OrigRet.Ty->isVoidTy()) {
     setArgFlags(Info.OrigRet, AttributeList::ReturnIndex, DL, CB);
 
+    // If the return value has an explicit extension width larger than its
+    // register type, the callee extends it to a wider type, which is returned
+    // in the same register. Don't make any assumptions about the extension in
+    // that case.
+    ISD::ArgFlagsTy &RetFlags = Info.OrigRet.Flags[0];
+    if (unsigned ExtWidth = RetFlags.getExtWidth()) {
+      EVT VT = TLI->getValueType(DL, RetTy);
+      if (ExtWidth >
+          TLI->getRegisterTypeForCallingConv(RetTy->getContext(), CallConv, VT)
+              .getSizeInBits()) {
+        RetFlags.setZExt(false);
+        RetFlags.setSExt(false);
+        RetFlags.setExtWidth(0);
+      }
+    }
+
     if (MaybeAlign Alignment = CB.getRetAlign()) {
       if (*Alignment > Align(1)) {
         ReturnHintAlignReg = MRI.cloneVirtualRegister(ResRegs[0]);
@@ -262,6 +280,20 @@ bool CallLowering::lowerCall(MachineIRBuilder &MIRBuilder, const CallBase &CB,
   return true;
 }
 
+/// Returns the explicit zeroext/signext extension width of the operand
+/// \p OpIdx (an AttributeList index).
+static unsigned getExtWidth(const Function &F, unsigned OpIdx) {
+  return F.getAttributes().getAttributes(OpIdx).getExtWidth();
+}
+
+static unsigned getExtWidth(const CallBase &CB, unsigned OpIdx) {
+  if (OpIdx == AttributeList::ReturnIndex)
+    return CB.getRetExtWidth();
+  if (OpIdx >= AttributeList::FirstArgIndex)
+    return CB.getParamExtWidth(OpIdx - AttributeList::FirstArgIndex);
+  return 0;
+}
+
 template <typename FuncInfoTy>
 void CallLowering::setArgFlags(CallLowering::ArgInfo &Arg, unsigned OpIdx,
                                const DataLayout &DL,
@@ -269,6 +301,18 @@ void CallLowering::setArgFlags(CallLowering::ArgInfo &Arg, unsigned OpIdx,
   auto &Flags = Arg.Flags[0];
   const AttributeList &Attrs = FuncInfo.getAttributes();
   addArgFlagsFromAttributes(Flags, Attrs, OpIdx);
+
+  // An explicit extension width that does not exceed the type is a no-op.
+  if (unsigned ExtWidth = getExtWidth(FuncInfo, OpIdx)) {
+    if (!Arg.Ty->isIntegerTy() || ExtWidth <= Arg.Ty->getScalarSizeInBits()) {
+      Flags.setZExt(false);
+      Flags.setSExt(false);
+      Flags.setExtWidth(0);
+      Flags.setNoExt();
+    } else {
+      Flags.setExtWidth(ExtWidth);
+    }
+  }
 
   PointerType *PtrTy = dyn_cast<PointerType>(Arg.Ty->getScalarType());
   if (PtrTy) {
@@ -451,6 +495,15 @@ void CallLowering::buildCopyFromRegs(MachineIRBuilder &B,
     Register SrcReg = Regs[0];
 
     LLT LocTy = MRI.getType(SrcReg);
+
+    // If the value is only known to be extended to a width smaller than the
+    // part, truncate to that width first.
+    unsigned ExtWidth = Flags.getExtWidth();
+    if ((Flags.isSExt() || Flags.isZExt()) && LocTy.isScalar() && ExtWidth &&
+        ExtWidth < LocTy.getSizeInBits()) {
+      LocTy = LLT::integer(ExtWidth);
+      SrcReg = B.buildTrunc(LocTy, SrcReg).getReg(0);
+    }
 
     if (Flags.isSExt()) {
       SrcReg = B.buildAssertSExt(LocTy, SrcReg, LLTy.getScalarSizeInBits())
@@ -764,6 +817,7 @@ bool CallLowering::determineAssignments(ValueAssigner &Assigner,
   LLVMContext &Ctx = CCInfo.getContext();
   const DataLayout &DL = CCInfo.getMachineFunction().getDataLayout();
   const CallingConv::ID CallConv = CCInfo.getCallingConv();
+  unsigned FirstLoc = CCInfo.getNumLocs();
 
   unsigned NumArgs = Args.size();
   for (unsigned i = 0; i != NumArgs; ++i) {
@@ -816,6 +870,12 @@ bool CallLowering::determineAssignments(ValueAssigner &Assigner,
       }
     }
   }
+
+  // Take explicit extension widths into account.
+  SmallVector<ISD::ArgFlagsTy, 8> Flags;
+  for (const ArgInfo &Arg : Args)
+    Flags.push_back(Arg.Flags[0]);
+  CCInfo.applyExtWidths(Flags, Assigner.isIncomingArgumentHandler(), FirstLoc);
 
   return true;
 }

@@ -1,4 +1,5 @@
 ; RUN: not llc -mtriple=aarch64-linux-gnu < %s 2>&1 | FileCheck %s
+; RUN: not llc -mtriple=aarch64-linux-gnu -global-isel -global-isel-abort=1 < %s 2>&1 | FileCheck %s
 ; RUN: not llc -mtriple=arm64-apple-darwin < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,DARWIN
 
 ; An extension width larger than the location of the argument is ill-formed.

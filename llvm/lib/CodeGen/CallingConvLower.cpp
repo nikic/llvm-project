@@ -192,6 +192,12 @@ void CCState::applyExtWidths(ArrayRef<ISD::InputArg> Ins, unsigned FirstLoc) {
     applyExtWidth(VA, Ins[VA.getValNo()].Flags, /*IsIncoming=*/true);
 }
 
+void CCState::applyExtWidths(ArrayRef<ISD::ArgFlagsTy> Flags, bool IsIncoming,
+                             unsigned FirstLoc) {
+  for (CCValAssign &VA : drop_begin(Locs, FirstLoc))
+    applyExtWidth(VA, Flags[VA.getValNo()], IsIncoming);
+}
+
 void CCState::applyExtWidths(ArrayRef<ISD::OutputArg> Outs, unsigned FirstLoc) {
   for (CCValAssign &VA : drop_begin(Locs, FirstLoc))
     applyExtWidth(VA, Outs[VA.getValNo()].Flags, /*IsIncoming=*/false);
@@ -203,6 +209,7 @@ void CCState::AnalyzeCallOperands(SmallVectorImpl<MVT> &ArgVTs,
                                   SmallVectorImpl<Type *> &OrigTys,
                                   CCAssignFn Fn) {
   unsigned NumOps = ArgVTs.size();
+  unsigned FirstLoc = Locs.size();
   for (unsigned i = 0; i != NumOps; ++i) {
     MVT ArgVT = ArgVTs[i];
     ISD::ArgFlagsTy ArgFlags = Flags[i];
@@ -214,6 +221,7 @@ void CCState::AnalyzeCallOperands(SmallVectorImpl<MVT> &ArgVTs,
       llvm_unreachable(nullptr);
     }
   }
+  applyExtWidths(Flags, /*IsIncoming=*/false, FirstLoc);
 }
 
 /// Analyze the return values of a call, incorporating info about the passed

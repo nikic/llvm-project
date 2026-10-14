@@ -82,6 +82,10 @@ public:
     // that perform tail call conversions.
     bool IsTailCall = false;
 
+    /// Explicit zeroext/signext extension width of the return value, or zero
+    /// if determined by the target ABI.
+    unsigned RetExtWidth = 0;
+
     unsigned NumFixedArgs = -1;
     CallingConv::ID CallConv = CallingConv::C;
     const Value *Callee = nullptr;
@@ -114,6 +118,7 @@ public:
       IsReturnValueUsed = !Call.use_empty();
       RetSExt = Call.hasRetAttr(Attribute::SExt);
       RetZExt = Call.hasRetAttr(Attribute::ZExt);
+      RetExtWidth = Call.getRetExtWidth();
 
       CallConv = Call.getCallingConv();
       Args = std::move(ArgsList);
@@ -138,6 +143,7 @@ public:
       IsReturnValueUsed = !Call.use_empty();
       RetSExt = Call.hasRetAttr(Attribute::SExt);
       RetZExt = Call.hasRetAttr(Attribute::ZExt);
+      RetExtWidth = Call.getRetExtWidth();
 
       CallConv = Call.getCallingConv();
       Args = std::move(ArgsList);
@@ -336,6 +342,14 @@ protected:
   /// chance to emit code for anything that doesn't fit into FastISel's
   /// framework. It returns true if it was successful.
   virtual bool fastSelectInstruction(const Instruction *I) = 0;
+
+  /// Return true if the target-specific FastISel code supports zeroext and
+  /// signext attributes with an explicit extension width. This requires that
+  /// the call and return lowering is driven by the argument flags and
+  /// locations computed by the target-independent code (see
+  /// ISD::ArgFlagsTy::getExtWidth()), and that fastLowerArguments() rejects
+  /// explicit extension widths it cannot handle.
+  virtual bool supportsExtWidth() const { return false; }
 
   /// This method is called by target-independent code to do target-
   /// specific argument lowering. It returns true if it was successful.

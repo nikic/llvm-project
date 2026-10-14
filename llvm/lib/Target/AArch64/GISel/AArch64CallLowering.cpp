@@ -133,6 +133,29 @@ static LLT getStackValueStoreTypeHack(const CCValAssign &VA) {
                                                  : LLT(VA.getLocVT());
 }
 
+/// Small integer arguments (i1/i8/i16) are stored on the stack at their
+/// natural size. If an explicit extension width is specified, the extended
+/// value is stored instead, and the callee extends the value when loading it.
+/// Returns the explicit extension width for such an argument, or zero.
+static unsigned getSmallIntStackArgExtWidth(const CCValAssign &VA,
+                                            ISD::ArgFlagsTy Flags) {
+  if (VA.getValVT() != MVT::i8 && VA.getValVT() != MVT::i16)
+    return 0;
+  if (Flags.getExtWidth() <= VA.getValVT().getSizeInBits())
+    return 0;
+  return Flags.getExtWidth();
+}
+
+/// Big-endian stack offsets of extended small integer arguments are not
+/// supported by GlobalISel.
+static bool hasUnsupportedExtWidth(const AArch64Subtarget &Subtarget,
+                                   ArrayRef<CallLowering::ArgInfo> Args) {
+  return !Subtarget.isLittleEndian() &&
+         any_of(Args, [](const CallLowering::ArgInfo &Arg) {
+           return Arg.Flags[0].getExtWidth() != 0;
+         });
+}
+
 namespace {
 
 struct AArch64IncomingValueAssigner
@@ -222,6 +245,22 @@ struct IncomingArgHandler : public CallLowering::IncomingValueHandler {
                         ISD::ArgFlagsTy Flags = {}) override {
     markRegUsed(PhysReg);
     IncomingValueHandler::assignValueToReg(ValVReg, PhysReg, VA);
+  }
+
+  void assignValueToAddress(const CallLowering::ArgInfo &Arg,
+                            unsigned ValRegIndex, Register Addr, LLT MemTy,
+                            const MachinePointerInfo &MPO,
+                            const CCValAssign &VA) override {
+    // If an explicit extension width is specified, perform the extension when
+    // loading the argument, so that it can be relied upon.
+    if (getSmallIntStackArgExtWidth(VA, Arg.Flags[0])) {
+      CCValAssign ExtVA = VA;
+      ExtVA.setLocInfo(Arg.Flags[0].isSExt() ? CCValAssign::SExt
+                                             : CCValAssign::ZExt);
+      assignValueToAddress(Arg.Regs[ValRegIndex], Addr, MemTy, MPO, ExtVA);
+      return;
+    }
+    assignValueToAddress(Arg.Regs[ValRegIndex], Addr, MemTy, MPO, VA);
   }
 
   void assignValueToAddress(Register ValVReg, Register Addr, LLT MemTy,
@@ -417,12 +456,20 @@ struct OutgoingArgHandler : public CallLowering::OutgoingValueHandler {
     if (Arg.Flags[0].isVarArg())
       MaxSize = 0;
 
+    // If an explicit extension width is specified, extend the value to the
+    // location type and store the extended bits.
+    if (unsigned ExtWidth = getSmallIntStackArgExtWidth(VA, Arg.Flags[0])) {
+      MemTy = LLT::integer(std::max(8u, unsigned(PowerOf2Ceil(ExtWidth))));
+      MaxSize = 0;
+    }
+
     Register ValVReg = Arg.Regs[RegIndex];
     if (VA.getLocInfo() != CCValAssign::LocInfo::FPExt) {
       MVT LocVT = VA.getLocVT();
       MVT ValVT = VA.getValVT();
 
-      if (VA.getValVT() == MVT::i8 || VA.getValVT() == MVT::i16) {
+      if ((VA.getValVT() == MVT::i8 || VA.getValVT() == MVT::i16) &&
+          !getSmallIntStackArgExtWidth(VA, Arg.Flags[0])) {
         std::swap(ValVT, LocVT);
         MemTy = LLT(VA.getValVT());
       }
@@ -491,6 +538,26 @@ bool AArch64CallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
       Register CurVReg = VRegs[i];
       ArgInfo CurArgInfo = ArgInfo{CurVReg, SplitEVTs[i].getTypeForEVT(Ctx), 0};
       setArgFlags(CurArgInfo, AttributeList::ReturnIndex, DL, F);
+
+      // If an explicit extension width larger than the register type is
+      // specified, extend the value to the extension width.
+      if (unsigned ExtWidth = CurArgInfo.Flags[0].getExtWidth();
+          ExtWidth &&
+          ExtWidth > TLI.getRegisterTypeForCallingConv(Ctx, CC, SplitEVTs[i])
+                         .getFixedSizeInBits()) {
+        EVT ExtVT = EVT::getIntegerVT(Ctx, ExtWidth);
+        if (TLI.getNumRegistersForCallingConv(Ctx, CC, ExtVT) != 1)
+          return false;
+        CurVReg =
+            MIRBuilder
+                .buildInstr(CurArgInfo.Flags[0].isSExt() ? TargetOpcode::G_SEXT
+                                                         : TargetOpcode::G_ZEXT,
+                            {LLT::integer(ExtWidth)}, {CurVReg})
+                .getReg(0);
+        SplitEVTs[i] = ExtVT;
+        CurArgInfo = ArgInfo{CurVReg, ExtVT.getTypeForEVT(Ctx), 0};
+        setArgFlags(CurArgInfo, AttributeList::ReturnIndex, DL, F);
+      }
 
       // i1 is a special case because SDAG i1 true is naturally zero extended
       // when widened using ANYEXT. We need to do it explicitly here.
@@ -815,6 +882,9 @@ bool AArch64CallLowering::lowerFormalArguments(
     splitToValueTypes(OrigArg, SplitArgs, DL, F.getCallingConv());
     ++i;
   }
+
+  if (hasUnsupportedExtWidth(Subtarget, SplitArgs))
+    return false;
 
   if (!MBB.empty())
     MIRBuilder.setInstr(*MBB.begin());
@@ -1393,6 +1463,9 @@ bool AArch64CallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   // in SelectionDAG; bail out for now.
   if (Info.CallConv == CallingConv::ARM64EC_Thunk_Native ||
       Info.CallConv == CallingConv::ARM64EC_Thunk_X64)
+    return false;
+
+  if (hasUnsupportedExtWidth(Subtarget, Info.OrigArgs))
     return false;
 
   SmallVector<ArgInfo, 8> OutArgs;

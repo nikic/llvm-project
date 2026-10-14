@@ -89,10 +89,10 @@ namespace ISD {
     Flags getFlags() const { return FlagVals; }
 
     bool isZExt() const { return FlagVals & ZExt; }
-    void setZExt() { setFlag(ZExt); }
+    void setZExt(bool V = true) { setFlag(ZExt, V); }
 
     bool isSExt() const { return FlagVals & SExt; }
-    void setSExt() { setFlag(SExt); }
+    void setSExt(bool V = true) { setFlag(SExt, V); }
 
     /// Return the explicit width that a zeroext/signext argument is extended
     /// to, or zero if the width is determined by the target ABI. If non-zero,

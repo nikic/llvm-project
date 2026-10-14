@@ -315,6 +315,11 @@ public:
                                unsigned FirstLoc = 0);
 
   /// Call applyExtWidth() on all locations starting at \p FirstLoc, using the
+  /// argument flags \p Flags indexed by value number.
+  LLVM_ABI void applyExtWidths(ArrayRef<ISD::ArgFlagsTy> Flags, bool IsIncoming,
+                               unsigned FirstLoc = 0);
+
+  /// Call applyExtWidth() on all locations starting at \p FirstLoc, using the
   /// flags of the corresponding outgoing argument in \p Outs.
   LLVM_ABI void applyExtWidths(ArrayRef<ISD::OutputArg> Outs,
                                unsigned FirstLoc = 0);
@@ -509,6 +514,9 @@ public:
   }
 
   // Get list of pending assignments
+  /// Return the number of locations assigned so far.
+  unsigned getNumLocs() const { return Locs.size(); }
+
   SmallVectorImpl<CCValAssign> &getPendingLocs() {
     return PendingLocs;
   }

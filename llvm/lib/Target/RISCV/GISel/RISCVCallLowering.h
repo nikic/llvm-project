@@ -28,6 +28,8 @@ class RISCVCallLowering : public CallLowering {
 public:
   RISCVCallLowering(const RISCVTargetLowering &TLI);
 
+  bool supportsExtWidth() const override { return true; }
+
   bool lowerReturn(MachineIRBuilder &MIRBuiler, const Value *Val,
                    ArrayRef<Register> VRegs,
                    FunctionLoweringInfo &FLI) const override;
