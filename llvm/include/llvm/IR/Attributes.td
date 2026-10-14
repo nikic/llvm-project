@@ -309,9 +309,10 @@ def SafeStack : EnumAttr<"safestack", IntersectPreserve, [FnAttr]>;
 /// Shadow Call Stack protection.
 def ShadowCallStack : EnumAttr<"shadowcallstack", IntersectPreserve, [FnAttr]>;
 
-/// Sign extended before/after call.
-def SExt : EnumAttr<"signext", IntersectPreserve,
-                    [ParamAttr, RetAttr, ABIAttr]>;
+/// Sign extended before/after call. Optionally specifies the bit width that
+/// the value is extended to.
+def SExt : IntAttr<"signext", IntersectPreserve,
+                   [ParamAttr, RetAttr, ABIAttr]>;
 
 /// Alignment of stack for function (3 bits)  stored as log2 of alignment with
 /// +1 bias 0 means unaligned (different from alignstack=(1)).
@@ -401,9 +402,10 @@ def Writable : EnumAttr<"writable", IntersectAnd, [ParamAttr]>;
 /// Function only writes to memory.
 def WriteOnly : EnumAttr<"writeonly", IntersectAnd, [ParamAttr]>;
 
-/// Zero extended before/after call.
-def ZExt : EnumAttr<"zeroext", IntersectPreserve,
-                    [ParamAttr, RetAttr, ABIAttr]>;
+/// Zero extended before/after call. Optionally specifies the bit width that
+/// the value is extended to.
+def ZExt : IntAttr<"zeroext", IntersectPreserve,
+                   [ParamAttr, RetAttr, ABIAttr]>;
 
 /// Function is required to make Forward Progress.
 def MustProgress : EnumAttr<"mustprogress", IntersectAnd, [FnAttr]>;

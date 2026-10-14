@@ -5618,6 +5618,11 @@ PPCInstrInfo::isSignOrZeroExtended(const unsigned Reg,
     const IntegerType *IntTy = dyn_cast<IntegerType>(CalleeFn->getReturnType());
     if (IntTy && IntTy->getBitWidth() <= 32) {
       const AttributeSet &Attrs = CalleeFn->getAttributes().getRetAttrs();
+      // An explicit extension width smaller than 64 leaves the upper bits
+      // undefined.
+      unsigned ExtWidth = Attrs.getExtWidth();
+      if (ExtWidth != 0 && ExtWidth < 64)
+        return IsExtendPair;
       IsSExt |= Attrs.hasAttribute(Attribute::SExt);
       IsZExt |= Attrs.hasAttribute(Attribute::ZExt);
       return std::pair<bool, bool>(IsSExt, IsZExt);

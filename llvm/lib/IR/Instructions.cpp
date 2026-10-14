@@ -416,6 +416,23 @@ Value *CallBase::getArgOperandWithAttribute(Attribute::AttrKind Kind) const {
   return nullptr;
 }
 
+unsigned CallBase::getRetExtWidth() const {
+  if (Attrs.hasRetAttr(Attribute::ZExt) || Attrs.hasRetAttr(Attribute::SExt))
+    return Attrs.getRetExtWidth();
+  if (const Function *F = getCalledFunction())
+    return F->getAttributes().getRetExtWidth();
+  return 0;
+}
+
+unsigned CallBase::getParamExtWidth(unsigned ArgNo) const {
+  if (Attrs.hasParamAttr(ArgNo, Attribute::ZExt) ||
+      Attrs.hasParamAttr(ArgNo, Attribute::SExt))
+    return Attrs.getParamExtWidth(ArgNo);
+  if (const Function *F = getCalledFunction())
+    return F->getAttributes().getParamExtWidth(ArgNo);
+  return 0;
+}
+
 /// Determine whether the argument or parameter has the given attribute.
 bool CallBase::paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
   assert(ArgNo < arg_size() && "Param index out of bounds!");

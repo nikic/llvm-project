@@ -85,6 +85,7 @@ void
 CCState::AnalyzeFormalArguments(const SmallVectorImpl<ISD::InputArg> &Ins,
                                 CCAssignFn Fn) {
   unsigned NumArgs = Ins.size();
+  unsigned FirstLoc = Locs.size();
 
   for (unsigned i = 0; i != NumArgs; ++i) {
     MVT ArgVT = Ins[i].VT;
@@ -92,6 +93,7 @@ CCState::AnalyzeFormalArguments(const SmallVectorImpl<ISD::InputArg> &Ins,
     if (Fn(i, ArgVT, ArgVT, CCValAssign::Full, ArgFlags, Ins[i].OrigTy, *this))
       report_fatal_error("unable to allocate function argument #" + Twine(i));
   }
+  applyExtWidths(Ins, FirstLoc);
 }
 
 /// Analyze the return values of a function, returning true if the return can
@@ -126,6 +128,7 @@ void CCState::AnalyzeReturn(const SmallVectorImpl<ISD::OutputArg> &Outs,
 void CCState::AnalyzeCallOperands(const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   CCAssignFn Fn) {
   unsigned NumOps = Outs.size();
+  unsigned FirstLoc = Locs.size();
   for (unsigned i = 0; i != NumOps; ++i) {
     MVT ArgVT = Outs[i].VT;
     ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
@@ -138,6 +141,60 @@ void CCState::AnalyzeCallOperands(const SmallVectorImpl<ISD::OutputArg> &Outs,
       llvm_unreachable(nullptr);
     }
   }
+  applyExtWidths(Outs, FirstLoc);
+}
+
+void CCState::applyExtWidth(CCValAssign &VA, ISD::ArgFlagsTy Flags,
+                            bool IsIncoming) {
+  unsigned ExtWidth = Flags.getExtWidth();
+  if (!ExtWidth)
+    return;
+
+  CCValAssign::LocInfo LI = VA.getLocInfo();
+  TypeSize LocSize = VA.getLocVT().getSizeInBits();
+  const Function &F = MF.getFunction();
+  if (LI != CCValAssign::Full && LI != CCValAssign::AExt &&
+      LI != CCValAssign::ZExt && LI != CCValAssign::SExt) {
+    Context.emitError("argument extension width " + Twine(ExtWidth) +
+                      " is not supported for the argument location in "
+                      "function '" +
+                      F.getName() + "'");
+    return;
+  }
+  if (LocSize.isScalable() || LocSize.getFixedValue() < ExtWidth) {
+    Context.emitError("argument extension width " + Twine(ExtWidth) +
+                      " exceeds the size of the argument location (" +
+                      Twine(LocSize.getKnownMinValue()) +
+                      " bits) in function '" + F.getName() + "'");
+    return;
+  }
+
+  assert((Flags.isZExt() || Flags.isSExt()) &&
+         "Extension width without extension");
+  CCValAssign::LocInfo ExtLI =
+      Flags.isSExt() ? CCValAssign::SExt : CCValAssign::ZExt;
+  if (IsIncoming) {
+    // Only an extension to the full location may be assumed.
+    if ((LI == CCValAssign::ZExt || LI == CCValAssign::SExt) &&
+        LocSize.getFixedValue() > ExtWidth)
+      VA.setLocInfo(CCValAssign::AExt);
+  } else if (ExtWidth > VA.getValVT().getScalarSizeInBits()) {
+    // Make sure that the value is extended beyond its type. This may extend
+    // further than ExtWidth, which is fine. Otherwise, the target-independent
+    // code has already extended the value to its register type.
+    if (LI == CCValAssign::AExt)
+      VA.setLocInfo(ExtLI);
+  }
+}
+
+void CCState::applyExtWidths(ArrayRef<ISD::InputArg> Ins, unsigned FirstLoc) {
+  for (CCValAssign &VA : drop_begin(Locs, FirstLoc))
+    applyExtWidth(VA, Ins[VA.getValNo()].Flags, /*IsIncoming=*/true);
+}
+
+void CCState::applyExtWidths(ArrayRef<ISD::OutputArg> Outs, unsigned FirstLoc) {
+  for (CCValAssign &VA : drop_begin(Locs, FirstLoc))
+    applyExtWidth(VA, Outs[VA.getValNo()].Flags, /*IsIncoming=*/false);
 }
 
 /// Same as above except it takes vectors of types and argument flags.

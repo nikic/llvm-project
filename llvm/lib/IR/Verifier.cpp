@@ -2315,6 +2315,12 @@ void Verifier::verifyParameterAttrs(AttributeSet Attrs, Type *Ty,
         "'zeroext and signext' are incompatible!",
         V);
 
+  if (unsigned ExtWidth = Attrs.getExtWidth())
+    Check(ExtWidth >= Ty->getScalarSizeInBits(),
+          "Extension width of zeroext/signext attribute must not be smaller "
+          "than the bit width of the type!",
+          V);
+
   Check(!(Attrs.hasAttribute(Attribute::ReadNone) &&
           Attrs.hasAttribute(Attribute::ReadOnly)),
         "Attributes "

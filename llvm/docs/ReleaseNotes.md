@@ -52,6 +52,13 @@ Makes programs 10x faster by doing Special New Thing.
 
 ### Changes to the LLVM IR
 
+* The `zeroext` and `signext` attributes now accept an optional bit width,
+  e.g. `zeroext(8) i1`, which specifies how many bits the value is extended
+  to. Bits beyond this width are undefined. If the width is omitted, the
+  extension width continues to be determined by the target ABI. Explicit
+  widths on arguments are currently supported by the AArch64, ARM,
+  LoongArch, Mips, PowerPC, RISC-V, Sparc, SystemZ and X86 backends.
+
 * LLVM now assigns persistent print IDs to metadata nodes. Reusing these IDs
   avoids repeated module-wide scans to rebuild metadata numbering, which can
   significantly speed up debug and pass printing on large modules. Keeping

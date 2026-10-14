@@ -1384,3 +1384,7 @@ llvm.func @switch_result_number(%arg0: i32) -> i32 {
 ^bb2(%2: i32):
   llvm.return %2 : i32
 }
+
+// CHECK-LABEL: @ext_width
+// CHECK-SAME: (i8 {llvm.zeroext = 32 : i64}, i1 {llvm.signext = 8 : i64}) -> (i8 {llvm.signext = 16 : i64})
+llvm.func @ext_width(i8 {llvm.zeroext = 32}, i1 {llvm.signext = 8}) -> (i8 {llvm.signext = 16})

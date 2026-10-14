@@ -4804,13 +4804,22 @@ LogicalResult LLVMDialect::verifyParameterAttribute(Operation *op,
     return success();
   }
 
-  // Check a unit attribute that is attached to an integer value.
+  // Check a unit attribute, or an integer attribute specifying the extension
+  // width, that is attached to an integer value.
   if (name == LLVMDialect::getSExtAttrName() ||
       name == LLVMDialect::getZExtAttrName()) {
-    if (failed(checkUnitAttrType()))
+    auto widthAttr = dyn_cast<IntegerAttr>(paramAttr.getValue());
+    if (!widthAttr && failed(checkUnitAttrType()))
       return failure();
     if (verifyValueType && failed(checkIntegerType()))
       return failure();
+    if (widthAttr && widthAttr.getValue().isNonPositive())
+      return op->emitError() << name << " extension width must be positive";
+    if (widthAttr && verifyValueType &&
+        widthAttr.getValue().ult(cast<IntegerType>(paramType).getWidth()))
+      return op->emitError()
+             << name
+             << " extension width must not be smaller than the integer type";
     return success();
   }
 

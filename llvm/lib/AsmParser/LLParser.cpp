@@ -1744,6 +1744,21 @@ bool LLParser::parseEnumAttribute(Attribute::AttrKind Attr, AttrBuilder &B,
     B.addDereferenceableAttr(Bytes.value());
     return false;
   }
+  case Attribute::ZExt:
+  case Attribute::SExt: {
+    Lex.Lex();
+    unsigned Width = 0;
+    if (EatIfPresent(lltok::lparen)) {
+      LocTy WidthLoc = Lex.getLoc();
+      if (parseUInt32(Width) ||
+          parseToken(lltok::rparen, "expected ')' after extension width"))
+        return true;
+      if (!Width)
+        return error(WidthLoc, "extension width must be non-zero");
+    }
+    B.addAttribute(Attribute::getWithExtWidth(Context, Attr, Width));
+    return false;
+  }
   case Attribute::DeadOnReturn: {
     std::optional<uint64_t> Bytes;
     if (parseOptionalAttrBytes(lltok::kw_dead_on_return, Bytes,

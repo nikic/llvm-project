@@ -47,6 +47,7 @@ public:
   bool isTruncateFree(EVT SrcVT, EVT DstVT) const override;
   bool isTruncateFree(SDValue Val, EVT VT2) const override;
   bool isZExtFree(SDValue Val, EVT VT2) const override;
+  bool supportsArgExtWidth() const override { return true; }
   bool isSExtCheaperThanZExt(EVT SrcVT, EVT DstVT) const override;
   bool signExtendConstant(const ConstantInt *CI) const override;
   bool isCheapToSpeculateCttz(Type *Ty) const override;

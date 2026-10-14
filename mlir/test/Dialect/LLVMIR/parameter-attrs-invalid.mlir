@@ -215,8 +215,13 @@ llvm.func @noundefattr_ret() -> (!llvm.ptr {llvm.noundef = 1})
 
 // -----
 
-// expected-error @below{{"llvm.signext" should be a unit attribute}}
+// expected-error @below{{"llvm.signext" extension width must not be smaller than the integer type}}
 llvm.func @signextattr_ret() -> (i32 {llvm.signext = 1})
+
+// -----
+
+// expected-error @below{{"llvm.signext" extension width must be positive}}
+llvm.func @signextattr_width_zero(%arg0: i8 {llvm.signext = 0})
 
 // -----
 
@@ -225,8 +230,13 @@ llvm.func @signextattr_ret() -> (f32 {llvm.signext})
 
 // -----
 
-// expected-error @below{{"llvm.zeroext" should be a unit attribute}}
+// expected-error @below{{"llvm.zeroext" extension width must not be smaller than the integer type}}
 llvm.func @zeroextattr_ret() -> (i32 {llvm.zeroext = 1})
+
+// -----
+
+// expected-error @below{{"llvm.zeroext" extension width must be positive}}
+llvm.func @zeroextattr_width_zero(%arg0: i8 {llvm.zeroext = 0})
 
 // -----
 

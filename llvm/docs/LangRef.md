@@ -1332,16 +1332,28 @@ correctness on the kind of extension to be explicitly specified.
 
 Currently, only the following parameter attributes are defined:
 
-`zeroext`
+`zeroext` / `zeroext(<n>)`
 :   This indicates to the code generator that the parameter or return
     value should be zero-extended to the extent required by the target's
     ABI by the caller (for a parameter) or the callee (for a return value).
 
-`signext`
+    If a bit width `<n>` is specified, the value is zero-extended to `<n>`
+    bits instead, and any bits beyond `<n>` bits of the register or stack
+    slot the value is passed in are undefined. For example, `zeroext(8) i1`
+    indicates a boolean that is zero-extended to 8 bits. The bit width must
+    not be smaller than the bit width of the type. It is ill-formed to
+    specify a bit width larger than the register or stack slot the value is
+    passed in, which is diagnosed by the code generator, as it depends on the
+    target and calling convention.
+
+`signext` / `signext(<n>)`
 :   This indicates to the code generator that the parameter or return
     value should be sign-extended to the extent required by the target's
     ABI (which is usually 32-bits) by the caller (for a parameter) or
     the callee (for a return value).
+
+    If a bit width `<n>` is specified, the value is sign-extended to `<n>`
+    bits instead, with the same semantics as for `zeroext(<n>)`.
 
 `noext`
 :   This indicates to the code generator that the parameter or return

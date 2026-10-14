@@ -133,6 +133,7 @@ public:
   MVT getLocVT() const { return LocVT; }
 
   LocInfo getLocInfo() const { return HTP; }
+  void setLocInfo(LocInfo Info) { HTP = Info; }
   bool isExtInLoc() const {
     return (HTP == AExt || HTP == SExt || HTP == ZExt);
   }
@@ -292,6 +293,31 @@ public:
                                     SmallVectorImpl<ISD::ArgFlagsTy> &Flags,
                                     SmallVectorImpl<Type *> &OrigTys,
                                     CCAssignFn Fn);
+
+  /// Adjust the location \p VA of an argument with flags \p Flags to take
+  /// into account an explicit extension width (zeroext(N) or signext(N)), see
+  /// ISD::ArgFlagsTy::getExtWidth(). For incoming arguments, an extension of
+  /// the full location is downgraded to an any-extension if the location is
+  /// wider than the extension width. For outgoing arguments, an extension is
+  /// performed if the target did not request one and the extension width
+  /// exceeds the value type. An error is emitted if the extension width
+  /// exceeds the size of the location.
+  ///
+  /// This is done automatically by AnalyzeFormalArguments() and
+  /// AnalyzeCallOperands(). Targets that perform argument assignment manually
+  /// need to call this (or one of the applyExtWidths() variants) themselves.
+  LLVM_ABI void applyExtWidth(CCValAssign &VA, ISD::ArgFlagsTy Flags,
+                              bool IsIncoming);
+
+  /// Call applyExtWidth() on all locations starting at \p FirstLoc, using the
+  /// flags of the corresponding incoming argument in \p Ins.
+  LLVM_ABI void applyExtWidths(ArrayRef<ISD::InputArg> Ins,
+                               unsigned FirstLoc = 0);
+
+  /// Call applyExtWidth() on all locations starting at \p FirstLoc, using the
+  /// flags of the corresponding outgoing argument in \p Outs.
+  LLVM_ABI void applyExtWidths(ArrayRef<ISD::OutputArg> Outs,
+                               unsigned FirstLoc = 0);
 
   /// The function will invoke AnalyzeCallOperands.
   void AnalyzeArguments(const SmallVectorImpl<ISD::OutputArg> &Outs,

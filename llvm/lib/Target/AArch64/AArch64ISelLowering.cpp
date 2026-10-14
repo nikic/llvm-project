@@ -9318,6 +9318,35 @@ SDValue AArch64TargetLowering::lowerEHPadEntry(SDValue Chain, SDLoc const &DL,
   return Chain;
 }
 
+/// Small integer arguments (i1/i8/i16) are stored on the stack at their
+/// natural size. Returns the type that should be used to store or load such an
+/// argument, taking into account an explicit extension width, or MVT::Other if
+/// this is not a small integer argument. If \p IsPacked, the stack slots of
+/// small integer arguments are not larger than their natural size, so an
+/// explicit extension width beyond that cannot be honored.
+static MVT getSmallIntStackArgVT(const CCValAssign &VA, ISD::ArgFlagsTy Flags,
+                                 bool IsPacked, const MachineFunction &MF) {
+  MVT ValVT = VA.getValVT();
+  if (Flags.isByVal() || VA.getLocInfo() == CCValAssign::Indirect ||
+      VA.getLocInfo() == CCValAssign::Trunc ||
+      (ValVT != MVT::i1 && ValVT != MVT::i8 && ValVT != MVT::i16))
+    return MVT::Other;
+
+  unsigned ExtWidth = Flags.getExtWidth();
+  if (ExtWidth <= ValVT.getSizeInBits())
+    return ValVT;
+
+  if (IsPacked) {
+    MF.getFunction().getContext().emitError(
+        "argument extension width " + Twine(ExtWidth) +
+        " exceeds the size of the argument stack slot (" +
+        Twine(ValVT.getStoreSizeInBits()) + " bits) in function '" +
+        MF.getFunction().getName() + "'");
+    return ValVT;
+  }
+  return MVT::getIntegerVT(std::max(8u, unsigned(PowerOf2Ceil(ExtWidth))));
+}
+
 SDValue AArch64TargetLowering::LowerFormalArguments(
     SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
     const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &DL,
@@ -9377,6 +9406,7 @@ SDValue AArch64TargetLowering::LowerFormalArguments(
     assert(!Res && "Call operand has unhandled type");
     (void)Res;
   }
+  CCInfo.applyExtWidths(Ins);
 
   SMEAttrs Attrs = FuncInfo->getSMEFnAttrs();
   bool IsLocallyStreaming =
@@ -9554,6 +9584,19 @@ SDValue AArch64TargetLowering::LowerFormalArguments(
         break;
       }
 
+      // If an explicit extension width larger than a small integer argument is
+      // specified, perform the extension when loading the argument, so that it
+      // can be relied upon.
+      if (getSmallIntStackArgVT(VA, Ins[i].Flags,
+                                AssignFn == CC_AArch64_DarwinPCS,
+                                MF) != MemVT &&
+          ExtType != ISD::NON_EXTLOAD) {
+        bool IsSExt = Ins[i].isOrigArg() &&
+                      F.getAttributes().hasParamAttr(Ins[i].getOrigArgIndex(),
+                                                     Attribute::SExt);
+        ExtType = IsSExt ? ISD::SEXTLOAD : ISD::ZEXTLOAD;
+      }
+
       ArgValue = DAG.getExtLoad(ExtType, DL, VA.getLocVT(), Chain, FIN, PtrInfo,
                                 MemVT);
     }
@@ -9598,7 +9641,7 @@ SDValue AArch64TargetLowering::LowerFormalArguments(
       if (Ins[i].isOrigArg()) {
         Argument *OrigArg = F.getArg(Ins[i].getOrigArgIndex());
         if (OrigArg->getType()->isIntegerTy(1)) {
-          if (!Ins[i].Flags.isZExt()) {
+          if (!Ins[i].Flags.isZExt() && !Ins[i].Flags.getExtWidth()) {
             ArgValue = DAG.getNode(AArch64ISD::ASSERT_ZEXT_BOOL, DL,
                                    ArgValue.getValueType(), ArgValue);
           }
@@ -10042,6 +10085,7 @@ static void analyzeCallOperands(const AArch64TargetLowering &TLI,
     assert(!Res && "Call operand has unhandled type");
     (void)Res;
   }
+  CCInfo.applyExtWidths(Outs);
 }
 
 static SMECallAttrs
@@ -10882,10 +10926,20 @@ AArch64TargetLowering::LowerCall(CallLoweringInfo &CLI,
 
       // FIXME: This works on big-endian for composite byvals, which are the
       // common case. It should also work for fundamental types too.
+      // Darwin packs small integer arguments on the stack.
+      bool UseVarArgCC =
+          IsVarArg && (Subtarget->isCallingConvWin64(CallConv, IsVarArg) ||
+                       Flags.isVarArg());
+      MVT SmallIntVT = getSmallIntStackArgVT(
+          VA, Flags,
+          CCAssignFnForCall(CallConv, UseVarArgCC) == CC_AArch64_DarwinPCS, MF);
+
       uint32_t BEAlign = 0;
       unsigned OpSize;
-      if (VA.getLocInfo() == CCValAssign::Indirect ||
-          VA.getLocInfo() == CCValAssign::Trunc)
+      if (SmallIntVT != MVT::Other)
+        OpSize = SmallIntVT.getSizeInBits();
+      else if (VA.getLocInfo() == CCValAssign::Indirect ||
+               VA.getLocInfo() == CCValAssign::Trunc)
         OpSize = VA.getLocVT().getFixedSizeInBits();
       else
         OpSize = Flags.isByVal() ? Flags.getByValSize() * 8
@@ -10936,10 +10990,12 @@ AArch64TargetLowering::LowerCall(CallLoweringInfo &CLI,
       } else {
         // Since we pass i1/i8/i16 as i1/i8/i16 on stack and Arg is already
         // promoted to a legal register type i32, we should truncate Arg back to
-        // i1/i8/i16.
-        if (VA.getValVT() == MVT::i1 || VA.getValVT() == MVT::i8 ||
-            VA.getValVT() == MVT::i16)
-          Arg = DAG.getNode(ISD::TRUNCATE, DL, VA.getValVT(), Arg);
+        // i1/i8/i16. If an explicit extension width is specified, Arg has
+        // already been extended, and we store the extended bits instead.
+        if (SmallIntVT == MVT::i1)
+          Arg = DAG.getNode(ISD::TRUNCATE, DL, SmallIntVT, Arg);
+        else if (SmallIntVT != MVT::Other)
+          Arg = DAG.getAnyExtOrTrunc(Arg, DL, SmallIntVT);
 
         SDValue Store = DAG.getStore(Chain, DL, Arg, DstAddr, DstInfo);
         MemOpChains.push_back(Store);

@@ -52,7 +52,7 @@ TEST(Attributes, Ordering) {
   EXPECT_EQ(Align4.cmpKind(Align5), 0);
 
   Attribute ByVal = Attribute::get(C, Attribute::ByVal, Type::getInt32Ty(C));
-  EXPECT_FALSE(ByVal < Attribute::get(C, Attribute::ZExt));
+  EXPECT_FALSE(ByVal < Attribute::get(C, Attribute::NoUndef));
   EXPECT_TRUE(ByVal < Align4);
   EXPECT_FALSE(ByVal < ByVal);
 
@@ -63,6 +63,33 @@ TEST(Attributes, Ordering) {
   AttributeList SetB =
       SetA.removeParamAttributes(C, 0, ASs[1].getParamAttrs(0));
   EXPECT_NE(SetA, SetB);
+}
+
+TEST(Attributes, ExtWidth) {
+  LLVMContext C;
+
+  Attribute ZExt = Attribute::get(C, Attribute::ZExt);
+  Attribute ZExt8 = Attribute::getWithExtWidth(C, Attribute::ZExt, 8);
+  Attribute SExt32 = Attribute::getWithExtWidth(C, Attribute::SExt, 32);
+  EXPECT_EQ(ZExt.getExtWidth(), 0u);
+  EXPECT_EQ(ZExt8.getExtWidth(), 8u);
+  EXPECT_EQ(SExt32.getExtWidth(), 32u);
+  EXPECT_EQ(ZExt, Attribute::getWithExtWidth(C, Attribute::ZExt, 0));
+  EXPECT_NE(ZExt, ZExt8);
+  EXPECT_EQ(ZExt.getAsString(), "zeroext");
+  EXPECT_EQ(ZExt8.getAsString(), "zeroext(8)");
+  EXPECT_EQ(SExt32.getAsString(), "signext(32)");
+
+  AttributeList AL;
+  AL = AL.addRetAttribute(C, ZExt8);
+  AL = AL.addParamAttribute(C, 0, SExt32);
+  AL = AL.addParamAttribute(C, 1, ZExt);
+  EXPECT_EQ(AL.getRetExtWidth(), 8u);
+  EXPECT_EQ(AL.getParamExtWidth(0), 32u);
+  EXPECT_EQ(AL.getParamExtWidth(1), 0u);
+  EXPECT_EQ(AL.getParamExtWidth(2), 0u);
+  EXPECT_TRUE(AL.hasParamAttr(0, Attribute::SExt));
+  EXPECT_TRUE(AL.hasParamAttr(1, Attribute::ZExt));
 }
 
 TEST(Attributes, AddAttributes) {

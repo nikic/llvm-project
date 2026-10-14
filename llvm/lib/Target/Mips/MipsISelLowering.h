@@ -505,6 +505,8 @@ using TargetRegisterClass = MCRegisterClass;
                                      SelectionDAG &DAG) const override;
     bool useSoftFloat() const override;
 
+    bool supportsArgExtWidth() const override { return true; }
+
     bool shouldInsertFencesForAtomic(const Instruction *I) const override {
       return true;
     }

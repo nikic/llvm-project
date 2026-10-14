@@ -275,6 +275,12 @@ Attribute Attribute::getWithNoFPClass(LLVMContext &Context,
   return get(Context, NoFPClass, ClassMask);
 }
 
+Attribute Attribute::getWithExtWidth(LLVMContext &Context,
+                                     Attribute::AttrKind Kind, unsigned Width) {
+  assert((Kind == ZExt || Kind == SExt) && "Not an extension attribute");
+  return get(Context, Kind, Width);
+}
+
 Attribute Attribute::getWithDeadOnReturnInfo(LLVMContext &Context,
                                              DeadOnReturnInfo DI) {
   return get(Context, DeadOnReturn, DI.toIntValue());
@@ -443,6 +449,12 @@ uint64_t Attribute::getDereferenceableBytes() const {
   return pImpl->getValueAsInt();
 }
 
+unsigned Attribute::getExtWidth() const {
+  assert((hasAttribute(Attribute::ZExt) || hasAttribute(Attribute::SExt)) &&
+         "Trying to get extension width from non-extension attribute!");
+  return pImpl->getValueAsInt();
+}
+
 DeadOnReturnInfo Attribute::getDeadOnReturnInfo() const {
   assert(hasAttribute(Attribute::DeadOnReturn) &&
          "Trying to get dead_on_return bytes from"
@@ -575,6 +587,13 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
 
   if (hasAttribute(Attribute::DereferenceableOrNull))
     return AttrWithBytesToString("dereferenceable_or_null");
+
+  if (hasAttribute(Attribute::ZExt) || hasAttribute(Attribute::SExt)) {
+    const char *Name = hasAttribute(Attribute::ZExt) ? "zeroext" : "signext";
+    if (getValueAsInt() == 0)
+      return Name;
+    return (Name + ("(" + Twine(getValueAsInt())) + ")").str();
+  }
 
   if (hasAttribute(Attribute::DeadOnReturn)) {
     uint64_t DeadBytes = getValueAsInt();
@@ -1204,6 +1223,14 @@ MaybeAlign AttributeSet::getStackAlignment() const {
 
 uint64_t AttributeSet::getDereferenceableBytes() const {
   return SetNode ? SetNode->getDereferenceableBytes() : 0;
+}
+
+unsigned AttributeSet::getExtWidth() const {
+  if (Attribute A = getAttribute(Attribute::ZExt); A.isValid())
+    return A.getExtWidth();
+  if (Attribute A = getAttribute(Attribute::SExt); A.isValid())
+    return A.getExtWidth();
+  return 0;
 }
 
 DeadOnReturnInfo AttributeSet::getDeadOnReturnInfo() const {
@@ -2013,6 +2040,14 @@ uint64_t AttributeList::getRetDereferenceableOrNullBytes() const {
   return getRetAttrs().getDereferenceableOrNullBytes();
 }
 
+unsigned AttributeList::getRetExtWidth() const {
+  return getRetAttrs().getExtWidth();
+}
+
+unsigned AttributeList::getParamExtWidth(unsigned ArgNo) const {
+  return getParamAttrs(ArgNo).getExtWidth();
+}
+
 DeadOnReturnInfo AttributeList::getDeadOnReturnInfo(unsigned Index) const {
   return getParamAttrs(Index).getDeadOnReturnInfo();
 }
@@ -2469,6 +2504,10 @@ AttributeMask AttributeFuncs::typeIncompatible(Type *Ty, AttributeSet AS,
   if (!Ty->isIntegerTy() && !Ty->isByteTy()) {
     // Attributes that only apply to integers and bytes.
     if (ASK & ASK_UNSAFE_TO_DROP)
+      Incompatible.addAttribute(Attribute::SExt).addAttribute(Attribute::ZExt);
+  } else if (unsigned ExtWidth = AS.getExtWidth()) {
+    // An explicit extension width must not be smaller than the type.
+    if ((ASK & ASK_UNSAFE_TO_DROP) && ExtWidth < Ty->getScalarSizeInBits())
       Incompatible.addAttribute(Attribute::SExt).addAttribute(Attribute::ZExt);
   }
 

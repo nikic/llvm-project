@@ -690,6 +690,8 @@ namespace llvm {
 
     bool supportSwiftError() const override;
 
+    bool supportsArgExtWidth() const override { return true; }
+
     bool supportKCFIBundles() const override { return true; }
 
     MachineInstr *EmitKCFICheck(MachineBasicBlock &MBB,

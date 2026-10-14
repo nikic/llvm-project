@@ -1910,6 +1910,16 @@ public:
     return Attrs.getParamElementType(ArgNo);
   }
 
+  /// Extract the explicit zeroext/signext extension width of the return
+  /// value (0=determined by target ABI). Falls back to the attributes of the
+  /// called function if the call site does not have an extension attribute.
+  LLVM_ABI unsigned getRetExtWidth() const;
+
+  /// Extract the explicit zeroext/signext extension width of a parameter
+  /// (0=determined by target ABI). Falls back to the attributes of the called
+  /// function if the call site does not have an extension attribute.
+  LLVM_ABI unsigned getParamExtWidth(unsigned ArgNo) const;
+
   /// Extract the number of dereferenceable bytes for a call or
   /// parameter (0=unknown).
   uint64_t getRetDereferenceableBytes() const {

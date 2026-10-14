@@ -501,6 +501,8 @@ public:
       MachineBasicBlock *Entry,
       const SmallVectorImpl<MachineBasicBlock *> &Exits) const override;
 
+  bool supportsArgExtWidth() const override { return true; }
+
   bool supportSwiftError() const override {
     return true;
   }

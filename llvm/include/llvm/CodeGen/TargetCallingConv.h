@@ -18,6 +18,7 @@
 #include "llvm/CodeGenTypes/MachineValueType.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/MathExtras.h"
+#include <algorithm>
 #include <cassert>
 #include <climits>
 #include <cstdint>
@@ -66,6 +67,10 @@ namespace ISD {
                             ///< (including byval/byref). The max alignment is
                             ///< verified in IR verification.
     unsigned OrigAlign : 5; ///< Log 2 of original alignment
+    /// Explicit extension width of a zeroext/signext argument, or zero if the
+    /// extension width is determined by the target ABI. Saturates at the
+    /// maximum representable value.
+    unsigned ExtWidth : 16;
 
     unsigned ByValOrByRefSize = 0; ///< Byval or byref struct size
 
@@ -76,7 +81,7 @@ namespace ISD {
     }
 
   public:
-    ArgFlagsTy() : MemAlign(0), OrigAlign(0) {
+    ArgFlagsTy() : MemAlign(0), OrigAlign(0), ExtWidth(0) {
       static_assert(sizeof(*this) == 4 * sizeof(unsigned), "flags are too big");
     }
 
@@ -88,6 +93,17 @@ namespace ISD {
 
     bool isSExt() const { return FlagVals & SExt; }
     void setSExt() { setFlag(SExt); }
+
+    /// Return the explicit width that a zeroext/signext argument is extended
+    /// to, or zero if the width is determined by the target ABI. If non-zero,
+    /// the width is larger than the type of the argument, and the calling
+    /// convention lowering must extend outgoing values to at least this width,
+    /// and may only assume that incoming values are extended to this width.
+    /// It is an error if the width exceeds the size of the argument location.
+    unsigned getExtWidth() const { return ExtWidth; }
+    void setExtWidth(unsigned Width) {
+      ExtWidth = std::min(Width, (1U << 16) - 1);
+    }
 
     bool isNoExt() const { return FlagVals & NoExt; }
     void setNoExt() { setFlag(NoExt); }

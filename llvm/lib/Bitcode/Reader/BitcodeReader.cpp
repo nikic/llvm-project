@@ -2462,6 +2462,10 @@ Error BitcodeReader::parseAttributeGroupBlock() {
             B.addUWTableAttr(UWTableKind::Default);
           else if (Kind == Attribute::DeadOnReturn)
             B.addDeadOnReturnAttr(DeadOnReturnInfo());
+          else if (Kind == Attribute::ZExt || Kind == Attribute::SExt)
+            // Extension attributes without an explicit width are encoded as
+            // enum attributes.
+            B.addAttribute(Attribute::getWithExtWidth(Context, Kind, 0));
           else if (Attribute::isEnumAttrKind(Kind))
             B.addAttribute(Kind);
           else
@@ -2483,6 +2487,9 @@ Error BitcodeReader::parseAttributeGroupBlock() {
           else if (Kind == Attribute::DeadOnReturn)
             B.addDeadOnReturnAttr(
                 DeadOnReturnInfo::createFromIntValue(Record[++i]));
+          else if (Kind == Attribute::ZExt || Kind == Attribute::SExt)
+            B.addAttribute(
+                Attribute::getWithExtWidth(Context, Kind, Record[++i]));
           else if (Kind == Attribute::AllocSize)
             B.addAllocSizeAttrFromRawRepr(Record[++i]);
           else if (Kind == Attribute::VScaleRange)

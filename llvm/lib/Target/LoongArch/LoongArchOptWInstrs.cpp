@@ -588,8 +588,12 @@ static bool isSignExtendedW(Register SrcReg, const LoongArchSubtarget &ST,
 
         const AttributeSet &Attrs = CalleeFn->getAttributes().getRetAttrs();
         unsigned BitWidth = IntTy->getBitWidth();
-        if ((BitWidth <= 32 && Attrs.hasAttribute(Attribute::SExt)) ||
-            (BitWidth < 32 && Attrs.hasAttribute(Attribute::ZExt)))
+        // An explicit extension width smaller than 64 leaves the upper bits
+        // undefined.
+        unsigned ExtWidth = Attrs.getExtWidth();
+        if ((ExtWidth == 0 || ExtWidth >= 64) &&
+            ((BitWidth <= 32 && Attrs.hasAttribute(Attribute::SExt)) ||
+             (BitWidth < 32 && Attrs.hasAttribute(Attribute::ZExt))))
           continue;
       }
 

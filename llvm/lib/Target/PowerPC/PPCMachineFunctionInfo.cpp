@@ -62,14 +62,18 @@ MCSymbol *PPCFunctionInfo::getTOCOffsetSymbol(MachineFunction &MF) const {
 bool PPCFunctionInfo::isLiveInSExt(Register VReg) const {
   for (const std::pair<Register, ISD::ArgFlagsTy> &LiveIn : LiveInAttrs)
     if (LiveIn.first == VReg)
-      return LiveIn.second.isSExt();
+      // An explicit extension width below 64 leaves the upper bits undefined.
+      return LiveIn.second.isSExt() && (LiveIn.second.getExtWidth() == 0 ||
+                                        LiveIn.second.getExtWidth() >= 64);
   return false;
 }
 
 bool PPCFunctionInfo::isLiveInZExt(Register VReg) const {
   for (const std::pair<Register, ISD::ArgFlagsTy> &LiveIn : LiveInAttrs)
     if (LiveIn.first == VReg)
-      return LiveIn.second.isZExt();
+      // An explicit extension width below 64 leaves the upper bits undefined.
+      return LiveIn.second.isZExt() && (LiveIn.second.getExtWidth() == 0 ||
+                                        LiveIn.second.getExtWidth() >= 64);
   return false;
 }
 

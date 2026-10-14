@@ -136,6 +136,14 @@ declare zeroext i32 @func_res_attr_zeroext()
 
 ; // -----
 
+; CHECK-LABEL: @func_ext_width
+; CHECK-SAME:  i8 {llvm.zeroext = 32 : i64}
+; CHECK-SAME:  i1 {llvm.signext = 8 : i64}
+; CHECK-SAME:  -> (i8 {llvm.signext = 16 : i64})
+declare signext(16) i8 @func_ext_width(i8 zeroext(32), i1 signext(8))
+
+; // -----
+
 ; CHECK-LABEL: @func_res_attr_align
 ; CHECK-SAME:  !llvm.ptr {llvm.align = 16 : i64}
 declare align(16) ptr @func_res_attr_align()

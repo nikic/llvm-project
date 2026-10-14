@@ -352,6 +352,9 @@ public:
     bool IsCFGuardTarget : 1;
     MaybeAlign Alignment = std::nullopt;
     Type *IndirectType = nullptr;
+    /// Explicit zeroext/signext extension width, or zero if determined by the
+    /// target ABI.
+    unsigned ExtWidth = 0;
 
     ArgListEntry(Value *Val, SDValue Node, Type *Ty)
         : Val(Val), Node(Node), OrigTy(Ty), Ty(Ty), IsSExt(false),
@@ -5026,6 +5029,10 @@ public:
     // Is Call lowering done post SelectionDAG type legalization.
     bool IsPostTypeLegalization = false;
 
+    /// Explicit zeroext/signext extension width of the return value, or zero
+    /// if determined by the target ABI.
+    unsigned RetExtWidth = 0;
+
     unsigned NumFixedArgs = -1;
     CallingConv::ID CallConv = CallingConv::C;
     SDValue Callee;
@@ -5088,6 +5095,7 @@ public:
       IsInReg = ResultAttrs.hasAttribute(Attribute::InReg);
       RetSExt = ResultAttrs.hasAttribute(Attribute::SExt);
       RetZExt = ResultAttrs.hasAttribute(Attribute::ZExt);
+      RetExtWidth = ResultAttrs.getExtWidth();
       NoMerge = ResultAttrs.hasAttribute(Attribute::NoMerge);
 
       Callee = Target;
@@ -5110,6 +5118,7 @@ public:
       IsReturnValueUsed = !Call.use_empty();
       RetSExt = Call.hasRetAttr(Attribute::SExt);
       RetZExt = Call.hasRetAttr(Attribute::ZExt);
+      RetExtWidth = Call.getRetExtWidth();
       NoMerge = Call.hasFnAttr(Attribute::NoMerge);
 
       Callee = Target;
@@ -5328,6 +5337,19 @@ public:
     reportFatalUsageError("Named registers not implemented for this target");
   }
 
+  /// Return the type that a zeroext(ExtWidth)/signext(ExtWidth) integer return
+  /// value of type \p VT is extended to. If \p ExtWidth is zero, the extension
+  /// width is determined by getTypeForExtReturn().
+  EVT getTypeForExtReturnWithWidth(LLVMContext &Context, EVT VT,
+                                   ISD::NodeType ExtendKind,
+                                   unsigned ExtWidth) const {
+    if (!ExtWidth)
+      return getTypeForExtReturn(Context, VT, ExtendKind);
+    if (VT.getSizeInBits() >= ExtWidth)
+      return VT;
+    return EVT::getIntegerVT(Context, ExtWidth);
+  }
+
   /// Return the type that should be used to zero or sign extend a
   /// zeroext/signext integer return value.  FIXME: Some C calling conventions
   /// require the return type to be promoted, but this is not true all the time,
@@ -5339,6 +5361,26 @@ public:
     EVT MinVT = getRegisterType(Context, MVT::i32);
     return VT.bitsLT(MinVT) ? MinVT : VT;
   }
+
+  /// Return true if the calling convention lowering of the target supports
+  /// explicit extension widths on arguments, as described by
+  /// ISD::ArgFlagsTy::getExtWidth(). This requires that the extension width is
+  /// taken into account for all argument locations, which is done by
+  /// CCState::applyExtWidths(). Additionally, any target-specific code that
+  /// inspects the ZExt/SExt argument flags directly must respect the
+  /// extension width. Note that the target-independent code always extends
+  /// outgoing arguments to their register type.
+  virtual bool supportsArgExtWidth() const { return false; }
+
+  /// Set the extension-related flags in \p Flags for an argument of type
+  /// \p VT with zeroext (\p IsZExt) or signext (\p IsSExt) attribute, and an
+  /// explicit extension width \p ExtWidth (zero if not specified). An explicit
+  /// extension width is only recorded if it exceeds the width of the type, in
+  /// which case the calling convention lowering must take it into account
+  /// (see supportsArgExtWidth()).
+  LLVM_ABI void setArgExtFlags(ISD::ArgFlagsTy &Flags, LLVMContext &Context,
+                               EVT VT, bool IsZExt, bool IsSExt,
+                               unsigned ExtWidth) const;
 
   /// For some targets, an LLVM struct type must be broken down into multiple
   /// simple types, but the calling convention specifies that the entire struct

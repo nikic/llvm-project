@@ -126,6 +126,14 @@ static bool paramHasAttr(const AttributeList &Attrs, unsigned ArgIdx,
   return Attrs.hasParamAttr(ArgIdx, Kind);
 }
 
+static unsigned getParamExtWidth(const CallBase &Call, unsigned ArgIdx) {
+  return Call.getParamExtWidth(ArgIdx);
+}
+
+static unsigned getParamExtWidth(const AttributeList &Attrs, unsigned ArgIdx) {
+  return Attrs.getParamExtWidth(ArgIdx);
+}
+
 static MaybeAlign getParamStackAlign(const CallBase &Call, unsigned ArgIdx) {
   return Call.getParamStackAlign(ArgIdx);
 }
@@ -151,6 +159,7 @@ static void setArgListEntryAttributes(TargetLoweringBase::ArgListEntry &Entry,
   Entry.IsSExt = paramHasAttr(Src, ArgIdx, Attribute::SExt);
   Entry.IsZExt = paramHasAttr(Src, ArgIdx, Attribute::ZExt);
   Entry.IsNoExt = paramHasAttr(Src, ArgIdx, Attribute::NoExt);
+  Entry.ExtWidth = getParamExtWidth(Src, ArgIdx);
   Entry.IsInReg = paramHasAttr(Src, ArgIdx, Attribute::InReg);
   Entry.IsSRet = paramHasAttr(Src, ArgIdx, Attribute::StructRet);
   Entry.IsNest = paramHasAttr(Src, ArgIdx, Attribute::Nest);
@@ -199,6 +208,31 @@ void TargetLoweringBase::ArgListEntry::setAttributes(const CallBase *Call,
 void TargetLoweringBase::ArgListEntry::setAttributes(const AttributeList &Attrs,
                                                      unsigned ArgIdx) {
   setArgListEntryAttributes(*this, Attrs, ArgIdx);
+}
+
+void TargetLowering::setArgExtFlags(ISD::ArgFlagsTy &Flags,
+                                    LLVMContext &Context, EVT VT, bool IsZExt,
+                                    bool IsSExt, unsigned ExtWidth) const {
+  // An extension to the width of the type is a no-op.
+  if (ExtWidth &&
+      (!VT.isScalarInteger() || ExtWidth <= VT.getFixedSizeInBits())) {
+    Flags.setNoExt();
+    return;
+  }
+
+  if (IsZExt)
+    Flags.setZExt();
+  if (IsSExt)
+    Flags.setSExt();
+  if (!ExtWidth)
+    return;
+
+  if (!supportsArgExtWidth()) {
+    Context.emitError("argument extension width " + Twine(ExtWidth) +
+                      " is not supported by the target");
+    return;
+  }
+  Flags.setExtWidth(ExtWidth);
 }
 
 TargetLowering::ArgListTy

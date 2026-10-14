@@ -1252,6 +1252,9 @@ llvm.func @zeroextattr(%arg0: i1 {llvm.zeroext}) {
 // CHECK-LABEL: declare void @zeroextattr_decl(i1 zeroext)
 llvm.func @zeroextattr_decl(i1 {llvm.zeroext})
 
+// CHECK-LABEL: declare zeroext(8) i1 @ext_width_decl(i8 signext(32), i1 zeroext(8))
+llvm.func @ext_width_decl(i8 {llvm.signext = 32 : i64}, i1 {llvm.zeroext = 8 : i64}) -> (i1 {llvm.zeroext = 8 : i64})
+
 // CHECK-LABEL: declare void @alignattr_decl(ptr align 64)
 llvm.func @alignattr_decl(!llvm.ptr {llvm.align = 64 : i64})
 

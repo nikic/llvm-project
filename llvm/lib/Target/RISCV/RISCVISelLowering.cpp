@@ -27848,8 +27848,11 @@ static SDValue unpackFromRegLoc(SelectionDAG &DAG, SDValue Chain,
     if (OrigArg->getType()->isIntegerTy()) {
       unsigned BitWidth = OrigArg->getType()->getIntegerBitWidth();
       // An input zero extended from i31 can also be considered sign extended.
-      if ((BitWidth <= 32 && In.Flags.isSExt()) ||
-          (BitWidth < 32 && In.Flags.isZExt())) {
+      // An explicit extension width below 64 leaves the upper bits undefined.
+      unsigned ExtWidth = In.Flags.getExtWidth();
+      if ((ExtWidth == 0 || ExtWidth >= 64) &&
+          ((BitWidth <= 32 && In.Flags.isSExt()) ||
+           (BitWidth < 32 && In.Flags.isZExt()))) {
         RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
         RVFI->addSExt32Register(VReg);
       }

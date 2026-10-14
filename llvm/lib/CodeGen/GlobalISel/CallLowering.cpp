@@ -131,6 +131,13 @@ bool CallLowering::lowerCall(MachineIRBuilder &MIRBuilder, const CallBase &CB,
                              std::optional<PtrAuthInfo> PAI,
                              Register ConvergenceCtrlToken,
                              std::function<Register()> GetCalleeReg) const {
+  // Explicit extension widths are not supported yet.
+  if (CB.getRetExtWidth())
+    return false;
+  for (unsigned I = 0, E = CB.arg_size(); I != E; ++I)
+    if (CB.getParamExtWidth(I))
+      return false;
+
   CallLoweringInfo Info;
   const DataLayout &DL = MIRBuilder.getDataLayout();
   MachineFunction &MF = MIRBuilder.getMF();

@@ -135,11 +135,28 @@ void FastISel::startNewBlock() {
 
 void FastISel::finishBasicBlock() { flushLocalValueMap(); }
 
+/// Returns true if the call has a zeroext/signext attribute with an explicit
+/// extension width on the return value or any argument. These are not
+/// supported by FastISel.
+static bool hasExplicitExtWidth(const CallBase &CB) {
+  if (CB.getRetExtWidth())
+    return true;
+  for (unsigned I = 0, E = CB.arg_size(); I != E; ++I)
+    if (CB.getParamExtWidth(I))
+      return true;
+  return false;
+}
+
 bool FastISel::lowerArguments() {
   if (!FuncInfo.CanLowerReturn)
     // Fallback to SDISel argument lowering code to deal with sret pointer
     // parameter.
     return false;
+
+  // Fallback to SDISel for explicit argument extension widths.
+  for (const Argument &Arg : FuncInfo.Fn->args())
+    if (FuncInfo.Fn->getAttributes().getParamExtWidth(Arg.getArgNo()))
+      return false;
 
   if (!fastLowerArguments())
     return false;
@@ -1569,6 +1586,12 @@ bool FastISel::selectInstruction(const Instruction *I) {
     for (unsigned i = 0, e = Call->getNumOperandBundles(); i != e; ++i)
       if (Call->getOperandBundleAt(i).getTagID() != LLVMContext::OB_funclet)
         return false;
+
+  // FastISel does not handle explicit extension widths.
+  if (auto *Call = dyn_cast<CallBase>(I); Call && hasExplicitExtWidth(*Call))
+    return false;
+  if (isa<ReturnInst>(I) && FuncInfo.Fn->getAttributes().getRetExtWidth())
+    return false;
 
   MIMD = MIMetadata(*I);
 

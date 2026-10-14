@@ -219,6 +219,12 @@ public:
                                                  MemoryEffects ME);
   LLVM_ABI static Attribute getWithNoFPClass(LLVMContext &Context,
                                              FPClassTest Mask);
+  /// Return a zeroext or signext attribute (\p Kind) that extends to
+  /// \p Width bits. A width of zero means that the extension width is
+  /// determined by the target ABI.
+  LLVM_ABI static Attribute getWithExtWidth(LLVMContext &Context,
+                                            Attribute::AttrKind Kind,
+                                            unsigned Width);
   LLVM_ABI static Attribute getWithDeadOnReturnInfo(LLVMContext &Context,
                                                     DeadOnReturnInfo DI);
   LLVM_ABI static Attribute getWithCaptureInfo(LLVMContext &Context,
@@ -323,6 +329,10 @@ public:
   /// attribute, or std::nullopt if all memory reachable through the pointer is
   /// marked dead on return.
   LLVM_ABI DeadOnReturnInfo getDeadOnReturnInfo() const;
+
+  /// Returns the bit width specified by a zeroext or signext attribute, or
+  /// zero if the extension width is determined by the target ABI.
+  LLVM_ABI unsigned getExtWidth() const;
 
   /// Returns the number of dereferenceable_or_null bytes from the
   /// dereferenceable_or_null attribute.
@@ -497,6 +507,10 @@ public:
   LLVM_ABI uint64_t getDereferenceableBytes() const;
   LLVM_ABI DeadOnReturnInfo getDeadOnReturnInfo() const;
   LLVM_ABI uint64_t getDereferenceableOrNullBytes() const;
+  /// Returns the explicit bit width of the zeroext or signext attribute in
+  /// this set, or zero if there is no such attribute or it does not specify a
+  /// width.
+  LLVM_ABI unsigned getExtWidth() const;
   LLVM_ABI Type *getByValType() const;
   LLVM_ABI Type *getStructRetType() const;
   LLVM_ABI Type *getByRefType() const;
@@ -1027,6 +1041,14 @@ public:
 
   /// Get the number of dead_on_return bytes (or zero if unknown) of an arg.
   LLVM_ABI DeadOnReturnInfo getDeadOnReturnInfo(unsigned Index) const;
+
+  /// Get the explicit zeroext/signext bit width of the return value, or zero
+  /// if not specified.
+  LLVM_ABI unsigned getRetExtWidth() const;
+
+  /// Get the explicit zeroext/signext bit width of an arg, or zero if not
+  /// specified.
+  LLVM_ABI unsigned getParamExtWidth(unsigned ArgNo) const;
 
   /// Get the number of dereferenceable_or_null bytes (or zero if unknown) of an
   /// arg.

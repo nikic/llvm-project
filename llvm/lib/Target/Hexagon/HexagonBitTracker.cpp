@@ -69,6 +69,12 @@ HexagonEvaluator::HexagonEvaluator(const HexagonRegisterInfo &tri,
     InVirtReg = getVirtRegFor(InPhysReg);
     if (!InVirtReg)
       continue;
+    // An explicit extension width smaller than the register leaves the upper
+    // bits undefined.
+    unsigned ExtWidth =
+        MF.getFunction().getAttributes().getParamExtWidth(Arg.getArgNo());
+    if (ExtWidth && ExtWidth < (Width > 32 ? 64u : 32u))
+      continue;
     if (Arg.hasAttribute(Attribute::SExt))
       VRX.insert(std::make_pair(InVirtReg, ExtType(ExtType::SExt, Width)));
     else if (Arg.hasAttribute(Attribute::ZExt))

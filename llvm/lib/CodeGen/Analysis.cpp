@@ -725,15 +725,28 @@ bool llvm::attributesPermitTailCall(const Function *F, const Instruction *I,
     CalleeAttrs.removeAttribute(Attr);
   }
 
+  // The callee must extend the return value at least as far as the caller
+  // requires. Default extension widths (zero) are only compatible with each
+  // other.
+  auto ExtWidthsCompatible = [&](Attribute::AttrKind Kind) {
+    unsigned CallerWidth = CallerAttrs.getAttribute(Kind).getExtWidth();
+    unsigned CalleeWidth = CalleeAttrs.getAttribute(Kind).getExtWidth();
+    if (!CallerWidth || !CalleeWidth)
+      return CallerWidth == CalleeWidth;
+    return CalleeWidth >= CallerWidth;
+  };
+
   if (CallerAttrs.contains(Attribute::ZExt)) {
-    if (!CalleeAttrs.contains(Attribute::ZExt))
+    if (!CalleeAttrs.contains(Attribute::ZExt) ||
+        !ExtWidthsCompatible(Attribute::ZExt))
       return false;
 
     ADS = false;
     CallerAttrs.removeAttribute(Attribute::ZExt);
     CalleeAttrs.removeAttribute(Attribute::ZExt);
   } else if (CallerAttrs.contains(Attribute::SExt)) {
-    if (!CalleeAttrs.contains(Attribute::SExt))
+    if (!CalleeAttrs.contains(Attribute::SExt) ||
+        !ExtWidthsCompatible(Attribute::SExt))
       return false;
 
     ADS = false;

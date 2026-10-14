@@ -3257,6 +3257,11 @@ ModuleImport::convertArgOrResultAttrSet(llvm::AttributeSet llvmAttrSet) {
     Attribute mlirAttr;
     if (llvmAttr.isTypeAttribute())
       mlirAttr = TypeAttr::get(convertType(llvmAttr.getValueAsType()));
+    else if ((llvmKind == llvm::Attribute::ZExt ||
+              llvmKind == llvm::Attribute::SExt) &&
+             llvmAttr.getExtWidth() == 0)
+      // Extension attributes without an explicit width are unit attributes.
+      mlirAttr = builder.getUnitAttr();
     else if (llvmAttr.isIntAttribute())
       mlirAttr = builder.getI64IntegerAttr(llvmAttr.getValueAsInt());
     else if (llvmAttr.isEnumAttribute())

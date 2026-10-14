@@ -424,6 +424,8 @@ class VectorType;
       return VT.isScalarInteger();
     }
 
+    bool supportsArgExtWidth() const override { return true; }
+
     bool supportSwiftError() const override {
       return true;
     }

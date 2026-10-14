@@ -292,6 +292,7 @@ public:
     return ISD::ZERO_EXTEND;
   }
 
+  bool supportsArgExtWidth() const override { return true; }
   bool supportSwiftError() const override {
     return true;
   }

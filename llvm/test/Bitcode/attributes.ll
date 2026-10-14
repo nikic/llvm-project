@@ -597,6 +597,16 @@ define void @dead_on_return_sized(ptr dead_on_return(4) %p) {
   ret void
 }
 
+; CHECK: define zeroext(8) i1 @ext_width(i1 zeroext(32) %a, i8 signext(16) %b, i16 signext %c)
+define zeroext(8) i1 @ext_width(i1 zeroext(32) %a, i8 signext(16) %b, i16 signext %c) {
+; CHECK: call signext(64) i32 @ext_width_decl(i8 zeroext(8) %b)
+  call signext(64) i32 @ext_width_decl(i8 zeroext(8) %b)
+  ret i1 %a
+}
+
+; CHECK: declare signext(64) i32 @ext_width_decl(i8 zeroext(8))
+declare signext(64) i32 @ext_width_decl(i8 zeroext(8))
+
 ; CHECK: define void @noipa() [[NOIPA:#[0-9]+]]
 define void @noipa() noipa {
   ret void

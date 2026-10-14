@@ -4438,12 +4438,30 @@ SDValue PPCTargetLowering::LowerFormalArguments_32SVR4(
   return Chain;
 }
 
+// On PPC64 SVR4, integer arguments are passed in 64-bit registers or stack
+// slots, so an explicit extension width must not exceed 64 bits.
+template <typename ArgT>
+static void diagnoseExtWidthsPPC64SVR4(ArrayRef<ArgT> Args,
+                                       const MachineFunction &MF) {
+  for (const ArgT &Arg : Args)
+    if (Arg.Flags.getExtWidth() > 64)
+      MF.getFunction().getContext().emitError(
+          "argument extension width " + Twine(Arg.Flags.getExtWidth()) +
+          " exceeds the size of the argument location (64 bits) in function '" +
+          MF.getFunction().getName() + "'");
+}
+
 // PPC64 passes i8, i16, and i32 values in i64 registers. Promote
 // value to MVT::i64 and then truncate to the correct register size.
 SDValue PPCTargetLowering::extendArgForPPC64(ISD::ArgFlagsTy Flags,
                                              EVT ObjectVT, SelectionDAG &DAG,
                                              SDValue ArgVal,
                                              const SDLoc &dl) const {
+  // An explicit extension width below 64 leaves the upper bits undefined.
+  unsigned ExtWidth = Flags.getExtWidth();
+  if (ExtWidth && ExtWidth < 64)
+    return DAG.getNode(ISD::TRUNCATE, dl, ObjectVT, ArgVal);
+
   if (Flags.isSExt())
     ArgVal = DAG.getNode(ISD::AssertSext, dl, MVT::i64, ArgVal,
                          DAG.getValueType(ObjectVT));
@@ -4468,6 +4486,7 @@ SDValue PPCTargetLowering::LowerFormalArguments_64SVR4(
 
   assert(!(CallConv == CallingConv::Fast && isVarArg) &&
          "fastcc not supported on varargs functions");
+  diagnoseExtWidthsPPC64SVR4(ArrayRef(Ins), MF);
 
   EVT PtrVT = getPointerTy(MF.getDataLayout());
   // Potential tail calls could cause overwriting of argument stack slots.
@@ -6248,6 +6267,7 @@ SDValue PPCTargetLowering::LowerCall_64SVR4(
 
   assert(!(IsFastCall && CFlags.IsVarArg) &&
          "fastcc not supported on varargs functions");
+  diagnoseExtWidthsPPC64SVR4(ArrayRef(Outs), MF);
 
   // Count how many bytes are to be pushed on the stack, including the linkage
   // area, and parameter passing area.  On ELFv1, the linkage area is 48 bytes
@@ -7114,6 +7134,12 @@ static SDValue truncateScalarIntegerArg(ISD::ArgFlagsTy Flags, EVT ValVT,
                                         MVT LocVT, const SDLoc &dl) {
   assert(ValVT.isScalarInteger() && LocVT.isScalarInteger());
   assert(ValVT.getFixedSizeInBits() < LocVT.getFixedSizeInBits());
+
+  // An explicit extension width smaller than the location leaves the upper
+  // bits undefined.
+  unsigned ExtWidth = Flags.getExtWidth();
+  if (ExtWidth && ExtWidth < LocVT.getFixedSizeInBits())
+    return DAG.getNode(ISD::TRUNCATE, dl, ValVT, ArgValue);
 
   if (Flags.isSExt())
     ArgValue = DAG.getNode(ISD::AssertSext, dl, LocVT, ArgValue,

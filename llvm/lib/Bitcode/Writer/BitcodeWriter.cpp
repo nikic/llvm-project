@@ -1089,7 +1089,11 @@ void ModuleBitcodeWriter::writeAttributeGroupTable() {
     Record.push_back(AttrListIndex);
 
     for (Attribute Attr : AS) {
-      if (Attr.isEnumAttribute()) {
+      // Extension attributes without an explicit width are encoded as enum
+      // attributes, as they used to be.
+      if (Attr.isEnumAttribute() || ((Attr.hasAttribute(Attribute::ZExt) ||
+                                      Attr.hasAttribute(Attribute::SExt)) &&
+                                     Attr.getExtWidth() == 0)) {
         Record.push_back(0);
         Record.push_back(getAttrKindEncoding(Attr.getKindAsEnum()));
       } else if (Attr.isIntAttribute()) {

@@ -1839,9 +1839,18 @@ void llvm::GetReturnInfo(CallingConv::ID CC, Type *ReturnType,
       ExtendKind = ISD::SIGN_EXTEND;
     else if (attr.hasRetAttr(Attribute::ZExt))
       ExtendKind = ISD::ZERO_EXTEND;
+    unsigned ExtWidth = attr.getRetExtWidth();
 
-    if (ExtendKind != ISD::ANY_EXTEND && VT.isInteger())
-      VT = TLI.getTypeForExtReturn(ReturnType->getContext(), VT, ExtendKind);
+    if (ExtendKind != ISD::ANY_EXTEND && VT.isInteger()) {
+      EVT ExtVT = TLI.getTypeForExtReturnWithWidth(ReturnType->getContext(), VT,
+                                                   ExtendKind, ExtWidth);
+      // An explicit extension width exceeding a single register is
+      // diagnosed during lowering.
+      if (!ExtWidth || ExtVT == VT ||
+          TLI.getNumRegistersForCallingConv(ReturnType->getContext(), CC,
+                                            ExtVT) == 1)
+        VT = ExtVT;
+    }
 
     unsigned NumParts =
         TLI.getNumRegistersForCallingConv(ReturnType->getContext(), CC, VT);
@@ -1853,8 +1862,11 @@ void llvm::GetReturnInfo(CallingConv::ID CC, Type *ReturnType,
     if (attr.hasRetAttr(Attribute::InReg))
       Flags.setInReg();
 
-    // Propagate extension type if any
-    if (attr.hasRetAttr(Attribute::SExt))
+    // Propagate extension type if any. If an explicit extension width is
+    // specified, the value is extended to a type at least that large instead.
+    if (ExtWidth)
+      Flags.setNoExt();
+    else if (attr.hasRetAttr(Attribute::SExt))
       Flags.setSExt();
     else if (attr.hasRetAttr(Attribute::ZExt))
       Flags.setZExt();

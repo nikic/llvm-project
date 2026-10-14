@@ -162,13 +162,15 @@ static SDValue getCopyFromPartsVector(SelectionDAG &DAG, const SDLoc &DL,
 /// combined into the value they represent.  If the parts combine to a type
 /// larger than ValueVT then AssertOp can be used to specify whether the extra
 /// bits are known to be zero (ISD::AssertZext) or sign extended from ValueVT
-/// (ISD::AssertSext).
+/// (ISD::AssertSext). If AssertWidth is non-zero, this is only known for the
+/// low AssertWidth bits.
 static SDValue
 getCopyFromParts(SelectionDAG &DAG, const SDLoc &DL, const SDValue *Parts,
                  unsigned NumParts, MVT PartVT, EVT ValueVT, const Value *V,
                  SDValue InChain,
                  std::optional<CallingConv::ID> CC = std::nullopt,
-                 std::optional<ISD::NodeType> AssertOp = std::nullopt) {
+                 std::optional<ISD::NodeType> AssertOp = std::nullopt,
+                 unsigned AssertWidth = 0) {
   // Let the target assemble the parts if it wants to
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   if (SDValue Val = TLI.joinRegisterPartsIntoValue(DAG, DL, Parts, NumParts,
@@ -277,9 +279,17 @@ getCopyFromParts(SelectionDAG &DAG, const SDLoc &DL, const SDValue *Parts,
       // For a truncate, see if we have any information to
       // indicate whether the truncated bits will always be
       // zero or sign-extension.
-      if (AssertOp)
-        Val = DAG.getNode(*AssertOp, DL, PartEVT, Val,
-                          DAG.getValueType(ValueVT));
+      if (AssertOp) {
+        // If the value is only known to be extended to a width smaller than
+        // the part, truncate to that width first.
+        if (AssertWidth && AssertWidth < PartEVT.getSizeInBits()) {
+          PartEVT = EVT::getIntegerVT(*DAG.getContext(), AssertWidth);
+          Val = DAG.getNode(ISD::TRUNCATE, DL, PartEVT, Val);
+        }
+        if (ValueVT.bitsLT(PartEVT))
+          Val = DAG.getNode(*AssertOp, DL, PartEVT, Val,
+                            DAG.getValueType(ValueVT));
+      }
       return DAG.getNode(ISD::TRUNCATE, DL, ValueVT, Val);
     }
     return DAG.getNode(ISD::ANY_EXTEND, DL, ValueVT, Val);
@@ -2343,6 +2353,7 @@ void SelectionDAGBuilder::visitRet(const ReturnInst &I) {
         ExtendKind = ISD::SIGN_EXTEND;
       else if (F->getAttributes().hasRetAttr(Attribute::ZExt))
         ExtendKind = ISD::ZERO_EXTEND;
+      unsigned ExtWidth = F->getAttributes().getRetExtWidth();
 
       LLVMContext &Context = F->getContext();
       bool RetInReg = F->getAttributes().hasRetAttr(Attribute::InReg);
@@ -2350,17 +2361,33 @@ void SelectionDAGBuilder::visitRet(const ReturnInst &I) {
       for (unsigned j = 0; j != NumValues; ++j) {
         EVT VT = TLI.getValueType(DL, Types[j]);
 
-        if (ExtendKind != ISD::ANY_EXTEND && VT.isInteger())
-          VT = TLI.getTypeForExtReturn(Context, VT, ExtendKind);
+        // An explicit extension width that does not exceed the type is a
+        // no-op.
+        ISD::NodeType ValExtendKind = ExtendKind;
+        if (ExtWidth && VT.isScalarInteger() &&
+            ExtWidth <= VT.getFixedSizeInBits())
+          ValExtendKind = ISD::ANY_EXTEND;
+
+        if (ValExtendKind != ISD::ANY_EXTEND && VT.isInteger())
+          VT = TLI.getTypeForExtReturnWithWidth(Context, VT, ValExtendKind,
+                                                ExtWidth);
 
         CallingConv::ID CC = F->getCallingConv();
 
         unsigned NumParts = TLI.getNumRegistersForCallingConv(Context, CC, VT);
+        if (ExtWidth && ValExtendKind != ISD::ANY_EXTEND && NumParts != 1) {
+          Context.emitError("return value extension width " + Twine(ExtWidth) +
+                            " exceeds the size of the return register in "
+                            "function '" +
+                            F->getName() + "'");
+          VT = TLI.getValueType(DL, Types[j]);
+          NumParts = TLI.getNumRegistersForCallingConv(Context, CC, VT);
+        }
         MVT PartVT = TLI.getRegisterTypeForCallingConv(Context, CC, VT);
         SmallVector<SDValue, 4> Parts(NumParts);
         getCopyToParts(DAG, getCurSDLoc(),
                        SDValue(RetOp.getNode(), RetOp.getResNo() + j),
-                       &Parts[0], NumParts, PartVT, &I, CC, ExtendKind);
+                       &Parts[0], NumParts, PartVT, &I, CC, ValExtendKind);
 
         // 'inreg' on function refers to return value
         ISD::ArgFlagsTy Flags = ISD::ArgFlagsTy();
@@ -2379,8 +2406,12 @@ void SelectionDAGBuilder::visitRet(const ReturnInst &I) {
             Flags.setInConsecutiveRegsLast();
         }
 
-        // Propagate extension type if any
-        if (ExtendKind == ISD::SIGN_EXTEND)
+        // Propagate extension type if any. If an explicit extension width is
+        // specified, the value has already been extended to a type that is at
+        // least as large as that width.
+        if (ExtWidth)
+          Flags.setNoExt();
+        else if (ExtendKind == ISD::SIGN_EXTEND)
           Flags.setSExt();
         else if (ExtendKind == ISD::ZERO_EXTEND)
           Flags.setZExt();
@@ -11518,16 +11549,19 @@ void SelectionDAGBuilder::visitVectorReduce(const CallInst &I,
 /// Returns an AttributeList representing the attributes applied to the return
 /// value of the given call.
 static AttributeList getReturnAttrs(TargetLowering::CallLoweringInfo &CLI) {
-  SmallVector<Attribute::AttrKind, 2> Attrs;
+  LLVMContext &Ctx = CLI.RetTy->getContext();
+  SmallVector<Attribute, 2> Attrs;
   if (CLI.RetSExt)
-    Attrs.push_back(Attribute::SExt);
+    Attrs.push_back(
+        Attribute::getWithExtWidth(Ctx, Attribute::SExt, CLI.RetExtWidth));
   if (CLI.RetZExt)
-    Attrs.push_back(Attribute::ZExt);
+    Attrs.push_back(
+        Attribute::getWithExtWidth(Ctx, Attribute::ZExt, CLI.RetExtWidth));
   if (CLI.IsInReg)
-    Attrs.push_back(Attribute::InReg);
+    Attrs.push_back(Attribute::get(Ctx, Attribute::InReg));
 
-  return AttributeList::get(CLI.RetTy->getContext(), AttributeList::ReturnIndex,
-                            Attrs);
+  return AttributeList::get(Ctx, AttributeList::ReturnIndex,
+                            AttributeSet::get(Ctx, Attrs));
 }
 
 /// TargetLowering::LowerCallTo - This is the default LowerCallTo
@@ -11580,6 +11614,27 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
   SmallVector<ISD::OutputArg, 4> Outs;
   GetReturnInfo(CLI.CallConv, CLI.RetTy, getReturnAttrs(CLI), Outs, *this, DL);
 
+  // If the return value has an explicit extension width, the callee extends it
+  // to a type that is at least as large as the extension width (see
+  // SelectionDAGBuilder::visitRet()). Use the same type for the calling
+  // convention lowering here.
+  auto GetRetCCVT = [&](EVT VT, bool Diagnose = false) {
+    if (!CLI.RetExtWidth || !(CLI.RetSExt || CLI.RetZExt) || !VT.isInteger())
+      return VT;
+    EVT ExtVT = getTypeForExtReturnWithWidth(
+        Context, VT, CLI.RetSExt ? ISD::SIGN_EXTEND : ISD::ZERO_EXTEND,
+        CLI.RetExtWidth);
+    if (ExtVT != VT &&
+        getNumRegistersForCallingConv(Context, CLI.CallConv, ExtVT) != 1) {
+      if (Diagnose)
+        Context.emitError("return value extension width " +
+                          Twine(CLI.RetExtWidth) +
+                          " exceeds the size of the return register");
+      return VT;
+    }
+    return ExtVT;
+  };
+
   bool CanLowerReturn =
       this->CanLowerReturn(CLI.CallConv, CLI.DAG.getMachineFunction(),
                            CLI.IsVarArg, Outs, Context, CLI.RetTy);
@@ -11619,7 +11674,7 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
         if (I == RetVTs.size() - 1)
           Flags.setInConsecutiveRegsLast();
       }
-      EVT VT = RetVTs[I];
+      EVT VT = GetRetCCVT(RetVTs[I], /*Diagnose=*/true);
       MVT RegisterVT = getRegisterTypeForCallingConv(Context, CLI.CallConv, VT);
       unsigned NumRegs =
           getNumRegistersForCallingConv(Context, CLI.CallConv, VT);
@@ -11631,9 +11686,11 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
           Ret.Flags.setPointerAddrSpace(
               cast<PointerType>(CLI.RetTy)->getAddressSpace());
         }
-        if (CLI.RetSExt)
+        // If an explicit extension width is specified, the extension is
+        // handled when assembling the return value from the parts below.
+        if (CLI.RetSExt && !CLI.RetExtWidth)
           Ret.Flags.setSExt();
-        if (CLI.RetZExt)
+        if (CLI.RetZExt && !CLI.RetExtWidth)
           Ret.Flags.setZExt();
         if (CLI.IsInReg)
           Ret.Flags.setInReg();
@@ -11695,10 +11752,8 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
         Flags.setPointer();
         Flags.setPointerAddrSpace(cast<PointerType>(ArgTy)->getAddressSpace());
       }
-      if (Args[i].IsZExt)
-        Flags.setZExt();
-      if (Args[i].IsSExt)
-        Flags.setSExt();
+      setArgExtFlags(Flags, Context, VT, Args[i].IsZExt, Args[i].IsSExt,
+                     Args[i].ExtWidth);
       if (Args[i].IsNoExt)
         Flags.setNoExt();
       if (Args[i].IsInReg) {
@@ -11773,7 +11828,12 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
       SmallVector<SDValue, 4> Parts(NumParts);
       ISD::NodeType ExtendKind = ISD::ANY_EXTEND;
 
-      if (Args[i].IsSExt)
+      // An explicit extension width that does not exceed the type is a no-op.
+      bool IsNoOpExt = Args[i].ExtWidth && VT.isScalarInteger() &&
+                       Args[i].ExtWidth <= VT.getFixedSizeInBits();
+      if (IsNoOpExt)
+        ExtendKind = ISD::ANY_EXTEND;
+      else if (Args[i].IsSExt)
         ExtendKind = ISD::SIGN_EXTEND;
       else if (Args[i].IsZExt)
         ExtendKind = ISD::ZERO_EXTEND;
@@ -11799,7 +11859,8 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
         // extension method
         if ((NumParts * PartVT.getSizeInBits() == VT.getSizeInBits()) ||
             (ExtendKind != ISD::ANY_EXTEND && CLI.RetSExt == Args[i].IsSExt &&
-             CLI.RetZExt == Args[i].IsZExt))
+             CLI.RetZExt == Args[i].IsZExt &&
+             CLI.RetExtWidth == Args[i].ExtWidth))
           Flags.setReturned();
       }
 
@@ -11899,13 +11960,15 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
       AssertOp = ISD::AssertZext;
     unsigned CurReg = 0;
     for (EVT VT : RetVTs) {
-      MVT RegisterVT = getRegisterTypeForCallingConv(Context, CLI.CallConv, VT);
+      EVT CCVT = GetRetCCVT(VT);
+      MVT RegisterVT =
+          getRegisterTypeForCallingConv(Context, CLI.CallConv, CCVT);
       unsigned NumRegs =
-          getNumRegistersForCallingConv(Context, CLI.CallConv, VT);
+          getNumRegistersForCallingConv(Context, CLI.CallConv, CCVT);
 
       ReturnValues.push_back(getCopyFromParts(
           CLI.DAG, CLI.DL, &InVals[CurReg], NumRegs, RegisterVT, VT, nullptr,
-          CLI.Chain, CLI.CallConv, AssertOp));
+          CLI.Chain, CLI.CallConv, AssertOp, CLI.RetExtWidth));
       CurReg += NumRegs;
     }
 
@@ -12221,10 +12284,10 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
         Flags.setPointer();
         Flags.setPointerAddrSpace(cast<PointerType>(ArgTy)->getAddressSpace());
       }
-      if (Arg.hasAttribute(Attribute::ZExt))
-        Flags.setZExt();
-      if (Arg.hasAttribute(Attribute::SExt))
-        Flags.setSExt();
+      TLI->setArgExtFlags(Flags, *CurDAG->getContext(), VT,
+                          Arg.hasAttribute(Attribute::ZExt),
+                          Arg.hasAttribute(Attribute::SExt),
+                          F.getAttributes().getParamExtWidth(ArgNo));
       if (Arg.hasAttribute(Attribute::InReg)) {
         // If we are using vectorcall calling convention, a structure that is
         // passed InReg - is surely an HVA
@@ -12437,9 +12500,10 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
         else if (Arg.hasAttribute(Attribute::ZExt))
           AssertOp = ISD::AssertZext;
 
-        SDValue OutVal =
-            getCopyFromParts(DAG, dl, &InVals[i], NumParts, PartVT, VT, nullptr,
-                             NewRoot, F.getCallingConv(), AssertOp);
+        SDValue OutVal = getCopyFromParts(
+            DAG, dl, &InVals[i], NumParts, PartVT, VT, nullptr, NewRoot,
+            F.getCallingConv(), AssertOp,
+            F.getAttributes().getParamExtWidth(Arg.getArgNo()));
 
         FPClassTest NoFPClass = Arg.getNoFPClass();
         if (NoFPClass != fcNone) {

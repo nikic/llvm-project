@@ -212,6 +212,8 @@ namespace llvm {
 
     bool useSoftFloat() const override;
 
+    bool supportsArgExtWidth() const override { return true; }
+
     bool hasSPE() const;
 
     MVT getScalarShiftAmountTy(const DataLayout &, EVT) const override {
