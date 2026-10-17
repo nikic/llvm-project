@@ -47,6 +47,7 @@ STATISTIC(NumSel, "Number of select opts");
 /// type.
 static bool addWithOverflow(APInt &Result, const APInt &In1, const APInt &In2,
                             bool IsSigned = false) {
+
   bool Overflow;
   if (IsSigned)
     Result = In1.sadd_ov(In2, Overflow);
