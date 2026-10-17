@@ -137,14 +137,12 @@ jobs:
           COMMIT=$(git commit-tree "$MERGE_SHA^{tree}" -p "$MERGE_SHA^1" -F "$RUNNER_TEMP/commit-msg")
           git show --stat "$COMMIT"
 
-          AUTH=$(printf 'x-access-token:%s' "$BOT_TOKEN" | base64 -w0)
-          echo "::add-mask::$AUTH"
           # As we only have a shallow clone, git doesn't know which objects
           # already exist in the fork, and would push the whole tree. Use
           # push.negotiate to determine common commits with the remote first.
-          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $AUTH" \
-              -c push.negotiate=true \
-              push --force --progress "https://github.com/$BOT_REPOSITORY.git" \
+          git -c push.negotiate=true \
+              push --force --progress \
+              "https://x-access-token:$BOT_TOKEN@github.com/$BOT_REPOSITORY.git" \
               "$COMMIT:refs/heads/perf/pr-$PR_NUMBER"
 
       - name: Thumbs up comment
