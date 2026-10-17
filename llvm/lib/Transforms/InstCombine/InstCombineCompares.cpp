@@ -4513,6 +4513,7 @@ Instruction *InstCombinerImpl::foldICmpInstWithConstantNotInt(ICmpInst &I) {
 
 Instruction *InstCombinerImpl::foldSelectICmp(CmpPredicate Pred, SelectInst *SI,
                                               Value *RHS, const ICmpInst &I) {
+
   // Try to fold the comparison into the select arms, which will cause the
   // select to be converted into a logical and/or.
   auto SimplifyOp = [&](Value *Op, bool SelectCondIsTrue) -> Value * {
