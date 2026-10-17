@@ -1,8 +1,7 @@
-# When /compile-time is commented on a PR, takes the test merge commit GitHub
-# creates for the PR, converts it into a single non-merge commit on top of main
-# and pushes it to a perf/pr-NNNNNN branch in the llvm-compile-time-bot fork,
-# where it will be picked up by the compile-time tracker
-# (https://llvm-compile-time-tracker.com).
+# Implements the /compile-time comment (usable by llvm-committers only).
+# The changes get pushed to a perf/pr-NNNNNN branch on the
+# llvm-compile-time-bot/llvm-project fork, which the compile-time tracker
+# will pick it up.
 
 name: Compile-time tracker
 
@@ -92,7 +91,7 @@ jobs:
               return;
             }
             if (!pr.mergeable) {
-              fail(`The PR has merge conflicts with \`${defaultBranch}\`, please rebase it.`);
+              fail(`The PR has merge conflicts with \`${defaultBranch}\`, please resolve them.`);
               return;
             }
 
@@ -134,6 +133,7 @@ jobs:
           git fetch --no-tags --progress --depth 2 --filter=blob:none \
             "https://github.com/$GITHUB_REPOSITORY.git" "$MERGE_SHA"
 
+          # Convert merge commit into a non-merge commit.
           COMMIT=$(git commit-tree "$MERGE_SHA^{tree}" -p "$MERGE_SHA^1" -F "$RUNNER_TEMP/commit-msg")
           git show --stat "$COMMIT"
 
