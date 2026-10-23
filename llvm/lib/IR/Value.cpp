@@ -684,10 +684,6 @@ static const Value *stripPointerCastsAndOffsets(
       V = cast<PHINode>(V)->getIncomingValue(0);
     } else {
       if (const auto *Call = dyn_cast<CallBase>(V)) {
-        if (const Value *RV = Call->getReturnedArgOperand()) {
-          V = RV;
-          continue;
-        }
         // The result of launder.invariant.group must alias it's argument,
         // but it can't be marked with returned attribute, that's why it needs
         // special case.
@@ -790,8 +786,6 @@ const Value *Value::stripAndAccumulateConstantOffsets(
       if (!GA->isInterposable())
         V = GA->getAliasee();
     } else if (const auto *Call = dyn_cast<CallBase>(V)) {
-      if (const Value *RV = Call->getReturnedArgOperand())
-        V = RV;
       if (AllowInvariantGroup &&
           Call->getIntrinsicID() == Intrinsic::launder_invariant_group)
         V = Call->getArgOperand(0);
