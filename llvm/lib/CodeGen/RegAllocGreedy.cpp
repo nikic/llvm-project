@@ -1345,10 +1345,58 @@ unsigned RAGreedy::calculateRegionSplitCost(const LiveInterval &VirtReg,
                                             unsigned &NumCands,
                                             bool IgnoreCSR) {
   unsigned BestCand = NoCand;
+
+  // The interference seen by a candidate is fully determined by the live
+  // segments of its register units and by the regmasks in the blocks where
+  // VirtReg is live. If a candidate has no unit segments anywhere in the slot
+  // range spanned by those blocks, its interference is determined by the
+  // regmasks alone, and two such candidates clobbered by the same regmasks have
+  // identical split costs. Only the first of them can become the best
+  // candidate, so skip the others.
+  SlotIndex Start, End;
+  SmallVector<const uint32_t *, 4> Masks;
+  SmallVector<MCRegister, 4> MaskOnlyRegs;
+  if (!VirtReg.empty()) {
+    Start = Indexes->getMBBStartIdx(LIS->getMBBFromIndex(VirtReg.beginIndex()));
+    End = Indexes->getMBBEndIdx(
+        LIS->getMBBFromIndex(VirtReg.endIndex().getPrevSlot()));
+    ArrayRef<SlotIndex> Slots = LIS->getRegMaskSlots();
+    ArrayRef<const uint32_t *> Bits = LIS->getRegMaskBits();
+    for (unsigned I = llvm::lower_bound(Slots, Start) - Slots.begin(),
+                  E = Slots.size();
+         I != E && Slots[I] < End; ++I)
+      if (!is_contained(Masks, Bits[I]))
+        Masks.push_back(Bits[I]);
+  }
+  auto IsMaskOnly = [&](MCRegister PhysReg) {
+    for (MCRegUnit Unit : TRI->regunits(PhysReg)) {
+      LiveIntervalUnion::SegmentIter SI =
+          Matrix->getLiveUnions()[static_cast<unsigned>(Unit)].find(Start);
+      if (SI.valid() && SI.start() < End)
+        return false;
+      if (LIS->getRegUnit(Unit).overlaps(Start, End))
+        return false;
+    }
+    return true;
+  };
+  auto SameMasks = [&](MCRegister A, MCRegister B) {
+    return all_of(Masks, [&](const uint32_t *M) {
+      return MachineOperand::clobbersPhysReg(M, A) ==
+             MachineOperand::clobbersPhysReg(M, B);
+    });
+  };
+
   for (MCRegister PhysReg : Order) {
     assert(PhysReg);
     if (IgnoreCSR && EvictAdvisor->getUnusedCalleeSavedReg(VirtReg, PhysReg))
       continue;
+
+    if (Start.isValid() && IsMaskOnly(PhysReg)) {
+      if (any_of(MaskOnlyRegs,
+                 [&](MCRegister R) { return SameMasks(R, PhysReg); }))
+        continue;
+      MaskOnlyRegs.push_back(PhysReg);
+    }
 
     calculateRegionSplitCostAroundReg(PhysReg, Order, BestCost, NumCands,
                                       BestCand);
