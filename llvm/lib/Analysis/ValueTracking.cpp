@@ -7355,8 +7355,6 @@ llvm::getArgumentAliasingToReturnedPointer(const CallBase *Call,
                                            bool MustPreserveProvenance) {
   assert(Call &&
          "getArgumentAliasingToReturnedPointer only works on nonnull calls");
-  if (const Value *RV = Call->getReturnedArgOperand())
-    return RV;
   // This can be used only as a aliasing property.
   if (isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(
           Call, MustPreserveOffset, MustPreserveProvenance))
@@ -7648,12 +7646,6 @@ AllocaInst *llvm::findAllocaForValue(Value *V, bool OffsetZero) {
       if (OffsetZero && !GEP->hasAllZeroIndices())
         return nullptr;
       AddWork(GEP->getPointerOperand());
-    } else if (CallBase *CB = dyn_cast<CallBase>(V)) {
-      Value *Returned = CB->getReturnedArgOperand();
-      if (Returned)
-        AddWork(Returned);
-      else
-        return nullptr;
     } else {
       return nullptr;
     }
