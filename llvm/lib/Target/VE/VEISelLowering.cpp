@@ -130,6 +130,8 @@ void VETargetLowering::initSPUActions() {
   setOperationAction(ISD::GlobalTLSAddress, PtrVT, Custom);
   setOperationAction(ISD::ConstantPool, PtrVT, Custom);
   setOperationAction(ISD::JumpTable, PtrVT, Custom);
+  // INSTRUCTION_POINTER is lowered to "sic %rd".
+  setOperationAction(ISD::INSTRUCTION_POINTER, PtrVT, Legal);
 
   /// VAARG handling {
   setOperationAction(ISD::VASTART, MVT::Other, Custom);

@@ -337,6 +337,12 @@ void VEAsmPrinter::emitInstruction(const MachineInstr *MI) {
   case VE::GETTLSADDR:
     lowerGETTLSAddrAndEmitMCInsts(MI, getSubtargetInfo());
     return;
+  case TargetOpcode::INSTRUCTION_POINTER: {
+    // "sic %rd" produces the address of the next instruction.
+    MCOperand RD = MCOperand::createReg(MI->getOperand(0).getReg());
+    emitSIC(*OutStreamer, RD, getSubtargetInfo());
+    return;
+  }
   }
 
   MachineBasicBlock::const_instr_iterator I = MI->getIterator();
