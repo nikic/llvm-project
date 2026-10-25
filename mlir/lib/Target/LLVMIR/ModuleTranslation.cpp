@@ -37,6 +37,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
+#include "llvm/IR/AutoUpgrade.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -2412,6 +2413,17 @@ void ModuleTranslation::convertIndirectBranches(LLVMFuncOp func) {
     for (auto [phi, value] : llvm::zip_equal(dest->phis(), operands))
       phi.addIncoming(value, dispatch->getParent());
   }
+
+  // The dispatch block makes goto targets reachable from llvm.indirectbr
+  // operations that don't list them, so values may no longer dominate their
+  // uses.
+  if (indirectBranches.size() > 1 &&
+      llvm::any_of(indirectBranches, [&](auto &indBr) {
+        return llvm::any_of(caseBlocks, [&](Block *block) {
+          return !llvm::is_contained(indBr.first->getSuccessors(), block);
+        });
+      }))
+    llvm::repairIndirectBrDispatchDominance(*llvmFunc);
 }
 
 LogicalResult ModuleTranslation::convertUnresolvedBlockAddress() {

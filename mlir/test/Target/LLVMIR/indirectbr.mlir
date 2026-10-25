@@ -150,3 +150,37 @@ llvm.func @no_indirectbr() -> !llvm.ptr {
   llvm.blocktag <id = 0>
   llvm.return %0 : !llvm.ptr
 }
+
+// -----
+
+// The dispatch block makes ^bb3 reachable from the llvm.indirectbr in ^bb2,
+// which doesn't list it: %0 gets a PHI node in the dispatch block, with
+// poison from ^bb2.
+
+// CHECK-LABEL: define i32 @dispatch_dominance(
+// CHECK-SAME: i1 %[[C:.*]], ptr %[[P:.*]], ptr %[[Q:.*]], i32 %[[V:.*]])
+llvm.func @dispatch_dominance(%c: i1, %p: !llvm.ptr, %q: !llvm.ptr, %v: i32) -> i32 {
+  llvm.cond_br %c, ^bb1, ^bb2
+^bb1:
+  // CHECK: %[[ADD:.*]] = add i32 %[[V]], %[[V]]
+  // CHECK-NEXT: br label %[[DISPATCH:.*]]
+  %0 = llvm.add %v, %v : i32
+  llvm.indirectbr %p : !llvm.ptr, [
+  ^bb3
+  ]
+^bb2:
+  llvm.indirectbr %q : !llvm.ptr, [
+  ^bb4
+  ]
+^bb3:
+  // CHECK: ret i32 %[[ADD_DISPATCH:.*]]
+  llvm.blocktag <id = 0>
+  llvm.return %0 : i32
+^bb4:
+  llvm.blocktag <id = 1>
+  llvm.return %v : i32
+// CHECK: [[DISPATCH]]:
+// CHECK-NEXT: %[[ADD_DISPATCH]] = phi i32 [ poison, %{{.*}} ], [ %[[ADD]], %{{.*}} ]
+// CHECK-NEXT: %[[ADDR:.*]] = phi ptr [ %[[Q]], %{{.*}} ], [ %[[P]], %{{.*}} ]
+// CHECK-NEXT: indirectswitch ptr %[[ADDR]], [
+}
