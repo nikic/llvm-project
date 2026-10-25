@@ -242,6 +242,10 @@ HANDLE_TARGET_OPCODE(JUMP_TABLE_DEBUG_INFO)
 // Issue a no-op relocation against a given symbol at the current location.
 HANDLE_TARGET_OPCODE(RELOC_NONE)
 
+/// Materialize an approximation of the address of the current instruction.
+/// Lowered by the target's AsmPrinter.
+HANDLE_TARGET_OPCODE(INSTRUCTION_POINTER)
+
 HANDLE_TARGET_OPCODE(CONVERGENCECTRL_ENTRY)
 HANDLE_TARGET_OPCODE(CONVERGENCECTRL_ANCHOR)
 HANDLE_TARGET_OPCODE(CONVERGENCECTRL_LOOP)

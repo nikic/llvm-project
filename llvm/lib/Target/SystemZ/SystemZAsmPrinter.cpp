@@ -481,6 +481,17 @@ void SystemZAsmPrinter::emitInstruction(const MachineInstr *MI) {
     }
     break;
 
+    case TargetOpcode::INSTRUCTION_POINTER: {
+      // Emit "larl %rN, ." using a temp label before the instruction, which
+      // produces the address of the larl instruction itself.
+      MCSymbol *DotSym = OutContext.createTempSymbol();
+      OutStreamer->emitLabel(DotSym);
+      LoweredMI = MCInstBuilder(SystemZ::LARL)
+                      .addReg(MI->getOperand(0).getReg())
+                      .addExpr(MCSymbolRefExpr::create(DotSym, OutContext));
+      break;
+    }
+
   case TargetOpcode::PATCHABLE_FUNCTION_EXIT:
     llvm_unreachable("PATCHABLE_FUNCTION_EXIT should never be emitted");
 

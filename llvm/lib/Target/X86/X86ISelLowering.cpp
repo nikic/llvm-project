@@ -403,6 +403,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   }
 
   setOperationAction(ISD::READCYCLECOUNTER , MVT::i64  , Custom);
+  // INSTRUCTION_POINTER is lowered to "lea 0(%rip)" in 64-bit mode and to a
+  // call/pop sequence in 32-bit mode.
+  setOperationAction(ISD::INSTRUCTION_POINTER, PtrVT, Legal);
 
   if (!Subtarget.hasMOVBE())
     setOperationAction(ISD::BSWAP          , MVT::i16  , Expand);

@@ -54,6 +54,10 @@ void ARMBasicBlockUtils::computeBlockSize(MachineBasicBlock *MBB) {
     // The actual size may be smaller, but still a multiple of the instr size.
     if (I.isInlineAsm())
       BBI.Unalign = isThumb ? 1 : 2;
+    // In Thumb1, INSTRUCTION_POINTER contains an alignment directive, so its
+    // size may be 2 bytes smaller than the reported worst case.
+    else if (isThumb1Only && I.getOpcode() == TargetOpcode::INSTRUCTION_POINTER)
+      BBI.Unalign = 1;
     // Also consider instructions that may be shrunk later.
     else if (isThumb && mayOptimizeThumb2Instruction(&I))
       BBI.Unalign = 1;

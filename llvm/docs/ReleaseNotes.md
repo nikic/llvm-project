@@ -77,6 +77,10 @@ Makes programs 10x faster by doing Special New Thing.
   `llvm.minimumnum`.
 * Added `llvm.smulh` and `llvm.umulh` intrinsics for signed and unsigned
   multiply returning the high-order half of the 2N-bit product of iN operands.
+* Added the `llvm.instruction.pointer` intrinsic, which returns an
+  approximation of the address of the current instruction. It is intended as
+  a replacement for taking the address of a label that is not used by an
+  `indirectbr`, for example in the Linux kernel's `_THIS_IP_` macro.
 * Added `nofreeobj` attribute for attributes and returns, which forbids
   freeing the underlying object (as opposed to only frees through that specific
   pointer). Renamed `!nofree` metadata to `!nofreeobj`, as it has the same

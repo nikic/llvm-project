@@ -7515,6 +7515,14 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
           "llvm.sponentry must return a pointer to the stack", &Call);
     break;
   }
+  case Intrinsic::instruction_pointer: {
+    const Type *RetTy = Call.getFunctionType()->getReturnType();
+    Check(RetTy->getPointerAddressSpace() == DL.getProgramAddressSpace(),
+          "llvm.instruction.pointer must return a pointer in the program "
+          "address space",
+          &Call);
+    break;
+  }
   case Intrinsic::write_volatile_register: {
     auto *MD = cast<MDNode>(
         cast<MetadataAsValue>(Call.getArgOperand(0))->getMetadata());

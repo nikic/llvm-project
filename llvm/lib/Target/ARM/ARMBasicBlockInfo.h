@@ -111,6 +111,7 @@ class ARMBasicBlockUtils {
 private:
   MachineFunction &MF;
   bool isThumb = false;
+  bool isThumb1Only = false;
   const ARMBaseInstrInfo *TII = nullptr;
   SmallVector<BasicBlockInfo, 8> BBInfo;
 
@@ -119,6 +120,7 @@ public:
     TII =
       static_cast<const ARMBaseInstrInfo*>(MF.getSubtarget().getInstrInfo());
     isThumb = MF.getInfo<ARMFunctionInfo>()->isThumbFunction();
+    isThumb1Only = MF.getInfo<ARMFunctionInfo>()->isThumb1OnlyFunction();
   }
 
   void computeAllBlockSizes() {

@@ -410,6 +410,12 @@ void RISCVAsmPrinter::emitInstruction(const MachineInstr *MI) {
   case RISCV::HWASAN_CHECK_MEMACCESS_SHORTGRANULES:
     LowerHWASAN_CHECK_MEMACCESS(*MI);
     return;
+  case TargetOpcode::INSTRUCTION_POINTER:
+    // "auipc rd, 0" produces the address of the auipc instruction itself.
+    EmitToStreamer(*OutStreamer, MCInstBuilder(RISCV::AUIPC)
+                                     .addReg(MI->getOperand(0).getReg())
+                                     .addImm(0));
+    return;
   case RISCV::KCFI_CHECK:
     LowerKCFI_CHECK(*MI);
     return;

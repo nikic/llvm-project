@@ -628,6 +628,10 @@ unsigned ARMBaseInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
   case TargetOpcode::PATCHABLE_TAIL_CALL:
     // Size of xray sled: Branch + 6 nops.
     return 28;
+  case TargetOpcode::INSTRUCTION_POINTER:
+    // ARM/Thumb2: adr or adr.w. Thumb1: adr followed by an alignment to 4
+    // bytes, which is 2 or 4 bytes in total. Report the worst case.
+    return 4;
   case ARM::CONSTPOOL_ENTRY:
   case ARM::JUMPTABLE_INSTS:
   case ARM::JUMPTABLE_ADDRS:

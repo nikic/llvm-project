@@ -1574,6 +1574,16 @@ def RELOC_NONE : StandardPseudoInstruction {
   let hasSideEffects = true;
   let isMeta = true;
 }
+// Materialize an approximation of the address of the current instruction.
+// This is modeled as having side effects so that it does not get CSEd,
+// hoisted, sunk or rematerialized. Targets that support it must lower it in
+// their AsmPrinter and report its size in getInstSizeInBytes().
+def INSTRUCTION_POINTER : StandardPseudoInstruction {
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins);
+  let AsmString = "";
+  let hasSideEffects = true;
+}
 
 let hasSideEffects = false, isMeta = true, isConvergent = true in {
 def CONVERGENCECTRL_ANCHOR : StandardPseudoInstruction {

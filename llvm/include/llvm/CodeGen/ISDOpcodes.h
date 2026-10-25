@@ -128,6 +128,12 @@ enum NodeType {
   /// used by called functions.
   STACKADDRESS,
 
+  /// INSTRUCTION_POINTER - Represents the llvm.instruction.pointer intrinsic.
+  /// Takes a chain as the only operand and produces a pointer value and a
+  /// chain. The pointer is an approximation of the address of the current
+  /// instruction.
+  INSTRUCTION_POINTER,
+
   /// LOCAL_RECOVER - Represents the llvm.localrecover intrinsic.
   /// Materializes the offset from the local object pointer of another
   /// function to a particular local object passed to llvm.localescape. The

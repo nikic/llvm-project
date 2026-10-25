@@ -418,6 +418,9 @@ SystemZTargetLowering::SystemZTargetLowering(const TargetMachine &TM,
   // Handle readcyclecounter with STCKF.
   setOperationAction(ISD::READCYCLECOUNTER, MVT::i64, Custom);
 
+  // Handle instruction pointer with LARL.
+  setOperationAction(ISD::INSTRUCTION_POINTER, MVT::i64, Legal);
+
   for (MVT VT : MVT::fixedlen_vector_valuetypes()) {
     // Assume by default that all vector operations need to be expanded.
     for (unsigned Opcode = 0; Opcode < ISD::BUILTIN_OP_END; ++Opcode)

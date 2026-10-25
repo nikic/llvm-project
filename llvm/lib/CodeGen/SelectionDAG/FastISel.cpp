@@ -1421,6 +1421,16 @@ bool FastISel::selectIntrinsicCall(const IntrinsicInst *II) {
     updateValueMap(II, ResultReg);
     return true;
   }
+  case Intrinsic::instruction_pointer: {
+    EVT VT = TLI.getValueType(DL, II->getType());
+    if (!TLI.isOperationLegal(ISD::INSTRUCTION_POINTER, VT))
+      return false;
+    Register ResultReg = createResultReg(TLI.getRegClassFor(VT.getSimpleVT()));
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD,
+            TII.get(TargetOpcode::INSTRUCTION_POINTER), ResultReg);
+    updateValueMap(II, ResultReg);
+    return true;
+  }
   case Intrinsic::fake_use: {
     const Value *V = II->getArgOperand(0);
     if (Register Reg = getRegForValue(V))

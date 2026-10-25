@@ -1444,6 +1444,11 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
 
   setOperationAction(ISD::READCYCLECOUNTER, MVT::i64, isPPC64 ? Legal : Custom);
 
+  // INSTRUCTION_POINTER is lowered to a "bcl 20, 31, $+4; mflr" sequence,
+  // which clobbers LR.
+  setOperationAction(ISD::INSTRUCTION_POINTER, isPPC64 ? MVT::i64 : MVT::i32,
+                     Custom);
+
   if (!isPPC64) {
     setOperationAction(ISD::ATOMIC_LOAD,  MVT::i64, Expand);
     setOperationAction(ISD::ATOMIC_STORE, MVT::i64, Expand);
@@ -13069,6 +13074,14 @@ SDValue PPCTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
 
   // Frame & Return address.
   case ISD::RETURNADDR:         return LowerRETURNADDR(Op, DAG);
+  case ISD::INSTRUCTION_POINTER: {
+    EVT VT = Op.getValueType();
+    unsigned Opc = VT == MVT::i64 ? PPC::GetInstructionPointer8
+                                  : PPC::GetInstructionPointer;
+    return SDValue(
+        DAG.getMachineNode(Opc, SDLoc(Op), VT, MVT::Other, Op.getOperand(0)),
+        0);
+  }
   case ISD::FRAMEADDR:          return LowerFRAMEADDR(Op, DAG);
 
   case ISD::INTRINSIC_VOID:

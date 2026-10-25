@@ -2448,6 +2448,23 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
   case X86::TLS_desc64:
     return LowerTlsAddr(MCInstLowering, *MI);
 
+  case TargetOpcode::INSTRUCTION_POINTER:
+    if (Subtarget->is64Bit()) {
+      // "lea 0(%rip)" produces the address of the next instruction.
+      unsigned Opc =
+          Subtarget->isTarget64BitLP64() ? X86::LEA64r : X86::LEA64_32r;
+      EmitAndCountInstruction(MCInstBuilder(Opc)
+                                  .addReg(MI->getOperand(0).getReg())
+                                  .addReg(X86::RIP)
+                                  .addImm(1)
+                                  .addReg(0)
+                                  .addImm(0)
+                                  .addReg(0));
+      return;
+    }
+    // In 32-bit mode, use the same call/pop sequence as MOVPC32r, but with a
+    // temporary label instead of the PIC base.
+    [[fallthrough]];
   case X86::MOVPC32r: {
     // This is a pseudo op for a two instruction sequence with a label, which
     // looks like:
@@ -2456,7 +2473,9 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
     //     popl %esi
 
     // Emit the call.
-    MCSymbol *PICBase = MF->getPICBaseSymbol();
+    MCSymbol *PICBase = MI->getOpcode() == X86::MOVPC32r
+                            ? MF->getPICBaseSymbol()
+                            : OutContext.createTempSymbol();
     // FIXME: We would like an efficient form for this, so we don't have to do a
     // lot of extra uniquing.
     EmitAndCountInstruction(

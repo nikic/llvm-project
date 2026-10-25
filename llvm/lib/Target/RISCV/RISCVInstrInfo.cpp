@@ -2189,6 +2189,9 @@ unsigned RISCVInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
     return get(MI.getOperand(MI.getNumExplicitOperands() - 3).getImm())
                .getSize() +
            6;
+  case TargetOpcode::INSTRUCTION_POINTER:
+    // auipc rd, 0
+    return 4;
   case TargetOpcode::STACKMAP:
     // The upper bound for a stackmap intrinsic is the full length of its shadow
     return StackMapOpers(&MI).getNumPatchBytes();

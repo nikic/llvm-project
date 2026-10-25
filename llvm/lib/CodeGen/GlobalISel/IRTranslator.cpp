@@ -3079,6 +3079,15 @@ bool IRTranslatorImpl::translateKnownIntrinsic(const CallInst &CI,
     MIRBuilder.buildInstr(Op).addFrameIndex(getOrCreateFrameIndex(*AI));
     return true;
   }
+  case Intrinsic::instruction_pointer: {
+    EVT VT = TLI->getValueType(*DL, CI.getType());
+    if (!TLI->isOperationLegal(ISD::INSTRUCTION_POINTER, VT))
+      return false;
+    Register Dst = getOrCreateVReg(CI);
+    MRI->setRegClass(Dst, TLI->getRegClassFor(VT.getSimpleVT()));
+    MIRBuilder.buildInstr(TargetOpcode::INSTRUCTION_POINTER, {Dst}, {});
+    return true;
+  }
   case Intrinsic::fake_use: {
     SmallVector<llvm::SrcOp, 4> VRegs;
     for (const auto &Arg : CI.args())

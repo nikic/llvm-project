@@ -3495,6 +3495,12 @@ void AArch64AsmPrinter::emitInstruction(const MachineInstr *MI) {
     assert(!AArch64InstrInfo::isTailCallReturnInst(*MI) &&
            "Unhandled tail call instruction");
     break;
+  case TargetOpcode::INSTRUCTION_POINTER:
+    // "adr xN, #0" produces the address of the adr instruction itself.
+    EmitToStreamer(*OutStreamer, MCInstBuilder(AArch64::ADR)
+                                     .addReg(MI->getOperand(0).getReg())
+                                     .addImm(0));
+    return;
   case AArch64::READ_REGISTER_GPR64:
     // Read of a named GPR: emit "mov Xt, Xn" (ORR Xt, XZR, Xn). The source
     // register is encoded as an immediate operand so that earlier passes do not

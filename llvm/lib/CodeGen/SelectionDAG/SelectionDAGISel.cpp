@@ -2598,6 +2598,12 @@ void SelectionDAGISel::Select_MEMBARRIER(SDNode *N) {
                        N->getOperand(0));
 }
 
+void SelectionDAGISel::Select_INSTRUCTION_POINTER(SDNode *N) {
+  SDValue Chain = N->getOperand(0);
+  CurDAG->SelectNodeTo(N, TargetOpcode::INSTRUCTION_POINTER, N->getVTList(),
+                       Chain);
+}
+
 void SelectionDAGISel::Select_CONVERGENCECTRL_ANCHOR(SDNode *N) {
   CurDAG->SelectNodeTo(N, TargetOpcode::CONVERGENCECTRL_ANCHOR,
                        N->getValueType(0));
@@ -3419,6 +3425,9 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
     return;
   case ISD::MEMBARRIER:
     Select_MEMBARRIER(NodeToMatch);
+    return;
+  case ISD::INSTRUCTION_POINTER:
+    Select_INSTRUCTION_POINTER(NodeToMatch);
     return;
   case ISD::STACKMAP:
     Select_STACKMAP(NodeToMatch);

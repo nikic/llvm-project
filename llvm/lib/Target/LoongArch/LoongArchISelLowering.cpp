@@ -109,6 +109,8 @@ LoongArchTargetLowering::LoongArchTargetLowering(const TargetMachine &TM,
 
   setOperationAction(ISD::SHL_PARTS, GRLenVT, Custom);
   setOperationAction(ISD::SRA_PARTS, GRLenVT, Custom);
+  // INSTRUCTION_POINTER is selected to "pcaddu12i rd, 0".
+  setOperationAction(ISD::INSTRUCTION_POINTER, GRLenVT, Legal);
   setOperationAction(ISD::SRL_PARTS, GRLenVT, Custom);
   setOperationAction(ISD::FP_TO_SINT, GRLenVT, Custom);
   if (Subtarget.hasBasicF())

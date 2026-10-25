@@ -1042,6 +1042,9 @@ ARMTargetLowering::ARMTargetLowering(const TargetMachine &TM_,
   if (Subtarget->hasPerfMon())
     setOperationAction(ISD::READCYCLECOUNTER, MVT::i64, Custom);
 
+  // INSTRUCTION_POINTER is lowered to an adr of a nearby label.
+  setOperationAction(ISD::INSTRUCTION_POINTER, MVT::i32, Legal);
+
   // Only ARMv6 has BSWAP.
   if (!Subtarget->hasV6Ops())
     setOperationAction(ISD::BSWAP, MVT::i32, Expand);

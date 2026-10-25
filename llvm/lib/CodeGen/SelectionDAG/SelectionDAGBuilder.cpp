@@ -6915,6 +6915,14 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
              DAG.getNode(ISD::SPONENTRY, sdl,
                          TLI.getValueType(DAG.getDataLayout(), I.getType())));
     return;
+  case Intrinsic::instruction_pointer: {
+    EVT VT = TLI.getValueType(DAG.getDataLayout(), I.getType());
+    Res = DAG.getNode(ISD::INSTRUCTION_POINTER, sdl,
+                      DAG.getVTList(VT, MVT::Other), getRoot());
+    setValue(&I, Res);
+    DAG.setRoot(Res.getValue(1));
+    return;
+  }
   case Intrinsic::frameaddress:
     setValue(&I, DAG.getNode(ISD::FRAMEADDR, sdl,
                              TLI.getFrameIndexTy(DAG.getDataLayout()),

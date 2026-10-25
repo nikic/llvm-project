@@ -1633,6 +1633,10 @@ let Defs = [LR] in
 let Defs = [LR] in
   def MoveGOTtoLR : PPCEmitTimePseudo<(outs), (ins), "#MoveGOTtoLR", []>,
                     PPC970_Unit_BRU;
+// Expands to "bcl 20, 31, $+4; mflr $rD", producing the address of the mflr.
+let Defs = [LR], hasSideEffects = 1, Size = 8 in
+  def GetInstructionPointer : PPCEmitTimePseudo<(outs gprc:$rD), (ins),
+                                                "#GetInstructionPointer", []>;
 
 let isBranch = 1, isTerminator = 1, hasCtrlDep = 1, PPC970_Unit = 7,
     hasSideEffects = 0 in {

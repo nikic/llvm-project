@@ -2032,6 +2032,39 @@ void ARMAsmPrinter::emitInstruction(const MachineInstr *MI) {
       .addReg(MI->getOperand(3).getReg()));
     return;
   }
+  case TargetOpcode::INSTRUCTION_POINTER: {
+    MCSymbol *Label = OutContext.createTempSymbol();
+    if (AFI->isThumb1OnlyFunction()) {
+      // Thumb1 adr can only reference word-aligned labels at non-negative
+      // offsets from Align(PC, 4), where PC is the address of the adr plus 4.
+      // Emit "adr rd, 1f; .p2align 2; 1:", which always has an offset of zero
+      // and produces the address of the next instruction. The alignment pads
+      // with a 2-byte nop if the adr is not word-aligned.
+      assert(ARM::tGPRRegClass.contains(MI->getOperand(0).getReg()) &&
+             "Thumb1 adr requires a low register");
+      EmitToStreamer(*OutStreamer,
+                     MCInstBuilder(ARM::tADR)
+                         .addReg(MI->getOperand(0).getReg())
+                         .addExpr(MCSymbolRefExpr::create(Label, OutContext))
+                         // Add predicate operands.
+                         .addImm(ARMCC::AL)
+                         .addReg(0));
+      OutStreamer->emitCodeAlignment(Align(4), getSubtargetInfo());
+      OutStreamer->emitLabel(Label);
+      return;
+    }
+    // Emit "adr rd, ." with a label on the adr itself, which produces the
+    // address of the adr instruction.
+    OutStreamer->emitLabel(Label);
+    EmitToStreamer(*OutStreamer,
+                   MCInstBuilder(AFI->isThumbFunction() ? ARM::t2ADR : ARM::ADR)
+                       .addReg(MI->getOperand(0).getReg())
+                       .addExpr(MCSymbolRefExpr::create(Label, OutContext))
+                       // Add predicate operands.
+                       .addImm(ARMCC::AL)
+                       .addReg(0));
+    return;
+  }
   case ARM::LEApcrelJT:
   case ARM::tLEApcrelJT:
   case ARM::t2LEApcrelJT: {

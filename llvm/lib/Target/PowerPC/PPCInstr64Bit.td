@@ -75,6 +75,10 @@ let isTerminator = 1, isBarrier = 1, PPC970_Unit = 7, hasSideEffects = 0 in {
 let Defs = [LR8] in
   def MovePCtoLR8 : PPCEmitTimePseudo<(outs), (ins), "#MovePCtoLR8", []>,
                     PPC970_Unit_BRU;
+// Expands to "bcl 20, 31, $+4; mflr $rD", producing the address of the mflr.
+let Defs = [LR8], hasSideEffects = 1, Size = 8 in
+  def GetInstructionPointer8 : PPCEmitTimePseudo<(outs g8rc:$rD), (ins),
+                                                 "#GetInstructionPointer8", []>;
 
 let isBranch = 1, isTerminator = 1, hasCtrlDep = 1, PPC970_Unit = 7, hasSideEffects = 0 in {
   let Defs = [CTR8], Uses = [CTR8] in {

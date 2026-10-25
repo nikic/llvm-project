@@ -2157,6 +2157,10 @@ TargetInstrInfo::getOutliningType(const MachineModuleInfo &MMI,
   if (MI.isLabel())
     return outliner::InstrType::Illegal;
 
+  // The instruction pointer must refer to the current function.
+  if (MI.getOpcode() == TargetOpcode::INSTRUCTION_POINTER)
+    return outliner::InstrType::Illegal;
+
   // Don't let debug instructions impact analysis.
   if (MI.isDebugInstr())
     return outliner::InstrType::Invisible;

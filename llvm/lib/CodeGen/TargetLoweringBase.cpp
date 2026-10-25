@@ -992,6 +992,10 @@ void TargetLoweringBase::initActions() {
   // Most targets also ignore the @llvm.readsteadycounter intrinsic.
   setOperationAction(ISD::READSTEADYCOUNTER, MVT::i64, Expand);
 
+  // @llvm.instruction.pointer requires explicit target support.
+  for (MVT VT : MVT::integer_valuetypes())
+    setOperationAction(ISD::INSTRUCTION_POINTER, VT, Expand);
+
   // ConstantFP nodes default to expand.  Targets can either change this to
   // Legal, in which case all fp constants are legal, or use isFPImmLegal()
   // to optimize expansions for certain constants.

@@ -15272,6 +15272,40 @@ Note that calling this intrinsic does not prevent function inlining or
 other aggressive transformations, so the value returned may not be that
 of the obvious source-language caller.
 
+#### '`llvm.instruction.pointer`' Intrinsic
+
+##### Syntax:
+
+This is an overloaded intrinsic. The result must be a pointer in the program
+address space.
+
+```
+declare ptr @llvm.instruction.pointer.p0()
+```
+
+##### Overview:
+
+The '`llvm.instruction.pointer`' intrinsic returns an approximation of the
+address of the current instruction, i.e. of the program counter at the
+location of the call.
+
+##### Semantics:
+
+The returned value is a best-effort approximation: It points into the machine
+code of the function that contains the call (after inlining), near the code
+generated for the call site. No guarantees are made about the exact address
+returned, and it is not valid to transfer control to it. This intrinsic is
+intended for diagnostic purposes, such as identifying the code location that
+performed some operation.
+
+The intrinsic is modeled as reading and writing inaccessible memory, so that
+multiple calls are not combined, and calls are not moved across other
+operations with side effects. However, a call whose result is unused may be
+removed.
+
+This intrinsic is only supported on some targets, including AArch64, ARM,
+LoongArch, PowerPC, RISC-V, SystemZ and x86.
+
 #### '`llvm.swift.async.context.addr`' Intrinsic
 
 ##### Syntax:

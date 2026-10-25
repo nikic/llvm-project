@@ -1004,6 +1004,12 @@ def int_frameaddress : DefaultAttrsIntrinsic<[llvm_anyptr_ty], [llvm_i32_ty],
                                  [IntrNoMem, ImmArg<ArgIndex<0>>]>;
 def int_sponentry  : DefaultAttrsIntrinsic<[llvm_anyptr_ty], [], [IntrNoMem]>;
 def int_stackaddress : DefaultAttrsIntrinsic<[llvm_anyptr_ty], [], []>;
+// Returns a best-effort approximation of the address of the current
+// instruction. Modeled as accessing inaccessible memory to prevent CSE and
+// code motion, but deleted if unused.
+def int_instruction_pointer
+    : DefaultAttrsIntrinsic<[llvm_anyptr_ty], [],
+                            [IntrInaccessibleMemOnly, NoUndef<RetIndex>]>;
 def int_read_register  : DefaultAttrsIntrinsic<[llvm_anyint_ty],
                              [llvm_metadata_ty], [IntrReadMem],
                              "llvm.read_register">;

@@ -997,6 +997,25 @@ void PPCAsmPrinter::emitInstruction(const MachineInstr *MI) {
     OutStreamer->emitLabel(PICBase);
     return;
   }
+  case PPC::GetInstructionPointer:
+  case PPC::GetInstructionPointer8: {
+    // Transform %rd = GetInstructionPointer
+    // Into:
+    //     bcl 20, 31, .Ltmp
+    // .Ltmp:
+    //     mflr %rd
+    MCSymbol *Label = OutContext.createTempSymbol();
+    EmitToStreamer(*OutStreamer,
+                   MCInstBuilder(PPC::BCLalways)
+                       .addExpr(MCSymbolRefExpr::create(Label, OutContext)));
+    OutStreamer->emitLabel(Label);
+    EmitToStreamer(*OutStreamer,
+                   MCInstBuilder(MI->getOpcode() == PPC::GetInstructionPointer8
+                                     ? PPC::MFLR8
+                                     : PPC::MFLR)
+                       .addReg(MI->getOperand(0).getReg()));
+    return;
+  }
   case PPC::UpdateGBR: {
     // Transform %rd = UpdateGBR(%rt, %ri)
     // Into: lwz %rt, .L0$poff - .L0$pb(%ri)

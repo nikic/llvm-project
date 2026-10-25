@@ -1856,6 +1856,8 @@ unsigned SystemZInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
     return MI.getOperand(1).getImm();
   else if (MI.getOpcode() == SystemZ::FENTRY_CALL)
     return 6;
+  else if (MI.getOpcode() == TargetOpcode::INSTRUCTION_POINTER)
+    return 6; // larl
   if (MI.getOpcode() == TargetOpcode::PATCHABLE_FUNCTION_ENTER)
     return 18;
   if (MI.getOpcode() == TargetOpcode::PATCHABLE_RET)

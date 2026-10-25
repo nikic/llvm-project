@@ -68,6 +68,13 @@ void LoongArchAsmPrinter::emitInstruction(const MachineInstr *MI) {
   }
 
   switch (MI->getOpcode()) {
+  case TargetOpcode::INSTRUCTION_POINTER:
+    // "pcaddu12i rd, 0" produces the address of the pcaddu12i instruction
+    // itself.
+    EmitToStreamer(*OutStreamer, MCInstBuilder(LoongArch::PCADDU12I)
+                                     .addReg(MI->getOperand(0).getReg())
+                                     .addImm(0));
+    return;
   case TargetOpcode::STATEPOINT:
     LowerSTATEPOINT(*MI);
     return;

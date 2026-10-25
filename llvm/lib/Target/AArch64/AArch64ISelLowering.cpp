@@ -1011,6 +1011,9 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
   // Lower READCYCLECOUNTER using an mrs from CNTVCT_EL0.
   setOperationAction(ISD::READCYCLECOUNTER, MVT::i64, Legal);
 
+  // Lower INSTRUCTION_POINTER using "adr xN, #0".
+  setOperationAction(ISD::INSTRUCTION_POINTER, MVT::i64, Legal);
+
   // Issue __sincos_stret if available.
   setOperationAction(ISD::FSINCOS, MVT::f64, Expand);
   setOperationAction(ISD::FSINCOS, MVT::f32, Expand);

@@ -332,6 +332,9 @@ unsigned LoongArchInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
   switch (Desc.getOpcode()) {
   default:
     return Desc.getSize();
+  case TargetOpcode::INSTRUCTION_POINTER:
+    // pcaddu12i rd, 0
+    return 4;
   case TargetOpcode::STATEPOINT:
     NumBytes = StatepointOpers(&MI).getNumPatchBytes();
     assert(NumBytes % 4 == 0 && "Invalid number of NOP bytes requested!");

@@ -3819,6 +3819,13 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
           DAG.getMachineFunction().getFunction(), dl.getDebugLoc()));
     }
     break;
+  case ISD::INSTRUCTION_POINTER:
+    Results.push_back(DAG.getUNDEF(Node->getValueType(0)));
+    Results.push_back(Node->getOperand(0));
+    DAG.getContext()->diagnose(DiagnosticInfoLegalizationFailure(
+        "llvm.instruction.pointer is not supported on this target.",
+        DAG.getMachineFunction().getFunction(), dl.getDebugLoc()));
+    break;
   case ISD::STACKRESTORE:
     // Expand to CopyToReg if the target set
     // StackPointerRegisterToSaveRestore.

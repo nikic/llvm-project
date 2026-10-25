@@ -885,6 +885,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::READSTEADYCOUNTER, MVT::i64,
                      Subtarget.is64Bit() ? Legal : Custom);
 
+  // INSTRUCTION_POINTER is selected to "auipc rd, 0".
+  setOperationAction(ISD::INSTRUCTION_POINTER, XLenVT, Legal);
+
   if (Subtarget.is64Bit()) {
     setOperationAction(ISD::INIT_TRAMPOLINE, MVT::Other, Custom);
     setOperationAction(ISD::ADJUST_TRAMPOLINE, MVT::Other, Custom);
