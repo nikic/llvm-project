@@ -28,10 +28,10 @@ define dso_local range(i32 2, 4) i32 @bar(i32 noundef %a) local_unnamed_addr{
 entry:
   %tgt = alloca ptr, align 8
   %tobool.not = icmp eq i32 %a, 0
-  %. = select i1 %tobool.not, ptr blockaddress(@bar, %l2), ptr blockaddress(@bar, %l1)
+  %. = select i1 %tobool.not, ptr edgeaddress(@bar, 1), ptr edgeaddress(@bar, 0)
   store volatile ptr %., ptr %tgt, align 8
   %tgt.0.tgt.0.tgt.0.tgt.0. = load volatile ptr, ptr %tgt, align 8
-  indirectbr ptr %tgt.0.tgt.0.tgt.0.tgt.0., [label %l1, label %l2]
+  indirectswitch ptr %tgt.0.tgt.0.tgt.0.tgt.0., [ ptr edgeaddress(@bar, 0), label %l1 ptr edgeaddress(@bar, 1), label %l2 ]
 
 l1:                                               ; preds = %entry
   br label %l2

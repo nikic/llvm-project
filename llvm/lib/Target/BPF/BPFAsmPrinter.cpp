@@ -88,8 +88,9 @@ bool BPFAsmPrinter::doFinalization(Module &M) {
       if (!CA)
         continue;
 
-      if (!all_of(CA->operands(),
-                  [](const Use &Op) { return isa<BlockAddress>(Op); }))
+      if (!all_of(CA->operands(), [](const Use &Op) {
+            return BPF::getJumpTableEntryTarget(Op);
+          }))
         continue;
       Targets.push_back(&Global);
     }

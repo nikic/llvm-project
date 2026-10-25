@@ -14,7 +14,7 @@
 ; CHECK:       .Lkfuncs:
 ; CHECK:       .size .Lkfuncs, 16
 
-@__const.foo.jt = private unnamed_addr constant [2 x ptr] [ptr blockaddress(@foo, %l1), ptr blockaddress(@foo, %l2)], align 8
+@__const.foo.jt = private unnamed_addr constant [2 x ptr] [ptr edgeaddress(@foo, 0), ptr edgeaddress(@foo, 1)], align 8
 @kfuncs = private unnamed_addr constant [2 x ptr] [ptr @ext1, ptr @ext2], align 8
 
 declare void @ext1()
@@ -26,7 +26,7 @@ entry:
   %idx = zext nneg i32 %rem to i64
   %g = getelementptr inbounds nuw [2 x ptr], ptr @__const.foo.jt, i64 0, i64 %idx
   %t = load ptr, ptr %g, align 8
-  indirectbr ptr %t, [label %l1, label %l2]
+  indirectswitch ptr %t, [ ptr edgeaddress(@foo, 0), label %l1 ptr edgeaddress(@foo, 1), label %l2 ]
 l1:
   br label %l2
 l2:

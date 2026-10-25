@@ -21,7 +21,7 @@
 
 .ifdef GEN
 ;--- test.ll
-@__const.foo.jt1 = private unnamed_addr constant [2 x ptr] [ptr blockaddress(@foo, %l1), ptr blockaddress(@foo, %l2)], align 8
+@__const.foo.jt1 = private unnamed_addr constant [2 x ptr] [ptr edgeaddress(@foo, 0), ptr edgeaddress(@foo, 1)], align 8
 
 define dso_local range(i32 3, 5) i32 @foo(i32 noundef %a) local_unnamed_addr {
 entry:
@@ -29,7 +29,7 @@ entry:
   %idxprom = zext nneg i32 %rem to i64
   %arrayidx = getelementptr inbounds nuw [2 x ptr], ptr @__const.foo.jt1, i64 0, i64 %idxprom
   %0 = load ptr, ptr %arrayidx, align 8
-  indirectbr ptr %0, [label %l1, label %l2]
+  indirectswitch ptr %0, [ ptr edgeaddress(@foo, 0), label %l1 ptr edgeaddress(@foo, 1), label %l2 ]
 
 l1:                                               ; preds = %entry
   br label %l2

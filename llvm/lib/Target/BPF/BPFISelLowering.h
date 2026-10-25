@@ -21,6 +21,12 @@
 namespace llvm {
 class BPFSubtarget;
 
+namespace BPF {
+/// If \p V is a valid entry of a jump table (a block address, or an edge
+/// address that is a case of an indirectswitch), return the target block.
+const BasicBlock *getJumpTableEntryTarget(const Value *V);
+} // namespace BPF
+
 class BPFTargetLowering : public TargetLowering {
 public:
   explicit BPFTargetLowering(const TargetMachine &TM, const BPFSubtarget &STI);

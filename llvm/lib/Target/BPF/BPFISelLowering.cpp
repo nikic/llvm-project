@@ -14,6 +14,7 @@
 #include "BPFISelLowering.h"
 #include "BPF.h"
 #include "BPFSubtarget.h"
+#include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -996,6 +997,16 @@ BPFTargetLowering::EmitInstrWithCustomInserterMemcpy(MachineInstr &MI,
   return BB;
 }
 
+const BasicBlock *BPF::getJumpTableEntryTarget(const Value *V) {
+  if (auto *BA = dyn_cast<BlockAddress>(V))
+    return BA->getBasicBlock();
+  // An edge address is a jump table entry if it is a case of an
+  // indirectswitch.
+  if (auto *EA = dyn_cast<EdgeAddress>(V))
+    return getEdgeAddressDestination(*EA);
+  return nullptr;
+}
+
 MachineBasicBlock *BPFTargetLowering::EmitInstrWithCustomInserterLDimm64(
     MachineInstr &MI, MachineBasicBlock *BB) const {
   MachineFunction *MF = BB->getParent();
@@ -1063,10 +1074,10 @@ MachineBasicBlock *BPFTargetLowering::EmitInstrWithCustomInserterLDimm64(
     return emitLDImm64(GVal);
 
   for (const Use &Op : CA->operands()) {
-    if (!isa<BlockAddress>(Op))
+    const BasicBlock *TgtBB = BPF::getJumpTableEntryTarget(Op);
+    if (!TgtBB)
       return emitLDImm64(GVal);
-    auto *BA = cast<BlockAddress>(Op);
-    MachineBasicBlock *TgtMBB = AddressTakenBBs[BA->getBasicBlock()];
+    MachineBasicBlock *TgtMBB = AddressTakenBBs[TgtBB];
     assert(TgtMBB);
     Targets.push_back(TgtMBB);
   }
