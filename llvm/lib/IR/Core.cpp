@@ -1805,6 +1805,8 @@ static int map_from_llvmopcode(LLVMOpcode code)
 #define HANDLE_INST(num, opc, clas) case LLVM##opc: return num;
 #include "llvm/IR/Instruction.def"
 #undef HANDLE_INST
+    case LLVMIndirectBr: // Removed instruction, no longer produced.
+      break;
     }
     llvm_unreachable("Unhandled Opcode.");
 }
