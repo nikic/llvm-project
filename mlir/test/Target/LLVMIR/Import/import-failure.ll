@@ -353,6 +353,18 @@ bb1:
 
 ; // -----
 
+@g = private global ptr edgeaddress(@fn, 0)
+define void @fn() {
+  ret void
+dead:
+  indirectswitch ptr null, [ ptr edgeaddress(@fn, 0), label %bb1 ]
+; CHECK: unreachable block 'bb1' with address taken
+bb1:
+  ret void
+}
+
+; // -----
+
 !10 = !{ i32 1, !"foo", i32 1 }
 !11 = !{ i32 4, !"bar", i32 37 }
 !12 = !{ i32 2, !"qux", i32 42 }

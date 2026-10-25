@@ -2104,10 +2104,28 @@ FailureOr<Value> ModuleImport::convertConstant(llvm::Constant *constant) {
   if (auto *blockAddr = dyn_cast<llvm::BlockAddress>(constant)) {
     auto fnSym =
         FlatSymbolRefAttr::get(context, blockAddr->getFunction()->getName());
-    auto blockTag =
-        BlockTagAttr::get(context, blockAddr->getBasicBlock()->getNumber());
+    auto blockTag = BlockTagAttr::get(
+        context, getBlockAddressTagID(blockAddr->getBasicBlock()));
     return BlockAddressOp::create(
                builder, loc, convertType(blockAddr->getType()),
+               BlockAddressAttr::get(context, fnSym, blockTag))
+        .getRes();
+  }
+
+  // An edge address that is an indirectswitch case is imported as the address
+  // of its destination block, which is tagged with the edge address ID. The
+  // indirectswitch is imported as an llvm.indirectbr to the case destinations.
+  // The value of an edge address that is not a case of any indirectswitch is
+  // unspecified, it is imported as the address of the function.
+  if (auto *edgeAddr = dyn_cast<llvm::EdgeAddress>(constant)) {
+    auto fnSym =
+        FlatSymbolRefAttr::get(context, edgeAddr->getFunction()->getName());
+    Type type = convertType(edgeAddr->getType());
+    if (!edgeAddr->getDestination())
+      return AddressOfOp::create(builder, loc, type, fnSym).getResult();
+    auto blockTag = BlockTagAttr::get(context, edgeAddr->getID());
+    return BlockAddressOp::create(
+               builder, loc, type,
                BlockAddressAttr::get(context, fnSym, blockTag))
         .getRes();
   }
@@ -2818,6 +2836,36 @@ LogicalResult ModuleImport::convertInstruction(llvm::Instruction *inst) {
     return success();
   }
 
+  if (inst->getOpcode() == llvm::Instruction::IndirectSwitch) {
+    auto *indSwitchInst = cast<llvm::IndirectSwitchInst>(inst);
+
+    FailureOr<Value> basePtr = convertValue(indSwitchInst->getAddress());
+    if (failed(basePtr))
+      return failure();
+
+    // Several cases may share a destination block, list each block once.
+    SmallVector<Block *> succBlocks;
+    SmallVector<SmallVector<Value>> succBlockArgs;
+    SmallPtrSet<llvm::BasicBlock *, 16> seen;
+    for (llvm::BasicBlock *succ : llvm::successors(indSwitchInst)) {
+      if (!seen.insert(succ).second)
+        continue;
+      SmallVector<Value> blockArgs;
+      if (failed(convertBranchArgs(indSwitchInst, succ, blockArgs)))
+        return failure();
+      succBlocks.push_back(lookupBlock(succ));
+      succBlockArgs.push_back(blockArgs);
+    }
+    SmallVector<ValueRange> succBlockArgsRange =
+        llvm::to_vector_of<ValueRange>(succBlockArgs);
+    Location loc = translateLoc(inst->getDebugLoc());
+    auto indBrOp = LLVM::IndirectBrOp::create(builder, loc, *basePtr,
+                                              succBlockArgsRange, succBlocks);
+
+    mapNoResultOp(inst, indBrOp);
+    return success();
+  }
+
   if (inst->getOpcode() == llvm::Instruction::IndirectBr) {
     auto *indBrInst = cast<llvm::IndirectBrInst>(inst);
 
@@ -3416,6 +3464,18 @@ LogicalResult ModuleImport::convertCallAttributes(llvm::CallInst *inst,
   return convertCallBaseAttributes(inst, op);
 }
 
+/// Returns true if `bb` is the destination of an indirectswitch case whose edge
+/// address is used elsewhere, i.e., the import needs to tag the block.
+static bool isUsedEdgeAddressDestination(llvm::BasicBlock *bb) {
+  for (llvm::BasicBlock *pred : llvm::predecessors(bb))
+    if (auto *indSwitch =
+            dyn_cast<llvm::IndirectSwitchInst>(pred->getTerminator()))
+      for (auto c : indSwitch->cases())
+        if (c.getCaseSuccessor() == bb && !c.getCaseValue()->hasOneUse())
+          return true;
+  return false;
+}
+
 LogicalResult ModuleImport::processFunction(llvm::Function *func) {
   clearRegionState();
 
@@ -3524,7 +3584,8 @@ LogicalResult ModuleImport::processFunction(llvm::Function *func) {
   for (llvm::BasicBlock &basicBlock : *func) {
     // Skip unreachable blocks.
     if (!reachable.contains(&basicBlock)) {
-      if (basicBlock.hasAddressTaken())
+      if (basicBlock.hasAddressTaken() ||
+          isUsedEdgeAddressDestination(&basicBlock))
         return emitError(funcOp.getLoc())
                << "unreachable block '" << basicBlock.getName()
                << "' with address taken";
@@ -3802,13 +3863,38 @@ LogicalResult ModuleImport::processBasicBlock(llvm::BasicBlock *bb,
     }
   }
 
-  if (bb->hasAddressTaken()) {
-    OpBuilder::InsertionGuard guard(builder);
-    builder.setInsertionPointToStart(block);
-    BlockTagOp::create(builder, block->getParentOp()->getLoc(),
-                       BlockTagAttr::get(context, bb->getNumber()));
+  // Tag the block if its address is taken by a blockaddress, and with the ID
+  // of each edge address that is an indirectswitch case with this block as
+  // destination.
+  SmallVector<uint32_t> tags;
+  if (bb->hasAddressTaken())
+    tags.push_back(getBlockAddressTagID(bb));
+  SmallPtrSet<llvm::BasicBlock *, 4> seenPreds;
+  for (llvm::BasicBlock *pred : llvm::predecessors(bb)) {
+    auto *indSwitch = dyn_cast<llvm::IndirectSwitchInst>(pred->getTerminator());
+    if (!indSwitch || !seenPreds.insert(pred).second)
+      continue;
+    for (auto c : indSwitch->cases())
+      if (c.getCaseSuccessor() == bb)
+        tags.push_back(c.getCaseValue()->getID());
   }
+  llvm::sort(tags);
+  OpBuilder::InsertionGuard guard(builder);
+  builder.setInsertionPointToStart(block);
+  for (uint32_t tag : tags)
+    BlockTagOp::create(builder, block->getParentOp()->getLoc(),
+                       BlockTagAttr::get(context, tag));
   return success();
+}
+
+uint32_t ModuleImport::getBlockAddressTagID(llvm::BasicBlock *bb) {
+  // Edge addresses use their ID as tag, so the tags of block addresses start
+  // after the largest edge address ID of the function.
+  llvm::Function *func = bb->getParent();
+  auto [it, inserted] = blockAddressTagOffsets.try_emplace(func, 0);
+  if (inserted && func->hasEdgeAddress())
+    it->second = func->getEdgeAddresses().back()->getID() + 1;
+  return it->second + bb->getNumber();
 }
 
 FailureOr<SmallVector<AccessGroupAttr>>

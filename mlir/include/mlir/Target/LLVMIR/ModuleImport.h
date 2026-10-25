@@ -351,6 +351,8 @@ private:
   FlatSymbolRefAttr getPersonalityAsAttr(llvm::Function *func);
   /// Imports `bb` into `block`, which must be initially empty.
   LogicalResult processBasicBlock(llvm::BasicBlock *bb, Block *block);
+  /// Returns the ID of the block tag used for the address of `bb`.
+  uint32_t getBlockAddressTagID(llvm::BasicBlock *bb);
   /// Converts all debug intrinsics in `debugIntrinsics`. Assumes that the
   /// function containing the intrinsics has been fully converted to MLIR.
   LogicalResult processDebugIntrinsics();
@@ -518,6 +520,10 @@ private:
   /// A dialect interface collection used for dispatching the import to specific
   /// dialects.
   LLVMImportInterface iface;
+
+  /// The offset added to the block numbers to get the block tag IDs of
+  /// block addresses, per function. See `getBlockAddressTagID`.
+  DenseMap<llvm::Function *, uint32_t> blockAddressTagOffsets;
 
   /// Function-local mapping between original and imported block.
   DenseMap<llvm::BasicBlock *, Block *> blockMapping;
