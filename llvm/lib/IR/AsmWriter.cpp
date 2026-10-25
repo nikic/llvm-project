@@ -222,6 +222,10 @@ predictValueUseListOrder(const Value *V, unsigned ID, const OrderMap &OM) {
   bool GetsReversed = !isa<BasicBlock>(V);
   if (auto *BA = dyn_cast<BlockAddress>(V))
     ID = OM.lookup(BA->getBasicBlock());
+  // Forward-referenced edge addresses are created when the function is
+  // defined.
+  if (auto *EA = dyn_cast<EdgeAddress>(V))
+    ID = OM.lookup(EA->getFunction());
   llvm::sort(List, [&](const Entry &L, const Entry &R) {
     const Use *LU = L.first;
     const Use *RU = R.first;
@@ -1717,6 +1721,13 @@ static void writeConstantInternal(raw_ostream &Out, const Constant *CV,
     Out << ", ";
     writeAsOperandInternal(Out, BA->getBasicBlock(), WriterCtx);
     Out << ")";
+    return;
+  }
+
+  if (const auto *EA = dyn_cast<EdgeAddress>(CV)) {
+    Out << "edgeaddress(";
+    writeAsOperandInternal(Out, EA->getFunction(), WriterCtx);
+    Out << ", " << EA->getID() << ")";
     return;
   }
 
@@ -4617,6 +4628,20 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
       writeOperand(Case.getCaseValue(), true);
       Out << ", ";
       writeOperand(Case.getCaseSuccessor(), true);
+    }
+    Out << "\n  ]";
+  } else if (const auto *ISI = dyn_cast<IndirectSwitchInst>(&I)) {
+    // Special case indirectswitch instruction to get formatting nice and
+    // correct. Don't use getCaseValue(), as we may be printing invalid IR.
+    Out << ' ';
+    writeOperand(ISI->getAddress(), true);
+    Out << ", [";
+    unsigned NumCases = ISI->getNumCases();
+    for (unsigned Idx = 0; Idx != NumCases; ++Idx) {
+      Out << "\n    ";
+      writeOperand(ISI->getOperand(1 + NumCases + Idx), true);
+      Out << ", ";
+      writeOperand(ISI->getOperand(1 + Idx), true);
     }
     Out << "\n  ]";
   } else if (isa<IndirectBrInst>(I)) {

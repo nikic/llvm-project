@@ -1089,6 +1089,102 @@ TEST(InstructionsTest, SwitchInst) {
       unwrap<ConstantInt>(LLVMGetSwitchCaseValue(wrap(SI), 2))->getSExtValue());
 }
 
+TEST(InstructionsTest, IndirectSwitchInst) {
+  LLVMContext C;
+  Module M("m", C);
+  auto *PtrTy = PointerType::getUnqual(C);
+  auto *F =
+      Function::Create(FunctionType::get(Type::getVoidTy(C), {PtrTy}, false),
+                       GlobalValue::ExternalLinkage, "f", M);
+  BasicBlock *Entry = BasicBlock::Create(C, "entry", F);
+  BasicBlock *BB1 = BasicBlock::Create(C, "bb1", F);
+  BasicBlock *BB2 = BasicBlock::Create(C, "bb2", F);
+  BasicBlock *BB3 = BasicBlock::Create(C, "bb3", F);
+  for (BasicBlock *BB : {BB1, BB2, BB3})
+    ReturnInst::Create(C, BB);
+
+  EdgeAddress *EA0 = EdgeAddress::get(F, 0);
+  EdgeAddress *EA1 = EdgeAddress::get(F, 1);
+  EdgeAddress *EA2 = EdgeAddress::get(F, 2);
+  EdgeAddress *EA3 = EdgeAddress::get(F, 3);
+
+  // Start with no reserved space to exercise growing the operand list.
+  auto *ISI = IndirectSwitchInst::Create(F->getArg(0), 0, Entry);
+  EXPECT_EQ(ISI->getNumCases(), 0u);
+  EXPECT_EQ(ISI->getNumSuccessors(), 0u);
+  EXPECT_TRUE(ISI->successors().empty());
+  EXPECT_TRUE(ISI->isTerminator());
+
+  ISI->addCase(EA0, BB1);
+  ISI->addCase(EA1, BB2);
+  ISI->addCase(EA2, BB3);
+  ISI->addCase(EA3, BB2);
+  EXPECT_EQ(ISI->getNumCases(), 4u);
+  EXPECT_EQ(ISI->getNumSuccessors(), 4u);
+  EXPECT_EQ(ISI->getAddress(), F->getArg(0));
+
+  EXPECT_THAT(to_vector(successors(Entry)),
+              testing::ElementsAre(BB1, BB2, BB3, BB2));
+  EdgeAddress *ExpectedEA[] = {EA0, EA1, EA2, EA3};
+  BasicBlock *ExpectedBB[] = {BB1, BB2, BB3, BB2};
+  for (auto [Idx, Case] : enumerate(ISI->cases())) {
+    EXPECT_EQ(Case.getCaseIndex(), Idx);
+    EXPECT_EQ(Case.getSuccessorIndex(), Idx);
+    EXPECT_EQ(Case.getCaseValue(), ExpectedEA[Idx]);
+    EXPECT_EQ(Case.getCaseSuccessor(), ExpectedBB[Idx]);
+    EXPECT_EQ(ISI->getSuccessor(Idx), ExpectedBB[Idx]);
+  }
+
+  // The indirectswitch is a user of its case values.
+  EXPECT_TRUE(is_contained(EA2->users(), ISI));
+
+  EXPECT_EQ(ISI->findCaseValue(EA2)->getCaseIndex(), 2u);
+  EXPECT_EQ(ISI->findCaseValue(EdgeAddress::get(F, 4)), ISI->case_end());
+  EXPECT_EQ(ISI->findCaseDest(BB1), EA0);
+  EXPECT_EQ(ISI->findCaseDest(BB2), nullptr); // Not unique.
+  EXPECT_EQ(ISI->findCaseDest(Entry), nullptr);
+
+  // Successor updates.
+  ISI->setSuccessor(3, BB1);
+  EXPECT_EQ(ISI->getSuccessor(3), BB1);
+  EXPECT_EQ(ISI->getCaseValue(3), EA3);
+  ISI->case_begin()->setSuccessor(BB3);
+  EXPECT_EQ(ISI->getSuccessor(0), BB3);
+  ISI->replaceSuccessorWith(BB3, BB2);
+  EXPECT_THAT(to_vector(successors(Entry)),
+              testing::ElementsAre(BB2, BB2, BB2, BB1));
+
+  // Cloning.
+  Instruction *Clone = ISI->clone();
+  EXPECT_TRUE(Clone->isIdenticalTo(ISI));
+  Clone->deleteValue();
+
+  // Removing a case moves the last case into its place.
+  auto It = ISI->removeCase(ISI->case_begin() + 1);
+  EXPECT_EQ(It->getCaseIndex(), 1u);
+  EXPECT_EQ(ISI->getNumCases(), 3u);
+  EXPECT_EQ(ISI->getCaseValue(0), EA0);
+  EXPECT_EQ(ISI->getCaseValue(1), EA3);
+  EXPECT_EQ(ISI->getCaseValue(2), EA2);
+  EXPECT_THAT(to_vector(successors(Entry)),
+              testing::ElementsAre(BB2, BB1, BB2));
+  EXPECT_FALSE(is_contained(EA1->users(), ISI));
+
+  // Remove the last case.
+  ISI->removeCase(ISI->case_begin() + 2);
+  EXPECT_EQ(ISI->getNumCases(), 2u);
+  EXPECT_EQ(ISI->getCaseValue(0), EA0);
+  EXPECT_EQ(ISI->getCaseValue(1), EA3);
+  EXPECT_FALSE(is_contained(EA2->users(), ISI));
+
+  ISI->removeCase(ISI->case_begin());
+  ISI->removeCase(ISI->case_begin());
+  EXPECT_EQ(ISI->getNumCases(), 0u);
+  EXPECT_EQ(ISI->getNumOperands(), 1u);
+  EXPECT_TRUE(EA0->user_empty());
+  EXPECT_TRUE(EA3->user_empty());
+}
+
 TEST(InstructionsTest, SwitchInstProfUpdateWrapper) {
   LLVMContext C;
 

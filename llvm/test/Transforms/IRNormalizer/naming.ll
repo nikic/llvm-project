@@ -5,8 +5,8 @@ define i32 @foo(i32 %a0) {
 ; CHECK-LABEL: define i32 @foo(
 ; CHECK-SAME: i32 [[A0:%.*]]) {
 ; CHECK-NEXT:  [[BB17254:.*:]]
-; CHECK-NEXT:    %"vl16132([[A0]], 2)" = add i32 [[A0]], 2
-; CHECK-NEXT:    ret i32 %"vl16132([[A0]], 2)"
+; CHECK-NEXT:    %"vl47912([[A0]], 2)" = add i32 [[A0]], 2
+; CHECK-NEXT:    ret i32 %"vl47912([[A0]], 2)"
 ;
 entry:
   %a = add i32 %a0, 2
@@ -17,10 +17,10 @@ define i32 @bar(i32 %a0) {
 ; CHECK-LABEL: define i32 @bar(
 ; CHECK-SAME: i32 [[A0:%.*]]) {
 ; CHECK-NEXT:  [[BB17254:.*:]]
-; CHECK-NEXT:    %"vl35397([[A0]], 2)" = add i32 [[A0]], 2
-; CHECK-NEXT:    %"op11283(vl35397)" = add i32 6, %"vl35397([[A0]], 2)"
-; CHECK-NEXT:    %"op11283(op11283)" = add i32 8, %"op11283(vl35397)"
-; CHECK-NEXT:    ret i32 %"op11283(op11283)"
+; CHECK-NEXT:    %"vl83154([[A0]], 2)" = add i32 [[A0]], 2
+; CHECK-NEXT:    %"op20359(vl83154)" = add i32 6, %"vl83154([[A0]], 2)"
+; CHECK-NEXT:    %"op20359(op20359)" = add i32 8, %"op20359(vl83154)"
+; CHECK-NEXT:    ret i32 %"op20359(op20359)"
 ;
 entry:
   %a = add i32 %a0, 2

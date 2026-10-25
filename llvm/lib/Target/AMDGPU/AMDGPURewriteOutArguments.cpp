@@ -375,6 +375,7 @@ bool AMDGPURewriteOutArguments::runOnFunction(Function &F) {
   // Move the body of the function into the new rewritten function, and replace
   // this function with a stub.
   NewFunc->splice(NewFunc->begin(), &F);
+  F.transferEdgeAddressesTo(*NewFunc);
 
   for (auto &Replacement : Replacements) {
     ReturnInst *RI = Replacement.first;

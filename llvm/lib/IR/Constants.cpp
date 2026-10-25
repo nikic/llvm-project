@@ -611,6 +611,9 @@ void llvm::deleteConstant(Constant *C) {
   case Constant::BlockAddressVal:
     delete static_cast<BlockAddress *>(C);
     break;
+  case Constant::EdgeAddressVal:
+    delete static_cast<EdgeAddress *>(C);
+    break;
   case Constant::DSOLocalEquivalentVal:
     delete static_cast<DSOLocalEquivalent *>(C);
     break;
@@ -712,6 +715,9 @@ Constant::PossibleRelocationsTy Constant::getRelocationInfo() const {
 
   if (const BlockAddress *BA = dyn_cast<BlockAddress>(this))
     return BA->getFunction()->getRelocationInfo();
+
+  if (const EdgeAddress *EA = dyn_cast<EdgeAddress>(this))
+    return EA->getFunction()->getRelocationInfo();
 
   if (const ConstantExpr *CE = dyn_cast<ConstantExpr>(this)) {
     if (CE->getOpcode() == Instruction::Sub) {
@@ -2169,6 +2175,35 @@ Value *BlockAddress::handleOperandChangeImpl(Value *From, Value *To) {
   // If we just want to keep the existing value, then return null.
   // Callers know that this means we shouldn't delete this value.
   return nullptr;
+}
+
+EdgeAddress *EdgeAddress::get(Function *F, unsigned ID) {
+  EdgeAddress *&EA = F->getContext().pImpl->EdgeAddresses[F][ID];
+  if (!EA)
+    EA = new EdgeAddress(F, ID);
+  return EA;
+}
+
+EdgeAddress::EdgeAddress(Function *F, unsigned ID)
+    : Constant(F->getType(), Value::EdgeAddressVal, AllocMarker), F(F), ID(ID) {
+}
+
+EdgeAddress *EdgeAddress::lookup(const Function *F, unsigned ID) {
+  auto &Map = F->getContext().pImpl->EdgeAddresses;
+  auto It = Map.find(F);
+  if (It == Map.end())
+    return nullptr;
+  return It->second.lookup(ID);
+}
+
+/// Remove the constant from the constant table.
+void EdgeAddress::destroyConstantImpl() {
+  auto &Map = getContext().pImpl->EdgeAddresses;
+  auto It = Map.find(F);
+  assert(It != Map.end() && "EdgeAddress not in map");
+  It->second.erase(ID);
+  if (It->second.empty())
+    Map.erase(It);
 }
 
 DSOLocalEquivalent *DSOLocalEquivalent::get(GlobalValue *GV) {

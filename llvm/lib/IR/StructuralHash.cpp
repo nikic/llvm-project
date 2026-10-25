@@ -193,6 +193,12 @@ public:
       Hashes.emplace_back(H);
       return stable_hash_combine(Hashes);
     }
+    case Value::EdgeAddressVal: {
+      const EdgeAddress *EA = cast<EdgeAddress>(C);
+      Hashes.emplace_back(hashGlobalValue(EA->getFunction()));
+      Hashes.emplace_back(EA->getID());
+      return stable_hash_combine(Hashes);
+    }
     case Value::DSOLocalEquivalentVal: {
       const auto *Equiv = cast<DSOLocalEquivalent>(C);
       auto H = hashGlobalValue(Equiv->getGlobalValue());

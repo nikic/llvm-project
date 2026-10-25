@@ -3950,6 +3950,10 @@ const MCExpr *AsmPrinter::lowerConstant(const Constant *CV,
   if (const BlockAddress *BA = dyn_cast<BlockAddress>(CV))
     return lowerBlockAddressConstant(*BA);
 
+  if (isa<EdgeAddress>(CV))
+    // TODO: Implement lowering of edgeaddress.
+    reportFatalUsageError("edgeaddress is not yet supported");
+
   if (const auto *Equiv = dyn_cast<DSOLocalEquivalent>(CV))
     return getObjFileLowering().lowerDSOLocalEquivalent(
         getSymbol(Equiv->getGlobalValue()), nullptr, 0, std::nullopt, TM);

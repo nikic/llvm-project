@@ -469,6 +469,35 @@ class FunctionDifferenceEngine {
       if (TryUnify) tryUnify(LI->getSuccessor(0), RI->getSuccessor(0));
       return false;
 
+    } else if (isa<IndirectSwitchInst>(L)) {
+      const IndirectSwitchInst *LI = cast<IndirectSwitchInst>(L);
+      const IndirectSwitchInst *RI = cast<IndirectSwitchInst>(R);
+      if (LI->getNumCases() != RI->getNumCases()) {
+        if (Complain)
+          Engine.log("indirectswitch # of cases differ");
+        return true;
+      }
+
+      if (!equivalentAsOperands(LI->getAddress(), RI->getAddress(), AC)) {
+        if (Complain)
+          Engine.log("indirectswitch addresses differ");
+        return true;
+      }
+
+      for (unsigned I = 0, E = LI->getNumCases(); I != E; ++I) {
+        if (!equivalentAsOperands(LI->getCaseValue(I), RI->getCaseValue(I),
+                                  AC)) {
+          if (Complain)
+            Engine.log("indirectswitch case values differ");
+          return true;
+        }
+      }
+
+      if (TryUnify)
+        for (unsigned I = 0, E = LI->getNumCases(); I != E; ++I)
+          tryUnify(LI->getSuccessor(I), RI->getSuccessor(I));
+      return false;
+
     } else if (isa<IndirectBrInst>(L)) {
       const IndirectBrInst *LI = cast<IndirectBrInst>(L);
       const IndirectBrInst *RI = cast<IndirectBrInst>(R);
@@ -571,6 +600,14 @@ public:
     // type; I don't know why.  Just white-list them.
     if (isa<ConstantPointerNull>(L) || isa<UndefValue>(L) || isa<ConstantAggregateZero>(L))
       return true;
+
+    // Edge addresses match if they have the same ID in equivalent functions.
+    if (const auto *LEA = dyn_cast<EdgeAddress>(L)) {
+      const auto *REA = cast<EdgeAddress>(R);
+      return LEA->getID() == REA->getID() &&
+             Engine.equivalentAsOperands(LEA->getFunction(),
+                                         REA->getFunction());
+    }
 
     // Block addresses only match if we've already encountered the
     // block.  FIXME: tentative matches?

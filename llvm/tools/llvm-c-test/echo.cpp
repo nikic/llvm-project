@@ -571,6 +571,7 @@ struct FunCloner {
       }
       case LLVMSwitch:
       case LLVMIndirectBr:
+      case LLVMIndirectSwitch:
         break;
       case LLVMInvoke: {
         SmallVector<LLVMValueRef, 8> Args;

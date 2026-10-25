@@ -12,6 +12,7 @@
 
 #include "llvm/IR/Function.h"
 #include "IROptions.h"
+#include "LLVMContextImpl.h"
 #include "SymbolTableListTraitsImpl.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitVector.h"
@@ -615,6 +616,10 @@ void Function::deleteBodyImpl(bool ShouldDrop) {
   while (!BasicBlocks.empty())
     BasicBlocks.begin()->eraseFromParent();
 
+  // Similarly, any remaining edgeaddresses can no longer refer to an
+  // indirectswitch edge, so replace them.
+  dropEdgeAddresses();
+
   if (getNumOperands()) {
     if (ShouldDrop) {
       // Drop uses of any optional data (real or placeholder).
@@ -932,6 +937,66 @@ void Function::updateAfterNameChange() {
   }
   HasLLVMReservedName = true;
   IntID = Intrinsic::lookupIntrinsicID(Name);
+}
+
+bool Function::hasEdgeAddress() const {
+  return getContext().pImpl->EdgeAddresses.contains(this);
+}
+
+SmallVector<EdgeAddress *> Function::getEdgeAddresses() const {
+  SmallVector<EdgeAddress *> EAs;
+  auto &Map = getContext().pImpl->EdgeAddresses;
+  auto It = Map.find(this);
+  if (It == Map.end())
+    return EAs;
+
+  for (EdgeAddress *EA : make_second_range(It->second))
+    EAs.push_back(EA);
+  // Sort for determinism.
+  llvm::sort(EAs, [](const EdgeAddress *A, const EdgeAddress *B) {
+    return A->getID() < B->getID();
+  });
+  return EAs;
+}
+
+void Function::dropEdgeAddresses() {
+  if (!hasEdgeAddress())
+    return;
+
+  // Like a blockaddress of a deleted block, an edgeaddress whose function
+  // body is deleted can no longer be branched to. Replace it with an arbitrary
+  // non-null value.
+  Constant *Replacement = ConstantExpr::getIntToPtr(
+      ConstantInt::get(Type::getInt32Ty(getContext()), 1), getType());
+  for (EdgeAddress *EA : getEdgeAddresses()) {
+    EA->replaceAllUsesWith(Replacement);
+    EA->destroyConstant();
+  }
+  assert(!hasEdgeAddress() && "EdgeAddress map not cleaned up");
+}
+
+void Function::transferEdgeAddressesTo(Function &NewF) {
+  assert(&NewF != this && "Cannot transfer edge addresses to self");
+  assert(NewF.getType() == getType() &&
+         "Function address spaces must match to transfer edge addresses");
+  if (!hasEdgeAddress())
+    return;
+
+  auto &Map = getContext().pImpl->EdgeAddresses;
+  for (EdgeAddress *EA : getEdgeAddresses()) {
+    if (EdgeAddress *Existing = EdgeAddress::lookup(&NewF, EA->getID())) {
+      EA->replaceAllUsesWith(Existing);
+      EA->destroyConstant();
+      continue;
+    }
+
+    // Update the constant in place. Its users only refer to it by pointer, so
+    // they do not need to be re-uniqued.
+    EA->destroyConstantImpl();
+    EA->F = &NewF;
+    Map[&NewF][EA->getID()] = EA;
+  }
+  assert(!hasEdgeAddress() && "EdgeAddress map not cleaned up");
 }
 
 /// hasAddressTaken - returns true if there are any uses of this function

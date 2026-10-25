@@ -452,6 +452,7 @@ enum ConstantsCodes {
                                       //  deactivation_symbol]
   CST_CODE_BYTE = 35,                 // BYTE:          [intval]
   CST_CODE_WIDE_BYTE = 36,            // WIDE_BYTE:     [n x intval]
+  CST_CODE_EDGEADDRESS = 37,          // EDGEADDRESS:   [fnty, fnval, id]
 };
 
 /// CastOpcodes - These are values used in the bitcode files to encode which
@@ -716,6 +717,8 @@ enum FunctionCodes {
       66, // [DILocation, DILocalVariable, DIExpression, ValueAsMetadata]
   FUNC_CODE_INST_BITINSERT = 67,  // BITINSERT: [opval, opval, opval]
   FUNC_CODE_INST_BITEXTRACT = 68, // BITEXTRACT: [ty, opval, opval]
+  // INDIRECTSWITCH: [opty, op0, n x [caseval, bb#]]
+  FUNC_CODE_INST_INDIRECTSWITCH = 69,
 };
 
 enum UseListCodes {

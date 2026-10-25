@@ -1438,6 +1438,17 @@ exc:
   ret void
 }
 
+define void @instructions.indirectswitch(ptr %addr) {
+  indirectswitch ptr %addr, [ ptr edgeaddress(@instructions.indirectswitch, 0), label %a
+                              ptr edgeaddress(@instructions.indirectswitch, 1), label %a ]
+  ; CHECK: indirectswitch ptr %addr, [
+  ; CHECK-NEXT: ptr edgeaddress(@instructions.indirectswitch, 0), label %a
+  ; CHECK-NEXT: ptr edgeaddress(@instructions.indirectswitch, 1), label %a
+  ; CHECK-NEXT: ]
+a:
+  ret void
+}
+
 define i32 @instructions.win_eh.1() personality i32 -3 {
 entry:
   %arg1 = alloca i32

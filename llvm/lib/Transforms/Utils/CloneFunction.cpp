@@ -259,6 +259,12 @@ void llvm::CloneFunctionBodyInto(Function &NewFunc, const Function &OldFunc,
   if (OldFunc.isDeclaration())
     return;
 
+  // Similar to block addresses below, map the edge addresses of the old
+  // function to those of the clone, so that the cloned indirectswitch
+  // instructions use edge addresses of the new function.
+  for (EdgeAddress *EA : OldFunc.getEdgeAddresses())
+    VMap[EA] = EdgeAddress::get(&NewFunc, EA->getID());
+
   // Loop over all of the basic blocks in the function, cloning them as
   // appropriate.  Note that we save BE this way in order to handle cloning of
   // recursive functions into themselves.

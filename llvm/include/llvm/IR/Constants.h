@@ -1137,6 +1137,69 @@ struct OperandTraits<BlockAddress>
 
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(BlockAddress, Value)
 
+/// The address of a control-flow edge out of an \c indirectswitch
+/// instruction, identified by its function and an integer ID.
+///
+/// The value of edgeaddress(@f, N) is the destination of the case using it
+/// in the (unique) indirectswitch in @f that has it as a case value. Unlike
+/// \c BlockAddress, this does not reference a basic block.
+///
+/// Like \c BlockAddress, this is not a use of its function: walks over the
+/// uses of a function do not see edge addresses, and replacing all uses of a
+/// function does not affect them. Transforms that move the body of a function
+/// into a new function must call \c Function::transferEdgeAddressesTo().
+/// When the body of the function is deleted, all remaining edge addresses of
+/// the function are replaced with an arbitrary non-null value.
+class EdgeAddress final : public Constant {
+  friend class Constant;
+  friend class Function;
+
+  constexpr static IntrusiveOperandsAllocMarker AllocMarker{0};
+
+  Function *F;
+  unsigned ID;
+
+  EdgeAddress(Function *F, unsigned ID);
+
+  void *operator new(size_t S) { return User::operator new(S, AllocMarker); }
+
+  void destroyConstantImpl();
+  Value *handleOperandChangeImpl(Value *From, Value *To) {
+    llvm_unreachable("EdgeAddress does not have operands!");
+  }
+
+public:
+  void operator delete(void *Ptr) { User::operator delete(Ptr, AllocMarker); }
+
+  /// Return the EdgeAddress for the specified function and ID.
+  LLVM_ABI static EdgeAddress *get(Function *F, unsigned ID);
+
+  /// Lookup an existing \c EdgeAddress for the given function and ID.
+  ///
+  /// \returns nullptr if it does not exist.
+  LLVM_ABI static EdgeAddress *lookup(const Function *F, unsigned ID);
+
+  /// Transparently provide more efficient getOperand methods.
+  DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
+
+  Function *getFunction() const { return F; }
+  unsigned getID() const { return ID; }
+
+  /// EdgeAddress is always a pointer.
+  PointerType *getType() const { return cast<PointerType>(Value::getType()); }
+
+  /// Methods for support type inquiry through isa, cast, and dyn_cast:
+  static bool classof(const Value *V) {
+    return V->getValueID() == EdgeAddressVal;
+  }
+};
+
+template <>
+struct OperandTraits<EdgeAddress>
+    : public FixedNumOperandTraits<EdgeAddress, 0> {};
+
+DEFINE_TRANSPARENT_OPERAND_ACCESSORS(EdgeAddress, Value)
+
 /// Wrapper for a function that represents a value that
 /// functionally represents the original function. This can be a function,
 /// global alias to a function, or an ifunc.

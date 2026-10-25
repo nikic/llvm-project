@@ -891,6 +891,134 @@ TEST(ConstantsTest, BlockAddressCAPITest) {
   EXPECT_EQ(&BB, OutBB);
 }
 
+TEST(ConstantsTest, EdgeAddress) {
+  LLVMContext Context;
+  Module M("m", Context);
+  auto *FTy = FunctionType::get(Type::getVoidTy(Context), false);
+  Function *F = Function::Create(FTy, GlobalValue::ExternalLinkage, "f", M);
+  Function *G = Function::Create(FTy, GlobalValue::ExternalLinkage, "g", M);
+  BasicBlock::Create(Context, "entry", F);
+  BasicBlock::Create(Context, "entry", G);
+  ReturnInst::Create(Context, &F->getEntryBlock());
+  ReturnInst::Create(Context, &G->getEntryBlock());
+
+  EXPECT_FALSE(F->hasEdgeAddress());
+  EXPECT_EQ(EdgeAddress::lookup(F, 0), nullptr);
+
+  // Uniquing on (function, ID).
+  EdgeAddress *EA0 = EdgeAddress::get(F, 0);
+  EdgeAddress *EA1 = EdgeAddress::get(F, 1);
+  EXPECT_EQ(EA0, EdgeAddress::get(F, 0));
+  EXPECT_NE(EA0, EA1);
+  EXPECT_EQ(EdgeAddress::lookup(F, 0), EA0);
+  EXPECT_EQ(EdgeAddress::lookup(F, 2), nullptr);
+  EXPECT_EQ(EA0->getFunction(), F);
+  EXPECT_EQ(EA1->getID(), 1u);
+  EXPECT_EQ(EA0->getType(), F->getType());
+  EXPECT_TRUE(F->hasEdgeAddress());
+  EXPECT_FALSE(G->hasEdgeAddress());
+  // The edge address is not a use of the function.
+  EXPECT_EQ(EA0->getNumOperands(), 0u);
+  EXPECT_TRUE(F->use_empty());
+  EXPECT_EQ(F->getEdgeAddresses(), (SmallVector<EdgeAddress *>{EA0, EA1}));
+
+  // Destroying the last edge address of a function clears hasEdgeAddress().
+  EA0->destroyConstant();
+  EXPECT_TRUE(F->hasEdgeAddress());
+  EXPECT_EQ(EdgeAddress::lookup(F, 0), nullptr);
+  EA1->destroyConstant();
+  EXPECT_FALSE(F->hasEdgeAddress());
+
+  // C API.
+  LLVMValueRef CEA = LLVMEdgeAddress(wrap(F), 3);
+  EXPECT_TRUE(LLVMIsAEdgeAddress(CEA));
+  EXPECT_EQ(LLVMGetValueKind(CEA), LLVMEdgeAddressValueKind);
+  EXPECT_EQ(unwrap(LLVMGetEdgeAddressFunction(CEA)), F);
+  EXPECT_EQ(LLVMGetEdgeAddressID(CEA), 3u);
+  unwrap<EdgeAddress>(CEA)->destroyConstant();
+  EXPECT_FALSE(F->hasEdgeAddress());
+}
+
+TEST(ConstantsTest, EdgeAddressTransfer) {
+  LLVMContext Context;
+  Module M("m", Context);
+  auto *FTy = FunctionType::get(Type::getVoidTy(Context), false);
+  auto *PtrTy = PointerType::getUnqual(Context);
+  Function *F = Function::Create(FTy, GlobalValue::ExternalLinkage, "f", M);
+  Function *G = Function::Create(FTy, GlobalValue::ExternalLinkage, "g", M);
+  Function *H = Function::Create(FTy, GlobalValue::ExternalLinkage, "h", M);
+
+  EdgeAddress *F0 = EdgeAddress::get(F, 0);
+  auto *GV0 = new GlobalVariable(M, PtrTy, false, GlobalValue::ExternalLinkage,
+                                 F0, "gv0");
+  auto *GV1 = new GlobalVariable(M, PtrTy, false, GlobalValue::ExternalLinkage,
+                                 EdgeAddress::get(F, 1), "gv1");
+  // @g already has edge address 1, but not 0.
+  EdgeAddress *G1 = EdgeAddress::get(G, 1);
+  auto *GV2 = new GlobalVariable(M, PtrTy, false, GlobalValue::ExternalLinkage,
+                                 G1, "gv2");
+
+  // Edge addresses are not uses of the function, so RAUW does not affect them.
+  F->replaceAllUsesWith(H);
+  EXPECT_TRUE(F->hasEdgeAddress());
+  EXPECT_FALSE(H->hasEdgeAddress());
+  EXPECT_EQ(F0->getFunction(), F);
+
+  // Transferring the edge addresses of @f to @g updates edgeaddress(@f, 0) in
+  // place, and replaces edgeaddress(@f, 1) with the existing
+  // edgeaddress(@g, 1).
+  F->transferEdgeAddressesTo(*G);
+  EXPECT_FALSE(F->hasEdgeAddress());
+  EXPECT_EQ(GV0->getInitializer(), F0);
+  EXPECT_EQ(F0->getFunction(), G);
+  EXPECT_EQ(EdgeAddress::lookup(G, 0), F0);
+  EXPECT_EQ(EdgeAddress::lookup(F, 0), nullptr);
+  EXPECT_EQ(GV1->getInitializer(), G1);
+  EXPECT_EQ(GV2->getInitializer(), G1);
+  EXPECT_EQ(G->getEdgeAddresses(), (SmallVector<EdgeAddress *>{F0, G1}));
+
+  // Erasing a function replaces its edge addresses with an arbitrary non-null
+  // value.
+  G->eraseFromParent();
+  Constant *One = ConstantExpr::getIntToPtr(
+      ConstantInt::get(Type::getInt32Ty(Context), 1), PtrTy);
+  EXPECT_EQ(GV0->getInitializer(), One);
+  EXPECT_EQ(GV1->getInitializer(), One);
+  EXPECT_EQ(GV2->getInitializer(), One);
+}
+
+TEST(ConstantsTest, EdgeAddressDeleteBody) {
+  LLVMContext Context;
+  SMDiagnostic Err;
+  std::unique_ptr<Module> M = parseAssemblyString(R"(
+    @tbl = constant [2 x ptr] [ptr edgeaddress(@f, 0), ptr edgeaddress(@f, 1)]
+    define void @f(ptr %p) {
+      indirectswitch ptr %p, [ ptr edgeaddress(@f, 0), label %a
+                               ptr edgeaddress(@f, 1), label %a ]
+    a:
+      ret void
+    }
+  )",
+                                                  Err, Context);
+  ASSERT_TRUE(M);
+  Function *F = M->getFunction("f");
+  GlobalVariable *Tbl = M->getGlobalVariable("tbl");
+  EXPECT_TRUE(F->hasEdgeAddress());
+
+  F->deleteBody();
+  EXPECT_FALSE(F->hasEdgeAddress());
+  EXPECT_TRUE(F->use_empty());
+  auto *PtrTy = PointerType::getUnqual(Context);
+  Constant *One = ConstantExpr::getIntToPtr(
+      ConstantInt::get(Type::getInt32Ty(Context), 1), PtrTy);
+  auto *Init = cast<ConstantArray>(Tbl->getInitializer());
+  EXPECT_EQ(Init->getOperand(0), One);
+  EXPECT_EQ(Init->getOperand(1), One);
+
+  // The function can now be erased.
+  F->eraseFromParent();
+}
+
 TEST(ConstantsTest, Float128Test) {
   LLVMContextRef C = LLVMContextCreate();
   LLVMModuleRef M = LLVMModuleCreateWithNameInContext("", C);

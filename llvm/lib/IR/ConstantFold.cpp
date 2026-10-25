@@ -1043,7 +1043,7 @@ static ICmpInst::Predicate evaluateICmpRelation(Constant *V1, Constant *V2) {
       return 3;
     if (isa<GlobalValue>(V))
       return 2;
-    if (isa<BlockAddress>(V))
+    if (isa<BlockAddress, EdgeAddress>(V))
       return 1;
     return 0;
   };
@@ -1065,6 +1065,11 @@ static ICmpInst::Predicate evaluateICmpRelation(Constant *V1, Constant *V2) {
     } else if (isa<ConstantPointerNull>(V2)) {
       return ICmpInst::ICMP_NE;
     }
+  } else if (isa<EdgeAddress>(V1)) {
+    // Edge addresses are never null. Comparisons with other edge addresses or
+    // block addresses have unspecified results.
+    if (isa<ConstantPointerNull>(V2))
+      return ICmpInst::ICMP_NE;
   } else if (const GlobalValue *GV = dyn_cast<GlobalValue>(V1)) {
     // Now we know that the RHS is a GlobalValue, BlockAddress or simple
     // constant.

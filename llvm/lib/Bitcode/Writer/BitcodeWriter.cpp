@@ -3203,6 +3203,11 @@ void ModuleBitcodeWriter::writeConstants(unsigned FirstVal, unsigned LastVal,
       Record.push_back(VE.getTypeID(BA->getFunction()->getType()));
       Record.push_back(VE.getValueID(BA->getFunction()));
       Record.push_back(VE.getGlobalBasicBlockID(BA->getBasicBlock()));
+    } else if (const auto *EA = dyn_cast<EdgeAddress>(C)) {
+      Code = bitc::CST_CODE_EDGEADDRESS;
+      Record.push_back(VE.getTypeID(EA->getFunction()->getType()));
+      Record.push_back(VE.getValueID(EA->getFunction()));
+      Record.push_back(EA->getID());
     } else if (const auto *Equiv = dyn_cast<DSOLocalEquivalent>(C)) {
       Code = bitc::CST_CODE_DSO_LOCAL_EQUIVALENT;
       Record.push_back(VE.getTypeID(Equiv->getGlobalValue()->getType()));
@@ -3490,6 +3495,17 @@ void ModuleBitcodeWriter::writeInstruction(const Instruction &I,
     pushValue(I.getOperand(0), InstID, Vals);
     for (const Value *Op : drop_begin(I.operands()))
       Vals.push_back(VE.getValueID(Op));
+    break;
+  case Instruction::IndirectSwitch:
+    Code = bitc::FUNC_CODE_INST_INDIRECTSWITCH;
+    Vals.push_back(VE.getTypeID(I.getOperand(0)->getType()));
+    // Encode the address operand as relative, but not the case values and
+    // basic blocks.
+    pushValue(I.getOperand(0), InstID, Vals);
+    for (auto Case : cast<IndirectSwitchInst>(I).cases()) {
+      Vals.push_back(VE.getValueID(Case.getCaseValue()));
+      Vals.push_back(VE.getValueID(Case.getCaseSuccessor()));
+    }
     break;
 
   case Instruction::Invoke: {

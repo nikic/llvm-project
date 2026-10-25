@@ -143,6 +143,7 @@ private:
     F.getParent()->getFunctionList().insert(F.getIterator(), NF);
     NF->takeName(&F);
     NF->splice(NF->begin(), &F);
+    F.transferEdgeAddressesTo(*NF);
 
     Function::arg_iterator NFArg = NF->arg_begin();
     for (Argument &Arg : F.args()) {

@@ -50,6 +50,7 @@ class APFloat;
 class APInt;
 class BasicBlock;
 class ConstantInt;
+class EdgeAddress;
 class DataLayout;
 struct KnownBits;
 class StringRef;
@@ -3801,6 +3802,277 @@ template <>
 struct OperandTraits<IndirectBrInst> : public HungoffOperandTraits {};
 
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(IndirectBrInst, Value)
+
+//===----------------------------------------------------------------------===//
+//                           IndirectSwitchInst Class
+//===----------------------------------------------------------------------===//
+
+//===---------------------------------------------------------------------------
+/// Indirect switch instruction: Branches to the destination of the case whose
+/// edgeaddress value is equal to the address operand. There is no default
+/// destination; if the address does not match any case, the behavior is
+/// undefined.
+///
+class IndirectSwitchInst : public Instruction {
+  constexpr static HungOffOperandsAllocMarker AllocMarker{};
+
+  /// Number of cases that fit into the allocated operand list.
+  unsigned ReservedCases;
+
+  // Operand[0]       = Address to branch on
+  // Operand[1+i]     = Destination of case i (all successors are adjacent)
+  // Operand[1+N+i]   = EdgeAddress value of case i
+  // where N is the number of cases.
+  IndirectSwitchInst(const IndirectSwitchInst &ISI);
+
+  /// Create a new indirectswitch instruction, specifying an address to switch
+  /// on. The number of cases can be specified here to make memory allocation
+  /// more efficient. This constructor can also auto-insert before another
+  /// instruction.
+  LLVM_ABI IndirectSwitchInst(Value *Address, unsigned NumCases,
+                              InsertPosition InsertBefore);
+
+  // allocate space for exactly zero operands
+  void *operator new(size_t S) { return User::operator new(S, AllocMarker); }
+
+  void growOperands(unsigned NumCases);
+
+protected:
+  // Note: Instruction needs to be a friend here to call cloneImpl.
+  friend class Instruction;
+
+  LLVM_ABI IndirectSwitchInst *cloneImpl() const;
+
+public:
+  void operator delete(void *Ptr) { User::operator delete(Ptr, AllocMarker); }
+
+  template <typename CaseHandleT> class CaseIteratorImpl;
+
+  /// A handle to a particular case. It exposes a convenient interface to both
+  /// the case value and the successor block.
+  template <typename IndirectSwitchInstT, typename EdgeAddressT,
+            typename BasicBlockT>
+  class CaseHandleImpl {
+    friend class IndirectSwitchInst::CaseIteratorImpl<
+        CaseHandleImpl<IndirectSwitchInstT, EdgeAddressT, BasicBlockT>>;
+
+  protected:
+    using IndirectSwitchInstType = IndirectSwitchInstT;
+
+    IndirectSwitchInstT *ISI;
+    ptrdiff_t Index;
+
+    CaseHandleImpl() = default;
+    CaseHandleImpl(IndirectSwitchInstT *ISI, ptrdiff_t Index)
+        : ISI(ISI), Index(Index) {}
+
+  public:
+    /// Resolves case value for current case.
+    EdgeAddressT *getCaseValue() const { return ISI->getCaseValue(Index); }
+
+    /// Resolves successor for current case.
+    BasicBlockT *getCaseSuccessor() const { return ISI->getSuccessor(Index); }
+
+    /// Returns number of current case.
+    unsigned getCaseIndex() const { return Index; }
+
+    /// Returns successor index for current case successor.
+    unsigned getSuccessorIndex() const { return Index; }
+
+    bool operator==(const CaseHandleImpl &RHS) const {
+      assert(ISI == RHS.ISI && "Incompatible operators.");
+      return Index == RHS.Index;
+    }
+  };
+
+  using ConstCaseHandle = CaseHandleImpl<const IndirectSwitchInst,
+                                         const EdgeAddress, const BasicBlock>;
+
+  class CaseHandle
+      : public CaseHandleImpl<IndirectSwitchInst, EdgeAddress, BasicBlock> {
+    friend class IndirectSwitchInst::CaseIteratorImpl<CaseHandle>;
+
+  public:
+    CaseHandle(IndirectSwitchInst *ISI, ptrdiff_t Index)
+        : CaseHandleImpl(ISI, Index) {}
+
+    /// Sets the new value for current case.
+    void setValue(EdgeAddress *V) const { ISI->setCaseValue(Index, V); }
+
+    /// Sets the new successor for current case.
+    void setSuccessor(BasicBlock *S) const { ISI->setSuccessor(Index, S); }
+  };
+
+  template <typename CaseHandleT>
+  class CaseIteratorImpl
+      : public iterator_facade_base<CaseIteratorImpl<CaseHandleT>,
+                                    std::random_access_iterator_tag,
+                                    const CaseHandleT> {
+    using IndirectSwitchInstT = typename CaseHandleT::IndirectSwitchInstType;
+
+    CaseHandleT Case;
+
+  public:
+    /// Default constructed iterator is in an invalid state until assigned to
+    /// a case for a particular indirectswitch.
+    CaseIteratorImpl() = default;
+
+    /// Initializes case iterator for given IndirectSwitchInst and for given
+    /// case number.
+    CaseIteratorImpl(IndirectSwitchInstT *ISI, unsigned CaseNum)
+        : Case(ISI, CaseNum) {}
+
+    /// Support converting to the const variant. This will be a no-op for const
+    /// variant.
+    operator CaseIteratorImpl<ConstCaseHandle>() const {
+      return CaseIteratorImpl<ConstCaseHandle>(Case.ISI, Case.Index);
+    }
+
+    CaseIteratorImpl &operator+=(ptrdiff_t N) {
+      // Note: Index == getNumCases() means end().
+      assert(Case.Index + N >= 0 &&
+             (unsigned)(Case.Index + N) <= Case.ISI->getNumCases() &&
+             "Case.Index out the number of cases.");
+      Case.Index += N;
+      return *this;
+    }
+    CaseIteratorImpl &operator-=(ptrdiff_t N) {
+      // Note: Index == getNumCases() means end().
+      assert(Case.Index - N >= 0 &&
+             (unsigned)(Case.Index - N) <= Case.ISI->getNumCases() &&
+             "Case.Index out the number of cases.");
+      Case.Index -= N;
+      return *this;
+    }
+    ptrdiff_t operator-(const CaseIteratorImpl &RHS) const {
+      assert(Case.ISI == RHS.Case.ISI && "Incompatible operators.");
+      return Case.Index - RHS.Case.Index;
+    }
+    bool operator==(const CaseIteratorImpl &RHS) const {
+      return Case == RHS.Case;
+    }
+    bool operator<(const CaseIteratorImpl &RHS) const {
+      assert(Case.ISI == RHS.Case.ISI && "Incompatible operators.");
+      return Case.Index < RHS.Case.Index;
+    }
+    const CaseHandleT &operator*() const { return Case; }
+  };
+
+  using CaseIt = CaseIteratorImpl<CaseHandle>;
+  using ConstCaseIt = CaseIteratorImpl<ConstCaseHandle>;
+
+  static IndirectSwitchInst *Create(Value *Address, unsigned NumCases,
+                                    InsertPosition InsertBefore = nullptr) {
+    return new IndirectSwitchInst(Address, NumCases, InsertBefore);
+  }
+
+  /// Provide fast operand accessors.
+  DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
+
+  // Accessor Methods for IndirectSwitchInst instruction.
+  Value *getAddress() const { return getOperand(0); }
+  void setAddress(Value *V) { setOperand(0, V); }
+
+  /// Return the number of cases in this indirectswitch instruction.
+  unsigned getNumCases() const { return (getNumOperands() - 1) / 2; }
+
+  /// Return the edgeaddress value of the specified case.
+  LLVM_ABI EdgeAddress *getCaseValue(unsigned Idx) const;
+  LLVM_ABI void setCaseValue(unsigned Idx, EdgeAddress *V);
+
+  CaseIt case_begin() { return CaseIt(this, 0); }
+  ConstCaseIt case_begin() const { return ConstCaseIt(this, 0); }
+  CaseIt case_end() { return CaseIt(this, getNumCases()); }
+  ConstCaseIt case_end() const { return ConstCaseIt(this, getNumCases()); }
+
+  /// Iteration adapter for range-for loops.
+  iterator_range<CaseIt> cases() {
+    return make_range(case_begin(), case_end());
+  }
+
+  /// Constant iteration adapter for range-for loops.
+  iterator_range<ConstCaseIt> cases() const {
+    return make_range(case_begin(), case_end());
+  }
+
+  /// Search all of the case values for the specified constant. Returns
+  /// case_end() if it is not found.
+  CaseIt findCaseValue(const EdgeAddress *C) {
+    return CaseIt(this, const_cast<const IndirectSwitchInst *>(this)
+                            ->findCaseValue(C)
+                            ->getCaseIndex());
+  }
+  ConstCaseIt findCaseValue(const EdgeAddress *C) const {
+    return llvm::find_if(cases(), [C](const ConstCaseHandle &Case) {
+      return Case.getCaseValue() == C;
+    });
+  }
+
+  /// Finds the unique case value for a given successor. Returns null if the
+  /// successor is not found or not unique.
+  EdgeAddress *findCaseDest(BasicBlock *BB) {
+    EdgeAddress *EA = nullptr;
+    for (auto Case : cases()) {
+      if (Case.getCaseSuccessor() != BB)
+        continue;
+
+      if (EA)
+        return nullptr; // Multiple cases lead to BB.
+
+      EA = Case.getCaseValue();
+    }
+    return EA;
+  }
+
+  /// Add an entry to the indirectswitch instruction.
+  /// Note:
+  /// This action invalidates case_end(). Old case_end() iterator will
+  /// point to the added case.
+  LLVM_ABI void addCase(EdgeAddress *OnVal, BasicBlock *Dest);
+
+  /// This method removes the specified case and its successor from the
+  /// indirectswitch instruction. Note that this operation may reorder the
+  /// remaining cases at index idx and above.
+  /// Note:
+  /// This action invalidates iterators for all cases following the one removed,
+  /// including the case_end() iterator. It returns an iterator for the next
+  /// case.
+  LLVM_ABI CaseIt removeCase(CaseIt I);
+
+  unsigned getNumSuccessors() const { return getNumCases(); }
+  BasicBlock *getSuccessor(unsigned Idx) const {
+    assert(Idx < getNumSuccessors() && "Successor # out of range!");
+    return cast<BasicBlock>(getOperand(Idx + 1));
+  }
+  void setSuccessor(unsigned Idx, BasicBlock *NewSucc) {
+    assert(Idx < getNumSuccessors() && "Successor # out of range!");
+    setOperand(Idx + 1, NewSucc);
+  }
+
+  iterator_range<succ_iterator> successors() {
+    return make_range(succ_iterator(std::next(op_begin())),
+                      succ_iterator(std::next(op_begin(), 1 + getNumCases())));
+  }
+
+  iterator_range<const_succ_iterator> successors() const {
+    return make_range(
+        const_succ_iterator(std::next(op_begin())),
+        const_succ_iterator(std::next(op_begin(), 1 + getNumCases())));
+  }
+
+  // Methods for support type inquiry through isa, cast, and dyn_cast:
+  static bool classof(const Instruction *I) {
+    return I->getOpcode() == Instruction::IndirectSwitch;
+  }
+  static bool classof(const Value *V) {
+    return isa<Instruction>(V) && classof(cast<Instruction>(V));
+  }
+};
+
+template <>
+struct OperandTraits<IndirectSwitchInst> : public HungoffOperandTraits {};
+
+DEFINE_TRANSPARENT_OPERAND_ACCESSORS(IndirectSwitchInst, Value)
 
 //===----------------------------------------------------------------------===//
 //                               InvokeInst Class

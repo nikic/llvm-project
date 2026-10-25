@@ -2713,6 +2713,7 @@ static Function *moveFunctionAdaptingType(Function *OldF, FunctionType *NewTy,
       CloneMap[&I] = &I;
     }
   }
+  OldF->transferEdgeAddressesTo(*NewF);
 
   SmallVector<AttributeSet> ArgAttrs;
   AttributeList OldAttrs = OldF->getAttributes();

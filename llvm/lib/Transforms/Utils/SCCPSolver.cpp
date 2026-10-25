@@ -440,10 +440,12 @@ bool SCCPSolver::removeNonFeasibleEdges(BasicBlock *BB, DomTreeUpdater &DTU,
   if (!HasNonFeasibleEdges)
     return false;
 
-  // SCCP can only determine non-feasible edges for br, switch and indirectbr.
+  // SCCP can only determine non-feasible edges for br, switch, indirectbr and
+  // indirectswitch.
   Instruction *TI = BB->getTerminator();
-  assert((isa<UncondBrInst, CondBrInst, SwitchInst, IndirectBrInst>(TI)) &&
-         "Terminator must be a br, switch or indirectbr");
+  assert((isa<UncondBrInst, CondBrInst, SwitchInst, IndirectBrInst,
+              IndirectSwitchInst>(TI)) &&
+         "Terminator must be a br, switch, indirectbr or indirectswitch");
 
   if (FeasibleSuccessors.size() == 0) {
     // Branch on undef/poison, replace with unreachable.
@@ -1404,6 +1406,14 @@ void SCCPInstVisitor::getFeasibleSuccessors(Instruction &TI,
 
     // If we didn't find our destination in the IBR successor list, then we
     // have undefined behavior. Its ok to assume no successor is executable.
+    return;
+  }
+
+  // TODO: Determine the feasible successor if the address is a known
+  // edgeaddress.
+  if (auto *ISI = dyn_cast<IndirectSwitchInst>(&TI)) {
+    if (!getValueState(ISI->getAddress()).isUnknownOrUndef())
+      Succs.assign(TI.getNumSuccessors(), true);
     return;
   }
 

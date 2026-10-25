@@ -1439,6 +1439,37 @@ define i32 @foo() {
       sandboxir::ConstantExpr::getPtrToInt(NullPtr, Int64Ty)));
 }
 
+// indirectswitch and edgeaddress are not modeled explicitly yet, check that
+// they are handled by the generic fallbacks.
+TEST_F(SandboxIRTest, IndirectSwitchFallback) {
+  parseIR(C, R"IR(
+@tbl = constant [1 x ptr] [ptr edgeaddress(@foo, 0)]
+define void @foo(ptr %ptr) {
+bb0:
+  store ptr edgeaddress(@foo, 1), ptr %ptr
+  indirectswitch ptr %ptr, [ ptr edgeaddress(@foo, 0), label %bb1
+                             ptr edgeaddress(@foo, 1), label %bb2 ]
+bb1:
+  ret void
+bb2:
+  ret void
+}
+)IR");
+  Function &LLVMF = *M->getFunction("foo");
+  sandboxir::Context Ctx(C);
+
+  Ctx.createFunction(&LLVMF);
+  auto *BB0 = cast<sandboxir::BasicBlock>(
+      Ctx.getValue(getBasicBlockByName(LLVMF, "bb0")));
+  auto It = BB0->begin();
+  auto *SI = cast<sandboxir::StoreInst>(&*It++);
+  auto *ISI = &*It++;
+  EXPECT_TRUE(isa<sandboxir::OpaqueInst>(ISI));
+  auto *EA = SI->getValueOperand();
+  EXPECT_TRUE(isa<sandboxir::Constant>(EA));
+  EXPECT_EQ(ISI->getOperand(4), EA);
+}
+
 TEST_F(SandboxIRTest, BlockAddress) {
   parseIR(C, R"IR(
 define void @foo(ptr %ptr) {

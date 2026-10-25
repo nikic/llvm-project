@@ -456,6 +456,20 @@ Value *Mapper::mapValue(const Value *V) {
                DSOLocalEquivalent::get(Func), NewTy);
   }
 
+  if (const auto *EA = dyn_cast<EdgeAddress>(C)) {
+    // The edge address of a remapped function is the edge address with the
+    // same ID in the new function.
+    Value *Mapped = mapValue(EA->getFunction());
+    if (!Mapped)
+      return nullptr;
+    auto *F = cast<Function>(Mapped->stripPointerCasts());
+    Type *NewTy = EA->getType();
+    if (TypeMapper)
+      NewTy = TypeMapper->remapType(NewTy);
+    return getVM()[EA] = ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+               EdgeAddress::get(F, EA->getID()), NewTy);
+  }
+
   if (const auto *NC = dyn_cast<NoCFIValue>(C)) {
     auto *Val = mapValue(NC->getGlobalValue());
     GlobalValue *GV = cast<GlobalValue>(Val);

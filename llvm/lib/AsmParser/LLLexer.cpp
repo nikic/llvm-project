@@ -793,6 +793,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(vscale);
   KEYWORD(x);
   KEYWORD(blockaddress);
+  KEYWORD(edgeaddress);
   KEYWORD(dso_local_equivalent);
   KEYWORD(no_cfi);
   KEYWORD(ptrauth);
@@ -971,6 +972,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   INSTKEYWORD(ret,         Ret);
   INSTKEYWORD(switch,      Switch);
   INSTKEYWORD(indirectbr,  IndirectBr);
+  INSTKEYWORD(indirectswitch, IndirectSwitch);
   INSTKEYWORD(invoke,      Invoke);
   INSTKEYWORD(resume,      Resume);
   INSTKEYWORD(unreachable, Unreachable);

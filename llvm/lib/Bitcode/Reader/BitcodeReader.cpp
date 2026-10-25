@@ -520,13 +520,15 @@ public:
   static constexpr uint8_t DSOLocalEquivalentOpcode = 251;
   static constexpr uint8_t BlockAddressOpcode = 250;
   static constexpr uint8_t ConstantPtrAuthOpcode = 249;
-  static constexpr uint8_t FirstSpecialOpcode = ConstantPtrAuthOpcode;
+  static constexpr uint8_t EdgeAddressOpcode = 248;
+  static constexpr uint8_t FirstSpecialOpcode = EdgeAddressOpcode;
 
   // Separate struct to make passing different number of parameters to
   // BitcodeConstant::create() more convenient.
   struct ExtraInfo {
     uint8_t Opcode;
     uint8_t Flags;
+    // Basic block number for blockaddress, edge ID for edgeaddress.
     unsigned BlockAddressBB = 0;
     Type *SrcElemTy = nullptr;
     std::optional<ConstantRange> InRange;
@@ -1695,6 +1697,15 @@ Expected<Value *> BitcodeReader::materializeValue(unsigned StartValID,
           if (!GV)
             return error("dso_local operand must be GlobalValue");
           C = DSOLocalEquivalent::get(GV);
+          break;
+        }
+        case BitcodeConstant::EdgeAddressOpcode: {
+          Function *Fn = dyn_cast<Function>(ConstOps[0]);
+          if (!Fn)
+            return error("edgeaddress operand must be a function");
+          C = EdgeAddress::get(Fn, BC->BlockAddressBB);
+          if (C->getType() != BC->getType())
+            return error("edgeaddress type mismatch");
           break;
         }
         case BitcodeConstant::BlockAddressOpcode: {
@@ -3880,6 +3891,22 @@ Error BitcodeReader::parseConstants() {
           Record[1]);
       break;
     }
+    case bitc::CST_CODE_EDGEADDRESS: {
+      // EDGEADDRESS: [fnty, fnval, id]
+      if (Record.size() < 3)
+        return error("Invalid edgeaddress record");
+      unsigned FnTyID = Record[0];
+      Type *FnTy = getTypeByID(FnTyID);
+      if (!FnTy || !CurTy->isPointerTy())
+        return error("Invalid edgeaddress record");
+      if (Record[2] > std::numeric_limits<unsigned>::max())
+        return error("Invalid edgeaddress record");
+      V = BitcodeConstant::create(
+          Alloc, CurTy,
+          {BitcodeConstant::EdgeAddressOpcode, 0, (unsigned)Record[2]},
+          Record[1]);
+      break;
+    }
     case bitc::CST_CODE_DSO_LOCAL_EQUIVALENT: {
       if (Record.size() < 2)
         return error("Invalid dso_local record");
@@ -6035,6 +6062,31 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
         }
       }
       I = IBI;
+      break;
+    }
+    case bitc::FUNC_CODE_INST_INDIRECTSWITCH: {
+      // INDIRECTSWITCH: [opty, op0, n x [caseval, bb#]]
+      if (Record.size() < 2 || (Record.size() & 1) != 0)
+        return error("Invalid indirectswitch record");
+      unsigned OpTyID = Record[0];
+      Type *OpTy = getTypeByID(OpTyID);
+      Value *Address = getValue(Record, 1, NextValueNo, OpTy, OpTyID, CurBB);
+      if (!OpTy || !Address || !OpTy->isPointerTy())
+        return error("Invalid indirectswitch record");
+      unsigned NumCases = (Record.size() - 2) / 2;
+      IndirectSwitchInst *ISI = IndirectSwitchInst::Create(Address, NumCases);
+      for (unsigned i = 0; i != NumCases; ++i) {
+        auto *CaseVal = dyn_cast_or_null<EdgeAddress>(
+            getFnValueByID(Record[2 + i * 2], OpTy, OpTyID, nullptr));
+        BasicBlock *DestBB = getBasicBlock(Record[3 + i * 2]);
+        if (!CaseVal || !DestBB) {
+          ISI->deleteValue();
+          return error("Invalid indirectswitch record");
+        }
+        ISI->addCase(CaseVal, DestBB);
+      }
+      InstructionList.push_back(ISI);
+      I = ISI;
       break;
     }
 

@@ -399,6 +399,12 @@ bool LLParser::validateEndOfModule(bool UpgradeDebugInfo) {
   ForwardRefDSOLocalEquivalentIDs.clear();
   ForwardRefDSOLocalEquivalentNames.clear();
 
+  // If there are entries in ForwardRefEdgeAddresses at this point, the
+  // function was never defined.
+  if (!ForwardRefEdgeAddresses.empty())
+    return error(ForwardRefEdgeAddresses.begin()->first.Loc,
+                 "expected function name in edgeaddress");
+
   for (const auto &NT : NumberedTypes)
     if (NT.second.second.isValid())
       return error(NT.second.second,
@@ -4543,6 +4549,68 @@ bool LLParser::parseValID(ValID &ID, PerFunctionState *PFS, Type *ExpectedTy) {
     return false;
   }
 
+  case lltok::kw_edgeaddress: {
+    // ValID ::= 'edgeaddress' '(' @foo ',' uint32 ')'
+    Lex.Lex();
+
+    ValID Fn;
+    unsigned EdgeID;
+    if (parseToken(lltok::lparen, "expected '(' in edge address expression") ||
+        parseValID(Fn, PFS) ||
+        parseToken(lltok::comma, "expected comma in edge address expression") ||
+        parseUInt32(EdgeID) ||
+        parseToken(lltok::rparen, "expected ')' in edge address expression"))
+      return true;
+
+    if (Fn.Kind != ValID::t_GlobalID && Fn.Kind != ValID::t_GlobalName)
+      return error(Fn.Loc, "expected function name in edgeaddress");
+
+    // Try to find the function (but skip it if it's forward-referenced).
+    GlobalValue *GV = nullptr;
+    if (Fn.Kind == ValID::t_GlobalID) {
+      GV = NumberedVals.get(Fn.UIntVal);
+    } else if (!ForwardRefVals.count(Fn.StrVal)) {
+      GV = M->getNamedValue(Fn.StrVal);
+    }
+
+    if (GV) {
+      auto *F = dyn_cast<Function>(GV);
+      if (!F)
+        return error(Fn.Loc, "expected function name in edgeaddress");
+      ID.ConstantVal = EdgeAddress::get(F, EdgeID);
+      ID.Kind = ValID::t_Constant;
+      return false;
+    }
+
+    // Make a global variable as a placeholder for this reference. It is
+    // resolved once the function is defined.
+    unsigned FwdDeclAS;
+    if (ExpectedTy) {
+      // If we know the type that the edgeaddress is being assigned to, we can
+      // use the address space of that type.
+      if (!ExpectedTy->isPointerTy())
+        return error(ID.Loc, "type of edgeaddress must be a pointer and not '" +
+                                 getTypeString(ExpectedTy) + "'");
+      FwdDeclAS = ExpectedTy->getPointerAddressSpace();
+    } else if (PFS) {
+      // Otherwise, we default the address space of the current function.
+      FwdDeclAS = PFS->getFunction().getAddressSpace();
+    } else {
+      FwdDeclAS = M->getDataLayout().getProgramAddressSpace();
+    }
+    GlobalValue *&FwdRef = ForwardRefEdgeAddresses[std::move(Fn)][EdgeID];
+    if (!FwdRef)
+      FwdRef = new GlobalVariable(
+          *M, Type::getInt8Ty(Context), false, GlobalValue::InternalLinkage,
+          nullptr, "", nullptr, GlobalValue::NotThreadLocal, FwdDeclAS);
+    else if (FwdRef->getType()->getPointerAddressSpace() != FwdDeclAS)
+      return error(ID.Loc, "edgeaddress used with inconsistent address spaces");
+
+    ID.ConstantVal = FwdRef;
+    ID.Kind = ValID::t_Constant;
+    return false;
+  }
+
   case lltok::kw_dso_local_equivalent: {
     // ValID ::= 'dso_local_equivalent' @foo
     Lex.Lex();
@@ -7420,10 +7488,6 @@ bool LLParser::parseFunctionHeader(Function *&Fn, bool IsDefine,
     FwdFn->eraseFromParent();
   }
 
-  if (IsDefine)
-    return false;
-
-  // Check the declaration has no block address forward references.
   ValID ID;
   if (FunctionName.empty()) {
     ID.Kind = ValID::t_GlobalID;
@@ -7432,10 +7496,37 @@ bool LLParser::parseFunctionHeader(Function *&Fn, bool IsDefine,
     ID.Kind = ValID::t_GlobalName;
     ID.StrVal = FunctionName;
   }
+
+  if (resolveForwardRefEdgeAddresses(Fn, ID))
+    return true;
+
+  if (IsDefine)
+    return false;
+
+  // Check the declaration has no block address forward references.
   auto Blocks = ForwardRefBlockAddresses.find(ID);
   if (Blocks != ForwardRefBlockAddresses.end())
     return error(Blocks->first.Loc,
                  "cannot take blockaddress inside a declaration");
+  return false;
+}
+
+/// Resolve edgeaddress references to \p F that were parsed before \p F was
+/// defined.
+bool LLParser::resolveForwardRefEdgeAddresses(Function *F, const ValID &FnID) {
+  auto It = ForwardRefEdgeAddresses.find(FnID);
+  if (It == ForwardRefEdgeAddresses.end())
+    return false;
+
+  for (const auto &[EdgeID, Placeholder] : It->second) {
+    EdgeAddress *EA = EdgeAddress::get(F, EdgeID);
+    if (EA->getType() != Placeholder->getType())
+      return error(It->first.Loc, "edgeaddress type does not match the "
+                                  "address space of the function");
+    Placeholder->replaceAllUsesWith(EA);
+    Placeholder->eraseFromParent();
+  }
+  ForwardRefEdgeAddresses.erase(It);
   return false;
 }
 
@@ -7762,6 +7853,8 @@ int LLParser::parseInstruction(Instruction *&Inst, BasicBlock *BB,
     return parseSwitch(Inst, PFS);
   case lltok::kw_indirectbr:
     return parseIndirectBr(Inst, PFS);
+  case lltok::kw_indirectswitch:
+    return parseIndirectSwitch(Inst, PFS);
   case lltok::kw_invoke:
     return parseInvoke(Inst, PFS);
   case lltok::kw_resume:
@@ -8194,6 +8287,52 @@ bool LLParser::parseIndirectBr(Instruction *&Inst, PerFunctionState &PFS) {
   for (BasicBlock *Dest : DestList)
     IBI->addDestination(Dest);
   Inst = IBI;
+  return false;
+}
+
+/// parseIndirectSwitch
+///  Instruction
+///    ::= 'indirectswitch' TypeAndValue ',' '[' JumpTable ']'
+///  JumpTable
+///    ::= (TypeAndValue ',' TypeAndValue)*
+bool LLParser::parseIndirectSwitch(Instruction *&Inst, PerFunctionState &PFS) {
+  LocTy AddrLoc, CaseLoc;
+  Value *Address;
+  if (parseTypeAndValue(Address, AddrLoc, PFS) ||
+      parseToken(lltok::comma, "expected ',' after indirectswitch address") ||
+      parseToken(lltok::lsquare, "expected '[' with indirectswitch table"))
+    return true;
+
+  if (!Address->getType()->isPointerTy())
+    return error(AddrLoc, "indirectswitch address must have pointer type");
+
+  // parse the jump table pairs.
+  SmallPtrSet<Value *, 32> SeenCases;
+  SmallVector<std::pair<EdgeAddress *, BasicBlock *>, 32> Table;
+  while (Lex.getKind() != lltok::rsquare) {
+    Value *Constant;
+    BasicBlock *DestBB;
+
+    if (parseTypeAndValue(Constant, CaseLoc, PFS) ||
+        parseToken(lltok::comma, "expected ',' after case value") ||
+        parseTypeAndBasicBlock(DestBB, PFS))
+      return true;
+
+    if (!SeenCases.insert(Constant).second)
+      return error(CaseLoc, "duplicate case value in indirectswitch");
+    auto *EA = dyn_cast<EdgeAddress>(Constant);
+    if (!EA)
+      return error(CaseLoc, "case value is not an edgeaddress");
+
+    Table.push_back({EA, DestBB});
+  }
+
+  Lex.Lex(); // Eat the ']'.
+
+  IndirectSwitchInst *ISI = IndirectSwitchInst::Create(Address, Table.size());
+  for (const auto &[OnVal, Dest] : Table)
+    ISI->addCase(OnVal, Dest);
+  Inst = ISI;
   return false;
 }
 

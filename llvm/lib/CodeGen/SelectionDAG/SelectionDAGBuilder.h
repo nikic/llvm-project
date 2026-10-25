@@ -532,6 +532,7 @@ private:
   void visitCondBr(const CondBrInst &I);
   void visitSwitch(const SwitchInst &I);
   void visitIndirectBr(const IndirectBrInst &I);
+  void visitIndirectSwitch(const IndirectSwitchInst &I);
   void visitUnreachable(const UnreachableInst &I);
   void visitCleanupRet(const CleanupReturnInst &I);
   void visitCatchSwitch(const CatchSwitchInst &I);

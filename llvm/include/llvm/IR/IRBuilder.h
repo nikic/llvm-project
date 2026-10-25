@@ -1246,6 +1246,13 @@ public:
     return Insert(IndirectBrInst::Create(Addr, NumDests));
   }
 
+  /// Create an indirectswitch instruction. The number of cases can be
+  /// specified here to make memory allocation more efficient.
+  IndirectSwitchInst *CreateIndirectSwitch(Value *Addr,
+                                           unsigned NumCases = 10) {
+    return Insert(IndirectSwitchInst::Create(Addr, NumCases));
+  }
+
   /// Create an invoke instruction.
   InvokeInst *CreateInvoke(FunctionType *Ty, Value *Callee,
                            BasicBlock *NormalDest, BasicBlock *UnwindDest,

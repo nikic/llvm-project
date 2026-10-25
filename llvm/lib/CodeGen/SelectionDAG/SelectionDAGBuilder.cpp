@@ -2020,6 +2020,10 @@ SDValue SelectionDAGBuilder::getValueImpl(const Value *V) {
     if (const BlockAddress *BA = dyn_cast<BlockAddress>(C))
       return DAG.getBlockAddress(BA, VT);
 
+    if (isa<EdgeAddress>(C))
+      // TODO: Implement lowering of edgeaddress.
+      reportFatalUsageError("edgeaddress is not yet supported");
+
     if (const auto *Equiv = dyn_cast<DSOLocalEquivalent>(C))
       return getValue(Equiv->getGlobalValue());
 
@@ -3781,6 +3785,11 @@ void SelectionDAGBuilder::visitIndirectBr(const IndirectBrInst &I) {
   DAG.setRoot(DAG.getNode(ISD::BRIND, getCurSDLoc(),
                           MVT::Other, getControlRoot(),
                           getValue(I.getAddress())));
+}
+
+void SelectionDAGBuilder::visitIndirectSwitch(const IndirectSwitchInst &I) {
+  // TODO: Implement lowering of indirectswitch.
+  reportFatalUsageError("indirectswitch is not yet supported");
 }
 
 void SelectionDAGBuilder::visitUnreachable(const UnreachableInst &I) {

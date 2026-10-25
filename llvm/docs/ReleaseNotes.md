@@ -172,6 +172,10 @@ Makes programs 10x faster by doing Special New Thing.
 * Added the `bitinsert` and `bitextract` instructions for bit-range
   manipulation on byte type values.
 
+* Added the `indirectswitch` instruction and the `edgeaddress` constant,
+  which are intended to replace `indirectbr` and `blockaddress` for indirect
+  branches. Code generation support is not implemented yet.
+
 ### Changes to LLVM infrastructure
 
 * Removed `TargetOptions::FloatABIType`. The soft float ABI should be
@@ -404,6 +408,10 @@ Makes programs 10x faster by doing Special New Thing.
 ### Changes to the Python bindings
 
 ### Changes to the C API
+
+* Added `LLVMIndirectSwitch` opcode, `LLVMBuildIndirectSwitch()`,
+  `LLVMEdgeAddress()`, `LLVMGetEdgeAddressFunction()` and
+  `LLVMGetEdgeAddressID()`. `LLVMAddCase()` also supports `indirectswitch`.
 
 * `LLVMAlignOf()` and `LLVMSizeOf()` have been deprecated. Create a constant
   based on the result of `LLVMABIAlignmentOfType()` or `LLVMABISizeOfType()`

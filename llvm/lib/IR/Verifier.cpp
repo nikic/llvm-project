@@ -440,6 +440,7 @@ private:
   void visitReturnInst(ReturnInst &RI);
   void visitSwitchInst(SwitchInst &SI);
   void visitIndirectBrInst(IndirectBrInst &BI);
+  void visitIndirectSwitchInst(IndirectSwitchInst &ISI);
   void visitCallBrInst(CallBrInst &CBI);
   void visitSelectInst(SelectInst &SI);
   void visitUserOp1(Instruction &I);
@@ -479,6 +480,7 @@ private:
   void visitConstantExprsRecursively(const Constant *EntryC);
   void visitConstantExpr(const ConstantExpr *CE);
   void visitConstantPtrAuth(const ConstantPtrAuth *CPA);
+  void visitEdgeAddress(const EdgeAddress *EA);
   void verifyInlineAsmCall(const CallBase &Call);
   void verifyStatepoint(const CallBase &Call);
   void verifyFrameRecoverIndices();
@@ -2932,7 +2934,8 @@ void Verifier::verifyFunctionMetadata(
 }
 
 void Verifier::visitConstantExprsRecursively(const Constant *EntryC) {
-  if (EntryC->getNumOperands() == 0)
+  // Edge addresses have no operands, but still need to be checked.
+  if (EntryC->getNumOperands() == 0 && !isa<EdgeAddress>(EntryC))
     return;
 
   if (!ConstantExprVisited.insert(EntryC).second)
@@ -2950,6 +2953,9 @@ void Verifier::visitConstantExprsRecursively(const Constant *EntryC) {
 
     if (const auto *CPA = dyn_cast<ConstantPtrAuth>(C))
       visitConstantPtrAuth(CPA);
+
+    if (const auto *EA = dyn_cast<EdgeAddress>(C))
+      visitEdgeAddress(EA);
 
     if (const auto *GV = dyn_cast<GlobalValue>(C)) {
       // Global Values get visited separately, but we do need to make sure
@@ -3008,6 +3014,17 @@ void Verifier::visitConstantPtrAuth(const ConstantPtrAuth *CPA) {
             isa<ConstantPointerNull>(CPA->getDeactivationSymbol()),
         "signed ptrauth constant deactivation symbol must be a global value "
         "or null");
+}
+
+void Verifier::visitEdgeAddress(const EdgeAddress *EA) {
+  // Edge addresses are not uses of their function, so check the module here.
+  Check(EA->getFunction()->getParent() == &M,
+        "Referencing function in another module!", EA, &M, EA->getFunction(),
+        EA->getFunction()->getParent());
+  Check(!EA->getFunction()->isDeclaration(),
+        "edgeaddress must refer to a function definition", EA);
+  Check(EA->getType() == EA->getFunction()->getType(),
+        "edgeaddress must have the pointer type of its function", EA);
 }
 
 bool Verifier::verifyAttributeCount(AttributeList Attrs, unsigned Params) {
@@ -3736,6 +3753,48 @@ void Verifier::visitIndirectBrInst(IndirectBrInst &BI) {
           "Indirectbr destinations must all have pointer type!", &BI);
 
   visitTerminator(BI);
+}
+
+void Verifier::visitIndirectSwitchInst(IndirectSwitchInst &ISI) {
+  Function *F = ISI.getFunction();
+  Check(ISI.getAddress()->getType() == F->getType(),
+        "indirectswitch operand must have the pointer type of the function",
+        &ISI);
+  Check((ISI.getNumOperands() - 1) % 2 == 0,
+        "indirectswitch must have an equal number of cases and destinations",
+        &ISI);
+
+  unsigned NumCases = ISI.getNumCases();
+  SmallPtrSet<const Value *, 32> Cases;
+  for (unsigned I = 0; I != NumCases; ++I) {
+    Check(ISI.getSuccessor(I)->getType()->isLabelTy(),
+          "indirectswitch destinations must have label type", &ISI);
+
+    // Don't use getCaseValue(), as it assumes the operand is an EdgeAddress.
+    unsigned OpNo = 1 + NumCases + I;
+    auto *EA = dyn_cast<EdgeAddress>(ISI.getOperand(OpNo));
+    Check(EA, "indirectswitch case value is not an edgeaddress", &ISI,
+          ISI.getOperand(OpNo));
+    Check(EA->getFunction() == F,
+          "indirectswitch case value must be an edgeaddress of the parent "
+          "function",
+          &ISI, EA);
+    Check(Cases.insert(EA).second,
+          "Duplicate edgeaddress as indirectswitch case", &ISI, EA);
+
+    // Each edgeaddress may only be the case value of a single indirectswitch.
+    for (const Use &U : EA->uses()) {
+      auto *Other = dyn_cast<IndirectSwitchInst>(U.getUser());
+      if (!Other || Other == &ISI)
+        continue;
+      Check(U.getOperandNo() <= Other->getNumCases(),
+            "edgeaddress used as case value by multiple indirectswitch "
+            "instructions",
+            &ISI, Other, EA);
+    }
+  }
+
+  visitTerminator(ISI);
 }
 
 static bool isSupportedCallBrIntrinsic(Intrinsic::ID ID) {
@@ -5574,6 +5633,8 @@ void Verifier::visitProfMetadata(Instruction &I, MDNode *MD) {
       ExpectedNumOperands = 1;
     else if (auto *IBI = dyn_cast<IndirectBrInst>(&I))
       ExpectedNumOperands = IBI->getNumDestinations();
+    else if (auto *ISI = dyn_cast<IndirectSwitchInst>(&I))
+      ExpectedNumOperands = ISI->getNumSuccessors();
     else if (isa<SelectInst>(&I))
       ExpectedNumOperands = 2;
     else if (auto *CI = dyn_cast<CallBrInst>(&I))

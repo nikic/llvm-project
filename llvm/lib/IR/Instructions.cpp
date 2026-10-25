@@ -4479,6 +4479,87 @@ void IndirectBrInst::removeDestination(unsigned idx) {
 }
 
 //===----------------------------------------------------------------------===//
+//                        IndirectSwitchInst Implementation
+//===----------------------------------------------------------------------===//
+
+IndirectSwitchInst::IndirectSwitchInst(Value *Address, unsigned NumCases,
+                                       InsertPosition InsertBefore)
+    : Instruction(Type::getVoidTy(Address->getContext()),
+                  Instruction::IndirectSwitch, AllocMarker, InsertBefore) {
+  assert(Address->getType()->isPointerTy() &&
+         "Address of indirectswitch must be a pointer");
+  ReservedCases = NumCases;
+  allocHungoffUses(1 + 2 * ReservedCases);
+  setNumHungOffUseOperands(1);
+  Op<0>() = Address;
+}
+
+IndirectSwitchInst::IndirectSwitchInst(const IndirectSwitchInst &ISI)
+    : Instruction(Type::getVoidTy(ISI.getContext()),
+                  Instruction::IndirectSwitch, AllocMarker) {
+  ReservedCases = ISI.getNumCases();
+  allocHungoffUses(ISI.getNumOperands());
+  setNumHungOffUseOperands(ISI.getNumOperands());
+  Use *OL = getOperandList();
+  const Use *InOL = ISI.getOperandList();
+  for (unsigned I = 0, E = ISI.getNumOperands(); I != E; ++I)
+    OL[I] = InOL[I];
+  SubclassOptionalData = ISI.SubclassOptionalData;
+}
+
+/// Grow the operand list so that it can hold at least \p NumCases cases.
+void IndirectSwitchInst::growOperands(unsigned NumCases) {
+  ReservedCases = std::max(NumCases, ReservedCases * 2);
+  growHungoffUses(1 + 2 * ReservedCases);
+}
+
+EdgeAddress *IndirectSwitchInst::getCaseValue(unsigned Idx) const {
+  assert(Idx < getNumCases() && "Case index out of range!");
+  return cast<EdgeAddress>(getOperand(1 + getNumCases() + Idx));
+}
+
+void IndirectSwitchInst::setCaseValue(unsigned Idx, EdgeAddress *V) {
+  assert(Idx < getNumCases() && "Case index out of range!");
+  setOperand(1 + getNumCases() + Idx, V);
+}
+
+void IndirectSwitchInst::addCase(EdgeAddress *OnVal, BasicBlock *Dest) {
+  unsigned NumCases = getNumCases();
+  if (NumCases + 1 > ReservedCases)
+    growOperands(NumCases + 1);
+  setNumHungOffUseOperands(1 + 2 * (NumCases + 1));
+
+  // Shift the case values up by one to make room for the new successor,
+  // keeping all successors adjacent.
+  Use *OL = getOperandList();
+  for (unsigned I = NumCases; I != 0; --I)
+    OL[1 + NumCases + I] = OL[NumCases + I].get();
+  OL[1 + NumCases] = Dest;
+  OL[2 + 2 * NumCases] = OnVal;
+}
+
+IndirectSwitchInst::CaseIt IndirectSwitchInst::removeCase(CaseIt I) {
+  unsigned Idx = I->getCaseIndex();
+  unsigned NumCases = getNumCases();
+  assert(Idx < NumCases && "Case index out of range!");
+
+  Use *OL = getOperandList();
+  // Move the last case into the removed one's slot.
+  OL[1 + Idx] = OL[NumCases].get();
+  OL[1 + NumCases + Idx] = OL[2 * NumCases].get();
+
+  // Shift the case values down by one, overwriting the last successor.
+  for (unsigned J = 0; J != NumCases - 1; ++J)
+    OL[NumCases + J] = OL[1 + NumCases + J].get();
+
+  // Nuke the last two operands.
+  OL[2 * NumCases - 1].set(nullptr);
+  OL[2 * NumCases].set(nullptr);
+  setNumHungOffUseOperands(1 + 2 * (NumCases - 1));
+  return CaseIt(this, Idx);
+}
+
+//===----------------------------------------------------------------------===//
 //                            FreezeInst Implementation
 //===----------------------------------------------------------------------===//
 
@@ -4709,6 +4790,10 @@ SwitchInst *SwitchInst::cloneImpl() const { return new SwitchInst(*this); }
 
 IndirectBrInst *IndirectBrInst::cloneImpl() const {
   return new IndirectBrInst(*this);
+}
+
+IndirectSwitchInst *IndirectSwitchInst::cloneImpl() const {
+  return new IndirectSwitchInst(*this);
 }
 
 InvokeInst *InvokeInst::cloneImpl() const {

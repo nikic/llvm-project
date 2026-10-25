@@ -72,6 +72,7 @@ typedef enum {
   /* removed 6 due to API changes */
   LLVMUnreachable    = 7,
   LLVMCallBr         = 67,
+  LLVMIndirectSwitch = 74,
 
   /* Standard Unary Operators */
   LLVMFNeg           = 66,
@@ -298,6 +299,7 @@ typedef enum {
   LLVMPoisonValueValueKind,
   LLVMConstantTargetNoneValueKind,
   LLVMConstantPtrAuthValueKind,
+  LLVMEdgeAddressValueKind,
 } LLVMValueKind;
 
 typedef enum {
@@ -2039,6 +2041,7 @@ LLVM_C_ABI unsigned LLVMGetTargetExtTypeIntParam(LLVMTypeRef TargetExtTy,
   macro(User)                               \
     macro(Constant)                         \
       macro(BlockAddress)                   \
+      macro(EdgeAddress)                    \
       macro(ConstantAggregateZero)          \
       macro(ConstantArray)                  \
       macro(ConstantDataSequential)         \
@@ -2852,6 +2855,23 @@ LLVM_C_ABI LLVMValueRef LLVMGetBlockAddressFunction(LLVMValueRef BlockAddr);
  */
 LLVM_C_ABI LLVMBasicBlockRef
 LLVMGetBlockAddressBasicBlock(LLVMValueRef BlockAddr);
+
+/**
+ * Obtain the edgeaddress constant for the given function and ID.
+ *
+ * @see llvm::EdgeAddress::get()
+ */
+LLVM_C_ABI LLVMValueRef LLVMEdgeAddress(LLVMValueRef F, unsigned ID);
+
+/**
+ * Gets the function associated with a given EdgeAddress constant value.
+ */
+LLVM_C_ABI LLVMValueRef LLVMGetEdgeAddressFunction(LLVMValueRef EdgeAddr);
+
+/**
+ * Gets the ID of a given EdgeAddress constant value.
+ */
+LLVM_C_ABI unsigned LLVMGetEdgeAddressID(LLVMValueRef EdgeAddr);
 
 /** Deprecated: Use LLVMGetInlineAsm instead. */
 LLVM_C_ABI LLVMValueRef LLVMConstInlineAsm(LLVMTypeRef Ty,
@@ -4766,6 +4786,9 @@ LLVM_C_ABI LLVMValueRef LLVMBuildSwitch(LLVMBuilderRef, LLVMValueRef V,
                                         unsigned NumCases);
 LLVM_C_ABI LLVMValueRef LLVMBuildIndirectBr(LLVMBuilderRef B, LLVMValueRef Addr,
                                             unsigned NumDests);
+LLVM_C_ABI LLVMValueRef LLVMBuildIndirectSwitch(LLVMBuilderRef B,
+                                                LLVMValueRef Addr,
+                                                unsigned NumCases);
 LLVM_C_ABI LLVMValueRef LLVMBuildCallBr(
     LLVMBuilderRef B, LLVMTypeRef Ty, LLVMValueRef Fn,
     LLVMBasicBlockRef DefaultDest, LLVMBasicBlockRef *IndirectDests,
@@ -4809,7 +4832,7 @@ LLVM_C_ABI LLVMValueRef LLVMBuildCatchSwitch(LLVMBuilderRef B,
                                              unsigned NumHandlers,
                                              const char *Name);
 
-/* Add a case to the switch instruction */
+/* Add a case to the switch or indirectswitch instruction */
 LLVM_C_ABI void LLVMAddCase(LLVMValueRef Switch, LLVMValueRef OnVal,
                             LLVMBasicBlockRef Dest);
 

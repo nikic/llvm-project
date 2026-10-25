@@ -574,6 +574,7 @@ ExpandVariadics::deriveFixedArityReplacement(Module &M, IRBuilder<> &Builder,
   // Splice the implementation into the new function with minimal changes
   if (FunctionIsDefinition) {
     NF->splice(NF->begin(), &F);
+    F.transferEdgeAddressesTo(*NF);
 
     auto NewArg = NF->arg_begin();
     for (Argument &Arg : F.args()) {

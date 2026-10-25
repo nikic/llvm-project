@@ -510,6 +510,16 @@ int FunctionComparator::cmpConstants(const Constant *L,
       return cmpValues(LBA->getBasicBlock(), RBA->getBasicBlock());
     }
   }
+  case Value::EdgeAddressVal: {
+    // Edge addresses are equivalent if they refer to the same function (or to
+    // the respective functions being compared) and have the same ID.
+    const EdgeAddress *LEA = cast<EdgeAddress>(L);
+    const EdgeAddress *REA = cast<EdgeAddress>(R);
+    if (int Res =
+            cmpValuesAllowingSelfRef(LEA->getFunction(), REA->getFunction()))
+      return Res;
+    return cmpNumbers(LEA->getID(), REA->getID());
+  }
   case Value::DSOLocalEquivalentVal: {
     // dso_local_equivalent is functionally equivalent to whatever it points to.
     // This means the behavior of the IR should be the exact same as if the

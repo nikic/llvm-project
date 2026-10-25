@@ -49,6 +49,18 @@ static void replaceBranchTerminator(BasicBlock &BB,
   if (isa<CatchSwitchInst>(Term))
     return;
 
+  // Drop the cases of an indirectswitch that branch to deleted blocks. An
+  // indirectswitch without cases is valid.
+  if (auto *ISI = dyn_cast<IndirectSwitchInst>(Term)) {
+    for (auto It = ISI->case_begin(); It != ISI->case_end();) {
+      if (BBsToDelete.count(It->getCaseSuccessor()))
+        It = ISI->removeCase(It);
+      else
+        ++It;
+    }
+    return;
+  }
+
   bool IsBranch = isa<UncondBrInst, CondBrInst, CallBrInst>(Term);
   if (InvokeInst *Invoke = dyn_cast<InvokeInst>(Term)) {
     BasicBlock *UnwindDest = Invoke->getUnwindDest();

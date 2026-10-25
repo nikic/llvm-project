@@ -1759,6 +1759,10 @@ public:
 
   DenseMap<const BasicBlock *, BlockAddress *> BlockAddresses;
 
+  /// EdgeAddress constants, keyed on function and then ID. A function has an
+  /// entry only if it has at least one EdgeAddress.
+  DenseMap<const Function *, DenseMap<unsigned, EdgeAddress *>> EdgeAddresses;
+
   DenseMap<const GlobalValue *, DSOLocalEquivalent *> DSOLocalEquivalents;
 
   DenseMap<const GlobalValue *, NoCFIValue *> NoCFIValues;

@@ -5597,6 +5597,40 @@ the `indirectbr` instruction.
 Finally, some targets may provide defined semantics when using the value
 as the operand to an inline assembly, but that is target specific.
 
+(edgeaddress)=
+
+### Addresses of Indirect Switch Edges
+
+`edgeaddress(@function, N)`
+
+The '`edgeaddress`' constant computes the address of an edge out of the
+'{ref}`indirectswitch <i_indirectswitch>`' instruction in `@function` that
+uses this constant as a case value. `N` is an arbitrary 32-bit unsigned
+integer that identifies the edge. The IDs used in a function do not need to be
+contiguous. Unlike '{ref}`blockaddress <blockaddress>`', an '`edgeaddress`'
+does not refer to a basic block.
+
+It always has a `ptr addrspace(P)` type, where `P` is the address space
+of `@function` (usually `addrspace(0)`). `@function` must be a function
+definition.
+
+If the '`edgeaddress`' is used as a case value of an
+'{ref}`indirectswitch <i_indirectswitch>`' instruction in `@function` (there
+can be at most one such instruction), its value is the target of the
+corresponding case: Executing that '`indirectswitch`' with this value as the
+address operand transfers control to the case destination. If the
+'`edgeaddress`' is not used as a case value by any '`indirectswitch`', it has
+an unspecified non-null value.
+
+Comparisons of an '`edgeaddress`' against null are allowed, and an
+'`edgeaddress`' is never equal to null. The results of other comparisons
+involving an '`edgeaddress`' (such as comparing two different edge addresses)
+are unspecified. In particular, different edge addresses may compare equal.
+The value may be passed around as an opaque pointer sized value, stored to
+memory, and loaded again. This allows `ptrtoint` and arithmetic to be
+performed on these values so long as the original value is reconstituted
+before the `indirectswitch` instruction.
+
 (dso_local_equivalent)=
 
 ### DSO Local Equivalent
@@ -10424,7 +10458,8 @@ control flow, not values (the one exception being the
 
 The terminator instructions are: '{ref}`ret <i_ret>`',
 '{ref}`br <i_br>`', '{ref}`switch <i_switch>`',
-'{ref}`indirectbr <i_indirectbr>`', '{ref}`invoke <i_invoke>`',
+'{ref}`indirectbr <i_indirectbr>`',
+'{ref}`indirectswitch <i_indirectswitch>`', '{ref}`invoke <i_invoke>`',
 '{ref}`callbr <i_callbr>`'
 '{ref}`resume <i_resume>`', '{ref}`catchswitch <i_catchswitch>`',
 '{ref}`catchret <i_catchret>`',
@@ -10627,6 +10662,72 @@ This is typically implemented with a jump through a register.
 
 ```llvm
 indirectbr ptr %Addr, [ label %bb1, label %bb2, label %bb3 ]
+```
+
+(i_indirectswitch)=
+
+#### '`indirectswitch`' Instruction
+
+##### Syntax:
+
+```
+indirectswitch ptr <address>, [ ptr edgeaddress(@f, <id>), label <dest> ... ]
+```
+
+##### Overview:
+
+The '`indirectswitch`' instruction implements an indirect branch to one of
+several destinations within the current function. The address operand must be
+derived from one of the {ref}`edgeaddress <edgeaddress>` constants listed as
+case values. It is intended to replace the
+'{ref}`indirectbr <i_indirectbr>`' instruction.
+
+##### Arguments:
+
+The '`indirectswitch`' instruction takes an '`address`' operand of type
+`ptr addrspace(P)`, where `P` is the address space of the containing function,
+and a table of pairs of case values and '`label`' destinations. Each case value
+must be an '`edgeaddress`' constant whose function is the function containing
+the '`indirectswitch`'. The table is not allowed to contain duplicate case
+values, and each '`edgeaddress`' constant may only be used as a case value by
+a single '`indirectswitch`' instruction. Multiple cases may have the same
+destination. There is no default destination. The table may be empty.
+
+##### Semantics:
+
+When the '`indirectswitch`' is executed, control is transferred to the
+destination of the case whose '`edgeaddress`' value is equal to '`address`'.
+If '`address`' does not correspond to any of the case values, the behavior is
+undefined. In particular, an '`indirectswitch`' without any cases always has
+undefined behavior. If '`address`' is `poison` or `undef`, this instruction
+has undefined behavior.
+
+Because the '`indirectswitch`' instruction defines the values of its
+'`edgeaddress`' case values, it must not be duplicated by transformations.
+Changing the destination of a case is allowed, and implicitly changes the
+target that the corresponding '`edgeaddress`' refers to.
+
+##### Implementation:
+
+This is typically implemented with a jump through a register, where each
+'`edgeaddress`' is the address of the code for its destination.
+
+##### Example:
+
+```llvm
+@table = constant [2 x ptr] [ptr edgeaddress(@f, 0), ptr edgeaddress(@f, 1)]
+
+define void @f(i64 %i) {
+entry:
+  %p = getelementptr [2 x ptr], ptr @table, i64 0, i64 %i
+  %addr = load ptr, ptr %p
+  indirectswitch ptr %addr, [ ptr edgeaddress(@f, 0), label %bb0
+                              ptr edgeaddress(@f, 1), label %bb1 ]
+bb0:
+  ret void
+bb1:
+  ret void
+}
 ```
 
 (i_invoke)=

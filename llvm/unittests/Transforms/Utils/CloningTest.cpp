@@ -726,6 +726,71 @@ TEST(CloneFunction, CloneEmptyFunction) {
   EXPECT_FALSE(CCI.ContainsDynamicAllocas);
 }
 
+TEST(CloneFunction, CloneFunctionWithEdgeAddresses) {
+  StringRef ImplAssembly = R"(
+    @tbl = constant [2 x ptr] [ptr edgeaddress(@foo, 0), ptr edgeaddress(@foo, 1)]
+    define void @foo(ptr %p) {
+      %q = load ptr, ptr %p
+      store ptr edgeaddress(@foo, 1), ptr %p
+      indirectswitch ptr %q, [ ptr edgeaddress(@foo, 0), label %a
+                               ptr edgeaddress(@foo, 1), label %b ]
+    a:
+      ret void
+    b:
+      ret void
+    }
+  )";
+
+  LLVMContext Context;
+  SMDiagnostic Error;
+  auto M = parseAssemblyString(ImplAssembly, Error, Context);
+  ASSERT_TRUE(M != nullptr);
+  Function *F = M->getFunction("foo");
+
+  ValueToValueMapTy VMap;
+  Function *Clone = CloneFunction(F, VMap);
+  EXPECT_FALSE(verifyModule(*M, &errs()));
+
+  // The cloned function uses its own edge addresses.
+  EXPECT_TRUE(Clone->hasEdgeAddress());
+  auto *ISI = cast<IndirectSwitchInst>(Clone->getEntryBlock().getTerminator());
+  EXPECT_EQ(ISI->getCaseValue(0), EdgeAddress::get(Clone, 0));
+  EXPECT_EQ(ISI->getCaseValue(1), EdgeAddress::get(Clone, 1));
+  auto *SI = cast<StoreInst>(ISI->getPrevNode());
+  EXPECT_EQ(SI->getValueOperand(), EdgeAddress::get(Clone, 1));
+
+  // References outside the function are unchanged.
+  auto *Tbl =
+      cast<ConstantArray>(M->getGlobalVariable("tbl")->getInitializer());
+  EXPECT_EQ(Tbl->getOperand(0), EdgeAddress::get(F, 0));
+}
+
+TEST(CloneModuleEdgeAddress, GlobalInitializer) {
+  StringRef ImplAssembly = R"(
+    @tbl = constant [1 x ptr] [ptr edgeaddress(@foo, 3)]
+    define void @foo(ptr %p) {
+      indirectswitch ptr %p, [ ptr edgeaddress(@foo, 3), label %a ]
+    a:
+      ret void
+    }
+  )";
+
+  LLVMContext Context;
+  SMDiagnostic Error;
+  auto M = parseAssemblyString(ImplAssembly, Error, Context);
+  ASSERT_TRUE(M != nullptr);
+  std::unique_ptr<Module> NewM = CloneModule(*M);
+  EXPECT_FALSE(verifyModule(*NewM, &errs()));
+
+  Function *NewF = NewM->getFunction("foo");
+  ASSERT_NE(NewF, M->getFunction("foo"));
+  auto *Tbl =
+      cast<ConstantArray>(NewM->getGlobalVariable("tbl")->getInitializer());
+  EXPECT_EQ(Tbl->getOperand(0), EdgeAddress::get(NewF, 3));
+  auto *ISI = cast<IndirectSwitchInst>(NewF->getEntryBlock().getTerminator());
+  EXPECT_EQ(ISI->getCaseValue(0), EdgeAddress::get(NewF, 3));
+}
+
 TEST(CloneFunction, CloneFunctionWithInalloca) {
   StringRef ImplAssembly = R"(
     declare void @a(ptr inalloca(i32))

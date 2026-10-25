@@ -317,6 +317,7 @@ doPromotion(Function *F, FunctionAnalysisManager &FAM,
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
   NF->splice(NF->begin(), F);
+  F->transferEdgeAddressesTo(*NF);
 
   // We will collect all the new created allocas to promote them into registers
   // after the following loop

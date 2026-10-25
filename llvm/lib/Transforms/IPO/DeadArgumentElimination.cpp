@@ -199,6 +199,7 @@ bool DeadArgumentEliminationPass::deleteDeadVarargs(Function &F) {
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
   NF->splice(NF->begin(), &F);
+  F.transferEdgeAddressesTo(*NF);
 
   // Loop over the argument list, transferring uses of the old arguments over to
   // the new arguments, also transferring over the names as well.  While we're
@@ -998,6 +999,7 @@ bool DeadArgumentEliminationPass::removeDeadStuffFromFunction(Function *F) {
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
   NF->splice(NF->begin(), F);
+  F->transferEdgeAddressesTo(*NF);
 
   // Loop over the argument list, transferring uses of the old arguments over to
   // the new arguments, also transferring over the names as well.

@@ -123,6 +123,9 @@ public:
   void visitCondBrInst(CondBrInst &I);
   void visitSwitchInst(SwitchInst &I);
   void visitIndirectBrInst(IndirectBrInst &I);
+  void visitIndirectSwitchInst(IndirectSwitchInst &I) {
+    reportFatalUsageError("indirectswitch is not supported by the interpreter");
+  }
 
   void visitUnaryOperator(UnaryOperator &I);
   void visitBinaryOperator(BinaryOperator &I);

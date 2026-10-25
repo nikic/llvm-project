@@ -158,6 +158,11 @@ namespace llvm {
     std::map<ValID, GlobalValue *> ForwardRefDSOLocalEquivalentNames;
     std::map<ValID, GlobalValue *> ForwardRefDSOLocalEquivalentIDs;
 
+    // References to edgeaddress of functions that have not been defined yet.
+    // The key is the function ValID, the value maps edge IDs to placeholder
+    // values that will be replaced once the function is defined.
+    std::map<ValID, std::map<unsigned, GlobalValue *>> ForwardRefEdgeAddresses;
+
     // Attribute builder reference information.
     std::map<Value*, std::vector<unsigned> > ForwardRefAttrGroups;
     std::map<unsigned, AttrBuilder> NumberedAttrBuilders;
@@ -674,6 +679,8 @@ namespace llvm {
     bool parseBr(Instruction *&Inst, PerFunctionState &PFS);
     bool parseSwitch(Instruction *&Inst, PerFunctionState &PFS);
     bool parseIndirectBr(Instruction *&Inst, PerFunctionState &PFS);
+    bool parseIndirectSwitch(Instruction *&Inst, PerFunctionState &PFS);
+    bool resolveForwardRefEdgeAddresses(Function *F, const ValID &FnID);
     bool parseInvoke(Instruction *&Inst, PerFunctionState &PFS);
     bool parseResume(Instruction *&Inst, PerFunctionState &PFS);
     bool parseCleanupRet(Instruction *&Inst, PerFunctionState &PFS);

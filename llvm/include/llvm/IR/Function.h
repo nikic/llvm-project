@@ -18,6 +18,7 @@
 #define LLVM_IR_FUNCTION_H
 
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/ADT/ilist_node.h"
@@ -52,6 +53,7 @@ class DataLayout;
 struct DenormalFPEnv;
 struct DenormalMode;
 class DISubprogram;
+class EdgeAddress;
 enum LibFunc : unsigned;
 class LLVMContext;
 class Module;
@@ -148,6 +150,7 @@ private:
   void clearArguments();
 
   void deleteBodyImpl(bool ShouldDrop);
+  void dropEdgeAddresses();
 
   /// Function ctor - If the (optional) Module argument is specified, the
   /// function is automatically inserted into the end of the function list for
@@ -971,6 +974,23 @@ public:
   void dropAllReferences() {
     deleteBodyImpl(/*ShouldDrop=*/true);
   }
+
+  /// Returns true if there are any edgeaddress constants referring to this
+  /// function. This is a cheap (hash table lookup) query.
+  bool hasEdgeAddress() const;
+
+  /// Return all edgeaddress constants referring to this function, ordered by
+  /// ID.
+  SmallVector<EdgeAddress *> getEdgeAddresses() const;
+
+  /// Replace each edgeaddress(@this, N) with edgeaddress(@NewF, N).
+  ///
+  /// Edge addresses are not uses of their function, so replaceAllUsesWith()
+  /// does not update them. Transforms that move the body of this function into
+  /// \p NewF (e.g. to change the function signature) must call this before
+  /// deleting this function, which would otherwise replace the edge addresses
+  /// with an arbitrary value.
+  void transferEdgeAddressesTo(Function &NewF);
 
   /// hasAddressTaken - returns true if there are any uses of this function
   /// other than direct calls or invokes to it, or blockaddress expressions.

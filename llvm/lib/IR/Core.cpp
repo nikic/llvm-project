@@ -2047,6 +2047,18 @@ LLVMBasicBlockRef LLVMGetBlockAddressBasicBlock(LLVMValueRef BlockAddr) {
   return wrap(unwrap<BlockAddress>(BlockAddr)->getBasicBlock());
 }
 
+LLVMValueRef LLVMEdgeAddress(LLVMValueRef F, unsigned ID) {
+  return wrap(EdgeAddress::get(unwrap<Function>(F), ID));
+}
+
+LLVMValueRef LLVMGetEdgeAddressFunction(LLVMValueRef EdgeAddr) {
+  return wrap(unwrap<EdgeAddress>(EdgeAddr)->getFunction());
+}
+
+unsigned LLVMGetEdgeAddressID(LLVMValueRef EdgeAddr) {
+  return unwrap<EdgeAddress>(EdgeAddr)->getID();
+}
+
 /*--.. Operations on global variables, functions, and aliases (globals) ....--*/
 
 LLVMModuleRef LLVMGetGlobalParent(LLVMValueRef Global) {
@@ -3668,6 +3680,11 @@ LLVMValueRef LLVMBuildIndirectBr(LLVMBuilderRef B, LLVMValueRef Addr,
   return wrap(unwrap(B)->CreateIndirectBr(unwrap(Addr), NumDests));
 }
 
+LLVMValueRef LLVMBuildIndirectSwitch(LLVMBuilderRef B, LLVMValueRef Addr,
+                                     unsigned NumCases) {
+  return wrap(unwrap(B)->CreateIndirectSwitch(unwrap(Addr), NumCases));
+}
+
 LLVMValueRef LLVMBuildCallBr(LLVMBuilderRef B, LLVMTypeRef Ty, LLVMValueRef Fn,
                              LLVMBasicBlockRef DefaultDest,
                              LLVMBasicBlockRef *IndirectDests,
@@ -3773,6 +3790,10 @@ LLVMValueRef LLVMBuildUnreachable(LLVMBuilderRef B) {
 
 void LLVMAddCase(LLVMValueRef Switch, LLVMValueRef OnVal,
                  LLVMBasicBlockRef Dest) {
+  if (auto *ISI = dyn_cast<IndirectSwitchInst>(unwrap(Switch))) {
+    ISI->addCase(unwrap<EdgeAddress>(OnVal), unwrap(Dest));
+    return;
+  }
   unwrap<SwitchInst>(Switch)->addCase(unwrap<ConstantInt>(OnVal), unwrap(Dest));
 }
 

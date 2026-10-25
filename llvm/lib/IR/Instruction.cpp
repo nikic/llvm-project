@@ -837,6 +837,7 @@ const char *Instruction::getOpcodeName(unsigned OpCode) {
   case CatchPad: return "catchpad";
   case CatchSwitch: return "catchswitch";
   case CallBr: return "callbr";
+  case IndirectSwitch: return "indirectswitch";
 
   // Standard unary operators...
   case FNeg: return "fneg";

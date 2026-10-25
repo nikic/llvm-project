@@ -486,6 +486,11 @@ class IRTranslatorImpl {
 
   bool translateIndirectBr(const User &U, MachineIRBuilder &MIRBuilder);
 
+  bool translateIndirectSwitch(const User &U, MachineIRBuilder &MIRBuilder) {
+    // TODO: Implement lowering of indirectswitch.
+    reportFatalUsageError("indirectswitch is not yet supported");
+  }
+
   bool translateExtractValue(const User &U, MachineIRBuilder &MIRBuilder);
 
   bool translateInsertValue(const User &U, MachineIRBuilder &MIRBuilder);
@@ -4850,6 +4855,9 @@ bool IRTranslatorImpl::translate(const Constant &C, Register Reg) {
     EntryBuilder->buildBuildVector(Reg, Ops);
   } else if (auto *BA = dyn_cast<BlockAddress>(&C)) {
     EntryBuilder->buildBlockAddress(Reg, BA);
+  } else if (isa<EdgeAddress>(C)) {
+    // TODO: Implement lowering of edgeaddress.
+    reportFatalUsageError("edgeaddress is not yet supported");
   } else
     return false;
 

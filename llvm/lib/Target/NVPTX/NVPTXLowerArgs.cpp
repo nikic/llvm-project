@@ -404,6 +404,7 @@ static void rewriteKernelByValSignature(Function &F, const bool HasCvtaParam) {
   F.replaceAllUsesWith(NF);
   NF->takeName(&F);
   NF->splice(NF->begin(), &F);
+  F.transferEdgeAddressesTo(*NF);
 
   // Remap arguments. Non-byval arguments keep their type and are replaced
   // directly; byval arguments change address space, so their uses are lowered

@@ -3128,6 +3128,7 @@ ChangeStatus Attributor::rewriteFunctionSignatures(
     // function right into the new function, leaving the old rotting hulk of the
     // function empty.
     NewFn->splice(NewFn->begin(), OldFn);
+    OldFn->transferEdgeAddressesTo(*NewFn);
 
     // Set of all "call-like" instructions that invoke the old function mapped
     // to their new replacements.

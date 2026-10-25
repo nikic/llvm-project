@@ -68,6 +68,9 @@ static bool shouldReduceOperand(Use &Op) {
   // indexes)
   if (isa<GEPOperator>(Op.getUser()))
     return false;
+  // indirectswitch case values must be edgeaddress constants.
+  if (isa<EdgeAddress>(Op) && isa<IndirectSwitchInst>(Op.getUser()))
+    return false;
   if (auto *CB = dyn_cast<CallBase>(Op.getUser())) {
     if (&CB->getCalledOperandUse() == &Op)
       return false;
