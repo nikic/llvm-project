@@ -952,36 +952,6 @@ exit:
   ret i32 %add
 }
 
-; CHECK-LABEL:Loop Unroll: F[header_address_taken] Loop %for.body (depth=1)
-; CHECK-NEXT:Loop Size = 6
-; CHECK-NEXT: Computing unroll count: TripCount=4, MaxTripCount=0, TripMultiple=4
-; CHECK-NEXT: Explicit unroll requested: pragma-enable
-; CHECK-NEXT: Trying pragma unroll...
-; CHECK-NEXT: Trying full unroll...
-; CHECK-NEXT:  Unrolling: size {{[0-9]+}} < threshold {{[0-9]+}}.
-; CHECK-NEXT:  Won't unroll loop: address of header block is taken.
-; CHECK-NEXT: Failed to unroll loop as explicitly requested.
-; CHECK-NEXT:remark: <unknown>:0:0: failed to unroll loop as explicitly requested
-
-define i32 @header_address_taken(ptr %A) {
-entry:
-  store ptr blockaddress(@header_address_taken, %for.body), ptr %A
-  br label %for.body
-
-for.body:
-  %i = phi i32 [ 0, %entry ], [ %inc, %for.body ]
-  %sum = phi i32 [ 0, %entry ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds i32, ptr %A, i32 %i
-  %load = load i32, ptr %arrayidx
-  %add = add i32 %sum, %load
-  %inc = add i32 %i, 1
-  %cmp = icmp ult i32 %inc, 4
-  br i1 %cmp, label %for.body, label %exit, !llvm.loop !15
-
-exit:
-  ret i32 %add
-}
-
 !0 = distinct !{!0, !3}
 !1 = distinct !{!1, !4}
 !2 = distinct !{!2, !4}
@@ -997,5 +967,4 @@ exit:
 !12 = distinct !{!12, !3}
 !13 = distinct !{!13, !4}
 !14 = distinct !{!14, !6}
-!15 = distinct !{!15, !4}
 !16 = distinct !{!16, !4}

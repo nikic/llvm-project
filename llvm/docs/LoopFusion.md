@@ -392,8 +392,6 @@ and several legality checks are intentionally conservative.
 A loop is rejected during candidate construction if any of the
 following properties holds:
 
-- A block in the loop has its address taken (for example, used as a
-  `blockaddress` operand).
 - Any instruction in the loop may throw.
 - The loop contains a volatile memory access.
 - The loop contains an atomic memory access.

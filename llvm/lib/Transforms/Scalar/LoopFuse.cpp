@@ -79,7 +79,6 @@ using namespace llvm;
 STATISTIC(FuseCounter, "Loops fused");
 STATISTIC(NumFusionCandidates, "Number of candidates for loop fusion");
 STATISTIC(InvalidLoopStructure, "Loop has invalid structure");
-STATISTIC(AddressTakenBB, "Basic block has address taken");
 STATISTIC(MayThrowException, "Loop may throw an exception");
 STATISTIC(ContainsVolatileAccess, "Loop contains a volatile access");
 STATISTIC(ContainsAtomicAccess, "Loop contains an atomic access");
@@ -170,14 +169,6 @@ struct FusionCandidate {
     // the memory reads and writes If any instructions that prevent fusion are
     // found, invalidate this object and return.
     for (BasicBlock *BB : L->blocks()) {
-      if (BB->hasAddressTaken()) {
-        invalidate();
-        ++AddressTakenBB;
-        reportInvalidCandidate("AddressTakenBB",
-                               "Basic block has address taken");
-        return;
-      }
-
       for (Instruction &I : *BB) {
         if (I.mayThrow()) {
           invalidate();
@@ -451,7 +442,7 @@ static bool simplifyLoopGuard(Loop *L, DomTreeUpdater &DTU, LoopInfo &LI,
   // be reachable only from the guard, so that removing it cannot change any
   // other path.
   if (SkipBB->size() != 1 || !isa<UncondBrInst>(SkipBB->getTerminator()) ||
-      SkipBB->hasAddressTaken() || SkipBB->getUniquePredecessor() != GuardBB)
+      SkipBB->getUniquePredecessor() != GuardBB)
     return false;
 
   BasicBlock *MergeBB = SkipBB->getUniqueSuccessor();

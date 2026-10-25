@@ -2,12 +2,13 @@
 ; RUN: opt < %s -passes='require<opt-remark-emit>,loop-unroll' -S | FileCheck %s
 
 
-; This should not unroll since the address of the loop header is taken.
+; This is unrolled even though the address of the loop header is taken (a
+; blockaddress is data-only). It refers to the first iteration.
 
 ; CHECK-LABEL: @test1(
 ; CHECK: store ptr blockaddress(@test1, %l1), ptr %P
 ; CHECK: l1:
-; CHECK-NEXT: phi i32
+; CHECK-NEXT: ret i32 0
 ; rdar://8287027
 define i32 @test1(ptr %P) nounwind ssp {
 entry:

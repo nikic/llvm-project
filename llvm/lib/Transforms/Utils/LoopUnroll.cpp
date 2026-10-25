@@ -930,13 +930,6 @@ llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     return LoopUnrollResult::Unmodified;
   }
 
-  if (L->getHeader()->hasAddressTaken()) {
-    // The loop-rotate pass can be helpful to avoid this in many cases.
-    LLVM_DEBUG(
-        dbgs() << "  Won't unroll loop: address of header block is taken.\n");
-    return LoopUnrollResult::Unmodified;
-  }
-
   assert(ULO.Count > 0);
 
   // All these values should be taken only after peeling because they might have

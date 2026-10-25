@@ -817,11 +817,6 @@ static bool isEligibleLoopForm(const Loop &Root) {
     if (!L->isRotatedForm())
       return false;
 
-    if (L->getHeader()->hasAddressTaken()) {
-      LLVM_DEBUG(dbgs() << "Won't unroll-and-jam; Address taken\n");
-      return false;
-    }
-
     unsigned SubLoopsSize = L->getSubLoops().size();
     if (SubLoopsSize == 0)
       return true;

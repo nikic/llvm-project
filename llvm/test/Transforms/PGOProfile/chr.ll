@@ -2603,6 +2603,60 @@ bb4:
   ret void
 }
 
+; Test that chr optimizes regions with blocks whose address is taken by a
+; (data-only) blockaddress.
+@bbtable = constant [2 x ptr] [ptr blockaddress(@test_chr_with_bbs_blockaddress, %bb0), ptr blockaddress(@test_chr_with_bbs_blockaddress, %bb2)]
+define void @test_chr_with_bbs_blockaddress(ptr %i) !prof !14 {
+; CHECK-LABEL: @test_chr_with_bbs_blockaddress(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[I:%.*]], align 4
+; CHECK-NEXT:    [[DOTFR:%.*]] = freeze i32 [[TMP0]]
+; CHECK-NEXT:    [[TMP1:%.*]] = and i32 [[DOTFR]], 3
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i32 [[TMP1]], 3
+; CHECK-NEXT:    br i1 [[TMP2]], label [[BB0:%.*]], label [[ENTRY_SPLIT_NONCHR:%.*]], !prof [[PROF15]]
+; CHECK:       bb0:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BB3:%.*]]
+; CHECK:       entry.split.nonchr:
+; CHECK-NEXT:    [[TMP3:%.*]] = trunc i32 [[DOTFR]] to i1
+; CHECK-NEXT:    br i1 [[TMP3]], label [[BB0_NONCHR:%.*]], label [[BB1_NONCHR:%.*]], !prof [[PROF16]]
+; CHECK:       bb0.nonchr:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BB1_NONCHR]]
+; CHECK:       bb1.nonchr:
+; CHECK-NEXT:    [[TMP4:%.*]] = and i32 [[DOTFR]], 2
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i32 [[TMP4]], 0
+; CHECK-NEXT:    br i1 [[TMP5]], label [[BB3]], label [[BB2_NONCHR:%.*]], !prof [[PROF17]]
+; CHECK:       bb2.nonchr:
+; CHECK-NEXT:    call void @foo()
+; CHECK-NEXT:    br label [[BB3]]
+; CHECK:       bb3:
+; CHECK-NEXT:    ret void
+;
+entry:
+  %0 = load i32, ptr %i
+  %1 = and i32 %0, 1
+  %2 = icmp eq i32 %1, 0
+  br i1 %2, label %bb1, label %bb0, !prof !15
+
+bb0:
+  call void @foo()
+  br label %bb1
+
+bb1:
+  %3 = and i32 %0, 2
+  %4 = icmp eq i32 %3, 0
+  br i1 %4, label %bb3, label %bb2, !prof !15
+
+bb2:
+  call void @foo()
+  br label %bb3
+
+bb3:
+  ret void
+}
+
 ; Test that chr will still optimize the first 2 regions,
 ; but will skip the last one due to basic blocks have address taken.
 @gototable2 = weak_odr dso_local local_unnamed_addr constant [2 x ptr] [ptr edgeaddress(@test_chr_with_bbs_address_taken2, 0), ptr edgeaddress(@test_chr_with_bbs_address_taken2, 0)]
