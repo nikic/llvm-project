@@ -208,6 +208,7 @@ public:
   bool supportsCpuSupports() const override { return true; }
   bool supportsCpuIs() const override { return true; }
   bool supportsCpuInit() const override { return true; }
+  bool supportsInstructionPointer() const override { return true; }
 
   bool validateCpuSupports(StringRef FeatureStr) const override;
 

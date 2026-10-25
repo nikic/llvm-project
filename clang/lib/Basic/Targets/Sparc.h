@@ -25,6 +25,8 @@ class LLVM_LIBRARY_VISIBILITY SparcTargetInfo : public TargetInfo {
   bool SoftFloat;
 
 public:
+  bool supportsInstructionPointer() const override { return true; }
+
   SparcTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple), SoftFloat(false) {}
 

@@ -1199,6 +1199,12 @@ def StackAddress : Builtin {
   let Prototype = "void*()";
 }
 
+def InstructionPointer : Builtin {
+  let Spellings = ["__builtin_instruction_pointer"];
+  let Attributes = [NoThrow];
+  let Prototype = "void*()";
+}
+
 def ClearCache : Builtin {
   let Spellings = ["__builtin___clear_cache"];
   let Attributes = [NoThrow];

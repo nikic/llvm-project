@@ -3216,6 +3216,13 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
       return ExprError();
     }
     break;
+  case Builtin::BI__builtin_instruction_pointer:
+    // Use targetDiag() so that, for offloading languages, uses in code that is
+    // not emitted for the device are not diagnosed during device compilation.
+    if (!Context.getTargetInfo().supportsInstructionPointer())
+      targetDiag(TheCall->getBeginLoc(), diag::err_builtin_target_unsupported)
+          << TheCall->getSourceRange();
+    break;
   case Builtin::BI__builtin___CFStringMakeConstantString:
     // CFStringMakeConstantString is currently not implemented for GOFF (i.e.,
     // on z/OS) and for XCOFF (i.e., on AIX). Emit unsupported

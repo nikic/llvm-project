@@ -4548,6 +4548,56 @@ required to the value of the stack pointer register.
 `__builtin_stack_address` performs the necessary adjustments and returns the
 correct boundary address.
 
+### `__builtin_instruction_pointer`
+
+`__builtin_instruction_pointer` returns an approximation of the address of the
+code that is currently executing.
+
+**Syntax**:
+
+```c++
+void *__builtin_instruction_pointer()
+```
+
+**Example**:
+
+```c++
+#if __has_builtin(__builtin_instruction_pointer)
+#define THIS_IP ((unsigned long)__builtin_instruction_pointer())
+#else
+#define THIS_IP ({ __label__ __here; __here: (unsigned long)&&__here; })
+#endif
+
+void report_error(const char *msg) {
+  log_error(msg, THIS_IP);
+}
+```
+
+**Description**:
+
+The returned address is a best-effort approximation of the location of the
+call to `__builtin_instruction_pointer` and is intended for diagnostic and
+tracing purposes, such as identifying where an error was reported. It is an
+address within the function (or the function it was inlined into) that
+contains the call, near the code surrounding it. However, the compiler is still
+free to optimize and reorder the surrounding code, so no particular
+relationship to other instructions is guaranteed.
+
+Using the address of a label that is not the target of a computed `goto` (as
+in the fallback above) is not a reliable way to obtain the current instruction
+pointer, because the compiler may move the label or replace its address with
+an arbitrary value if it is never jumped to. `__builtin_instruction_pointer`
+should be used instead.
+
+`__builtin_instruction_pointer` is not a constant expression.
+
+`__builtin_instruction_pointer` is currently supported on AArch64, ARM, AVR,
+Hexagon, Lanai, LoongArch, MIPS, MSP430, PowerPC, RISC-V, SPARC, SystemZ, VE,
+X86 and XCore. It is not supported on targets without addressable code, such
+as WebAssembly, BPF and GPU targets. On unsupported targets,
+`__has_builtin(__builtin_instruction_pointer)` evaluates to false and calling
+the builtin is an error.
+
 ### Multiprecision Arithmetic Builtins
 
 Clang provides a set of builtins which expose multiprecision arithmetic in a

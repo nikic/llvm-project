@@ -392,6 +392,7 @@ public:
   }
   bool validateCpuSupports(StringRef Feature) const override;
   bool validateCpuIs(StringRef Name) const override;
+  bool supportsInstructionPointer() const override { return true; }
 };
 
 class LLVM_LIBRARY_VISIBILITY PPC32TargetInfo : public PPCTargetInfo {

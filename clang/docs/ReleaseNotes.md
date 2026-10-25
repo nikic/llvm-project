@@ -324,6 +324,14 @@ documentation](CIR/index.md) for more information regarding ClangIR's status and
 - Added `__builtin_sort_pack` to sort a pack of types using the same
   order as `__builtin_type_order`.
 
+- Added `__builtin_instruction_pointer()`, which returns a best-effort
+  approximation of the current instruction pointer. It is intended as a
+  replacement for taking the address of a label that is not used by a
+  computed `goto`, as done e.g. by the Linux kernel's `_THIS_IP_` macro. It
+  is supported on AArch64, ARM, AVR, Hexagon, Lanai, LoongArch, MIPS, MSP430,
+  PowerPC, RISC-V, SPARC, SystemZ, VE, X86 and XCore; `__has_builtin` reports
+  it as unavailable elsewhere. (#GH138272)
+
 - Clang no longer crashes on unknown command-line argument when
   `-fdiagnostics-format=sarif` is passed
   (#GH233241).

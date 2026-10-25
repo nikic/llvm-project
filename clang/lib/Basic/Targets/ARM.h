@@ -212,6 +212,8 @@ public:
 
   bool hasSjLjLowering() const override;
 
+  bool supportsInstructionPointer() const override { return true; }
+
   bool hasBitIntType() const override { return true; }
 
   unsigned getARMLDREXMask() const override { return LDREX; }

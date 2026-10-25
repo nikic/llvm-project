@@ -110,6 +110,8 @@ public:
 
   bool hasBitIntType() const override { return true; }
 
+  bool supportsInstructionPointer() const override { return true; }
+
   bool hasBFloat16Type() const override { return true; }
 
   bool handleTargetFeatures(std::vector<std::string> &Features,

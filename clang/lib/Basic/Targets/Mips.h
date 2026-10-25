@@ -43,6 +43,8 @@ protected:
   std::string ABI;
 
 public:
+  bool supportsInstructionPointer() const override { return true; }
+
   MipsTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple), IsMips16(false), IsMicromips(false),
         IsNan2008(false), IsAbs2008(false), IsSingleFloat(false),

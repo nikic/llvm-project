@@ -207,6 +207,7 @@ public:
   ParsedTargetAttr parseTargetAttr(StringRef Str) const override;
   bool supportsTargetAttributeTune() const override { return true; }
   bool supportsCpuSupports() const override { return true; }
+  bool supportsInstructionPointer() const override { return true; }
   bool checkArithmeticFenceSupported() const override { return true; }
 
   bool hasBFloat16Type() const override;

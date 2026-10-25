@@ -133,6 +133,7 @@ public:
   bool supportsCpuSupports() const override { return getTriple().isOSLinux(); }
   bool supportsCpuIs() const override { return getTriple().isOSLinux(); }
   bool supportsCpuInit() const override { return getTriple().isOSLinux(); }
+  bool supportsInstructionPointer() const override { return true; }
   bool validateCpuSupports(StringRef Feature) const override;
   bool validateCpuIs(StringRef CPUName) const override;
   bool isValidFeatureName(StringRef Name) const override;

@@ -37,6 +37,8 @@ class LLVM_LIBRARY_VISIBILITY HexagonTargetInfo : public TargetInfo {
   bool UseLongCalls = false;
 
 public:
+  bool supportsInstructionPointer() const override { return true; }
+
   HexagonTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
     resetDataLayout();

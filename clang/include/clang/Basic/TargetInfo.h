@@ -1627,6 +1627,10 @@ public:
   virtual bool supportsCpuIs() const { return false; }
   virtual bool supportsCpuInit() const { return false; }
 
+  // Identify whether this target supports __builtin_instruction_pointer, i.e.
+  // whether the backend can lower the llvm.instruction.pointer intrinsic.
+  virtual bool supportsInstructionPointer() const { return false; }
+
   // Validate the contents of the __builtin_cpu_supports(const char*)
   // argument.
   virtual bool validateCpuSupports(StringRef Name) const { return false; }

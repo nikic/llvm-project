@@ -24,6 +24,8 @@ namespace targets {
 class LLVM_LIBRARY_VISIBILITY VETargetInfo : public TargetInfo {
 
 public:
+  bool supportsInstructionPointer() const override { return true; }
+
   VETargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
     NoAsmVariants = true;

@@ -33,6 +33,8 @@ class LLVM_LIBRARY_VISIBILITY LanaiTargetInfo : public TargetInfo {
   static const char *const GCCRegNames[];
 
 public:
+  bool supportsInstructionPointer() const override { return true; }
+
   LanaiTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
     resetDataLayout();

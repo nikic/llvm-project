@@ -24,6 +24,8 @@ namespace targets {
 // AVR Target
 class LLVM_LIBRARY_VISIBILITY AVRTargetInfo : public TargetInfo {
 public:
+  bool supportsInstructionPointer() const override { return true; }
+
   AVRTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
     TLSSupported = false;
