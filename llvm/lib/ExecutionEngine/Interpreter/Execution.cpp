@@ -927,12 +927,6 @@ void Interpreter::visitSwitchInst(SwitchInst &I) {
   SwitchToNewBasicBlock(Dest, SF);
 }
 
-void Interpreter::visitIndirectBrInst(IndirectBrInst &I) {
-  ExecutionContext &SF = ECStack.back();
-  void *Dest = GVTOP(getOperandValue(I.getAddress(), SF));
-  SwitchToNewBasicBlock((BasicBlock*)Dest, SF);
-}
-
 void Interpreter::visitIndirectSwitchInst(IndirectSwitchInst &I) {
   ExecutionContext &SF = ECStack.back();
   void *Addr = GVTOP(getOperandValue(I.getAddress(), SF));

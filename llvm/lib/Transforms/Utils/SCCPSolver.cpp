@@ -440,12 +440,11 @@ bool SCCPSolver::removeNonFeasibleEdges(BasicBlock *BB, DomTreeUpdater &DTU,
   if (!HasNonFeasibleEdges)
     return false;
 
-  // SCCP can only determine non-feasible edges for br, switch, indirectbr and
+  // SCCP can only determine non-feasible edges for br, switch and
   // indirectswitch.
   Instruction *TI = BB->getTerminator();
-  assert((isa<UncondBrInst, CondBrInst, SwitchInst, IndirectBrInst,
-              IndirectSwitchInst>(TI)) &&
-         "Terminator must be a br, switch, indirectbr or indirectswitch");
+  assert((isa<UncondBrInst, CondBrInst, SwitchInst, IndirectSwitchInst>(TI)) &&
+         "Terminator must be a br, switch or indirectswitch");
 
   if (FeasibleSuccessors.size() == 0) {
     // Branch on undef/poison, replace with unreachable.
@@ -1376,36 +1375,6 @@ void SCCPInstVisitor::getFeasibleSuccessors(Instruction &TI,
     // Overdefined or unknown condition? All destinations are executable!
     if (!SCValue.isUnknownOrUndef())
       Succs.assign(TI.getNumSuccessors(), true);
-    return;
-  }
-
-  // In case of indirect branch and its address is a blockaddress, we mark
-  // the target as executable.
-  if (auto *IBR = dyn_cast<IndirectBrInst>(&TI)) {
-    // Casts are folded by visitCastInst.
-    const ValueLatticeElement &IBRValue = getValueState(IBR->getAddress());
-    BlockAddress *Addr = dyn_cast_or_null<BlockAddress>(
-        getConstant(IBRValue, IBR->getAddress()->getType()));
-    if (!Addr) { // Overdefined or unknown condition?
-      // All destinations are executable!
-      if (!IBRValue.isUnknownOrUndef())
-        Succs.assign(TI.getNumSuccessors(), true);
-      return;
-    }
-
-    BasicBlock *T = Addr->getBasicBlock();
-    assert(Addr->getFunction() == T->getParent() &&
-           "Block address of a different function ?");
-    for (unsigned i = 0; i < IBR->getNumSuccessors(); ++i) {
-      // This is the target.
-      if (IBR->getDestination(i) == T) {
-        Succs[i] = true;
-        return;
-      }
-    }
-
-    // If we didn't find our destination in the IBR successor list, then we
-    // have undefined behavior. Its ok to assume no successor is executable.
     return;
   }
 

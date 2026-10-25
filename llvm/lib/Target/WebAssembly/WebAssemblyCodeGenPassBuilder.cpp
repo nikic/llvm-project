@@ -117,7 +117,7 @@ void WebAssemblyCodeGenPassBuilder::addIRPasses(PassManagerWrapper &PMW) {
   flushFPMsToMPM(PMW);
   addModulePass(WebAssemblyLowerEmscriptenEHSjLjPass(), PMW);
 
-  // Expand indirectbr instructions to switches.
+  // Expand indirectswitch instructions to switches.
   addFunctionPass(IndirectBrExpandPass(TM), PMW);
 
   // Try to expand `vecreduce_{and, or}` into `{any, all}_true`.

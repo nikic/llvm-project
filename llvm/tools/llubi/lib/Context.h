@@ -446,7 +446,6 @@ public:
                       function_ref<const AnyValue &(Value *V)> GetValue);
 
   Function *getTargetFunction(const Pointer &Ptr);
-  BasicBlock *getTargetBlock(const Pointer &Ptr);
   EdgeAddress *getTargetEdge(const Pointer &Ptr);
 
   /// Initialize global variables and function/block objects. This function

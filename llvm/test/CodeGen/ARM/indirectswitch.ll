@@ -26,9 +26,9 @@ define i32 @f(i32 %i, i32 %x) {
 ; SDAG-NEXT:    mov r0, #2
 ; SDAG-NEXT:    bx lr
 ; SDAG-NEXT:  .Ltmp1: @ Block address taken
-; SDAG-NEXT:  .LBB0_3: @ %common.ret
+; SDAG-NEXT:  .LBB0_3: @ %dispatch.common.ret_crit_edge
 ; SDAG-NEXT:    mov r1, #1
-; SDAG-NEXT:  .LBB0_4: @ %.split
+; SDAG-NEXT:  .LBB0_4: @ %common.ret
 ; SDAG-NEXT:    mov r0, r1
 ; SDAG-NEXT:    bx lr
 ; SDAG-NEXT:  .Ltmp2: @ Block address taken
@@ -78,7 +78,7 @@ define i32 @f(i32 %i, i32 %x) {
 ; THUMB2-NEXT:    movtne r1, :upper16:tbl
 ; THUMB2-NEXT:    ldrne.w r0, [r1, r0, lsl #2]
 ; THUMB2-NEXT:    movne pc, r0
-; THUMB2-NEXT:  .LBB0_1: @ %.split
+; THUMB2-NEXT:  .LBB0_1: @ %common.ret
 ; THUMB2-NEXT:    mov r0, r1
 ; THUMB2-NEXT:    bx lr
 ; THUMB2-NEXT:  .Ltmp0: @ Block address taken
@@ -86,7 +86,7 @@ define i32 @f(i32 %i, i32 %x) {
 ; THUMB2-NEXT:    movs r0, #2
 ; THUMB2-NEXT:    bx lr
 ; THUMB2-NEXT:  .Ltmp1: @ Block address taken
-; THUMB2-NEXT:  .LBB0_3: @ %common.ret
+; THUMB2-NEXT:  .LBB0_3: @ %dispatch.common.ret_crit_edge
 ; THUMB2-NEXT:    movs r1, #1
 ; THUMB2-NEXT:    mov r0, r1
 ; THUMB2-NEXT:    bx lr
@@ -216,7 +216,7 @@ define i32 @rel(i32 %i) {
 ; SDAG-NEXT:    add r0, r1, r0
 ; SDAG-NEXT:    bx r0
 ; SDAG-NEXT:  .Ltmp3: @ Block address taken
-; SDAG-NEXT:  .LBB4_1: @ %common.ret
+; SDAG-NEXT:  .LBB4_1: @ %entry.common.ret_crit_edge
 ; SDAG-NEXT:    mov r0, #10
 ; SDAG-NEXT:    bx lr
 ; SDAG-NEXT:  .Ltmp4: @ Block address taken
@@ -259,7 +259,7 @@ define i32 @rel(i32 %i) {
 ; THUMB2-NEXT:    add r0, r1
 ; THUMB2-NEXT:    mov pc, r0
 ; THUMB2-NEXT:  .Ltmp3: @ Block address taken
-; THUMB2-NEXT:  .LBB4_1: @ %common.ret
+; THUMB2-NEXT:  .LBB4_1: @ %entry.common.ret_crit_edge
 ; THUMB2-NEXT:    movs r0, #10
 ; THUMB2-NEXT:    bx lr
 ; THUMB2-NEXT:  .Ltmp4: @ Block address taken

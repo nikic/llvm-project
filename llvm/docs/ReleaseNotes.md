@@ -176,6 +176,16 @@ Makes programs 10x faster by doing Special New Thing.
   which are intended to replace `indirectbr` and `blockaddress` for indirect
   branches. Code generation support is not implemented yet.
 
+* The `indirectbr` instruction has been removed, together with
+  `IndirectBrInst`, `IRBuilder::CreateIndirectBr()` and
+  `SplitIndirectBrCriticalEdges()`. Textual IR and bitcode using `indirectbr`
+  are upgraded automatically: the `indirectbr` instructions of a function are
+  merged into a single `indirectswitch` (in a new dispatch block if there are
+  several), with an `edgeaddress` case for each distinct destination, and
+  `blockaddress` constants of the destinations are replaced by these edge
+  addresses. `blockaddress` constants of other blocks are kept, but a block
+  address can no longer be the destination of an indirect branch.
+
 ### Changes to LLVM infrastructure
 
 * Removed `TargetOptions::FloatABIType`. The soft float ABI should be
@@ -412,6 +422,12 @@ Makes programs 10x faster by doing Special New Thing.
 * Added `LLVMIndirectSwitch` opcode, `LLVMBuildIndirectSwitch()`,
   `LLVMEdgeAddress()`, `LLVMGetEdgeAddressFunction()` and
   `LLVMGetEdgeAddressID()`. `LLVMAddCase()` also supports `indirectswitch`.
+
+* `LLVMBuildIndirectBr()`, `LLVMAddDestination()` and
+  `LLVMIsAIndirectBrInst()` have been removed together with the `indirectbr`
+  instruction (as well as the OCaml `build_indirect_br` and `add_destination`
+  bindings). Use `LLVMBuildIndirectSwitch()`, `LLVMEdgeAddress()` and
+  `LLVMAddCase()` instead. The `LLVMIndirectBr` opcode is no longer produced.
 
 * `LLVMAlignOf()` and `LLVMSizeOf()` have been deprecated. Create a constant
   based on the result of `LLVMABIAlignmentOfType()` or `LLVMABISizeOfType()`

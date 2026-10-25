@@ -22,10 +22,9 @@
 //
 // This pass also guarantees that loops will have exactly one backedge.
 //
-// Indirectbr instructions introduce several complications. If the loop
-// contains or is entered by an indirectbr instruction, it may not be possible
-// to transform the loop and make these guarantees. Client code should check
-// that these conditions are true before relying on them.
+// Callbr instructions introduce complications: it may not be possible to
+// transform the loop and make these guarantees. Client code should check that
+// these conditions are true before relying on them.
 //
 // Note that the simplifycfg pass will clean up blocks which are split out but
 // end up being unnecessary, so usage of this pass should not pessimize

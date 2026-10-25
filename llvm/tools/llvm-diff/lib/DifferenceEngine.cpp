@@ -498,26 +498,6 @@ class FunctionDifferenceEngine {
           tryUnify(LI->getSuccessor(I), RI->getSuccessor(I));
       return false;
 
-    } else if (isa<IndirectBrInst>(L)) {
-      const IndirectBrInst *LI = cast<IndirectBrInst>(L);
-      const IndirectBrInst *RI = cast<IndirectBrInst>(R);
-      if (LI->getNumDestinations() != RI->getNumDestinations()) {
-        if (Complain) Engine.log("indirectbr # of destinations differ");
-        return true;
-      }
-
-      if (!equivalentAsOperands(LI->getAddress(), RI->getAddress(), AC)) {
-        if (Complain) Engine.log("indirectbr addresses differ");
-        return true;
-      }
-
-      if (TryUnify) {
-        for (unsigned i = 0; i < LI->getNumDestinations(); i++) {
-          tryUnify(LI->getDestination(i), RI->getDestination(i));
-        }
-      }
-      return false;
-
     } else if (isa<SwitchInst>(L)) {
       const SwitchInst *LI = cast<SwitchInst>(L);
       const SwitchInst *RI = cast<SwitchInst>(R);

@@ -1239,13 +1239,6 @@ public:
                                     BranchWeights, Unpredictable));
   }
 
-  /// Create an indirect branch instruction with the specified address
-  /// operand, with an optional hint for the number of destinations that will be
-  /// added (for efficient allocation).
-  IndirectBrInst *CreateIndirectBr(Value *Addr, unsigned NumDests = 10) {
-    return Insert(IndirectBrInst::Create(Addr, NumDests));
-  }
-
   /// Create an indirectswitch instruction. The number of cases can be
   /// specified here to make memory allocation more efficient.
   IndirectSwitchInst *CreateIndirectSwitch(Value *Addr,

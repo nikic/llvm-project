@@ -1534,7 +1534,6 @@ public:
     case Instruction::CondBr:
     case Instruction::Store:
     case Instruction::Switch:
-    case Instruction::IndirectBr:
     case Instruction::Resume:
     case Instruction::CatchRet:
     case Instruction::Unreachable:

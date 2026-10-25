@@ -293,7 +293,6 @@ class SimplifyCFGOpt {
   bool simplifyUnreachable(UnreachableInst *UI);
   bool simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder);
   bool simplifyDuplicateSwitchArms(SwitchInst *SI, DomTreeUpdater *DTU);
-  bool simplifyIndirectBr(IndirectBrInst *IBI);
   bool simplifyIndirectSwitch(IndirectSwitchInst *ISI);
   bool simplifyUncondBranch(UncondBrInst *BI, IRBuilder<> &Builder);
   bool simplifyCondBranch(CondBrInst *BI, IRBuilder<> &Builder);
@@ -318,7 +317,6 @@ class SimplifyCFGOpt {
   bool simplifySwitchOnSelect(SwitchInst *SI, SelectInst *Select);
   bool simplifySwitchOnSelectRemap(SwitchInst *SI, SelectInst *Select, Value *X,
                                    ConstantInt *C, bool Negate);
-  bool simplifyIndirectBrOnSelect(IndirectBrInst *IBI, SelectInst *SI);
   bool turnSwitchRangeIntoICmp(SwitchInst *SI, IRBuilder<> &Builder);
   bool simplifyDuplicatePredecessors(BasicBlock *Succ, DomTreeUpdater *DTU);
 
@@ -896,8 +894,6 @@ static void eraseTerminatorAndDCECond(Instruction *TI,
     Cond = dyn_cast<Instruction>(SI->getCondition());
   } else if (CondBrInst *BI = dyn_cast<CondBrInst>(TI)) {
     Cond = dyn_cast<Instruction>(BI->getCondition());
-  } else if (IndirectBrInst *IBI = dyn_cast<IndirectBrInst>(TI)) {
-    Cond = dyn_cast<Instruction>(IBI->getAddress());
   } else if (auto *ISI = dyn_cast<IndirectSwitchInst>(TI)) {
     Cond = dyn_cast<Instruction>(ISI->getAddress());
   }
@@ -3768,12 +3764,6 @@ static std::optional<bool> foldCondBranchOnValueKnownInPredecessorImpl(
     if (RealDest == BB)
       continue; // Skip self loops.
 
-    // Skip if the predecessor's terminator is an indirect branch.
-    if (any_of(PredBBs, [](BasicBlock *PredBB) {
-          return isa<IndirectBrInst>(PredBB->getTerminator());
-        }))
-      continue;
-
     // Only revector to RealDest if no values defined in BB are live.
     if (ReachesNonLocalUseBlocks.contains(RealDest))
       continue;
@@ -5317,33 +5307,6 @@ bool SimplifyCFGOpt::simplifySwitchOnSelect(SwitchInst *SI,
   // Perform the actual simplification.
   return simplifyTerminatorOnSelect(SI, Condition, TrueBB, FalseBB, TrueWeight,
                                     FalseWeight);
-}
-
-// Replaces
-//   (indirectbr (select cond, blockaddress(@fn, BlockA),
-//                             blockaddress(@fn, BlockB)))
-// with
-//   (br cond, BlockA, BlockB).
-bool SimplifyCFGOpt::simplifyIndirectBrOnSelect(IndirectBrInst *IBI,
-                                                SelectInst *SI) {
-  // Check that both operands of the select are block addresses.
-  BlockAddress *TBA = dyn_cast<BlockAddress>(SI->getTrueValue());
-  BlockAddress *FBA = dyn_cast<BlockAddress>(SI->getFalseValue());
-  if (!TBA || !FBA)
-    return false;
-
-  // Extract the actual blocks.
-  BasicBlock *TrueBB = TBA->getBasicBlock();
-  BasicBlock *FalseBB = FBA->getBasicBlock();
-
-  // The select's profile becomes the profile of the conditional branch that
-  // replaces the indirect branch.
-  SmallVector<uint32_t> SelectBranchWeights(2);
-  extractBranchWeights(*SI, SelectBranchWeights);
-  // Perform the actual simplification.
-  return simplifyTerminatorOnSelect(IBI, SI->getCondition(), TrueBB, FalseBB,
-                                    SelectBranchWeights[0],
-                                    SelectBranchWeights[1]);
 }
 
 /// This is called when we find an icmp instruction
@@ -8826,67 +8789,6 @@ bool SimplifyCFGOpt::simplifyIndirectSwitch(IndirectSwitchInst *ISI) {
   return Changed;
 }
 
-bool SimplifyCFGOpt::simplifyIndirectBr(IndirectBrInst *IBI) {
-  BasicBlock *BB = IBI->getParent();
-  bool Changed = false;
-  SmallVector<uint32_t> BranchWeights;
-  const bool HasBranchWeights = extractBranchWeights(*IBI, BranchWeights);
-
-  DenseMap<const BasicBlock *, uint64_t> TargetWeight;
-  if (HasBranchWeights)
-    for (size_t I = 0, E = IBI->getNumDestinations(); I < E; ++I)
-      TargetWeight[IBI->getDestination(I)] += BranchWeights[I];
-
-  // Eliminate redundant destinations.
-  SmallPtrSet<Value *, 8> Succs;
-  SmallSetVector<BasicBlock *, 8> RemovedSuccs;
-  for (unsigned I = 0, E = IBI->getNumDestinations(); I != E; ++I) {
-    BasicBlock *Dest = IBI->getDestination(I);
-    if (!Dest->hasAddressTaken() || !Succs.insert(Dest).second) {
-      if (!Dest->hasAddressTaken())
-        RemovedSuccs.insert(Dest);
-      Dest->removePredecessor(BB);
-      IBI->removeDestination(I);
-      --I;
-      --E;
-      Changed = true;
-    }
-  }
-
-  if (DTU) {
-    std::vector<DominatorTree::UpdateType> Updates;
-    Updates.reserve(RemovedSuccs.size());
-    for (auto *RemovedSucc : RemovedSuccs)
-      Updates.push_back({DominatorTree::Delete, BB, RemovedSucc});
-    DTU->applyUpdates(Updates);
-  }
-
-  if (IBI->getNumDestinations() == 0) {
-    // If the indirectbr has no successors, change it to unreachable.
-    new UnreachableInst(IBI->getContext(), IBI->getIterator());
-    eraseTerminatorAndDCECond(IBI);
-    return true;
-  }
-
-  if (IBI->getNumDestinations() == 1) {
-    // If the indirectbr has one successor, change it to a direct branch.
-    UncondBrInst::Create(IBI->getDestination(0), IBI->getIterator());
-    eraseTerminatorAndDCECond(IBI);
-    return true;
-  }
-  if (HasBranchWeights) {
-    SmallVector<uint64_t> NewBranchWeights(IBI->getNumDestinations());
-    for (size_t I = 0, E = IBI->getNumDestinations(); I < E; ++I)
-      NewBranchWeights[I] += TargetWeight.find(IBI->getDestination(I))->second;
-    setFittedBranchWeights(*IBI, NewBranchWeights, /*IsExpected=*/false);
-  }
-  if (SelectInst *SI = dyn_cast<SelectInst>(IBI->getAddress())) {
-    if (simplifyIndirectBrOnSelect(IBI, SI))
-      return requestResimplify();
-  }
-  return Changed;
-}
-
 /// Given an block with only a single landing pad and a unconditional branch
 /// try to find another basic block which this one can be merged with.  This
 /// handles cases where we have multiple invokes with unique landing pads, but
@@ -9564,9 +9466,6 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
     break;
   case Instruction::Unreachable:
     Changed |= simplifyUnreachable(cast<UnreachableInst>(Terminator));
-    break;
-  case Instruction::IndirectBr:
-    Changed |= simplifyIndirectBr(cast<IndirectBrInst>(Terminator));
     break;
   case Instruction::IndirectSwitch:
     Changed |= simplifyIndirectSwitch(cast<IndirectSwitchInst>(Terminator));

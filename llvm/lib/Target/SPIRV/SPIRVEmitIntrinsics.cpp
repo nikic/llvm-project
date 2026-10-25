@@ -2003,11 +2003,14 @@ Instruction *SPIRVEmitIntrinsicsImpl::visitSwitchInst(SwitchInst &I) {
   // insert artificial and temporary instruction to preserve valid CFG,
   // it will be removed after IR translation pass
   B.SetInsertPoint(ParentBB);
-  IndirectBrInst *BrI = B.CreateIndirectBr(
-      Constant::getNullValue(PointerType::getUnqual(ParentBB->getContext())),
-      BBCases.size());
-  for (BasicBlock *BBCase : BBCases)
-    BrI->addDestination(BBCase);
+  IndirectSwitchInst *BrI = B.CreateIndirectSwitch(
+      Constant::getNullValue(F->getType()), BBCases.size());
+  unsigned EdgeID = 0;
+  for (BasicBlock *BBCase : BBCases) {
+    while (EdgeAddress::lookup(F, EdgeID))
+      ++EdgeID;
+    BrI->addCase(EdgeAddress::get(F, EdgeID), BBCase);
+  }
   return BrI;
 }
 
@@ -3784,7 +3787,8 @@ void SPIRVEmitIntrinsicsImpl::emitUnstructuredLoopControls(Function &F,
 
     BasicBlock *Header = L->getHeader();
     // OpLoopMerge must immediately precede an OpBranch or OpBranchConditional.
-    // Switches are already lowered to spv_switch + indirectbr at this point.
+    // Switches are already lowered to spv_switch + indirectswitch at this
+    // point.
     if (!isa<UncondBrInst, CondBrInst>(Header->getTerminator()))
       continue;
 

@@ -5982,7 +5982,6 @@ void LSRInstance::RewriteForPHI(PHINode *PN, const LSRUse &LU,
       // is the canonical backedge for this loop, which complicates post-inc
       // users.
       if (e != 1 && BB->getTerminator()->getNumSuccessors() > 1 &&
-          !isa<IndirectBrInst>(BB->getTerminator()) &&
           !isa<CatchSwitchInst>(BB->getTerminator())) {
         BasicBlock *Parent = PN->getParent();
         Loop *PNLoop = LI.getLoopFor(Parent);

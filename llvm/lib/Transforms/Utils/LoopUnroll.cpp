@@ -924,7 +924,7 @@ llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     return LoopUnrollResult::Unmodified;
   }
 
-  // Loops with indirectbr cannot be cloned.
+  // Loops with indirectswitch cannot be cloned.
   if (!L->isSafeToClone()) {
     LLVM_DEBUG(dbgs() << "  Can't unroll; Loop body cannot be cloned.\n");
     return LoopUnrollResult::Unmodified;

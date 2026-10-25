@@ -1,15 +1,18 @@
 ; RUN: mkdir -p %t && cd %t
 ; RUN: opt < %s -passes=insert-gcov-profiling -S | FileCheck %s
 
-; CHECK:       @__llvm_gcov_ctr = internal global [2 x i64] zeroinitializer
+; CHECK:       @__llvm_gcov_ctr = internal global [1 x i64] zeroinitializer
 
-;; Critical edges from an indirectswitch can be split, so both edges into
-;; %indirect are profiled.
+;; Critical edges from an indirectswitch can be split like other critical
+;; edges.
 ; CHECK-LABEL: @cannot_split(
+; CHECK:       indirect.preheader:
+; CHECK:         load {{.*}} @__llvm_gcov_ctr
 ; CHECK:       indirect:
-; CHECK-NEXT:    load {{.*}} @__llvm_gcov_ctr
-; CHECK:       indirect.clone:
-; CHECK-NEXT:    load {{.*}} getelementptr inbounds (i8, ptr @__llvm_gcov_ctr, i64 8)
+; CHECK-NEXT:    indirectswitch ptr %{{[0-9]+}}, [
+; CHECK-NEXT:      ptr edgeaddress(@cannot_split, 0), label %indirect.indirect_crit_edge
+; CHECK:       indirect.indirect_crit_edge:
+; CHECK-NEXT:    br label %indirect
 
 define dso_local i32 @cannot_split(ptr nocapture readonly %p) !dbg !7 {
 entry:

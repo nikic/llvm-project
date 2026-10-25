@@ -14,25 +14,26 @@ define i32 @f(i32 %i, i32 %x) {
 ; SDAG-LABEL: f:
 ; SDAG:       # %bb.0: # %entry
 ; SDAG-NEXT:    cmplwi 4, 0
-; SDAG-NEXT:    beq 0, .LBB0_2
+; SDAG-NEXT:    beq 0, .LBB0_3
 ; SDAG-NEXT:  # %bb.1: # %dispatch
 ; SDAG-NEXT:    addis 4, 2, .LC0@toc@ha
 ; SDAG-NEXT:    rldic 3, 3, 3, 29
 ; SDAG-NEXT:    ld 4, .LC0@toc@l(4)
 ; SDAG-NEXT:    ldx 3, 4, 3
-; SDAG-NEXT:    li 4, 2
 ; SDAG-NEXT:    mtctr 3
 ; SDAG-NEXT:    bctr
 ; SDAG-NEXT:  .Ltmp0: # Block address taken
-; SDAG-NEXT:  .LBB0_2: # %b
+; SDAG-NEXT:  .LBB0_2: # %dispatch.b_crit_edge
+; SDAG-NEXT:    li 4, 2
+; SDAG-NEXT:  .LBB0_3: # %b
 ; SDAG-NEXT:    mr 3, 4
 ; SDAG-NEXT:    blr
 ; SDAG-NEXT:  .Ltmp1: # Block address taken
-; SDAG-NEXT:  .LBB0_3: # %a
+; SDAG-NEXT:  .LBB0_4: # %a
 ; SDAG-NEXT:    li 3, 1
 ; SDAG-NEXT:    blr
 ; SDAG-NEXT:  .Ltmp2: # Block address taken
-; SDAG-NEXT:  .LBB0_4: # %c
+; SDAG-NEXT:  .LBB0_5: # %c
 ; SDAG-NEXT:    li 3, 3
 ; SDAG-NEXT:    blr
 ;

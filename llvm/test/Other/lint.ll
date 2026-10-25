@@ -124,7 +124,7 @@ define void @0() nounwind {
   ret void
 }
 
-; CHECK: Undefined behavior: Branch to non-blockaddress
+; CHECK: Undefined behavior: Branch to non-edgeaddress
 define void @use_indbr() {
   indirectswitch ptr @foo, [ ptr edgeaddress(@use_indbr, 0), label %block ]
 block:

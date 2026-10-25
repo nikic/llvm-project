@@ -122,7 +122,6 @@ public:
   void visitUncondBrInst(UncondBrInst &I);
   void visitCondBrInst(CondBrInst &I);
   void visitSwitchInst(SwitchInst &I);
-  void visitIndirectBrInst(IndirectBrInst &I);
   void visitIndirectSwitchInst(IndirectSwitchInst &I);
 
   void visitUnaryOperator(UnaryOperator &I);

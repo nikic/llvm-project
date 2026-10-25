@@ -386,7 +386,7 @@ protected:
   bool HasDynamicAlloca = false;
   bool ContainsNoDuplicateCall = false;
   bool HasReturn = false;
-  bool HasIndirectBr = false;
+  bool HasIndirectSwitch = false;
   bool HasUninlineableIntrinsic = false;
   bool InitsVargArgs = false;
 
@@ -517,7 +517,6 @@ protected:
   bool visitCondBrInst(CondBrInst &BI);
   bool visitSelectInst(SelectInst &SI);
   bool visitSwitchInst(SwitchInst &SI);
-  bool visitIndirectBrInst(IndirectBrInst &IBI);
   bool visitIndirectSwitchInst(IndirectSwitchInst &ISI);
   bool visitResumeInst(ResumeInst &RI);
   bool visitCleanupReturnInst(CleanupReturnInst &RI);
@@ -2682,25 +2681,12 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
   return false;
 }
 
-bool CallAnalyzer::visitIndirectBrInst(IndirectBrInst &IBI) {
-  // We never want to inline functions that contain an indirectbr.  This is
-  // incorrect because all the blockaddress's (in static global initializers
-  // for example) would be referring to the original function, and this
-  // indirect jump would jump from the inlined copy of the function into the
-  // original function which is extremely undefined behavior.
-  // FIXME: This logic isn't really right; we can safely inline functions with
-  // indirectbr's as long as no other function or global references the
-  // blockaddress of a block within the current function.
-  HasIndirectBr = true;
-  return false;
-}
-
 bool CallAnalyzer::visitIndirectSwitchInst(IndirectSwitchInst &ISI) {
   // An indirectswitch can't be duplicated: its case values are edge addresses
   // of the callee, which may also be used outside the callee, and each edge
   // address may be a case of only one indirectswitch.
   if (ISI.getNumCases() != 0)
-    HasIndirectBr = true;
+    HasIndirectSwitch = true;
   return false;
 }
 
@@ -2795,7 +2781,7 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
       IR = InlineResult::failure("exposes returns twice");
     else if (HasDynamicAlloca)
       IR = InlineResult::failure("dynamic alloca");
-    else if (HasIndirectBr)
+    else if (HasIndirectSwitch)
       IR = InlineResult::failure("indirect branch");
     else if (HasUninlineableIntrinsic)
       IR = InlineResult::failure("uninlinable intrinsic");
@@ -3334,10 +3320,6 @@ InlineResult llvm::isInlineViable(Function &F) {
     return InlineResult::failure("contains indirect branches");
 
   for (BasicBlock &BB : F) {
-    // Disallow inlining of functions which contain indirect branches.
-    if (isa<IndirectBrInst>(BB.getTerminator()))
-      return InlineResult::failure("contains indirect branches");
-
     // Disallow inlining of blockaddresses.
     if (BB.hasAddressTaken())
       return InlineResult::failure("blockaddress used");

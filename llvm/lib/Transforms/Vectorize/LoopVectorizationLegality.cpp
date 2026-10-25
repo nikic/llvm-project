@@ -1575,9 +1575,9 @@ bool LoopVectorizationLegality::canVectorizeLoopCFG(
   bool Result = true;
   bool DoExtraAnalysis = ORE->allowExtraAnalysis(DEBUG_TYPE);
 
-  // We must have a loop in canonical form. Loops with indirectbr in them cannot
-  // be canonicalized. The preheader must also be terminated by an unconditional
-  // branch, which gets replaced when creating the vector loop.
+  // We must have a loop in canonical form. The preheader must also be
+  // terminated by an unconditional branch, which gets replaced when creating
+  // the vector loop.
   BasicBlock *Preheader = Lp->getLoopPreheader();
   if (!Preheader || !isa<UncondBrInst>(Preheader->getTerminator())) {
     reportVectorizationFailure(

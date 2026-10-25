@@ -5585,14 +5585,14 @@ of the function containing `%block` (usually `addrspace(0)`).
 
 Taking the address of the entry block is illegal.
 
-This value only has defined behavior when used as an operand to the
-'{ref}`indirectbr <i_indirectbr>`' or for comparisons against null. Pointer
-equality tests between label addresses results in undefined behavior ---
-though, again, comparison against null is ok, and no label is equal to the null
-pointer. This may be passed around as an opaque pointer sized value as long as
-the bits are not inspected. This allows `ptrtoint` and arithmetic to be
-performed on these values so long as the original value is reconstituted before
-the `indirectbr` instruction.
+This value only has defined behavior when used for comparisons against null.
+Pointer equality tests between label addresses results in undefined behavior
+--- though, again, comparison against null is ok, and no label is equal to the
+null pointer. This may be passed around as an opaque pointer sized value as
+long as the bits are not inspected. A block address cannot be used as the
+destination of an indirect branch: indirect branches use
+{ref}`edgeaddress <edgeaddress>` constants and the
+'{ref}`indirectswitch <i_indirectswitch>`' instruction.
 
 Finally, some targets may provide defined semantics when using the value
 as the operand to an inline assembly, but that is target specific.
@@ -10458,7 +10458,6 @@ control flow, not values (the one exception being the
 
 The terminator instructions are: '{ref}`ret <i_ret>`',
 '{ref}`br <i_br>`', '{ref}`switch <i_switch>`',
-'{ref}`indirectbr <i_indirectbr>`',
 '{ref}`indirectswitch <i_indirectswitch>`', '{ref}`invoke <i_invoke>`',
 '{ref}`callbr <i_callbr>`'
 '{ref}`resume <i_resume>`', '{ref}`catchswitch <i_catchswitch>`',
@@ -10618,52 +10617,6 @@ switch i32 %val, label %otherwise [ i32 0, label %onzero
                                     i32 2, label %ontwo ]
 ```
 
-(i_indirectbr)=
-
-#### '`indirectbr`' Instruction
-
-##### Syntax:
-
-```
-indirectbr ptr <address>, [ label <dest1>, label <dest2>, ... ]
-```
-
-##### Overview:
-
-The '`indirectbr`' instruction implements an indirect branch to a
-label within the current function, whose address is specified by
-"`address`". Address must be derived from a
-{ref}`blockaddress <blockaddress>` constant.
-
-##### Arguments:
-
-The '`address`' argument is the address of the label to jump to. The
-rest of the arguments indicate the full set of possible destinations
-that the address may point to. Blocks are allowed to occur multiple
-times in the destination list, though this isn't particularly useful.
-
-This destination list is required so that dataflow analysis has an
-accurate understanding of the CFG.
-
-##### Semantics:
-
-Control transfers to the block specified in the address argument. All
-possible destination blocks must be listed in the label list, otherwise
-this instruction has undefined behavior. This implies that jumps to
-labels defined in other functions have undefined behavior as well.
-If '`address`' is `poison` or `undef`, this instruction has undefined
-behavior.
-
-##### Implementation:
-
-This is typically implemented with a jump through a register.
-
-##### Example:
-
-```llvm
-indirectbr ptr %Addr, [ label %bb1, label %bb2, label %bb3 ]
-```
-
 (i_indirectswitch)=
 
 #### '`indirectswitch`' Instruction
@@ -10679,8 +10632,15 @@ indirectswitch ptr <address>, [ ptr edgeaddress(@f, <id>), label <dest> ... ]
 The '`indirectswitch`' instruction implements an indirect branch to one of
 several destinations within the current function. The address operand must be
 derived from one of the {ref}`edgeaddress <edgeaddress>` constants listed as
-case values. It is intended to replace the
-'{ref}`indirectbr <i_indirectbr>`' instruction.
+case values.
+
+The '`indirectswitch`' instruction replaces the removed '`indirectbr`'
+instruction. Textual IR and bitcode using '`indirectbr`' are upgraded
+automatically: the '`indirectbr`' instructions of a function are merged into
+a single '`indirectswitch`' (in a new block that they branch to, if there are
+several), with an '`edgeaddress`' case for each distinct destination, and
+'`blockaddress`' constants of the destinations are replaced by the
+corresponding '`edgeaddress`' constants.
 
 ##### Arguments:
 

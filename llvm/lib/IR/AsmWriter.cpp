@@ -4644,18 +4644,6 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
       writeOperand(ISI->getOperand(1 + Idx), true);
     }
     Out << "\n  ]";
-  } else if (isa<IndirectBrInst>(I)) {
-    // Special case indirectbr instruction to get formatting nice and correct.
-    Out << ' ';
-    writeOperand(Operand, true);
-    Out << ", [";
-
-    ListSeparator LS;
-    for (unsigned i = 1, e = I.getNumOperands(); i != e; ++i) {
-      Out << LS;
-      writeOperand(I.getOperand(i), true);
-    }
-    Out << ']';
   } else if (const auto *PN = dyn_cast<PHINode>(&I)) {
     Out << ' ';
     TypePrinter.print(I.getType(), Out);

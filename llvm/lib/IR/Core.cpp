@@ -3675,11 +3675,6 @@ LLVMValueRef LLVMBuildSwitch(LLVMBuilderRef B, LLVMValueRef V,
   return wrap(unwrap(B)->CreateSwitch(unwrap(V), unwrap(Else), NumCases));
 }
 
-LLVMValueRef LLVMBuildIndirectBr(LLVMBuilderRef B, LLVMValueRef Addr,
-                                 unsigned NumDests) {
-  return wrap(unwrap(B)->CreateIndirectBr(unwrap(Addr), NumDests));
-}
-
 LLVMValueRef LLVMBuildIndirectSwitch(LLVMBuilderRef B, LLVMValueRef Addr,
                                      unsigned NumCases) {
   return wrap(unwrap(B)->CreateIndirectSwitch(unwrap(Addr), NumCases));
@@ -3795,10 +3790,6 @@ void LLVMAddCase(LLVMValueRef Switch, LLVMValueRef OnVal,
     return;
   }
   unwrap<SwitchInst>(Switch)->addCase(unwrap<ConstantInt>(OnVal), unwrap(Dest));
-}
-
-void LLVMAddDestination(LLVMValueRef IndirectBr, LLVMBasicBlockRef Dest) {
-  unwrap<IndirectBrInst>(IndirectBr)->addDestination(unwrap(Dest));
 }
 
 unsigned LLVMGetNumClauses(LLVMValueRef LandingPad) {

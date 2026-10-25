@@ -16,7 +16,7 @@ entry:
   br label %for.cond2
 
 for.cond2:                                        ; preds = %if.end, %for.cond2, %entry
-; CHECK: for.cond2:                                        ; preds = %.split1
+; CHECK: for.cond2:                                        ; preds = %for.cond2.for.cond2_crit_edge, %if.end, %entry
   %p.addr.0 = phi ptr [ %p, %entry ], [ %incdec.ptr5, %if.end ], [ %incdec.ptr, %for.cond2 ]
   %incdec.ptr = getelementptr inbounds i8, ptr %p.addr.0, i64 1
   %0 = load i8, ptr %p.addr.0, align 1
@@ -27,7 +27,7 @@ if.end.preheader:                                 ; preds = %for.cond2
   br label %if.end
 
 if.end:                                           ; preds = %if.end.preheader, %if.end
-; CHECK: if.end:                                           ; preds = %.split1
+; CHECK: if.end:                                           ; preds = %if.end.if.end_crit_edge, %if.end.preheader
   %p.addr.1 = phi ptr [ %incdec.ptr5, %if.end ], [ %incdec.ptr, %if.end.preheader ]
   %incdec.ptr5 = getelementptr inbounds i8, ptr %p.addr.1, i64 1
   %1 = load i8, ptr %p.addr.1, align 1
@@ -38,13 +38,16 @@ if.end:                                           ; preds = %if.end.preheader, %
 ; CHECK: indirectswitch ptr %2, [
 }
 
-;; Critical edges from an indirectswitch can be split, so both edges into
-;; %indirect are profiled.
+;; Critical edges from an indirectswitch can be split like other critical
+;; edges.
 ; CHECK-LABEL: @cannot_split(
+; CHECK:       entry:
+; CHECK:         call void @llvm.instrprof.increment(ptr @__profn_cannot_split, i64 {{[0-9]+}}, i32 2, i32 1)
 ; CHECK:       indirect:
+; CHECK-NEXT:    indirectswitch ptr %1, [
+; CHECK-NEXT:      ptr edgeaddress(@cannot_split, 0), label %indirect.indirect_crit_edge
+; CHECK:       indirect.indirect_crit_edge:
 ; CHECK-NEXT:    call void @llvm.instrprof.increment(ptr @__profn_cannot_split, i64 {{[0-9]+}}, i32 2, i32 0)
-; CHECK:       indirect.clone:
-; CHECK-NEXT:    call void @llvm.instrprof.increment(ptr @__profn_cannot_split, i64 {{[0-9]+}}, i32 2, i32 1)
 define i32 @cannot_split(ptr nocapture readonly %p) {
 entry:
   %targets = alloca <2 x ptr>, align 16

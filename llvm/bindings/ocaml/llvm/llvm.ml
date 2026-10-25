@@ -1256,10 +1256,6 @@ external add_case : llvalue -> llvalue -> llbasicblock -> unit
                   = "llvm_add_case"
 external switch_default_dest : llvalue -> llbasicblock =
     "llvm_switch_default_dest"
-external build_indirect_br : llvalue -> int -> llbuilder -> llvalue
-                           = "llvm_build_indirect_br"
-external add_destination : llvalue -> llbasicblock -> unit
-                         = "llvm_add_destination"
 external build_invoke : lltype -> llvalue -> llvalue array -> llbasicblock ->
                         llbasicblock -> string -> llbuilder -> llvalue
                       = "llvm_build_invoke_bc" "llvm_build_invoke_nat"

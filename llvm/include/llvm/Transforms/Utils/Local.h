@@ -59,7 +59,7 @@ class TargetTransformInfo;
 /// This is a nontrivial operation because the successors of this basic block
 /// must have their PHI nodes updated.
 /// Also calls RecursivelyDeleteTriviallyDeadInstructions() on any branch/switch
-/// conditions and indirectbr addresses this might make dead if
+/// conditions and indirectswitch addresses this might make dead if
 /// DeleteDeadConditions is true.
 LLVM_ABI bool ConstantFoldTerminator(BasicBlock *BB,
                                      bool DeleteDeadConditions = false,

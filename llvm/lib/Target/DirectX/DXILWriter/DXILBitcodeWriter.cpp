@@ -2384,15 +2384,6 @@ void DXILBitcodeWriter::writeInstruction(const Instruction &I, unsigned InstID,
       Vals.push_back(VE.getValueID(Case.getCaseSuccessor()));
     }
   } break;
-  case Instruction::IndirectBr:
-    Code = bitc::FUNC_CODE_INST_INDIRECTBR;
-    Vals.push_back(getTypeID(I.getOperand(0)->getType()));
-    // Encode the address operand as relative, but not the basic blocks.
-    pushValue(I.getOperand(0), InstID, Vals);
-    for (unsigned i = 1, e = I.getNumOperands(); i != e; ++i)
-      Vals.push_back(VE.getValueID(I.getOperand(i)));
-    break;
-
   case Instruction::Invoke: {
     const InvokeInst *II = cast<InvokeInst>(&I);
     const Value *Callee = II->getCalledOperand();

@@ -1031,24 +1031,6 @@ public:
     setFailed();
   }
 
-  void visitIndirectBrInst(IndirectBrInst &IBI) {
-    auto &Target = getValue(IBI.getAddress());
-    if (Target.isPoison()) {
-      reportImmediateUB() << "Indirect branch on poison.";
-      return;
-    }
-    if (BasicBlock *DestBB = Ctx.getTargetBlock(Target.asPointer())) {
-      if (any_of(IBI.successors(),
-                 [DestBB](BasicBlock *Succ) { return Succ == DestBB; }))
-        jumpTo(IBI, DestBB);
-      else
-        reportImmediateUB() << "Indirect branch on unlisted target BB.";
-
-      return;
-    }
-    reportImmediateUB() << "Indirect branch on invalid target BB.";
-  }
-
   void visitIndirectSwitchInst(IndirectSwitchInst &ISI) {
     auto &Target = getValue(ISI.getAddress());
     if (Target.isPoison()) {

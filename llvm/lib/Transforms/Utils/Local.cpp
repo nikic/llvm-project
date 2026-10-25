@@ -128,7 +128,7 @@ static const unsigned BitPartRecursionMaxDepth = 48;
 /// destination.  This is a nontrivial operation because the successors of this
 /// basic block must have their PHI nodes updated.
 /// Also calls RecursivelyDeleteTriviallyDeadInstructions() on any branch/switch
-/// conditions and indirectbr addresses this might make dead if
+/// conditions and indirectswitch addresses this might make dead if
 /// DeleteDeadConditions is true.
 bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
                                   const TargetLibraryInfo *TLI,
@@ -341,58 +341,6 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
       return true;
     }
     return Changed;
-  }
-
-  if (auto *IBI = dyn_cast<IndirectBrInst>(T)) {
-    // indirectbr blockaddress(@F, @BB) -> br label @BB
-    if (auto *BA =
-          dyn_cast<BlockAddress>(IBI->getAddress()->stripPointerCasts())) {
-      BasicBlock *TheOnlyDest = BA->getBasicBlock();
-      SmallPtrSet<BasicBlock *, 8> RemovedSuccessors;
-
-      // Insert the new branch.
-      IRBuilder<> Builder(IBI);
-      Builder.CreateBr(TheOnlyDest);
-
-      BasicBlock *SuccToKeep = TheOnlyDest;
-      for (unsigned i = 0, e = IBI->getNumDestinations(); i != e; ++i) {
-        BasicBlock *DestBB = IBI->getDestination(i);
-        if (DTU && DestBB != TheOnlyDest)
-          RemovedSuccessors.insert(DestBB);
-        if (IBI->getDestination(i) == SuccToKeep) {
-          SuccToKeep = nullptr;
-        } else {
-          DestBB->removePredecessor(BB);
-        }
-      }
-      Value *Address = IBI->getAddress();
-      IBI->eraseFromParent();
-      if (DeleteDeadConditions)
-        // Delete pointer cast instructions.
-        RecursivelyDeleteTriviallyDeadInstructions(Address, TLI);
-
-      // Also zap the blockaddress constant if there are no users remaining,
-      // otherwise the destination is still marked as having its address taken.
-      if (BA->use_empty())
-        BA->destroyConstant();
-
-      // If we didn't find our destination in the IBI successor list, then we
-      // have undefined behavior.  Replace the unconditional branch with an
-      // 'unreachable' instruction.
-      if (SuccToKeep) {
-        BB->getTerminator()->eraseFromParent();
-        new UnreachableInst(BB->getContext(), BB);
-      }
-
-      if (DTU) {
-        std::vector<DominatorTree::UpdateType> Updates;
-        Updates.reserve(RemovedSuccessors.size());
-        for (auto *RemovedSuccessor : RemovedSuccessors)
-          Updates.push_back({DominatorTree::Delete, BB, RemovedSuccessor});
-        DTU->applyUpdates(Updates);
-      }
-      return true;
-    }
   }
 
   if (auto *ISI = dyn_cast<IndirectSwitchInst>(T)) {
@@ -1064,11 +1012,6 @@ CanRedirectPredsOfEmptyBBToSucc(BasicBlock *BB, BasicBlock *Succ,
 
   // BB must have predecessors not shared that can be redirected to Succ
   if (!BB->hasNPredecessorsOrMore(2))
-    return false;
-
-  if (any_of(BBPreds, [](const BasicBlock *Pred) {
-        return isa<IndirectBrInst>(Pred->getTerminator());
-      }))
     return false;
 
   // Get the single common predecessor of both BB and Succ. Return false

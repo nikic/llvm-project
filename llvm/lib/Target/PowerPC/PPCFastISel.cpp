@@ -1859,7 +1859,7 @@ bool PPCFastISel::SelectIndirectBr(const Instruction *I) {
     .addReg(AddrReg);
   BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD, TII.get(PPC::BCTR8));
 
-  // Handles indirectbr and indirectswitch.
+  // Handles indirectswitch.
   SmallPtrSet<const BasicBlock *, 32> Seen;
   for (const BasicBlock *SuccBB : successors(I))
     if (Seen.insert(SuccBB).second)
@@ -1942,7 +1942,6 @@ bool PPCFastISel::fastSelectInstruction(const Instruction *I) {
       return SelectStore(I);
     case Instruction::CondBr:
       return SelectBranch(I);
-    case Instruction::IndirectBr:
     case Instruction::IndirectSwitch:
       return SelectIndirectBr(I);
     case Instruction::FPExt:

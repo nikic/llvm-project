@@ -219,10 +219,6 @@ LLVM_ABI void createPHIsForSplitLoopExit(ArrayRef<BasicBlock *> Preds,
 /// to a different block, but isn't the standard definition of a "critical
 /// edge".
 ///
-/// It is invalid to call this function on a critical edge that starts at an
-/// IndirectBrInst.  Splitting these edges will almost always create an invalid
-/// program because the address of the new block won't be the one that is jumped
-/// to.
 LLVM_ABI BasicBlock *
 SplitCriticalEdge(Instruction *TI, unsigned SuccNum,
                   const CriticalEdgeSplittingOptions &Options =
@@ -610,35 +606,6 @@ LLVM_ABI void SplitBlockAndInsertForEachLane(
 /// instructions in them.
 LLVM_ABI CondBrInst *GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
                                     BasicBlock *&IfFalse);
-
-// Split critical edges where the source of the edge is an indirectbr
-// instruction. This isn't always possible, but we can handle some easy cases.
-// This is useful because MI is unable to split such critical edges,
-// which means it will not be able to sink instructions along those edges.
-// This is especially painful for indirect branches with many successors, where
-// we end up having to prepare all outgoing values in the origin block.
-//
-// Our normal algorithm for splitting critical edges requires us to update
-// the outgoing edges of the edge origin block, but for an indirectbr this
-// is hard, since it would require finding and updating the block addresses
-// the indirect branch uses. But if a block only has a single indirectbr
-// predecessor, with the others being regular branches, we can do it in a
-// different way.
-// Say we have A -> D, B -> D, I -> D where only I -> D is an indirectbr.
-// We can split D into D0 and D1, where D0 contains only the PHIs from D,
-// and D1 is the D block body. We can then duplicate D0 as D0A and D0B, and
-// create the following structure:
-// A -> D0A, B -> D0A, I -> D0B, D0A -> D1, D0B -> D1
-// If BPI and BFI aren't non-null, BPI/BFI will be updated accordingly.
-// When `IgnoreBlocksWithoutPHI` is set to `true` critical edges leading to a
-// block without phi-instructions will not be split.
-// indirectswitch edges are handled the same way: while they could be split
-// normally, that would add a branch on the indirect edge.
-LLVM_ABI bool SplitIndirectBrCriticalEdges(Function &F,
-                                           bool IgnoreBlocksWithoutPHI,
-                                           BranchProbabilityInfo *BPI = nullptr,
-                                           BlockFrequencyInfo *BFI = nullptr,
-                                           DomTreeUpdater *DTU = nullptr);
 
 // Utility function for inverting branch condition and for swapping its
 // successors

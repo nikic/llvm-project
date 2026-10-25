@@ -45,9 +45,9 @@ is always case #0).
 }
 ```
 
-### `IndirectBrInst`
+### `IndirectSwitchInst`
 
-Branch weights are assigned to every destination.
+Branch weights are assigned to every case.
 
 ```none
 !0 = !{

@@ -183,10 +183,9 @@ static bool canSplitCallSite(const ScalarOptions &Opts, CallBase &CB,
     return false;
 
   BasicBlock *CallSiteBB = CB.getParent();
-  // Need 2 predecessors and cannot split an edge from an IndirectBrInst.
+  // Need 2 predecessors.
   SmallVector<BasicBlock *, 2> Preds(predecessors(CallSiteBB));
-  if (Preds.size() != 2 || isa<IndirectBrInst>(Preds[0]->getTerminator()) ||
-      isa<IndirectBrInst>(Preds[1]->getTerminator()))
+  if (Preds.size() != 2)
     return false;
 
   // BasicBlock::canSplitPredecessors is more aggressive, so checking for

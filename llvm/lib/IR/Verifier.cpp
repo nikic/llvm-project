@@ -439,7 +439,6 @@ private:
   void visitCondBrInst(CondBrInst &BI);
   void visitReturnInst(ReturnInst &RI);
   void visitSwitchInst(SwitchInst &SI);
-  void visitIndirectBrInst(IndirectBrInst &BI);
   void visitIndirectSwitchInst(IndirectSwitchInst &ISI);
   void visitCallBrInst(CallBrInst &CBI);
   void visitSelectInst(SelectInst &SI);
@@ -3745,16 +3744,6 @@ void Verifier::visitSwitchInst(SwitchInst &SI) {
   visitTerminator(SI);
 }
 
-void Verifier::visitIndirectBrInst(IndirectBrInst &BI) {
-  Check(BI.getAddress()->getType()->isPointerTy(),
-        "Indirectbr operand must have pointer type!", &BI);
-  for (unsigned i = 0, e = BI.getNumDestinations(); i != e; ++i)
-    Check(BI.getDestination(i)->getType()->isLabelTy(),
-          "Indirectbr destinations must all have pointer type!", &BI);
-
-  visitTerminator(BI);
-}
-
 void Verifier::visitIndirectSwitchInst(IndirectSwitchInst &ISI) {
   Function *F = ISI.getFunction();
   Check(ISI.getAddress()->getType() == F->getType(),
@@ -5631,8 +5620,6 @@ void Verifier::visitProfMetadata(Instruction &I, MDNode *MD) {
       ExpectedNumOperands = SI->getNumSuccessors();
     else if (isa<CallInst>(&I))
       ExpectedNumOperands = 1;
-    else if (auto *IBI = dyn_cast<IndirectBrInst>(&I))
-      ExpectedNumOperands = IBI->getNumDestinations();
     else if (auto *ISI = dyn_cast<IndirectSwitchInst>(&I))
       ExpectedNumOperands = ISI->getNumSuccessors();
     else if (isa<SelectInst>(&I))

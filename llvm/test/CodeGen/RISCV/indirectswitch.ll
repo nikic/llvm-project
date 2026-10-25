@@ -15,7 +15,7 @@ define i32 @f(i32 %i, i32 %x) {
 ; STATIC-LABEL: f:
 ; STATIC:       # %bb.0: # %entry
 ; STATIC-NEXT:    sext.w a2, a1
-; STATIC-NEXT:    beqz a2, .LBB0_2
+; STATIC-NEXT:    beqz a2, .LBB0_3
 ; STATIC-NEXT:  # %bb.1: # %dispatch
 ; STATIC-NEXT:    slli a0, a0, 32
 ; STATIC-NEXT:    srli a0, a0, 29
@@ -23,25 +23,26 @@ define i32 @f(i32 %i, i32 %x) {
 ; STATIC-NEXT:    addi a1, a1, %lo(tbl)
 ; STATIC-NEXT:    add a0, a1, a0
 ; STATIC-NEXT:    ld a0, 0(a0)
-; STATIC-NEXT:    li a1, 2
 ; STATIC-NEXT:    jr a0
 ; STATIC-NEXT:  .Ltmp0: # Block address taken
-; STATIC-NEXT:  .LBB0_2: # %b
+; STATIC-NEXT:  .LBB0_2: # %dispatch.b_crit_edge
+; STATIC-NEXT:    li a1, 2
+; STATIC-NEXT:  .LBB0_3: # %b
 ; STATIC-NEXT:    mv a0, a1
 ; STATIC-NEXT:    ret
 ; STATIC-NEXT:  .Ltmp1: # Block address taken
-; STATIC-NEXT:  .LBB0_3: # %a
+; STATIC-NEXT:  .LBB0_4: # %a
 ; STATIC-NEXT:    li a0, 1
 ; STATIC-NEXT:    ret
 ; STATIC-NEXT:  .Ltmp2: # Block address taken
-; STATIC-NEXT:  .LBB0_4: # %c
+; STATIC-NEXT:  .LBB0_5: # %c
 ; STATIC-NEXT:    li a0, 3
 ; STATIC-NEXT:    ret
 ;
 ; PIC-LABEL: f:
 ; PIC:       # %bb.0: # %entry
 ; PIC-NEXT:    sext.w a2, a1
-; PIC-NEXT:    beqz a2, .LBB0_2
+; PIC-NEXT:    beqz a2, .LBB0_3
 ; PIC-NEXT:  # %bb.1: # %dispatch
 ; PIC-NEXT:  .Lpcrel_hi0:
 ; PIC-NEXT:    auipc a1, %got_pcrel_hi(tbl)
@@ -50,18 +51,19 @@ define i32 @f(i32 %i, i32 %x) {
 ; PIC-NEXT:    srli a0, a0, 29
 ; PIC-NEXT:    add a0, a1, a0
 ; PIC-NEXT:    ld a0, 0(a0)
-; PIC-NEXT:    li a1, 2
 ; PIC-NEXT:    jr a0
 ; PIC-NEXT:  .Ltmp0: # Block address taken
-; PIC-NEXT:  .LBB0_2: # %b
+; PIC-NEXT:  .LBB0_2: # %dispatch.b_crit_edge
+; PIC-NEXT:    li a1, 2
+; PIC-NEXT:  .LBB0_3: # %b
 ; PIC-NEXT:    mv a0, a1
 ; PIC-NEXT:    ret
 ; PIC-NEXT:  .Ltmp1: # Block address taken
-; PIC-NEXT:  .LBB0_3: # %a
+; PIC-NEXT:  .LBB0_4: # %a
 ; PIC-NEXT:    li a0, 1
 ; PIC-NEXT:    ret
 ; PIC-NEXT:  .Ltmp2: # Block address taken
-; PIC-NEXT:  .LBB0_4: # %c
+; PIC-NEXT:  .LBB0_5: # %c
 ; PIC-NEXT:    li a0, 3
 ; PIC-NEXT:    ret
 ;

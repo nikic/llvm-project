@@ -3488,14 +3488,6 @@ void ModuleBitcodeWriter::writeInstruction(const Instruction &I,
       }
     }
     break;
-  case Instruction::IndirectBr:
-    Code = bitc::FUNC_CODE_INST_INDIRECTBR;
-    Vals.push_back(VE.getTypeID(I.getOperand(0)->getType()));
-    // Encode the address operand as relative, but not the basic blocks.
-    pushValue(I.getOperand(0), InstID, Vals);
-    for (const Value *Op : drop_begin(I.operands()))
-      Vals.push_back(VE.getValueID(Op));
-    break;
   case Instruction::IndirectSwitch:
     Code = bitc::FUNC_CODE_INST_INDIRECTSWITCH;
     Vals.push_back(VE.getTypeID(I.getOperand(0)->getType()));

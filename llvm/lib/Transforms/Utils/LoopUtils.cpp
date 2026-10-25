@@ -75,10 +75,6 @@ bool llvm::formDedicatedExitBlocks(Loop *L, DominatorTree *DT, LoopInfo *LI,
     bool IsDedicatedExit = true;
     for (auto *PredBB : predecessors(BB))
       if (L->contains(PredBB)) {
-        if (isa<IndirectBrInst>(PredBB->getTerminator()))
-          // We cannot rewrite exiting edges from an indirectbr.
-          return false;
-
         InLoopPredecessors.push_back(PredBB);
       } else {
         IsDedicatedExit = false;

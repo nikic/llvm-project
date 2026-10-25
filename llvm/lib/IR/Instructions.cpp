@@ -4406,79 +4406,6 @@ SwitchInstProfUpdateWrapper::getSuccessorWeight(const SwitchInst &SI,
 }
 
 //===----------------------------------------------------------------------===//
-//                        IndirectBrInst Implementation
-//===----------------------------------------------------------------------===//
-
-void IndirectBrInst::init(Value *Address, unsigned NumDests) {
-  assert(Address && Address->getType()->isPointerTy() &&
-         "Address of indirectbr must be a pointer");
-  ReservedSpace = 1 + NumDests;
-  allocHungoffUses(ReservedSpace);
-  setNumHungOffUseOperands(1);
-
-  Op<0>() = Address;
-}
-
-
-/// growOperands - grow operands - This grows the operand list in response
-/// to a push_back style of operation.  This grows the number of ops by 2 times.
-///
-void IndirectBrInst::growOperands() {
-  unsigned e = getNumOperands();
-  unsigned NumOps = e*2;
-
-  ReservedSpace = NumOps;
-  growHungoffUses(ReservedSpace);
-}
-
-IndirectBrInst::IndirectBrInst(Value *Address, unsigned NumCases,
-                               InsertPosition InsertBefore)
-    : Instruction(Type::getVoidTy(Address->getContext()),
-                  Instruction::IndirectBr, AllocMarker, InsertBefore) {
-  init(Address, NumCases);
-}
-
-IndirectBrInst::IndirectBrInst(const IndirectBrInst &IBI)
-    : Instruction(Type::getVoidTy(IBI.getContext()), Instruction::IndirectBr,
-                  AllocMarker) {
-  allocHungoffUses(IBI.getNumOperands());
-  setNumHungOffUseOperands(IBI.NumUserOperands);
-  Use *OL = getOperandList();
-  const Use *InOL = IBI.getOperandList();
-  for (unsigned i = 0, E = IBI.getNumOperands(); i != E; ++i)
-    OL[i] = InOL[i];
-  SubclassOptionalData = IBI.SubclassOptionalData;
-}
-
-/// addDestination - Add a destination.
-///
-void IndirectBrInst::addDestination(BasicBlock *DestBB) {
-  unsigned OpNo = getNumOperands();
-  if (OpNo+1 > ReservedSpace)
-    growOperands();  // Get more space!
-  // Initialize some new operands.
-  assert(OpNo < ReservedSpace && "Growing didn't work!");
-  setNumHungOffUseOperands(OpNo+1);
-  getOperandList()[OpNo] = DestBB;
-}
-
-/// removeDestination - This method removes the specified successor from the
-/// indirectbr instruction.
-void IndirectBrInst::removeDestination(unsigned idx) {
-  assert(idx < getNumOperands()-1 && "Successor index out of range!");
-
-  unsigned NumOps = getNumOperands();
-  Use *OL = getOperandList();
-
-  // Replace this value with the last one.
-  OL[idx+1] = OL[NumOps-1];
-
-  // Nuke the last value.
-  OL[NumOps-1].set(nullptr);
-  setNumHungOffUseOperands(NumOps-1);
-}
-
-//===----------------------------------------------------------------------===//
 //                        IndirectSwitchInst Implementation
 //===----------------------------------------------------------------------===//
 
@@ -4787,10 +4714,6 @@ CondBrInst *CondBrInst::cloneImpl() const {
 }
 
 SwitchInst *SwitchInst::cloneImpl() const { return new SwitchInst(*this); }
-
-IndirectBrInst *IndirectBrInst::cloneImpl() const {
-  return new IndirectBrInst(*this);
-}
 
 IndirectSwitchInst *IndirectSwitchInst::cloneImpl() const {
   return new IndirectSwitchInst(*this);

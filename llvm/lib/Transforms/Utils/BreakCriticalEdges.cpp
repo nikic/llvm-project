@@ -15,13 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/BreakCriticalEdges.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/BlockFrequencyInfo.h"
-#include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFG.h"
-#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -31,8 +27,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "break-crit-edges"
@@ -117,9 +111,8 @@ llvm::SplitKnownCriticalEdge(Instruction *TI, unsigned SuccNum,
   BasicBlock *DestBB = TI->getSuccessor(SuccNum);
 
   // Splitting the critical edge to a pad block is non-trivial.
-  // And we cannot split block with IndirectBr as a terminator.
   // Don't do it in this generic function.
-  if (DestBB->isEHPad() || isa<IndirectBrInst>(TI))
+  if (DestBB->isEHPad())
     return nullptr;
 
   if (Options.IgnoreUnreachableDests &&
@@ -129,8 +122,7 @@ llvm::SplitKnownCriticalEdge(Instruction *TI, unsigned SuccNum,
   auto *LI = Options.LI;
   SmallVector<BasicBlock *, 4> LoopPreds;
   // Check if extra modifications will be required to preserve loop-simplify
-  // form after splitting. If it would require splitting blocks with IndirectBr
-  // terminators, bail out if preserving loop-simplify form is requested.
+  // form after splitting.
   if (LI) {
     if (Loop *TIL = LI->getLoopFor(TIBB)) {
 
@@ -152,15 +144,6 @@ llvm::SplitKnownCriticalEdge(Instruction *TI, unsigned SuccNum,
           break;
         }
         LoopPreds.push_back(P);
-      }
-      // Loop-simplify form can be preserved, if we can split all in-loop
-      // predecessors.
-      if (any_of(LoopPreds, [](BasicBlock *Pred) {
-            return isa<IndirectBrInst>(Pred->getTerminator());
-          })) {
-        if (Options.PreserveLoopSimplify)
-          return nullptr;
-        LoopPreds.clear();
       }
     }
   }
@@ -315,185 +298,4 @@ llvm::SplitKnownCriticalEdge(Instruction *TI, unsigned SuccNum,
   }
 
   return NewBB;
-}
-
-// Return the unique indirectbr predecessor of a block. This may return null
-// even if such a predecessor exists, if it's not useful for splitting.
-// If a predecessor is found, OtherPreds will contain all other (non-indirectbr)
-// predecessors of BB.
-static BasicBlock *
-findIBRPredecessor(BasicBlock *BB, SmallVectorImpl<BasicBlock *> &OtherPreds) {
-  // Verify we have exactly one IBR predecessor.
-  // Conservatively bail out if one of the other predecessors is not a "regular"
-  // terminator (that is, not a switch or a br).
-  BasicBlock *IBB = nullptr;
-  for (BasicBlock *PredBB : predecessors(BB)) {
-    Instruction *PredTerm = PredBB->getTerminator();
-    switch (PredTerm->getOpcode()) {
-    case Instruction::IndirectBr:
-    case Instruction::IndirectSwitch:
-      if (IBB)
-        return nullptr;
-      IBB = PredBB;
-      break;
-    case Instruction::UncondBr:
-    case Instruction::CondBr:
-    case Instruction::Switch:
-      OtherPreds.push_back(PredBB);
-      continue;
-    default:
-      return nullptr;
-    }
-  }
-
-  return IBB;
-}
-
-bool llvm::SplitIndirectBrCriticalEdges(Function &F,
-                                        bool IgnoreBlocksWithoutPHI,
-                                        BranchProbabilityInfo *BPI,
-                                        BlockFrequencyInfo *BFI,
-                                        DomTreeUpdater *DTU) {
-  // Check whether the function has any indirectbrs, and collect which blocks
-  // they may jump to. Since most functions don't have indirect branches,
-  // this lowers the common case's overhead to O(Blocks) instead of O(Edges).
-  SmallSetVector<BasicBlock *, 16> Targets;
-  for (auto &BB : F) {
-    if (isa<IndirectBrInst, IndirectSwitchInst>(BB.getTerminator()))
-      Targets.insert_range(successors(&BB));
-  }
-
-  if (Targets.empty())
-    return false;
-
-  bool ShouldUpdateAnalysis = BPI && BFI;
-  bool Changed = false;
-  for (BasicBlock *Target : Targets) {
-    if (IgnoreBlocksWithoutPHI && Target->phis().empty())
-      continue;
-
-    SmallVector<BasicBlock *, 16> OtherPreds;
-    BasicBlock *IBRPred = findIBRPredecessor(Target, OtherPreds);
-    // If we did not found an indirectbr, or the indirectbr is the only
-    // incoming edge, this isn't the kind of edge we're looking for.
-    if (!IBRPred || OtherPreds.empty())
-      continue;
-
-    // Don't even think about ehpads/landingpads.
-    auto FirstNonPHIIt = Target->getFirstNonPHIIt();
-    if (FirstNonPHIIt->isEHPad() || Target->isLandingPad())
-      continue;
-
-    // Remember edge probabilities if needed.
-    SmallVector<BranchProbability, 4> EdgeProbabilities;
-    if (ShouldUpdateAnalysis) {
-      EdgeProbabilities.reserve(Target->getTerminator()->getNumSuccessors());
-      for (unsigned I = 0, E = Target->getTerminator()->getNumSuccessors();
-           I < E; ++I)
-        EdgeProbabilities.emplace_back(BPI->getEdgeProbability(Target, I));
-      BPI->eraseBlock(Target);
-    }
-
-    BasicBlock *BodyBlock =
-        SplitBlock(Target, FirstNonPHIIt, DTU, nullptr, nullptr, ".split");
-    if (ShouldUpdateAnalysis) {
-      // Copy the BFI/BPI from Target to BodyBlock.
-      BPI->setEdgeProbability(BodyBlock, EdgeProbabilities);
-      BFI->setBlockFreq(BodyBlock, BFI->getBlockFreq(Target));
-    }
-    // It's possible Target was its own successor through an indirectbr.
-    // In this case, the indirectbr now comes from BodyBlock.
-    if (IBRPred == Target)
-      IBRPred = BodyBlock;
-
-    // At this point Target only has PHIs, and BodyBlock has the rest of the
-    // block's body. Create a copy of Target that will be used by the "direct"
-    // preds.
-    ValueToValueMapTy VMap;
-    BasicBlock *DirectSucc = CloneBasicBlock(Target, VMap, ".clone", &F);
-    if (!VMap.AtomMap.empty())
-      for (Instruction &I : *DirectSucc)
-        RemapSourceAtom(&I, VMap);
-
-    BlockFrequency BlockFreqForDirectSucc;
-    SmallVector<DominatorTree::UpdateType, 8> DTUpdates;
-    SmallPtrSet<BasicBlock *, 8> SeenSrcs;
-    if (DTU)
-      DTUpdates.reserve(OtherPreds.size() * 2 + 1);
-    for (BasicBlock *Pred : OtherPreds) {
-      // If the target is a loop to itself, then the terminator of the split
-      // block (BodyBlock) needs to be updated.
-      BasicBlock *Src = Pred != Target ? Pred : BodyBlock;
-      Src->getTerminator()->replaceUsesOfWith(Target, DirectSucc);
-      if (ShouldUpdateAnalysis)
-        BlockFreqForDirectSucc += BFI->getBlockFreq(Src) *
-            BPI->getEdgeProbability(Src, DirectSucc);
-      // A predecessor may appear multiple times in OtherPreds (e.g., a CondBr
-      // with both targets pointing to the same block). Only emit one pair of
-      // DomTree updates per unique source.
-      if (DTU && SeenSrcs.insert(Src).second) {
-        DTUpdates.push_back({DominatorTree::Insert, Src, DirectSucc});
-        DTUpdates.push_back({DominatorTree::Delete, Src, Target});
-      }
-    }
-    if (ShouldUpdateAnalysis) {
-      BFI->setBlockFreq(DirectSucc, BlockFreqForDirectSucc);
-      BlockFrequency NewBlockFreqForTarget =
-          BFI->getBlockFreq(Target) - BlockFreqForDirectSucc;
-      BFI->setBlockFreq(Target, NewBlockFreqForTarget);
-    }
-    if (DTU) {
-      DTUpdates.push_back({DominatorTree::Insert, DirectSucc, BodyBlock});
-      DTU->applyUpdates(DTUpdates);
-    }
-
-    // Ok, now fix up the PHIs. We know the two blocks only have PHIs, and that
-    // they are clones, so the number of PHIs are the same.
-    // (a) Remove the edge coming from IBRPred from the "Direct" PHI
-    // (b) Leave that as the only edge in the "Indirect" PHI.
-    // (c) Merge the two in the body block.
-    BasicBlock::iterator Indirect = Target->begin(),
-                         End = Target->getFirstNonPHIIt();
-    BasicBlock::iterator Direct = DirectSucc->begin();
-    BasicBlock::iterator MergeInsert = BodyBlock->getFirstInsertionPt();
-
-    assert(&*End == Target->getTerminator() &&
-           "Block was expected to only contain PHIs");
-
-    while (Indirect != End) {
-      PHINode *DirPHI = cast<PHINode>(Direct);
-      PHINode *IndPHI = cast<PHINode>(Indirect);
-      BasicBlock::iterator InsertPt = Indirect;
-
-      // Now, clean up - the direct block shouldn't get the indirect value,
-      // and vice versa.
-      DirPHI->removeIncomingValue(IBRPred);
-      Direct++;
-
-      // Advance the pointer here, to avoid invalidation issues when the old
-      // PHI is erased.
-      Indirect++;
-
-      PHINode *NewIndPHI = PHINode::Create(IndPHI->getType(), 1, "ind", InsertPt);
-      NewIndPHI->addIncoming(IndPHI->getIncomingValueForBlock(IBRPred),
-                             IBRPred);
-      NewIndPHI->setDebugLoc(IndPHI->getDebugLoc());
-
-      // Create a PHI in the body block, to merge the direct and indirect
-      // predecessors.
-      PHINode *MergePHI = PHINode::Create(IndPHI->getType(), 2, "merge");
-      MergePHI->insertBefore(MergeInsert);
-      MergePHI->addIncoming(NewIndPHI, Target);
-      MergePHI->addIncoming(DirPHI, DirectSucc);
-      MergePHI->applyMergedLocation(DirPHI->getDebugLoc(),
-                                    IndPHI->getDebugLoc());
-
-      IndPHI->replaceAllUsesWith(MergePHI);
-      IndPHI->eraseFromParent();
-    }
-
-    Changed = true;
-  }
-
-  return Changed;
 }

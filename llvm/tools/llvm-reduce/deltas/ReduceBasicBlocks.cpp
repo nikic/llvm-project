@@ -86,10 +86,6 @@ static void replaceBranchTerminator(BasicBlock &BB,
     IsBranch = true;
   }
 
-  Value *Address = nullptr;
-  if (auto *IndBI = dyn_cast<IndirectBrInst>(Term))
-    Address = IndBI->getAddress();
-
   Term->replaceAllUsesWith(getDefaultValue(Term->getType()));
   Term->eraseFromParent();
 
@@ -104,13 +100,6 @@ static void replaceBranchTerminator(BasicBlock &BB,
 
   if (IsBranch)
     UncondBrInst::Create(ChunkSuccessors[0], &BB);
-
-  if (Address) {
-    auto *NewIndBI =
-        IndirectBrInst::Create(Address, ChunkSuccessors.size(), &BB);
-    for (auto *Dest : ChunkSuccessors)
-      NewIndBI->addDestination(Dest);
-  }
 }
 
 /// Removes uninteresting BBs from switch, if the default case ends up being

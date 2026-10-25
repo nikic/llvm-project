@@ -1374,7 +1374,7 @@ bool ARMFastISel::SelectIndirectBr(const Instruction *I) {
   AddOptionalDefs(BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD,
                           TII.get(Opc)).addReg(AddrReg));
 
-  // Handles indirectbr and indirectswitch.
+  // Handles indirectswitch.
   SmallPtrSet<const BasicBlock *, 32> Seen;
   for (const BasicBlock *SuccBB : successors(I))
     if (Seen.insert(SuccBB).second)
@@ -2924,7 +2924,6 @@ bool ARMFastISel::fastSelectInstruction(const Instruction *I) {
       return SelectStore(I);
     case Instruction::CondBr:
       return SelectBranch(I);
-    case Instruction::IndirectBr:
     case Instruction::IndirectSwitch:
       return SelectIndirectBr(I);
     case Instruction::ICmp:

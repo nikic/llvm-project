@@ -441,7 +441,7 @@ static unsigned getJumpThreadDuplicationCost(const ScalarOptions &Opts,
       Bonus = 6;
 
     // The same holds for indirect branches, but slightly more so.
-    if (isa<IndirectBrInst, IndirectSwitchInst>(StopAt))
+    if (isa<IndirectSwitchInst>(StopAt))
       Bonus = 8;
   }
 
@@ -524,9 +524,6 @@ static Constant *getKnownConstant(Value *Val, ConstantPreference Preference) {
   if (UndefValue *U = dyn_cast<UndefValue>(Val))
     return U;
 
-  if (Preference == WantBlockAddress)
-    return dyn_cast<BlockAddress>(Val->stripPointerCasts());
-
   if (Preference == WantEdgeAddress)
     return dyn_cast<EdgeAddress>(Val->stripPointerCasts());
 
@@ -534,7 +531,7 @@ static Constant *getKnownConstant(Value *Val, ConstantPreference Preference) {
 }
 
 /// computeValueKnownInPredecessors - Given a basic block BB and a value V, see
-/// if we can infer that the value is a known ConstantInt/BlockAddress or undef
+/// if we can infer that the value is a known ConstantInt/EdgeAddress or undef
 /// in any of our predecessors.  If so, return the known list of value and pred
 /// BB in the result vector.
 ///
@@ -961,11 +958,6 @@ bool JumpThreadingPass::processBlock(BasicBlock *BB) {
     Condition = BI->getCondition();
   } else if (SwitchInst *SI = dyn_cast<SwitchInst>(Terminator)) {
     Condition = SI->getCondition();
-  } else if (IndirectBrInst *IB = dyn_cast<IndirectBrInst>(Terminator)) {
-    // Can't thread indirect branch with no successors.
-    if (IB->getNumSuccessors() == 0) return false;
-    Condition = IB->getAddress()->stripPointerCasts();
-    Preference = WantBlockAddress;
   } else if (auto *ISI = dyn_cast<IndirectSwitchInst>(Terminator)) {
     // Can't thread indirect switch with no cases.
     if (ISI->getNumCases() == 0)
@@ -1383,10 +1375,6 @@ bool JumpThreadingPass::simplifyPartiallyRedundantLoad(LoadInst *LoadI) {
 
     // Add all the unavailable predecessors to the PredsToSplit list.
     for (BasicBlock *P : predecessors(LoadBB)) {
-      // If the predecessor is an indirect goto, we can't split the edge.
-      if (isa<IndirectBrInst>(P->getTerminator()))
-        return false;
-
       if (!AvailablePredSet.count(P)) {
         if (!CanSpeculateInto(P))
           return false;
@@ -1614,16 +1602,12 @@ bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
     } else if (SwitchInst *SI = dyn_cast<SwitchInst>(BB->getTerminator())) {
       assert(isa<ConstantInt>(Val) && "Expecting a constant integer");
       DestBB = SI->findCaseValue(cast<ConstantInt>(Val))->getCaseSuccessor();
-    } else if (auto *ISI = dyn_cast<IndirectSwitchInst>(BB->getTerminator())) {
+    } else {
       // If the edgeaddress is not a case, the edge is UB, which is
       // represented by a null destination, like undef.
+      auto *ISI = cast<IndirectSwitchInst>(BB->getTerminator());
       auto Case = ISI->findCaseValue(cast<EdgeAddress>(Val));
       DestBB = Case != ISI->case_end() ? Case->getCaseSuccessor() : nullptr;
-    } else {
-      assert(isa<IndirectBrInst>(BB->getTerminator())
-              && "Unexpected terminator");
-      assert(isa<BlockAddress>(Val) && "Expecting a constant blockaddress");
-      DestBB = cast<BlockAddress>(Val)->getBasicBlock();
     }
 
     // If we have exactly one destination, remember it for efficiency below.
@@ -1638,11 +1622,6 @@ bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
       if (Val != OnlyVal)
         OnlyVal = MultipleVal;
     }
-
-    // If the predecessor ends with an indirect goto, we can't change its
-    // destination.
-    if (isa<IndirectBrInst>(Pred->getTerminator()))
-      continue;
 
     PredToDestList.emplace_back(Pred, DestBB);
   }
@@ -1876,13 +1855,6 @@ bool JumpThreadingPass::processBranchOnXOR(BinaryOperator *BO) {
 
     return true;
   }
-
-  // If any of predecessors end with an indirect goto, we can't change its
-  // destination.
-  if (any_of(BlocksToFoldInto, [](BasicBlock *Pred) {
-        return isa<IndirectBrInst>(Pred->getTerminator());
-      }))
-    return false;
 
   // Try to duplicate BB into PredBB.
   return duplicateCondBranchOnPHIIntoPred(BB, BlocksToFoldInto);
@@ -2213,9 +2185,6 @@ bool JumpThreadingPass::maybethreadThroughTwoBasicBlocks(BasicBlock *BB,
   BasicBlock *OnePred = nullptr;
   const DataLayout &DL = BB->getDataLayout();
   for (BasicBlock *P : predecessors(PredBB)) {
-    // If PredPred ends with IndirectBrInst, we can't handle it.
-    if (isa<IndirectBrInst>(P->getTerminator()))
-      continue;
     if (ConstantInt *CI = dyn_cast_or_null<ConstantInt>(
             evaluateOnPredecessorEdge(BB, P, Cond, DL))) {
       if (CI->isZero()) {

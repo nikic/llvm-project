@@ -20,31 +20,31 @@ define i32 @test_i32(i32 %p1, i32 %p2) {
 ; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr [[TMP5]], align 4
 ; CHECK-NEXT:    [[TMP7:%.*]] = zext i32 [[TMP4]] to i64
 ; CHECK-NEXT:    [[TMP8:%.*]] = zext i32 [[TMP6]] to i64
-; CHECK-NEXT:    call void @__instrumentor_pre_numeric(i32 12, i32 -1, i32 4, i32 15, i64 [[TMP7]], i64 [[TMP8]], i64 0, i32 3) #[[ATTR1]]
+; CHECK-NEXT:    call void @__instrumentor_pre_numeric(i32 12, i32 -1, i32 4, i32 14, i64 [[TMP7]], i64 [[TMP8]], i64 0, i32 3) #[[ATTR1]]
 ; CHECK-NEXT:    [[A1:%.*]] = add i32 [[TMP4]], [[TMP6]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = zext i32 [[A1]] to i64
-; CHECK-NEXT:    [[TMP10:%.*]] = call i64 @__instrumentor_post_numeric(i32 12, i32 -1, i32 4, i32 15, i64 [[TMP7]], i64 [[TMP8]], i64 [[TMP9]], i64 0, i32 -3) #[[ATTR1]]
+; CHECK-NEXT:    [[TMP10:%.*]] = call i64 @__instrumentor_post_numeric(i32 12, i32 -1, i32 4, i32 14, i64 [[TMP7]], i64 [[TMP8]], i64 [[TMP9]], i64 0, i32 -3) #[[ATTR1]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = trunc i64 [[TMP10]] to i32
 ; CHECK-NEXT:    [[TMP12:%.*]] = zext i32 [[TMP4]] to i64
 ; CHECK-NEXT:    [[TMP13:%.*]] = zext i32 [[TMP11]] to i64
-; CHECK-NEXT:    call void @__instrumentor_pre_numeric(i32 12, i32 -1, i32 4, i32 19, i64 [[TMP12]], i64 [[TMP13]], i64 2, i32 4) #[[ATTR1]]
+; CHECK-NEXT:    call void @__instrumentor_pre_numeric(i32 12, i32 -1, i32 4, i32 18, i64 [[TMP12]], i64 [[TMP13]], i64 2, i32 4) #[[ATTR1]]
 ; CHECK-NEXT:    [[A2:%.*]] = mul nuw i32 [[TMP4]], [[TMP11]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = zext i32 [[A2]] to i64
-; CHECK-NEXT:    [[TMP15:%.*]] = call i64 @__instrumentor_post_numeric(i32 12, i32 -1, i32 4, i32 19, i64 [[TMP12]], i64 [[TMP13]], i64 [[TMP14]], i64 2, i32 -4) #[[ATTR1]]
+; CHECK-NEXT:    [[TMP15:%.*]] = call i64 @__instrumentor_post_numeric(i32 12, i32 -1, i32 4, i32 18, i64 [[TMP12]], i64 [[TMP13]], i64 [[TMP14]], i64 2, i32 -4) #[[ATTR1]]
 ; CHECK-NEXT:    [[TMP16:%.*]] = trunc i64 [[TMP15]] to i32
 ; CHECK-NEXT:    [[TMP17:%.*]] = zext i32 [[TMP16]] to i64
 ; CHECK-NEXT:    [[TMP18:%.*]] = zext i32 [[TMP6]] to i64
-; CHECK-NEXT:    call void @__instrumentor_pre_numeric(i32 12, i32 -1, i32 4, i32 22, i64 [[TMP17]], i64 [[TMP18]], i64 64, i32 5) #[[ATTR1]]
+; CHECK-NEXT:    call void @__instrumentor_pre_numeric(i32 12, i32 -1, i32 4, i32 21, i64 [[TMP17]], i64 [[TMP18]], i64 64, i32 5) #[[ATTR1]]
 ; CHECK-NEXT:    [[A3:%.*]] = sdiv exact i32 [[TMP16]], [[TMP6]]
 ; CHECK-NEXT:    [[TMP19:%.*]] = zext i32 [[A3]] to i64
-; CHECK-NEXT:    [[TMP20:%.*]] = call i64 @__instrumentor_post_numeric(i32 12, i32 -1, i32 4, i32 22, i64 [[TMP17]], i64 [[TMP18]], i64 [[TMP19]], i64 64, i32 -5) #[[ATTR1]]
+; CHECK-NEXT:    [[TMP20:%.*]] = call i64 @__instrumentor_post_numeric(i32 12, i32 -1, i32 4, i32 21, i64 [[TMP17]], i64 [[TMP18]], i64 [[TMP19]], i64 64, i32 -5) #[[ATTR1]]
 ; CHECK-NEXT:    [[TMP21:%.*]] = trunc i64 [[TMP20]] to i32
 ; CHECK-NEXT:    [[TMP22:%.*]] = zext i32 [[TMP21]] to i64
 ; CHECK-NEXT:    [[TMP23:%.*]] = zext i32 [[TMP11]] to i64
-; CHECK-NEXT:    call void @__instrumentor_pre_numeric(i32 12, i32 -1, i32 4, i32 17, i64 [[TMP22]], i64 [[TMP23]], i64 0, i32 6) #[[ATTR1]]
+; CHECK-NEXT:    call void @__instrumentor_pre_numeric(i32 12, i32 -1, i32 4, i32 16, i64 [[TMP22]], i64 [[TMP23]], i64 0, i32 6) #[[ATTR1]]
 ; CHECK-NEXT:    [[A4:%.*]] = sub i32 [[TMP21]], [[TMP11]]
 ; CHECK-NEXT:    [[TMP24:%.*]] = zext i32 [[A4]] to i64
-; CHECK-NEXT:    [[TMP25:%.*]] = call i64 @__instrumentor_post_numeric(i32 12, i32 -1, i32 4, i32 17, i64 [[TMP22]], i64 [[TMP23]], i64 [[TMP24]], i64 0, i32 -6) #[[ATTR1]]
+; CHECK-NEXT:    [[TMP25:%.*]] = call i64 @__instrumentor_post_numeric(i32 12, i32 -1, i32 4, i32 16, i64 [[TMP22]], i64 [[TMP23]], i64 [[TMP24]], i64 0, i32 -6) #[[ATTR1]]
 ; CHECK-NEXT:    [[TMP26:%.*]] = trunc i64 [[TMP25]] to i32
 ; CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[TMP0]], ptr @__instrumentor_value_pack, i64 32, i1 false)
 ; CHECK-NEXT:    [[TMP27:%.*]] = getelementptr inbounds nuw <{ i32, i32, [4 x i8], i32, i32, i32, [4 x i8], i32 }>, ptr [[TMP0]], i32 0, i32 3

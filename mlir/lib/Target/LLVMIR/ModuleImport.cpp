@@ -2866,33 +2866,6 @@ LogicalResult ModuleImport::convertInstruction(llvm::Instruction *inst) {
     return success();
   }
 
-  if (inst->getOpcode() == llvm::Instruction::IndirectBr) {
-    auto *indBrInst = cast<llvm::IndirectBrInst>(inst);
-
-    FailureOr<Value> basePtr = convertValue(indBrInst->getAddress());
-    if (failed(basePtr))
-      return failure();
-
-    SmallVector<Block *> succBlocks;
-    SmallVector<SmallVector<Value>> succBlockArgs;
-    for (auto i : llvm::seq<unsigned>(0, indBrInst->getNumSuccessors())) {
-      llvm::BasicBlock *succ = indBrInst->getSuccessor(i);
-      SmallVector<Value> blockArgs;
-      if (failed(convertBranchArgs(indBrInst, succ, blockArgs)))
-        return failure();
-      succBlocks.push_back(lookupBlock(succ));
-      succBlockArgs.push_back(blockArgs);
-    }
-    SmallVector<ValueRange> succBlockArgsRange =
-        llvm::to_vector_of<ValueRange>(succBlockArgs);
-    Location loc = translateLoc(inst->getDebugLoc());
-    auto indBrOp = LLVM::IndirectBrOp::create(builder, loc, *basePtr,
-                                              succBlockArgsRange, succBlocks);
-
-    mapNoResultOp(inst, indBrOp);
-    return success();
-  }
-
   // Convert all instructions that have an mlirBuilder.
   if (succeeded(convertInstructionImpl(builder, inst, *this, iface)))
     return success();

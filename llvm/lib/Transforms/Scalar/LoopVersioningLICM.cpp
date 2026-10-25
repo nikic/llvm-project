@@ -288,7 +288,7 @@ bool LoopVersioningLICM::legalLoopMemoryAccesses() {
 bool LoopVersioningLICM::instructionSafeForVersioning(Instruction *I) {
   assert(I != nullptr && "Null instruction found!");
   // Indirect branches can't be duplicated.
-  if (isa<IndirectBrInst, IndirectSwitchInst>(I)) {
+  if (isa<IndirectSwitchInst>(I)) {
     LLVM_DEBUG(dbgs() << "    Indirect branch found.\n");
     return false;
   }

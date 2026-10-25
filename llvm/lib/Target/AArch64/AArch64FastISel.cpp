@@ -2508,12 +2508,12 @@ bool AArch64FastISel::selectBranch(const Instruction *I) {
 }
 
 bool AArch64FastISel::selectIndirectBr(const Instruction *I) {
-  // Handles indirectbr and indirectswitch, whose first operand is the address.
+  // Handles indirectswitch, whose first operand is the address.
   Register AddrReg = getRegForValue(I->getOperand(0));
   if (!AddrReg)
     return false;
 
-  // Authenticated indirectbr is not implemented yet.
+  // Authenticated indirectswitch is not implemented yet.
   if (FuncInfo.MF->getFunction().hasFnAttribute("ptrauth-indirect-gotos"))
     return false;
 
@@ -5090,7 +5090,6 @@ bool AArch64FastISel::fastSelectInstruction(const Instruction *I) {
     return selectLogicalOp(I);
   case Instruction::CondBr:
     return selectBranch(I);
-  case Instruction::IndirectBr:
   case Instruction::IndirectSwitch:
     return selectIndirectBr(I);
   case Instruction::BitCast:

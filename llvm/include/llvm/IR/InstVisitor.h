@@ -232,9 +232,6 @@ public:
   RetTy visitSwitchInst(SwitchInst &I) {
     return static_cast<SubClass *>(this)->visitTerminator(I);
   }
-  RetTy visitIndirectBrInst(IndirectBrInst &I) {
-    return static_cast<SubClass *>(this)->visitTerminator(I);
-  }
   RetTy visitIndirectSwitchInst(IndirectSwitchInst &I) {
     return static_cast<SubClass *>(this)->visitTerminator(I);
   }

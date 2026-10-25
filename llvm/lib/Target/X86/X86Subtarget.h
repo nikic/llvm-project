@@ -435,8 +435,8 @@ public:
     }
   }
 
-  /// If we are using indirect thunks, we need to expand indirectbr to avoid it
-  /// lowering to an actual indirect jump.
+  /// If we are using indirect thunks, we need to expand indirectswitch to avoid
+  /// it lowering to an actual indirect jump.
   bool enableIndirectBrExpand() const override {
     return useIndirectThunkBranches();
   }

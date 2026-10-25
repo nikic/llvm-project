@@ -66,7 +66,6 @@ class GCFunctionInfo;
 class GCRelocateInst;
 class GCResultInst;
 class GCStatepointInst;
-class IndirectBrInst;
 class InvokeInst;
 class LandingPadInst;
 class LLVMContext;
@@ -532,7 +531,6 @@ private:
   void visitCondBr(const CondBrInst &I);
   void visitSwitch(const SwitchInst &I);
   void visitIndirectBranch(const Instruction &I, const Value *Address);
-  void visitIndirectBr(const IndirectBrInst &I);
   void visitIndirectSwitch(const IndirectSwitchInst &I);
   void visitUnreachable(const UnreachableInst &I);
   void visitCleanupRet(const CleanupReturnInst &I);

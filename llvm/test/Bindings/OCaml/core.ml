@@ -1284,23 +1284,6 @@ let test_builder () =
       ignore (build_unreachable (builder_at_end bb1));
   end;
 
-  group "indirectbr"; begin
-    (* CHECK: indirectbr ptr blockaddress(@X7, %IBRBlock2), [label %IBRBlock2, label %IBRBlock3]
-     *)
-    let bb1 = append_block context "IBRBlock1" fn in
-
-    let bb2 = append_block context "IBRBlock2" fn in
-    ignore (build_unreachable (builder_at_end bb2));
-
-    let bb3 = append_block context "IBRBlock3" fn in
-    ignore (build_unreachable (builder_at_end bb3));
-
-    let addr = block_address fn bb2 in
-    let ibr = build_indirect_br addr 2 (builder_at_end bb1) in
-    ignore (add_destination ibr bb2);
-    ignore (add_destination ibr bb3)
-  end;
-
   group "invoke"; begin
     (* CHECK: build_invoke{{.*}}invoke{{.*}}P1{{.*}}P2
      * CHECK: to{{.*}}Bb04{{.*}}unwind{{.*}}Bblpad

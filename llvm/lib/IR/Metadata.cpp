@@ -1239,7 +1239,6 @@ MDNode *MDNode::getMergedProfMetadata(MDNode *A, MDNode *B,
     case Instruction::CondBr:
     case Instruction::Switch:
     case Instruction::Call:
-    case Instruction::IndirectBr:
     case Instruction::IndirectSwitch:
     case Instruction::Select:
     case Instruction::CallBr:
@@ -1920,7 +1919,6 @@ bool Instruction::extractProfTotalWeight(uint64_t &TotalVal) const {
           getOpcode() == Instruction::Call ||
           getOpcode() == Instruction::Invoke ||
           getOpcode() == Instruction::IndirectSwitch ||
-          getOpcode() == Instruction::IndirectBr ||
           getOpcode() == Instruction::Switch) &&
          "Looking for branch weights on something besides branch");
 

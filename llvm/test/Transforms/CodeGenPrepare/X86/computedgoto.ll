@@ -28,21 +28,17 @@ define void @simple(ptr nocapture readonly %p) {
 ; CHECK-NEXT:      i32 1, label [[BB1_CLONE:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       bb0:
-; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
-; CHECK:       .split:
-; CHECK-NEXT:    [[MERGE:%.*]] = phi ptr [ [[PTR:%.*]], [[BB0:%.*]] ], [ [[INCDEC_PTR]], [[BB0_CLONE]] ]
-; CHECK-NEXT:    [[MERGE2:%.*]] = phi i32 [ 0, [[BB0]] ], [ [[INITVAL]], [[BB0_CLONE]] ]
+; CHECK-NEXT:    [[P_ADDR_0:%.*]] = phi ptr [ [[INCDEC_PTR]], [[ENTRY:%.*]] ], [ [[PTR:%.*]], [[BB0:%.*]] ]
+; CHECK-NEXT:    [[MERGE2:%.*]] = phi i32 [ [[INITVAL]], [[ENTRY]] ], [ 0, [[BB0]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[MERGE2]])
 ; CHECK-NEXT:    br label [[INDIRECTGOTO:%.*]]
 ; CHECK:       bb1:
-; CHECK-NEXT:    br label [[DOTSPLIT3:%.*]]
-; CHECK:       .split3:
-; CHECK-NEXT:    [[MERGE5:%.*]] = phi ptr [ [[PTR]], [[BB1:%.*]] ], [ [[INCDEC_PTR]], [[BB1_CLONE]] ]
-; CHECK-NEXT:    [[MERGE7:%.*]] = phi i32 [ 1, [[BB1]] ], [ [[INITVAL]], [[BB1_CLONE]] ]
+; CHECK-NEXT:    [[P_ADDR_1:%.*]] = phi ptr [ [[INCDEC_PTR]], [[ENTRY]] ], [ [[PTR]], [[BB1:%.*]] ]
+; CHECK-NEXT:    [[MERGE7:%.*]] = phi i32 [ [[INITVAL]], [[ENTRY]] ], [ 1, [[BB1]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[MERGE7]])
 ; CHECK-NEXT:    br label [[INDIRECTGOTO]]
 ; CHECK:       indirectgoto:
-; CHECK-NEXT:    [[P_ADDR_SINK:%.*]] = phi ptr [ [[MERGE5]], [[DOTSPLIT3]] ], [ [[MERGE]], [[DOTSPLIT]] ]
+; CHECK-NEXT:    [[P_ADDR_SINK:%.*]] = phi ptr [ [[P_ADDR_1]], [[BB1_CLONE]] ], [ [[P_ADDR_0]], [[BB0_CLONE]] ]
 ; CHECK-NEXT:    [[PTR]] = getelementptr inbounds i32, ptr [[P_ADDR_SINK]], i64 1
 ; CHECK-NEXT:    [[NEWP:%.*]] = load i32, ptr [[P_ADDR_SINK]], align 4
 ; CHECK-NEXT:    [[IDX:%.*]] = sext i32 [[NEWP]] to i64
@@ -52,12 +48,12 @@ define void @simple(ptr nocapture readonly %p) {
 ; CHECK-NEXT:      ptr edgeaddress(@simple, 0), label [[BB0]]
 ; CHECK-NEXT:      ptr edgeaddress(@simple, 1), label [[BB1]]
 ; CHECK-NEXT:    ]
+; CHECK:       indirectgoto.bb1_crit_edge:
+; CHECK-NEXT:    br label [[BB1_CLONE]]
+; CHECK:       indirectgoto.bb0_crit_edge:
+; CHECK-NEXT:    br label [[BB0_CLONE]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
-; CHECK:       bb0.clone:
-; CHECK-NEXT:    br label [[DOTSPLIT]]
-; CHECK:       bb1.clone:
-; CHECK-NEXT:    br label [[DOTSPLIT3]]
 ;
 entry:
   %incdec.ptr = getelementptr inbounds i32, ptr %p, i64 1
@@ -105,10 +101,8 @@ define void @multi(ptr nocapture readonly %p) {
 ; CHECK-NEXT:      i32 1, label [[BB1:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       bb0:
-; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
-; CHECK:       .split:
-; CHECK-NEXT:    [[P_ADDR_0:%.*]] = phi ptr [ [[P_ADDR_0_DISPATCH:%.*]], [[BB2:%.*]] ], [ [[INCDEC_PTR]], [[BB0]] ]
-; CHECK-NEXT:    [[OPCODE_0:%.*]] = phi i32 [ [[OPCODE_0_DISPATCH:%.*]], [[BB2]] ], [ [[INITVAL]], [[BB0]] ]
+; CHECK-NEXT:    [[P_ADDR_0:%.*]] = phi ptr [ [[INCDEC_PTR]], [[ENTRY:%.*]] ], [ [[P_ADDR_0_DISPATCH:%.*]], [[BB2:%.*]] ]
+; CHECK-NEXT:    [[OPCODE_0:%.*]] = phi i32 [ [[INITVAL]], [[ENTRY]] ], [ [[OPCODE_0_DISPATCH:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[OPCODE_0]])
 ; CHECK-NEXT:    [[NEXT0:%.*]] = getelementptr inbounds i32, ptr [[P_ADDR_0]], i64 1
 ; CHECK-NEXT:    [[NEWP0:%.*]] = load i32, ptr [[P_ADDR_0]], align 4
@@ -117,10 +111,8 @@ define void @multi(ptr nocapture readonly %p) {
 ; CHECK-NEXT:    [[NEWOP0:%.*]] = load ptr, ptr [[ARRAYIDX0]], align 8
 ; CHECK-NEXT:    br label [[DISPATCH:%.*]]
 ; CHECK:       bb1:
-; CHECK-NEXT:    br label [[DOTSPLIT3:%.*]]
-; CHECK:       .split3:
-; CHECK-NEXT:    [[P_ADDR_1:%.*]] = phi ptr [ [[P_ADDR_1_DISPATCH:%.*]], [[BB3:%.*]] ], [ [[INCDEC_PTR]], [[BB1]] ]
-; CHECK-NEXT:    [[OPCODE_1:%.*]] = phi i32 [ [[OPCODE_1_DISPATCH:%.*]], [[BB3]] ], [ [[INITVAL]], [[BB1]] ]
+; CHECK-NEXT:    [[P_ADDR_1:%.*]] = phi ptr [ [[INCDEC_PTR]], [[ENTRY]] ], [ [[P_ADDR_1_DISPATCH:%.*]], [[BB3:%.*]] ]
+; CHECK-NEXT:    [[OPCODE_1:%.*]] = phi i32 [ [[INITVAL]], [[ENTRY]] ], [ [[OPCODE_1_DISPATCH:%.*]], [[BB3]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[OPCODE_1]])
 ; CHECK-NEXT:    [[NEXT1:%.*]] = getelementptr inbounds i32, ptr [[P_ADDR_1]], i64 1
 ; CHECK-NEXT:    [[NEWP1:%.*]] = load i32, ptr [[P_ADDR_1]], align 4
@@ -131,19 +123,19 @@ define void @multi(ptr nocapture readonly %p) {
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
 ; CHECK:       dispatch:
-; CHECK-NEXT:    [[DISPATCH_ADDR:%.*]] = phi ptr [ [[NEWOP0]], [[DOTSPLIT]] ], [ [[NEWOP1]], [[DOTSPLIT3]] ]
-; CHECK-NEXT:    [[P_ADDR_0_DISPATCH]] = phi ptr [ [[NEXT0]], [[DOTSPLIT]] ], [ [[NEXT1]], [[DOTSPLIT3]] ]
-; CHECK-NEXT:    [[OPCODE_0_DISPATCH]] = phi i32 [ 0, [[DOTSPLIT]] ], [ 1, [[DOTSPLIT3]] ]
-; CHECK-NEXT:    [[P_ADDR_1_DISPATCH]] = phi ptr [ [[NEXT0]], [[DOTSPLIT]] ], [ [[NEXT1]], [[DOTSPLIT3]] ]
-; CHECK-NEXT:    [[OPCODE_1_DISPATCH]] = phi i32 [ 0, [[DOTSPLIT]] ], [ 1, [[DOTSPLIT3]] ]
+; CHECK-NEXT:    [[DISPATCH_ADDR:%.*]] = phi ptr [ [[NEWOP0]], [[BB0]] ], [ [[NEWOP1]], [[BB1]] ]
+; CHECK-NEXT:    [[P_ADDR_0_DISPATCH]] = phi ptr [ [[NEXT0]], [[BB0]] ], [ [[NEXT1]], [[BB1]] ]
+; CHECK-NEXT:    [[OPCODE_0_DISPATCH]] = phi i32 [ 0, [[BB0]] ], [ 1, [[BB1]] ]
+; CHECK-NEXT:    [[P_ADDR_1_DISPATCH]] = phi ptr [ [[NEXT0]], [[BB0]] ], [ [[NEXT1]], [[BB1]] ]
+; CHECK-NEXT:    [[OPCODE_1_DISPATCH]] = phi i32 [ 0, [[BB0]] ], [ 1, [[BB1]] ]
 ; CHECK-NEXT:    indirectswitch ptr [[DISPATCH_ADDR]], [
 ; CHECK-NEXT:      ptr edgeaddress(@multi, 0), label [[BB2]]
 ; CHECK-NEXT:      ptr edgeaddress(@multi, 1), label [[BB3]]
 ; CHECK-NEXT:    ]
-; CHECK:       bb0.clone:
-; CHECK-NEXT:    br label [[DOTSPLIT]]
-; CHECK:       bb1.clone:
-; CHECK-NEXT:    br label [[DOTSPLIT3]]
+; CHECK:       dispatch.bb1_crit_edge:
+; CHECK-NEXT:    br label [[BB1]]
+; CHECK:       dispatch.bb0_crit_edge:
+; CHECK-NEXT:    br label [[BB0]]
 ;
 entry:
   %incdec.ptr = getelementptr inbounds i32, ptr %p, i64 1
@@ -198,8 +190,6 @@ define i64 @loop(ptr nocapture readonly %p) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
 ; CHECK:       bb0:
-; CHECK-NEXT:    br label [[DOTSPLIT]]
-; CHECK:       .split:
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[BB0:%.*]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i64, ptr [[P:%.*]], i64 [[MERGE]]
 ; CHECK-NEXT:    store i64 [[MERGE]], ptr [[TMP0]], align 4
@@ -211,6 +201,8 @@ define i64 @loop(ptr nocapture readonly %p) {
 ; CHECK-NEXT:      ptr edgeaddress(@loop, 0), label [[BB0]]
 ; CHECK-NEXT:      ptr edgeaddress(@loop, 1), label [[BB1:%.*]]
 ; CHECK-NEXT:    ]
+; CHECK:       bb0.bb0_crit_edge:
+; CHECK-NEXT:    br label [[DOTSPLIT]]
 ; CHECK:       bb1:
 ; CHECK-NEXT:    ret i64 [[I_NEXT]]
 ;

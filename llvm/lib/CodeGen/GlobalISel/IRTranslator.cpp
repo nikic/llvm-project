@@ -484,13 +484,7 @@ class IRTranslatorImpl {
   bool translateSwitch(const User &U, MachineIRBuilder &MIRBuilder);
   // End switch lowering section.
 
-  bool translateIndirectBr(const User &U, MachineIRBuilder &MIRBuilder);
-
-  bool translateIndirectSwitch(const User &U, MachineIRBuilder &MIRBuilder) {
-    // The case values are not needed: edgeaddresses are lowered to the
-    // addresses of the destinations.
-    return translateIndirectBr(U, MIRBuilder);
-  }
+  bool translateIndirectSwitch(const User &U, MachineIRBuilder &MIRBuilder);
 
   bool translateExtractValue(const User &U, MachineIRBuilder &MIRBuilder);
 
@@ -2122,22 +2116,21 @@ bool IRTranslatorImpl::lowerSwitchWorkItem(SwitchCG::SwitchWorkListItem W,
   return true;
 }
 
-bool IRTranslatorImpl::translateIndirectBr(const User &U,
-                                           MachineIRBuilder &MIRBuilder) {
-  // Handles both indirectbr and indirectswitch, which have the address as
-  // their first operand.
-  assert((isa<IndirectBrInst, IndirectSwitchInst>(U)) && "Unexpected branch");
-  const Instruction &BrInst = cast<Instruction>(U);
+bool IRTranslatorImpl::translateIndirectSwitch(const User &U,
+                                               MachineIRBuilder &MIRBuilder) {
+  // The case values are not needed: edgeaddresses are lowered to the
+  // addresses of the destinations.
+  const auto &BrInst = cast<IndirectSwitchInst>(U);
 
-  const Register Tgt = getOrCreateVReg(*BrInst.getOperand(0));
+  const Register Tgt = getOrCreateVReg(*BrInst.getAddress());
   MIRBuilder.buildBrIndirect(Tgt);
 
   // Link successors.
   SmallPtrSet<const BasicBlock *, 32> AddedSuccessors;
   MachineBasicBlock &CurBB = MIRBuilder.getMBB();
   for (const BasicBlock *Succ : successors(&BrInst)) {
-    // It's legal for indirectbr instructions to have duplicate blocks in the
-    // destination list. We don't allow this in MIR. Skip anything that's
+    // It's legal for indirectswitch instructions to have duplicate blocks in
+    // the destination list. We don't allow this in MIR. Skip anything that's
     // already a successor.
     if (!AddedSuccessors.insert(Succ).second)
       continue;

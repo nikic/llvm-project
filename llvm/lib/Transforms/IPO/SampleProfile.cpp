@@ -1674,7 +1674,7 @@ void SampleProfileLoader::generateMDProfMetadata(Function &F) {
     Instruction *TI = BB->getTerminator();
     if (TI->getNumSuccessors() == 1)
       continue;
-    if (!isa<CondBrInst, SwitchInst, IndirectBrInst, IndirectSwitchInst>(TI))
+    if (!isa<CondBrInst, SwitchInst, IndirectSwitchInst>(TI))
       continue;
 
     DebugLoc BranchLoc = TI->getDebugLoc();

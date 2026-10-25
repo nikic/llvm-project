@@ -66,7 +66,7 @@ define internal i32 @computed_goto(i32 %x) "branch-target-enforcement" {
 ; CHECK-NEXT:    ldr.w r0, [r1, r0, lsl #2]
 ; CHECK-NEXT:    mov pc, r0
 ; CHECK-NEXT:  .Ltmp3: @ Block address taken
-; CHECK-NEXT:  .LBB1_1: @ %return
+; CHECK-NEXT:  .LBB1_1: @ %entry.return_crit_edge
 ; CHECK-NEXT:    bti
 ; CHECK-NEXT:    movs r0, #2
 ; CHECK-NEXT:    bx lr

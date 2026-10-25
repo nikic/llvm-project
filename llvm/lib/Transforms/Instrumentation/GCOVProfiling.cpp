@@ -715,11 +715,8 @@ static BasicBlock *getInstrBB(CFGMST<Edge, BBInfo> &MST, Edge &E,
   if (!E.IsCritical)
     return CanInstrument(DestBB);
 
-  // Some IndirectBr critical edges cannot be split by the previous
-  // SplitIndirectBrCriticalEdges call. Bail out.
   const unsigned SuccNum = GetSuccessorNumber(SrcBB, DestBB);
-  BasicBlock *InstrBB =
-      isa<IndirectBrInst>(TI) ? nullptr : SplitCriticalEdge(TI, SuccNum);
+  BasicBlock *InstrBB = SplitCriticalEdge(TI, SuccNum);
   if (!InstrBB)
     return nullptr;
 
@@ -799,11 +796,6 @@ bool GCOVProfiler::emitProfileNotes(
       BranchProbabilityInfo *BPI = GetBPI(F);
       BlockFrequencyInfo *BFI = GetBFI(F);
 
-      // Split indirectbr critical edges here before computing the MST rather
-      // than later in getInstrBB() to avoid invalidating it.
-      SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/false, BPI,
-                                   BFI);
-
       CFGMST<Edge, BBInfo> MST(F, /*InstrumentFuncEntry=*/false,
                                /*InstrumentLoopEntries=*/false, BPI, BFI);
 
@@ -822,8 +814,7 @@ bool GCOVProfiler::emitProfileNotes(
                                                      FunctionIdent++, Version));
       GCOVFunction &Func = *Funcs.back();
 
-      // Some non-tree edges are IndirectBr which cannot be split. Ignore them
-      // as well.
+      // Ignore non-tree edges that could not be split as well.
       llvm::erase_if(MST.allEdges(), [](std::unique_ptr<Edge> &E) {
         return E->Removed || (!E->InMST && !E->Place);
       });

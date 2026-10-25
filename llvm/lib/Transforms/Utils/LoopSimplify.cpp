@@ -22,13 +22,10 @@
 //
 // This pass also guarantees that loops will have exactly one backedge.
 //
-// Indirectbr instructions introduce several complications. If the loop
-// contains or is entered by an indirectbr instruction, it may not be possible
-// to transform the loop and make these guarantees. Client code should check
-// that these conditions are true before relying on them.
-//
-// Similar complications arise from callbr instructions, particularly in
-// asm-goto where blockaddress expressions are used.
+// Callbr instructions introduce complications, particularly in asm-goto where
+// blockaddress expressions are used: it may not be possible to transform the
+// loop and make these guarantees. Client code should check that these
+// conditions are true before relying on them.
 //
 // Note that the simplifycfg pass will clean up blocks which are split out but
 // end up being unnecessary, so usage of this pass should not pessimize
@@ -121,12 +118,6 @@ BasicBlock *llvm::InsertPreheaderForLoop(Loop *L, DominatorTree *DT,
   SmallVector<BasicBlock*, 8> OutsideBlocks;
   for (BasicBlock *P : predecessors(Header)) {
     if (!L->contains(P)) {         // Coming in from outside the loop?
-      // If the loop is branched to from an indirect terminator, we won't
-      // be able to fully transform the loop, because it prohibits
-      // edge splitting.
-      if (isa<IndirectBrInst>(P->getTerminator()))
-        return nullptr;
-
       // Keep track of it.
       OutsideBlocks.push_back(P);
     }
@@ -252,9 +243,6 @@ static Loop *separateNestedLoop(Loop *L, BasicBlock *Preheader,
   for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
     if (PN->getIncomingValue(i) != PN ||
         !L->contains(PN->getIncomingBlock(i))) {
-      // We can't split indirect control flow edges.
-      if (isa<IndirectBrInst>(PN->getIncomingBlock(i)->getTerminator()))
-        return nullptr;
       OuterLoopPreds.push_back(PN->getIncomingBlock(i));
     }
   }
@@ -367,13 +355,8 @@ static BasicBlock *insertUniqueBackedgeBlock(Loop *L, BasicBlock *Preheader,
 
   // Figure out which basic blocks contain back-edges to the loop header.
   std::vector<BasicBlock*> BackedgeBlocks;
-  for (BasicBlock *P : predecessors(Header)) {
-    // Indirect edges cannot be split, so we must fail if we find one.
-    if (isa<IndirectBrInst>(P->getTerminator()))
-      return nullptr;
-
+  for (BasicBlock *P : predecessors(Header))
     if (P != Preheader) BackedgeBlocks.push_back(P);
-  }
 
   // Create and insert the new backedge block.
   BasicBlock *BEBlock = BasicBlock::Create(Header->getContext(),
@@ -861,40 +844,7 @@ static void verifyLoop(Loop *L) {
   for (Loop::iterator I = L->begin(), E = L->end(); I != E; ++I)
     verifyLoop(*I);
 
-  // It used to be possible to just assert L->isLoopSimplifyForm(), however
-  // with the introduction of indirectbr, there are now cases where it's
-  // not possible to transform a loop as necessary. We can at least check
-  // that there is an indirectbr near any time there's trouble.
-
-  // Indirectbr can interfere with preheader and unique backedge insertion.
-  if (!L->getLoopPreheader() || !L->getLoopLatch()) {
-    bool HasIndBrPred = false;
-    for (BasicBlock *Pred : predecessors(L->getHeader()))
-      if (isa<IndirectBrInst>(Pred->getTerminator())) {
-        HasIndBrPred = true;
-        break;
-      }
-    assert(HasIndBrPred &&
-           "LoopSimplify has no excuse for missing loop header info!");
-    (void)HasIndBrPred;
-  }
-
-  // Indirectbr can interfere with exit block canonicalization.
-  if (!L->hasDedicatedExits()) {
-    bool HasIndBrExiting = false;
-    SmallVector<BasicBlock*, 8> ExitingBlocks;
-    L->getExitingBlocks(ExitingBlocks);
-    for (unsigned i = 0, e = ExitingBlocks.size(); i != e; ++i) {
-      if (isa<IndirectBrInst>((ExitingBlocks[i])->getTerminator())) {
-        HasIndBrExiting = true;
-        break;
-      }
-    }
-
-    assert(HasIndBrExiting &&
-           "LoopSimplify has no excuse for missing exit block info!");
-    (void)HasIndBrExiting;
-  }
+  assert(L->isLoopSimplifyForm() && "LoopSimplify failed to simplify a loop");
 }
 #endif
 

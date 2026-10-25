@@ -140,14 +140,14 @@ define signext i32 @lower_blockaddress_displ(i32 signext %w) nounwind {
 ; RV32I-SMALL-NEXT:    sw a1, 8(sp)
 ; RV32I-SMALL-NEXT:    blt a0, a2, .LBB2_3
 ; RV32I-SMALL-NEXT:  # %bb.1: # %if.then
-; RV32I-SMALL-NEXT:    lw a0, 8(sp)
-; RV32I-SMALL-NEXT:    jr a0
+; RV32I-SMALL-NEXT:    lw a1, 8(sp)
+; RV32I-SMALL-NEXT:    li a0, 4
+; RV32I-SMALL-NEXT:    jr a1
 ; RV32I-SMALL-NEXT:  .Ltmp0: # Block address taken
 ; RV32I-SMALL-NEXT:  .LBB2_2: # %return
-; RV32I-SMALL-NEXT:    li a0, 4
 ; RV32I-SMALL-NEXT:    addi sp, sp, 16
 ; RV32I-SMALL-NEXT:    ret
-; RV32I-SMALL-NEXT:  .LBB2_3: # %return.clone
+; RV32I-SMALL-NEXT:  .LBB2_3:
 ; RV32I-SMALL-NEXT:    li a0, 3
 ; RV32I-SMALL-NEXT:    addi sp, sp, 16
 ; RV32I-SMALL-NEXT:    ret
@@ -160,14 +160,14 @@ define signext i32 @lower_blockaddress_displ(i32 signext %w) nounwind {
 ; RV32IXQCILI-SMALL-NEXT:    sw a1, 8(sp)
 ; RV32IXQCILI-SMALL-NEXT:    blt a0, a2, .LBB2_3
 ; RV32IXQCILI-SMALL-NEXT:  # %bb.1: # %if.then
-; RV32IXQCILI-SMALL-NEXT:    lw a0, 8(sp)
-; RV32IXQCILI-SMALL-NEXT:    jr a0
+; RV32IXQCILI-SMALL-NEXT:    lw a1, 8(sp)
+; RV32IXQCILI-SMALL-NEXT:    li a0, 4
+; RV32IXQCILI-SMALL-NEXT:    jr a1
 ; RV32IXQCILI-SMALL-NEXT:  .Ltmp0: # Block address taken
 ; RV32IXQCILI-SMALL-NEXT:  .LBB2_2: # %return
-; RV32IXQCILI-SMALL-NEXT:    li a0, 4
 ; RV32IXQCILI-SMALL-NEXT:    addi sp, sp, 16
 ; RV32IXQCILI-SMALL-NEXT:    ret
-; RV32IXQCILI-SMALL-NEXT:  .LBB2_3: # %return.clone
+; RV32IXQCILI-SMALL-NEXT:  .LBB2_3:
 ; RV32IXQCILI-SMALL-NEXT:    li a0, 3
 ; RV32IXQCILI-SMALL-NEXT:    addi sp, sp, 16
 ; RV32IXQCILI-SMALL-NEXT:    ret
@@ -182,14 +182,14 @@ define signext i32 @lower_blockaddress_displ(i32 signext %w) nounwind {
 ; RV32I-MEDIUM-NEXT:    sw a1, 8(sp)
 ; RV32I-MEDIUM-NEXT:    blt a0, a2, .LBB2_3
 ; RV32I-MEDIUM-NEXT:  # %bb.1: # %if.then
-; RV32I-MEDIUM-NEXT:    lw a0, 8(sp)
-; RV32I-MEDIUM-NEXT:    jr a0
+; RV32I-MEDIUM-NEXT:    lw a1, 8(sp)
+; RV32I-MEDIUM-NEXT:    li a0, 4
+; RV32I-MEDIUM-NEXT:    jr a1
 ; RV32I-MEDIUM-NEXT:  .Ltmp0: # Block address taken
 ; RV32I-MEDIUM-NEXT:  .LBB2_2: # %return
-; RV32I-MEDIUM-NEXT:    li a0, 4
 ; RV32I-MEDIUM-NEXT:    addi sp, sp, 16
 ; RV32I-MEDIUM-NEXT:    ret
-; RV32I-MEDIUM-NEXT:  .LBB2_3: # %return.clone
+; RV32I-MEDIUM-NEXT:  .LBB2_3:
 ; RV32I-MEDIUM-NEXT:    li a0, 3
 ; RV32I-MEDIUM-NEXT:    addi sp, sp, 16
 ; RV32I-MEDIUM-NEXT:    ret
@@ -203,14 +203,14 @@ define signext i32 @lower_blockaddress_displ(i32 signext %w) nounwind {
 ; RV64I-SMALL-NEXT:    sd a1, 8(sp)
 ; RV64I-SMALL-NEXT:    blt a0, a2, .LBB2_3
 ; RV64I-SMALL-NEXT:  # %bb.1: # %if.then
-; RV64I-SMALL-NEXT:    ld a0, 8(sp)
-; RV64I-SMALL-NEXT:    jr a0
+; RV64I-SMALL-NEXT:    ld a1, 8(sp)
+; RV64I-SMALL-NEXT:    li a0, 4
+; RV64I-SMALL-NEXT:    jr a1
 ; RV64I-SMALL-NEXT:  .Ltmp0: # Block address taken
 ; RV64I-SMALL-NEXT:  .LBB2_2: # %return
-; RV64I-SMALL-NEXT:    li a0, 4
 ; RV64I-SMALL-NEXT:    addi sp, sp, 16
 ; RV64I-SMALL-NEXT:    ret
-; RV64I-SMALL-NEXT:  .LBB2_3: # %return.clone
+; RV64I-SMALL-NEXT:  .LBB2_3:
 ; RV64I-SMALL-NEXT:    li a0, 3
 ; RV64I-SMALL-NEXT:    addi sp, sp, 16
 ; RV64I-SMALL-NEXT:    ret
@@ -225,14 +225,14 @@ define signext i32 @lower_blockaddress_displ(i32 signext %w) nounwind {
 ; RV64I-MEDIUM-NEXT:    sd a1, 8(sp)
 ; RV64I-MEDIUM-NEXT:    blt a0, a2, .LBB2_3
 ; RV64I-MEDIUM-NEXT:  # %bb.1: # %if.then
-; RV64I-MEDIUM-NEXT:    ld a0, 8(sp)
-; RV64I-MEDIUM-NEXT:    jr a0
+; RV64I-MEDIUM-NEXT:    ld a1, 8(sp)
+; RV64I-MEDIUM-NEXT:    li a0, 4
+; RV64I-MEDIUM-NEXT:    jr a1
 ; RV64I-MEDIUM-NEXT:  .Ltmp0: # Block address taken
 ; RV64I-MEDIUM-NEXT:  .LBB2_2: # %return
-; RV64I-MEDIUM-NEXT:    li a0, 4
 ; RV64I-MEDIUM-NEXT:    addi sp, sp, 16
 ; RV64I-MEDIUM-NEXT:    ret
-; RV64I-MEDIUM-NEXT:  .LBB2_3: # %return.clone
+; RV64I-MEDIUM-NEXT:  .LBB2_3:
 ; RV64I-MEDIUM-NEXT:    li a0, 3
 ; RV64I-MEDIUM-NEXT:    addi sp, sp, 16
 ; RV64I-MEDIUM-NEXT:    ret
@@ -247,14 +247,14 @@ define signext i32 @lower_blockaddress_displ(i32 signext %w) nounwind {
 ; RV64I-LARGE-NEXT:    sd a1, 8(sp)
 ; RV64I-LARGE-NEXT:    blt a0, a2, .LBB2_3
 ; RV64I-LARGE-NEXT:  # %bb.1: # %if.then
-; RV64I-LARGE-NEXT:    ld a0, 8(sp)
-; RV64I-LARGE-NEXT:    jr a0
+; RV64I-LARGE-NEXT:    ld a1, 8(sp)
+; RV64I-LARGE-NEXT:    li a0, 4
+; RV64I-LARGE-NEXT:    jr a1
 ; RV64I-LARGE-NEXT:  .Ltmp0: # Block address taken
 ; RV64I-LARGE-NEXT:  .LBB2_2: # %return
-; RV64I-LARGE-NEXT:    li a0, 4
 ; RV64I-LARGE-NEXT:    addi sp, sp, 16
 ; RV64I-LARGE-NEXT:    ret
-; RV64I-LARGE-NEXT:  .LBB2_3: # %return.clone
+; RV64I-LARGE-NEXT:  .LBB2_3:
 ; RV64I-LARGE-NEXT:    li a0, 3
 ; RV64I-LARGE-NEXT:    addi sp, sp, 16
 ; RV64I-LARGE-NEXT:    ret

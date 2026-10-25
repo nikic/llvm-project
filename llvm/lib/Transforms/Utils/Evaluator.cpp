@@ -544,12 +544,6 @@ bool Evaluator::EvaluateBlock(BasicBlock::iterator CurInst, BasicBlock *&NextBB,
           dyn_cast<ConstantInt>(getVal(SI->getCondition()));
         if (!Val) return false;  // Cannot determine.
         NextBB = SI->findCaseValue(Val)->getCaseSuccessor();
-      } else if (IndirectBrInst *IBI = dyn_cast<IndirectBrInst>(CurInst)) {
-        Value *Val = getVal(IBI->getAddress())->stripPointerCasts();
-        if (BlockAddress *BA = dyn_cast<BlockAddress>(Val))
-          NextBB = BA->getBasicBlock();
-        else
-          return false;  // Cannot determine.
       } else if (auto *ISI = dyn_cast<IndirectSwitchInst>(CurInst)) {
         auto *EA = dyn_cast<EdgeAddress>(
             getVal(ISI->getAddress())->stripPointerCasts());

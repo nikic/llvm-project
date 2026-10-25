@@ -105,7 +105,7 @@ bool blockEndsInUnreachable(const BasicBlock &BB) {
   if (BB.empty())
     return true;
   const Instruction *I = BB.getTerminator();
-  return !(isa<ReturnInst>(I) || isa<IndirectBrInst>(I));
+  return !(isa<ReturnInst>(I) || isa<IndirectSwitchInst>(I));
 }
 
 void analyzeProfMetadata(BasicBlock *BB,

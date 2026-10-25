@@ -282,8 +282,8 @@ void WebAssemblyPassConfig::addIRPasses() {
   // Without Wasm or Emscripten EH, this also lowers invokes.
   addPass(createWebAssemblyLowerEmscriptenEHSjLjLegacyPass());
 
-  // Expand indirectbr instructions to switches.
-  addPass(createIndirectBrExpandPass(getOptLevel()));
+  // Expand indirectswitch instructions to switches.
+  addPass(createIndirectBrExpandPass());
 
   // Try to expand `vecreduce_{and, or}` into `{any, all}_true`.
   addPass(createWebAssemblyReduceToAnyAllTrueLegacyPass(

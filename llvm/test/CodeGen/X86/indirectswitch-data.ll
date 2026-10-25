@@ -18,7 +18,7 @@
 
 ; CHECK-LABEL: f:
 ; O2:          [[B:\.Ltmp[0-9]+]]: # Block address taken
-; O2-NEXT:     # %b
+; O2-NEXT:     # %dispatch.b_crit_edge
 ; CHECK:       [[A:\.Ltmp[0-9]+]]: # Block address taken
 ; CHECK-NEXT:  # %a
 ; O0:          [[B:\.Ltmp[0-9]+]]: # Block address taken

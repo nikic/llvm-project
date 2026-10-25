@@ -300,7 +300,7 @@ static bool shouldConvertUse(const Constant *Cst, const Instruction *Instr,
     return false;
 
   // Expected address must be a constant.
-  if (isa<const IndirectBrInst, const IndirectSwitchInst>(Instr))
+  if (isa<const IndirectSwitchInst>(Instr))
     return false;
 
   // Do not mess with intrinsics.

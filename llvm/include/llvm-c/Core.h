@@ -67,7 +67,8 @@ typedef enum {
   LLVMUncondBr       = 70,
   LLVMCondBr         = 71,
   LLVMSwitch         = 3,
-  LLVMIndirectBr     = 4,
+  LLVMIndirectBr     = 4, /* indirectbr was removed, this opcode is no longer
+                             produced (it is upgraded to indirectswitch) */
   LLVMInvoke         = 5,
   /* removed 6 due to API changes */
   LLVMUnreachable    = 7,
@@ -2091,7 +2092,6 @@ LLVM_C_ABI unsigned LLVMGetTargetExtTypeIntParam(LLVMTypeRef TargetExtTy,
       macro(StoreInst)                      \
       macro(UncondBrInst)                   \
       macro(CondBrInst)                     \
-      macro(IndirectBrInst)                 \
       macro(InvokeInst)                     \
       macro(ReturnInst)                     \
       macro(SwitchInst)                     \
@@ -4784,8 +4784,6 @@ LLVM_C_ABI LLVMValueRef LLVMBuildCondBr(LLVMBuilderRef, LLVMValueRef If,
 LLVM_C_ABI LLVMValueRef LLVMBuildSwitch(LLVMBuilderRef, LLVMValueRef V,
                                         LLVMBasicBlockRef Else,
                                         unsigned NumCases);
-LLVM_C_ABI LLVMValueRef LLVMBuildIndirectBr(LLVMBuilderRef B, LLVMValueRef Addr,
-                                            unsigned NumDests);
 LLVM_C_ABI LLVMValueRef LLVMBuildIndirectSwitch(LLVMBuilderRef B,
                                                 LLVMValueRef Addr,
                                                 unsigned NumCases);
@@ -4835,10 +4833,6 @@ LLVM_C_ABI LLVMValueRef LLVMBuildCatchSwitch(LLVMBuilderRef B,
 /* Add a case to the switch or indirectswitch instruction */
 LLVM_C_ABI void LLVMAddCase(LLVMValueRef Switch, LLVMValueRef OnVal,
                             LLVMBasicBlockRef Dest);
-
-/* Add a destination to the indirectbr instruction */
-LLVM_C_ABI void LLVMAddDestination(LLVMValueRef IndirectBr,
-                                   LLVMBasicBlockRef Dest);
 
 /* Get the number of clauses on the landingpad instruction */
 LLVM_C_ABI unsigned LLVMGetNumClauses(LLVMValueRef LandingPad);

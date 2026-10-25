@@ -709,11 +709,8 @@ BasicBlock *FuncPGOInstrumentation<Edge, BBInfo>::getInstrBB(Edge *E) {
   if (!E->IsCritical)
     return canInstrument(DestBB);
 
-  // Some IndirectBr critical edges cannot be split by the previous
-  // SplitIndirectBrCriticalEdges call. Bail out.
   unsigned SuccNum = GetSuccessorNumber(SrcBB, DestBB);
-  BasicBlock *InstrBB =
-      isa<IndirectBrInst>(TI) ? nullptr : SplitCriticalEdge(TI, SuccNum);
+  BasicBlock *InstrBB = SplitCriticalEdge(TI, SuccNum);
   if (!InstrBB) {
     LLVM_DEBUG(
         dbgs() << "Fail to split critical edge: not instrument this edge.\n");
@@ -771,12 +768,6 @@ populateEHOperandBundle(VPCandidateInfo &Cand,
 // Visit all edge and instrument the edges not in MST, and do value profiling.
 // Critical edges will be split.
 void FunctionInstrumenter::instrument() {
-  if (!Opts.pgo_block_coverage) {
-    // Split indirectbr critical edges here before computing the MST rather than
-    // later in getInstrBB() to avoid invalidating it.
-    SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/false, BPI, BFI);
-  }
-
   const bool IsCtxProf = InstrumentationType == PGOInstrumentationType::CTXPROF;
   FuncPGOInstrumentation<PGOEdge, PGOBBInfo> FuncInfo(
       Opts, F, TLI, ComdatMembers, /*CreateGlobalVar=*/!IsCtxProf, BPI, BFI, LI,
@@ -1554,8 +1545,8 @@ void PGOUseFunc::setBranchWeights() {
     if (TI->getNumSuccessors() < 2)
       continue;
     if (!(isa<CondBrInst>(TI) || isa<SwitchInst>(TI) ||
-          isa<IndirectBrInst>(TI) || isa<IndirectSwitchInst>(TI) ||
-          isa<InvokeInst>(TI) || isa<CallBrInst>(TI)))
+          isa<IndirectSwitchInst>(TI) || isa<InvokeInst>(TI) ||
+          isa<CallBrInst>(TI)))
       continue;
 
     const PGOUseBBInfo &BBCountInfo = getBBInfo(&BB);
@@ -1604,7 +1595,7 @@ void PGOUseFunc::setBranchWeights() {
 
 static bool isIndirectBrTarget(BasicBlock *BB) {
   for (BasicBlock *Pred : predecessors(BB)) {
-    if (isa<IndirectBrInst, IndirectSwitchInst>(Pred->getTerminator()))
+    if (isa<IndirectSwitchInst>(Pred->getTerminator()))
       return true;
   }
   return false;
@@ -2124,12 +2115,6 @@ static bool annotateAllFunctions(
     BranchProbabilityInfo *BPI = LookupBPI(F);
     BlockFrequencyInfo *BFI = LookupBFI(F);
     LoopInfo *LI = LookupLI(F);
-    if (!HasSingleByteCoverage) {
-      // Split indirectbr critical edges here before computing the MST rather
-      // than later in getInstrBB() to avoid invalidating it.
-      SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/false, BPI,
-                                   BFI);
-    }
     PGOUseFunc Func(Opts, F, &M, TLI, ComdatMembers, BPI, BFI, LI, PSI, IsCS,
                     InstrumentFuncEntry, InstrumentLoopEntries,
                     HasSingleByteCoverage);

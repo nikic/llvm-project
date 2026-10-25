@@ -1304,16 +1304,6 @@ EdgeAddress *Context::getTargetEdge(const Pointer &Ptr) {
   return It->second.first;
 }
 
-BasicBlock *Context::getTargetBlock(const Pointer &Ptr) {
-  if (Ptr.address().getActiveBits() > 64)
-    return nullptr;
-  auto It = ValidBlockTargets.find(Ptr.address().getZExtValue());
-  if (It == ValidBlockTargets.end())
-    return nullptr;
-  // TODO: check the provenance of pointer.
-  return It->second.first;
-}
-
 uint64_t Context::getEffectiveTypeAllocSize(Type *Ty) {
   // FIXME: It is incorrect for overaligned scalable vector types.
   return getEffectiveTypeSize(DL.getTypeAllocSize(Ty));

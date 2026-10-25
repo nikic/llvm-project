@@ -10,9 +10,9 @@ declare ptr @bar(i32, ptr, ptr)
 ; If we do, we would ignore its fallthrough successor.
 
 ; CHECK-PROB: bb.0{{[0-9a-zA-Z.]*}}:
-; CHECK-PROB: successors: %bb.1(0x40000000), %bb.3(0x20000000), %bb.4(0x20000000)
+; CHECK-PROB: successors: %bb.1(0x40000000), %bb.3(0x20000000), %bb.6(0x20000000)
 ; CHECK-PROB: bb.2{{[0-9a-zA-Z.]*}}:
-; CHECK-PROB: successors: %bb.3(0x40000000), %bb.4(0x40000000)
+; CHECK-PROB: successors: %bb.4(0x40000000), %bb.6(0x40000000)
 
 define i32 @test(i32 %a, i32 %a2, ptr %p, ptr %p2) "frame-pointer"="all" {
 ; CHECK-LABEL: test:
@@ -23,46 +23,47 @@ define i32 @test(i32 %a, i32 %a2, ptr %p, ptr %p2) "frame-pointer"="all" {
 ; CHECK-NEXT:    mov r11, r2
 ; CHECK-NEXT:    mov r4, r1
 ; CHECK-NEXT:    mov r5, r0
-; CHECK-NEXT:    ldr r6, LCPI0_0
+; CHECK-NEXT:    ldr r1, LCPI0_0
+; CHECK-NEXT:  LPC0_2:
+; CHECK-NEXT:    add r1, pc
+; CHECK-NEXT:    ldr r6, LCPI0_1
 ; CHECK-NEXT:  LPC0_1:
 ; CHECK-NEXT:    add r6, pc
-; CHECK-NEXT:    ldr.w r8, LCPI0_1
-; CHECK-NEXT:  LPC0_0:
-; CHECK-NEXT:    add r8, pc
 ; CHECK-NEXT:    movs r0, #1
-; CHECK-NEXT:    mov r1, r6
-; CHECK-NEXT:    mov r2, r8
+; CHECK-NEXT:    mov r2, r6
 ; CHECK-NEXT:    bl _bar
 ; CHECK-NEXT:    mov r10, r0
+; CHECK-NEXT:    ldr.w r8, LCPI0_2
+; CHECK-NEXT:  LPC0_0:
+; CHECK-NEXT:    add r8, pc
 ; CHECK-NEXT:    movs r0, #2
-; CHECK-NEXT:    mov r1, r6
-; CHECK-NEXT:    mov r2, r8
+; CHECK-NEXT:    mov r1, r8
+; CHECK-NEXT:    mov r2, r6
 ; CHECK-NEXT:    bl _bar
 ; CHECK-NEXT:    movs r0, #3
-; CHECK-NEXT:    mov r1, r6
-; CHECK-NEXT:    mov r2, r8
+; CHECK-NEXT:    mov r1, r8
+; CHECK-NEXT:    mov r2, r6
 ; CHECK-NEXT:    bl _bar
 ; CHECK-NEXT:    cmp r5, #21
-; CHECK-NEXT:    itttt eq
-; CHECK-NEXT:    moveq r1, r0
+; CHECK-NEXT:    itt eq
 ; CHECK-NEXT:    streq.w r5, [r11]
-; CHECK-NEXT:    movweq r0, #1234
-; CHECK-NEXT:    moveq pc, r1
+; CHECK-NEXT:    moveq pc, r0
 ; CHECK-NEXT:  LBB0_1:
 ; CHECK-NEXT:    cmp r4, #42
-; CHECK-NEXT:    beq LBB0_4
+; CHECK-NEXT:    beq LBB0_5
 ; CHECK-NEXT:    ldr r0, [sp]
 ; CHECK-NEXT:    str r5, [r0]
-; CHECK-NEXT:    movw r0, #1234
 ; CHECK-NEXT:    mov pc, r10
 ; CHECK-NEXT:  Ltmp0:
 ; CHECK-NEXT:  LBB0_3:
 ; CHECK-NEXT:    movw r0, #4567
-; CHECK-NEXT:    b LBB0_5
-; CHECK-NEXT:  LBB0_4:
-; CHECK-NEXT:    movw r0, #1234
+; CHECK-NEXT:    b LBB0_6
 ; CHECK-NEXT:  Ltmp1:
+; CHECK-NEXT:  LBB0_4:
+; CHECK-NEXT:  Ltmp2:
 ; CHECK-NEXT:  LBB0_5:
+; CHECK-NEXT:    movw r0, #1234
+; CHECK-NEXT:  LBB0_6:
 ; CHECK-NEXT:    bl _foo
 ; CHECK-NEXT:    add sp, #4
 ; CHECK-NEXT:    pop.w {r8, r10, r11}

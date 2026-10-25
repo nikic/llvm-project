@@ -410,25 +410,30 @@ TEST(Local, ConstantFoldTerminator) {
         ret void
       }
 
-      define void @indirectbr() {
+      define void @indirectswitch() {
       entry:
-        indirectbr ptr blockaddress(@indirectbr, %bb0), [label %bb0, label %bb1]
+        indirectswitch ptr edgeaddress(@indirectswitch, 0), [
+          ptr edgeaddress(@indirectswitch, 0), label %bb0
+          ptr edgeaddress(@indirectswitch, 1), label %bb1 ]
       bb0:
         ret void
       bb1:
         ret void
       }
 
-      define void @indirectbr_repeated() {
+      define void @indirectswitch_repeated() {
       entry:
-        indirectbr ptr blockaddress(@indirectbr_repeated, %bb0), [label %bb0, label %bb0]
+        indirectswitch ptr edgeaddress(@indirectswitch_repeated, 0), [
+          ptr edgeaddress(@indirectswitch_repeated, 0), label %bb0
+          ptr edgeaddress(@indirectswitch_repeated, 1), label %bb0 ]
       bb0:
         ret void
       }
 
-      define void @indirectbr_unreachable() {
+      define void @indirectswitch_unreachable() {
       entry:
-        indirectbr ptr blockaddress(@indirectbr_unreachable, %bb0), [label %bb1]
+        indirectswitch ptr edgeaddress(@indirectswitch_unreachable, 0), [
+          ptr edgeaddress(@indirectswitch_unreachable, 1), label %bb1 ]
       bb0:
         ret void
       bb1:
@@ -469,9 +474,9 @@ TEST(Local, ConstantFoldTerminator) {
   runWithDomTree(*M, "switch_variable_2_default_dest", CFAllTerminatorsEager);
   runWithDomTree(*M, "switch_constant_2_default_dest", CFAllTerminatorsEager);
   runWithDomTree(*M, "switch_constant_3_repeated_dest", CFAllTerminatorsEager);
-  runWithDomTree(*M, "indirectbr", CFAllTerminatorsEager);
-  runWithDomTree(*M, "indirectbr_repeated", CFAllTerminatorsEager);
-  runWithDomTree(*M, "indirectbr_unreachable", CFAllTerminatorsEager);
+  runWithDomTree(*M, "indirectswitch", CFAllTerminatorsEager);
+  runWithDomTree(*M, "indirectswitch_repeated", CFAllTerminatorsEager);
+  runWithDomTree(*M, "indirectswitch_unreachable", CFAllTerminatorsEager);
 
   // Test ConstantFoldTerminator under Lazy UpdateStrategy.
   runWithDomTree(*M, "br_same_dest", CFAllTerminatorsLazy);
@@ -482,9 +487,9 @@ TEST(Local, ConstantFoldTerminator) {
   runWithDomTree(*M, "switch_variable_2_default_dest", CFAllTerminatorsLazy);
   runWithDomTree(*M, "switch_constant_2_default_dest", CFAllTerminatorsLazy);
   runWithDomTree(*M, "switch_constant_3_repeated_dest", CFAllTerminatorsLazy);
-  runWithDomTree(*M, "indirectbr", CFAllTerminatorsLazy);
-  runWithDomTree(*M, "indirectbr_repeated", CFAllTerminatorsLazy);
-  runWithDomTree(*M, "indirectbr_unreachable", CFAllTerminatorsLazy);
+  runWithDomTree(*M, "indirectswitch", CFAllTerminatorsLazy);
+  runWithDomTree(*M, "indirectswitch_repeated", CFAllTerminatorsLazy);
+  runWithDomTree(*M, "indirectswitch_unreachable", CFAllTerminatorsLazy);
 }
 
 struct SalvageDebugInfoTest : ::testing::Test {

@@ -261,7 +261,7 @@ public:
   /// True if the subtarget should run the atomic expansion pass.
   virtual bool enableAtomicExpand() const;
 
-  /// True if the subtarget should run the indirectbr expansion pass.
+  /// True if the subtarget should run the indirectswitch expansion pass.
   virtual bool enableIndirectBrExpand() const;
 
   /// Override generic scheduling policy within a region.

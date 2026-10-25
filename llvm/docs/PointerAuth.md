@@ -299,8 +299,8 @@ operations that are not otherwise explicitly expressed in IR.
 
 ``ptrauth-indirect-gotos`` specifies that indirect gotos in this function
 should authenticate their target.  At the IR level, no other change is needed.
-When lowering [`blockaddress` constants](LangRef.md#addresses-of-basic-blocks),
-and [`indirectbr` instructions](LangRef.md#indirectbr-instruction),
+When lowering [`edgeaddress` constants](LangRef.md#addresses-of-indirect-switch-edges)
+and [`indirectswitch` instructions](LangRef.md#indirectswitch-instruction),
 this tells the backend to respectively sign and authenticate the pointers.
 
 The specific scheme isn't ABI-visible.  Currently, the AArch64 backend

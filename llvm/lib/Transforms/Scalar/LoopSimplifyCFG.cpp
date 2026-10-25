@@ -214,14 +214,8 @@ private:
     }
 
     // We need a loop preheader to split in handleDeadExits(). If LoopSimplify
-    // wasn't able to form one because the loop can be entered through an
-    // indirectbr we cannot continue.
+    // wasn't able to form one we cannot continue.
     if (!L.getLoopPreheader()) {
-      assert(any_of(predecessors(L.getHeader()),
-                    [&](BasicBlock *Pred) {
-                      return isa<IndirectBrInst>(Pred->getTerminator());
-                    }) &&
-             "Loop should have preheader if it is not entered indirectly");
       HasIndirectEntry = true;
       return;
     }

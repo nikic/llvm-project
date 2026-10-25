@@ -844,8 +844,7 @@ BasicBlock *llvm::ehAwareSplitEdge(BasicBlock *BB, BasicBlock *Succ,
   auto *LI = Options.LI;
   SmallVector<BasicBlock *, 4> LoopPreds;
   // Check if extra modifications will be required to preserve loop-simplify
-  // form after splitting. If it would require splitting blocks with IndirectBr
-  // terminators, bail out if preserving loop-simplify form is requested.
+  // form after splitting.
   if (Options.PreserveLoopSimplify && LI) {
     if (Loop *BBLoop = LI->getLoopFor(BB)) {
 
@@ -868,13 +867,6 @@ BasicBlock *llvm::ehAwareSplitEdge(BasicBlock *BB, BasicBlock *Succ,
           break;
         }
         LoopPreds.push_back(P);
-      }
-      // Loop-simplify form can be preserved, if we can split all in-loop
-      // predecessors.
-      if (any_of(LoopPreds, [](BasicBlock *Pred) {
-            return isa<IndirectBrInst>(Pred->getTerminator());
-          })) {
-        return nullptr;
       }
     }
   }
@@ -1018,7 +1010,7 @@ llvm::SplitAllCriticalEdges(Function &F,
   unsigned NumBroken = 0;
   for (BasicBlock &BB : F) {
     Instruction *TI = BB.getTerminator();
-    if (TI->getNumSuccessors() > 1 && !isa<IndirectBrInst>(TI))
+    if (TI->getNumSuccessors() > 1)
       for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i)
         if (SplitCriticalEdge(TI, i, Options))
           ++NumBroken;
@@ -1352,14 +1344,8 @@ SplitBlockPredecessorsImpl(BasicBlock *BB, ArrayRef<BasicBlock *> Preds,
     BI->setDebugLoc(BB->getFirstNonPHIOrPseudoProbe()->getDebugLoc());
 
   // Move the edges from Preds to point to NewBB instead of BB.
-  for (BasicBlock *Pred : Preds) {
-    // This is slightly more strict than necessary; the minimum requirement
-    // is that there be no more than one indirectbr branching to BB. And
-    // all BlockAddress uses would need to be updated.
-    assert(!isa<IndirectBrInst>(Pred->getTerminator()) &&
-           "Cannot split an edge from an IndirectBrInst");
+  for (BasicBlock *Pred : Preds)
     Pred->getTerminator()->replaceSuccessorWith(BB, NewBB);
-  }
 
   // Insert a new PHI node into NewBB for every PHI node in BB and that new PHI
   // node becomes an incoming value for BB's phi node.  However, if the Preds
@@ -1434,14 +1420,8 @@ static void SplitLandingPadPredecessorsImpl(
   BI1->setDebugLoc(OrigBB->getFirstNonPHIIt()->getDebugLoc());
 
   // Move the edges from Preds to point to NewBB1 instead of OrigBB.
-  for (BasicBlock *Pred : Preds) {
-    // This is slightly more strict than necessary; the minimum requirement
-    // is that there be no more than one indirectbr branching to BB. And
-    // all BlockAddress uses would need to be updated.
-    assert(!isa<IndirectBrInst>(Pred->getTerminator()) &&
-           "Cannot split an edge from an IndirectBrInst");
+  for (BasicBlock *Pred : Preds)
     Pred->getTerminator()->replaceUsesOfWith(OrigBB, NewBB1);
-  }
 
   bool HasLoopExit = false;
   UpdateAnalysisInformation(OrigBB, NewBB1, Preds, DTU, DT, LI, MSSAU,
@@ -1456,8 +1436,6 @@ static void SplitLandingPadPredecessorsImpl(
        i != e; ) {
     BasicBlock *Pred = *i++;
     if (Pred == NewBB1) continue;
-    assert(!isa<IndirectBrInst>(Pred->getTerminator()) &&
-           "Cannot split an edge from an IndirectBrInst");
     NewBB2Preds.push_back(Pred);
     e = pred_end(OrigBB);
   }

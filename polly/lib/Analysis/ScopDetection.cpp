@@ -1801,7 +1801,7 @@ bool ScopDetection::isValidRegion(DetectionContext &Context) {
 
   for (BasicBlock *Pred : predecessors(CurRegion.getEntry())) {
     Instruction *PredTerm = Pred->getTerminator();
-    if (isa<IndirectBrInst>(PredTerm) || isa<CallBrInst>(PredTerm))
+    if (isa<CallBrInst>(PredTerm))
       return invalid<ReportIndirectPredecessor>(
           Context, /*Assert=*/true, PredTerm, PredTerm->getDebugLoc());
   }

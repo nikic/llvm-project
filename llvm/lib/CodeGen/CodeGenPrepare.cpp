@@ -25,6 +25,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/FloatingPointPredicateUtils.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -445,6 +446,43 @@ bool CodeGenPrepare::run(Function &F, FunctionAnalysisManager &AM) {
   return _run(F);
 }
 
+/// Split critical edges from an indirectswitch to blocks with PHI nodes. The
+/// backend can't split edges from indirect branches, so the copies for the
+/// PHI nodes would otherwise end up in the indirect branch block.
+static bool splitIndirectSwitchCriticalEdges(Function &F,
+                                             BranchProbabilityInfo *BPI,
+                                             BlockFrequencyInfo *BFI,
+                                             DomTreeUpdater *DTU) {
+  bool Changed = false;
+  for (BasicBlock &BB : make_early_inc_range(F)) {
+    auto *ISI = dyn_cast<IndirectSwitchInst>(BB.getTerminator());
+    if (!ISI)
+      continue;
+    for (unsigned I = 0, E = ISI->getNumSuccessors(); I != E; ++I) {
+      BasicBlock *Succ = ISI->getSuccessor(I);
+      if (Succ->phis().empty() || Succ->isEHPad() ||
+          !isCriticalEdge(ISI, I, /*AllowIdenticalEdges=*/true))
+        continue;
+      BlockFrequency Freq;
+      if (BPI && BFI)
+        Freq = BFI->getBlockFreq(&BB) * BPI->getEdgeProbability(&BB, Succ);
+      // All cases to Succ go through the new block.
+      BasicBlock *NewBB = SplitKnownCriticalEdge(
+          ISI, I, CriticalEdgeSplittingOptions().setMergeIdenticalEdges());
+      if (!NewBB)
+        continue;
+      if (BPI && BFI)
+        BFI->setBlockFreq(NewBB, Freq);
+      if (DTU)
+        DTU->applyUpdates({{DominatorTree::Insert, &BB, NewBB},
+                           {DominatorTree::Insert, NewBB, Succ},
+                           {DominatorTree::Delete, &BB, Succ}});
+      Changed = true;
+    }
+  }
+  return Changed;
+}
+
 bool CodeGenPrepare::_run(Function &F) {
   bool EverMadeChange = false;
 
@@ -508,10 +546,9 @@ bool CodeGenPrepare::_run(Function &F) {
   if (Opts.cgp_branch_opts)
     EverMadeChange |= splitBranchCondition(F);
 
-  // Split some critical edges where one of the sources is an indirect branch,
-  // to help generate sane code for PHIs involving such edges.
-  bool Split = SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/true,
-                                            BPI, BFI, DTU);
+  // Split critical edges from indirect branches to blocks with PHI nodes, to
+  // help generate sane code for PHIs involving such edges.
+  bool Split = splitIndirectSwitchCriticalEdges(F, BPI, BFI, DTU);
   EverMadeChange |= Split;
   if (Split)
     resetLoopInfo();
@@ -864,8 +901,7 @@ bool CodeGenPrepare::isMergingEmptyBlockProfitable(BasicBlock *BB,
   // such empty block (BB), ISel will place COPY instructions in BB, not in the
   // predecessor of BB.
   BasicBlock *Pred = BB->getUniquePredecessor();
-  if (!Pred || !isa<SwitchInst, IndirectBrInst, IndirectSwitchInst>(
-                   Pred->getTerminator()))
+  if (!Pred || !isa<SwitchInst, IndirectSwitchInst>(Pred->getTerminator()))
     return true;
 
   if (BB->getTerminator() != &*BB->getFirstNonPHIOrPseudoProbe())
@@ -8563,9 +8599,9 @@ static bool GEPSequentialConstIndexed(GetElementPtrInst *GEP) {
 }
 
 // Try unmerging GEPs to reduce liveness interference (register pressure) across
-// IndirectBr edges. Since IndirectBr edges tend to touch on many blocks,
-// reducing liveness interference across those edges benefits global register
-// allocation. Currently handles only certain cases.
+// indirect branch edges. Since indirect branch edges tend to touch on many
+// blocks, reducing liveness interference across those edges benefits global
+// register allocation. Currently handles only certain cases.
 //
 // For example, unmerge %GEPI and %UGEPI as below.
 //
@@ -8576,10 +8612,10 @@ static bool GEPSequentialConstIndexed(GetElementPtrInst *GEP) {
 //   ...
 //   %GEPI = gep %GEPIOp, Idx
 //   ...
-//   indirectbr ... [ label %DstB0, label %DstB1, ... label %DstBi ... ]
-//   (* %GEPI is alive on the indirectbr edges due to other uses ahead)
-//   (* %GEPIOp is alive on the indirectbr edges only because of it's used by
-//   %UGEPI)
+//   indirectswitch ... [ ... label %DstB0 ... label %DstBi ... ]
+//   (* %GEPI is alive on the indirect branch edges due to other uses ahead)
+//   (* %GEPIOp is alive on the indirect branch edges only because of it's used
+//   by %UGEPI)
 //
 // DstB0: ... (there may be a gep similar to %UGEPI to be unmerged)
 // DstB1: ... (there may be a gep similar to %UGEPI to be unmerged)
@@ -8594,9 +8630,9 @@ static bool GEPSequentialConstIndexed(GetElementPtrInst *GEP) {
 // ---------- AFTER ----------
 // SrcBlock:
 //   ... (same as above)
-//    (* %GEPI is still alive on the indirectbr edges)
-//    (* %GEPIOp is no longer alive on the indirectbr edges as a result of the
-//    unmerging)
+//    (* %GEPI is still alive on the indirect branch edges)
+//    (* %GEPIOp is no longer alive on the indirect branch edges as a result of
+//    the unmerging)
 // ...
 //
 // DstBi:
@@ -8605,8 +8641,8 @@ static bool GEPSequentialConstIndexed(GetElementPtrInst *GEP) {
 //   ...
 // ---------------------------
 //
-// The register pressure on the IndirectBr edges is reduced because %GEPIOp is
-// no longer alive on them.
+// The register pressure on the indirect branch edges is reduced because %GEPIOp
+// is no longer alive on them.
 //
 // We try to unmerge GEPs here in CodGenPrepare, as opposed to limiting merging
 // of GEPs in the first place in InstCombiner::visitGetElementPtrInst() so as
@@ -8616,15 +8652,15 @@ static bool GEPSequentialConstIndexed(GetElementPtrInst *GEP) {
 // Note this unmerging may increase the length of the data flow critical path
 // (the path from %GEPIOp to %UGEPI would go through %GEPI), which is a tradeoff
 // between the register pressure and the length of data-flow critical
-// path. Restricting this to the uncommon IndirectBr case would minimize the
-// impact of potentially longer critical path, if any, and the impact on compile
-// time.
+// path. Restricting this to the uncommon indirect branch case would minimize
+// the impact of potentially longer critical path, if any, and the impact on
+// compile time.
 static bool tryUnmergingGEPsAcrossIndirectBr(GetElementPtrInst *GEPI,
                                              const TargetTransformInfo *TTI) {
   BasicBlock *SrcBlock = GEPI->getParent();
-  // Check that SrcBlock ends with an IndirectBr. If not, give up. The common
-  // (non-IndirectBr) cases exit early here.
-  if (!isa<IndirectBrInst, IndirectSwitchInst>(SrcBlock->getTerminator()))
+  // Check that SrcBlock ends with an indirect branch. If not, give up. The
+  // common (non-indirect-branch) cases exit early here.
+  if (!isa<IndirectSwitchInst>(SrcBlock->getTerminator()))
     return false;
   // Check that GEPI is a simple gep with a single constant index.
   if (!GEPSequentialConstIndexed(GEPI))
@@ -8643,7 +8679,7 @@ static bool tryUnmergingGEPsAcrossIndirectBr(GetElementPtrInst *GEPI,
   if (GEPIOpI->getParent() != SrcBlock)
     return false;
   // Check that GEP is used outside the block, meaning it's alive on the
-  // IndirectBr edge(s).
+  // indirect branch edge(s).
   if (llvm::none_of(GEPI->users(), [&](User *Usr) {
         if (auto *I = dyn_cast<Instruction>(Usr)) {
           if (I->getParent() != SrcBlock) {
@@ -8656,7 +8692,7 @@ static bool tryUnmergingGEPsAcrossIndirectBr(GetElementPtrInst *GEPI,
   // The second elements of the GEP chains to be unmerged.
   std::vector<GetElementPtrInst *> UGEPIs;
   // Check each user of GEPIOp to check if unmerging would make GEPIOp not alive
-  // on IndirectBr edges.
+  // on indirect branch edges.
   for (User *Usr : GEPIOp->users()) {
     if (Usr == GEPI)
       continue;
@@ -8719,7 +8755,7 @@ static bool tryUnmergingGEPsAcrossIndirectBr(GetElementPtrInst *GEPI,
     UGEPI->setNoWrapFlags(TargetFlags);
   }
   // After unmerging, verify that GEPIOp is actually only used in SrcBlock (not
-  // alive on IndirectBr edges).
+  // alive on indirect branch edges).
   assert(llvm::none_of(GEPIOp->users(),
                        [&](User *Usr) {
                          return cast<Instruction>(Usr)->getParent() != SrcBlock;

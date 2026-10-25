@@ -13,7 +13,7 @@ define <4 x float> @test_vector_fadd(<4 x float> %a, <4 x float> %b) {
 ; CHECK-NEXT:    store <4 x float> [[A]], ptr [[TMP2]], align 16
 ; CHECK-NEXT:    store <4 x float> [[B]], ptr [[TMP1]], align 16
 ; CHECK-NEXT:    store <4 x float> [[RES]], ptr [[TMP0]], align 16
-; CHECK-NEXT:    call void @__instrumentor_post_numeric_ind(i32 18, i32 2, i32 16, i32 16, ptr [[TMP2]], ptr [[TMP1]], ptr [[TMP0]], i64 0, i32 -1) #[[ATTR0:[0-9]+]]
+; CHECK-NEXT:    call void @__instrumentor_post_numeric_ind(i32 18, i32 2, i32 16, i32 15, ptr [[TMP2]], ptr [[TMP1]], ptr [[TMP0]], i64 0, i32 -1) #[[ATTR0:[0-9]+]]
 ; CHECK-NEXT:    ret <4 x float> [[RES]]
 ;
 entry:
@@ -29,7 +29,7 @@ define double @test_scalar_fadd(double %a, double %b) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast double [[A]] to i64
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast double [[B]] to i64
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast double [[RES]] to i64
-; CHECK-NEXT:    call void @__instrumentor_post_numeric(i32 3, i32 -1, i32 8, i32 16, i64 [[TMP0]], i64 [[TMP1]], i64 [[TMP2]], i64 0, i32 -2) #[[ATTR0]]
+; CHECK-NEXT:    call void @__instrumentor_post_numeric(i32 3, i32 -1, i32 8, i32 15, i64 [[TMP0]], i64 [[TMP1]], i64 [[TMP2]], i64 0, i32 -2) #[[ATTR0]]
 ; CHECK-NEXT:    ret double [[RES]]
 ;
 entry:

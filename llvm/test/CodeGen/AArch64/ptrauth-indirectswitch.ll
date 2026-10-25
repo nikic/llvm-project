@@ -47,7 +47,7 @@ define i32 @test_indirectswitch() #0 {
 ; MACHO-NEXT:    mov x17, #47266 ; =0xb8a2
 ; MACHO-NEXT:    braa x0, x17
 ; MACHO-NEXT:  Ltmp0: ; Block address taken
-; MACHO-NEXT:  LBB0_1: ; %common.ret
+; MACHO-NEXT:  LBB0_1: ; %entry.common.ret_crit_edge
 ; MACHO-NEXT:    mov w0, #1 ; =0x1
 ; MACHO-NEXT:    ldp x29, x30, [sp], #16 ; 16-byte Folded Reload
 ; MACHO-NEXT:    ret
@@ -74,7 +74,7 @@ define i32 @test_indirectswitch() #0 {
 ; ELF-NEXT:    mov x17, #47266 // =0xb8a2
 ; ELF-NEXT:    braa x0, x17
 ; ELF-NEXT:  .Ltmp0: // Block address taken
-; ELF-NEXT:  .LBB0_1: // %common.ret
+; ELF-NEXT:  .LBB0_1: // %entry.common.ret_crit_edge
 ; ELF-NEXT:    mov w0, #1 // =0x1
 ; ELF-NEXT:    ldr x30, [sp], #16 // 8-byte Folded Reload
 ; ELF-NEXT:    ret

@@ -828,7 +828,6 @@ const char *Instruction::getOpcodeName(unsigned OpCode) {
   case UncondBr: return "br";
   case CondBr: return "br";
   case Switch: return "switch";
-  case IndirectBr: return "indirectbr";
   case Invoke: return "invoke";
   case Resume: return "resume";
   case Unreachable: return "unreachable";

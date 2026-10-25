@@ -21,14 +21,15 @@ define i32 @f(i32 %i, i32 %x) {
 ; STATIC-LABEL: f:
 ; STATIC:       # %bb.0: # %entry
 ; STATIC-NEXT:    testl %esi, %esi
-; STATIC-NEXT:    je .LBB0_3
+; STATIC-NEXT:    je .LBB0_4
 ; STATIC-NEXT:  # %bb.1: # %dispatch
 ; STATIC-NEXT:    movl %edi, %eax
 ; STATIC-NEXT:    movq tbl@GOTPCREL(%rip), %rcx
-; STATIC-NEXT:    movl $2, %esi
 ; STATIC-NEXT:    jmpq *(%rcx,%rax,8)
 ; STATIC-NEXT:  .Ltmp0: # Block address taken
-; STATIC-NEXT:  .LBB0_3: # %b
+; STATIC-NEXT:  .LBB0_3: # %dispatch.b_crit_edge
+; STATIC-NEXT:    movl $2, %esi
+; STATIC-NEXT:  .LBB0_4: # %b
 ; STATIC-NEXT:    movl %esi, %eax
 ; STATIC-NEXT:    retq
 ; STATIC-NEXT:  .Ltmp1: # Block address taken
@@ -36,21 +37,22 @@ define i32 @f(i32 %i, i32 %x) {
 ; STATIC-NEXT:    movl $1, %eax
 ; STATIC-NEXT:    retq
 ; STATIC-NEXT:  .Ltmp2: # Block address taken
-; STATIC-NEXT:  .LBB0_4: # %c
+; STATIC-NEXT:  .LBB0_5: # %c
 ; STATIC-NEXT:    movl $3, %eax
 ; STATIC-NEXT:    retq
 ;
 ; PIC-LABEL: f:
 ; PIC:       # %bb.0: # %entry
 ; PIC-NEXT:    testl %esi, %esi
-; PIC-NEXT:    je .LBB0_3
+; PIC-NEXT:    je .LBB0_4
 ; PIC-NEXT:  # %bb.1: # %dispatch
 ; PIC-NEXT:    movl %edi, %eax
 ; PIC-NEXT:    movq tbl@GOTPCREL(%rip), %rcx
-; PIC-NEXT:    movl $2, %esi
 ; PIC-NEXT:    jmpq *(%rcx,%rax,8)
 ; PIC-NEXT:  .Ltmp0: # Block address taken
-; PIC-NEXT:  .LBB0_3: # %b
+; PIC-NEXT:  .LBB0_3: # %dispatch.b_crit_edge
+; PIC-NEXT:    movl $2, %esi
+; PIC-NEXT:  .LBB0_4: # %b
 ; PIC-NEXT:    movl %esi, %eax
 ; PIC-NEXT:    retq
 ; PIC-NEXT:  .Ltmp1: # Block address taken
@@ -58,7 +60,7 @@ define i32 @f(i32 %i, i32 %x) {
 ; PIC-NEXT:    movl $1, %eax
 ; PIC-NEXT:    retq
 ; PIC-NEXT:  .Ltmp2: # Block address taken
-; PIC-NEXT:  .LBB0_4: # %c
+; PIC-NEXT:  .LBB0_5: # %c
 ; PIC-NEXT:    movl $3, %eax
 ; PIC-NEXT:    retq
 ;

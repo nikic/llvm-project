@@ -58,7 +58,7 @@ using PredValueInfoTy = SmallVector<std::pair<Constant *, BasicBlock *>, 8>;
 
 // This is used to keep track of what kind of constant we're currently hoping
 // to find.
-enum ConstantPreference { WantInteger, WantBlockAddress, WantEdgeAddress };
+enum ConstantPreference { WantInteger, WantEdgeAddress };
 
 } // end namespace jumpthreading
 

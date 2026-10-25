@@ -552,8 +552,8 @@ LLVM_ABI FunctionPass *createExpandIRInstsPass(CodeGenOptLevel);
 /// Creates Break False Dependencies pass. \see BreakFalseDeps.cpp
 LLVM_ABI FunctionPass *createBreakFalseDepsLegacyPass();
 
-// This pass expands indirectbr instructions.
-LLVM_ABI FunctionPass *createIndirectBrExpandPass(CodeGenOptLevel OptLevel);
+// This pass expands indirectswitch instructions.
+LLVM_ABI FunctionPass *createIndirectBrExpandPass();
 
 /// Creates CFI Fixup pass. \see CFIFixup.cpp
 LLVM_ABI FunctionPass *createCFIFixupLegacy();

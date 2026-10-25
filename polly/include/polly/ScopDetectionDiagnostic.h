@@ -279,7 +279,7 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-/// Captures regions with an IndirectBr predecessor.
+/// Captures regions with a CallBr predecessor.
 class ReportIndirectPredecessor final : public ReportCFG {
   Instruction *Inst;
   DebugLoc DbgLoc;

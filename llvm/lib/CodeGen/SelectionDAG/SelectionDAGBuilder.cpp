@@ -3793,10 +3793,6 @@ void SelectionDAGBuilder::visitIndirectBranch(const Instruction &I,
                           getControlRoot(), getValue(Address)));
 }
 
-void SelectionDAGBuilder::visitIndirectBr(const IndirectBrInst &I) {
-  visitIndirectBranch(I, I.getAddress());
-}
-
 void SelectionDAGBuilder::visitIndirectSwitch(const IndirectSwitchInst &I) {
   // The case values are not needed: edgeaddresses are lowered to the addresses
   // of the destinations.

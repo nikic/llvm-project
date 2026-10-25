@@ -570,7 +570,6 @@ struct FunCloner {
         break;
       }
       case LLVMSwitch:
-      case LLVMIndirectBr:
       case LLVMIndirectSwitch:
         break;
       case LLVMInvoke: {

@@ -26,9 +26,9 @@ define i32 @f(i32 %i, i32 %x) {
 ; SDAG-NEXT:    mov w0, #2 // =0x2
 ; SDAG-NEXT:    ret
 ; SDAG-NEXT:  .Ltmp1: // Block address taken
-; SDAG-NEXT:  .LBB0_3: // %common.ret
+; SDAG-NEXT:  .LBB0_3: // %dispatch.common.ret_crit_edge
 ; SDAG-NEXT:    mov w1, #1 // =0x1
-; SDAG-NEXT:  .LBB0_4: // %.split
+; SDAG-NEXT:  .LBB0_4: // %common.ret
 ; SDAG-NEXT:    mov w0, w1
 ; SDAG-NEXT:    ret
 ; SDAG-NEXT:  .Ltmp2: // Block address taken
@@ -121,9 +121,9 @@ define i32 @f(i32 %i, i32 %x) {
 ; GISEL-NEXT:    ldr x8, [x8, w0, uxtw #3]
 ; GISEL-NEXT:    br x8
 ; GISEL-NEXT:  .Ltmp0: // Block address taken
-; GISEL-NEXT:  .LBB0_2: // %common.ret
+; GISEL-NEXT:  .LBB0_2: // %dispatch.common.ret_crit_edge
 ; GISEL-NEXT:    mov w1, #1 // =0x1
-; GISEL-NEXT:  .LBB0_3: // %.split
+; GISEL-NEXT:  .LBB0_3: // %common.ret
 ; GISEL-NEXT:    mov w0, w1
 ; GISEL-NEXT:    ret
 ; GISEL-NEXT:  .Ltmp1: // Block address taken
@@ -285,7 +285,7 @@ define i32 @rel(i32 %i) {
 ; SDAG-NEXT:    add x8, x9, x8
 ; SDAG-NEXT:    br x8
 ; SDAG-NEXT:  .Ltmp3: // Block address taken
-; SDAG-NEXT:  .LBB4_1: // %common.ret
+; SDAG-NEXT:  .LBB4_1: // %entry.common.ret_crit_edge
 ; SDAG-NEXT:    mov w0, #10 // =0xa
 ; SDAG-NEXT:    ret
 ; SDAG-NEXT:  .Ltmp4: // Block address taken
@@ -347,7 +347,7 @@ define i32 @rel(i32 %i) {
 ; GISEL-NEXT:    add x8, x9, x8
 ; GISEL-NEXT:    br x8
 ; GISEL-NEXT:  .Ltmp3: // Block address taken
-; GISEL-NEXT:  .LBB4_1: // %common.ret
+; GISEL-NEXT:  .LBB4_1: // %entry.common.ret_crit_edge
 ; GISEL-NEXT:    mov w0, #10 // =0xa
 ; GISEL-NEXT:    ret
 ; GISEL-NEXT:  .Ltmp4: // Block address taken

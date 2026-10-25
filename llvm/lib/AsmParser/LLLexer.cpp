@@ -904,6 +904,9 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(memProf);
   KEYWORD(notcold);
 
+  // indirectbr was removed, it is upgraded to indirectswitch.
+  KEYWORD(indirectbr);
+
 #undef KEYWORD
 
   // Keywords for types.
@@ -971,7 +974,6 @@ lltok::Kind LLLexer::LexIdentifier() {
   INSTKEYWORD(va_arg,      VAArg);
   INSTKEYWORD(ret,         Ret);
   INSTKEYWORD(switch,      Switch);
-  INSTKEYWORD(indirectbr,  IndirectBr);
   INSTKEYWORD(indirectswitch, IndirectSwitch);
   INSTKEYWORD(invoke,      Invoke);
   INSTKEYWORD(resume,      Resume);

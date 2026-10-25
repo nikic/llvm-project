@@ -111,7 +111,6 @@ class Lint : public InstVisitor<Lint> {
   void visitURem(BinaryOperator &I);
   void visitAllocaInst(AllocaInst &I);
   void visitVAArgInst(VAArgInst &I);
-  void visitIndirectBrInst(IndirectBrInst &I);
   void visitIndirectSwitchInst(IndirectSwitchInst &I);
   void visitExtractElementInst(ExtractElementInst &I);
   void visitInsertElementInst(InsertElementInst &I);
@@ -437,8 +436,8 @@ void Lint::visitMemoryReference(Instruction &I, const MemoryLocation &Loc,
   }
   if (Flags & MemRef::Branchee) {
     Check(!isa<Constant>(UnderlyingObject) ||
-              (isa<BlockAddress, EdgeAddress>(UnderlyingObject)),
-          "Undefined behavior: Branch to non-blockaddress", &I);
+              isa<EdgeAddress>(UnderlyingObject),
+          "Undefined behavior: Branch to non-edgeaddress", &I);
   }
 
   // Check for buffer overflows and misalignment.
@@ -606,14 +605,6 @@ void Lint::visitAllocaInst(AllocaInst &I) {
 void Lint::visitVAArgInst(VAArgInst &I) {
   visitMemoryReference(I, MemoryLocation::get(&I), std::nullopt, nullptr,
                        MemRef::Read | MemRef::Write);
-}
-
-void Lint::visitIndirectBrInst(IndirectBrInst &I) {
-  visitMemoryReference(I, MemoryLocation::getAfter(I.getAddress()),
-                       std::nullopt, nullptr, MemRef::Branchee);
-
-  Check(I.getNumDestinations() != 0,
-        "Undefined behavior: indirectbr with no destinations", &I);
 }
 
 void Lint::visitIndirectSwitchInst(IndirectSwitchInst &I) {

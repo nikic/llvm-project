@@ -208,7 +208,7 @@ module Opcode : sig
   | Ret (** Terminator Instructions *)
   | Invalid3
   | Switch
-  | IndirectBr
+  | IndirectBr (** Removed: indirectbr is upgraded to indirectswitch *)
   | Invoke
   | Invalid2
   | Unreachable
@@ -2099,18 +2099,6 @@ val add_case : llvalue -> llvalue -> llbasicblock -> unit
     instruction.
     See the method [llvm:;SwitchInst::getDefaultDest]. **)
 val switch_default_dest : llvalue -> llbasicblock
-
-(** [build_indirect_br addr count b] creates a
-    [indirectbr %addr]
-    instruction at the position specified by the instruction builder [b] with
-    space reserved for [count] destinations.
-    See the method [llvm::LLVMBuilder::CreateIndirectBr]. *)
-val build_indirect_br : llvalue -> int -> llbuilder -> llvalue
-
-(** [add_destination br bb] adds the basic block [bb] as a possible branch
-    location for the indirectbr instruction [br].
-    See the method [llvm::IndirectBrInst::addDestination]. **)
-val add_destination : llvalue -> llbasicblock -> unit
 
 (** [build_invoke fnty fn args tobb unwindbb name b] creates an
     [%name = invoke %fn(args) to %tobb unwind %unwindbb]

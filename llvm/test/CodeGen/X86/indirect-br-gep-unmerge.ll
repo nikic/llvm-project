@@ -21,18 +21,15 @@ define ptr @testFunc(ptr readonly %array, i1 %skip) {
 ; CHECK-NEXT:      ptr edgeaddress(@testFunc, 0), label [[LOOPFOOTER]]
 ; CHECK-NEXT:      ptr edgeaddress(@testFunc, 1), label [[ENDBLOCK:%.*]]
 ; CHECK-NEXT:    ]
+; CHECK:       loopHeader.endBlock_crit_edge:
+; CHECK-NEXT:    br label [[ENDBLOCK_CLONE]]
 ; CHECK:       loopFooter:
 ; CHECK-NEXT:    [[ISGOODVALUE:%.*]] = icmp eq i8 [[ELEMENTVALUE]], 0
 ; CHECK-NEXT:    [[NEXTARRAYELEMENT]] = getelementptr inbounds [[STRUCT_BLUB:%.*]], ptr [[CURRENTARRAYELEMENT]], i64 1
 ; CHECK-NEXT:    br i1 [[ISGOODVALUE]], label [[LOOPHEADER]], label [[ENDBLOCK_CLONE]]
 ; CHECK:       endBlock:
-; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
-; CHECK:       .split:
-; CHECK-NEXT:    [[MERGE:%.*]] = phi ptr [ [[ELEMENTVALUEPTR]], [[ENDBLOCK]] ], [ [[RETVAL_CLONE:%.*]], [[ENDBLOCK_CLONE]] ]
+; CHECK-NEXT:    [[MERGE:%.*]] = phi ptr [ [[ARRAY]], [[ENTRY]] ], [ [[ELEMENTVALUEPTR]], [[LOOPFOOTER]] ], [ [[ELEMENTVALUEPTR]], [[ENDBLOCK]] ]
 ; CHECK-NEXT:    ret ptr [[MERGE]]
-; CHECK:       endBlock.clone:
-; CHECK-NEXT:    [[RETVAL_CLONE]] = phi ptr [ [[ARRAY]], [[ENTRY]] ], [ [[ELEMENTVALUEPTR]], [[LOOPFOOTER]] ]
-; CHECK-NEXT:    br label [[DOTSPLIT]]
 ;
 entry:
   br i1 %skip, label %loopHeader, label %endBlock

@@ -13,7 +13,7 @@ declare void @use(i32)
 define void @simple(ptr nocapture readonly %p) {
 ; CHECK-LABEL: define void @simple(
 ; CHECK-SAME: ptr readonly captures(none) [[P:%.*]]) {
-; CHECK-NEXT:  [[ENTRY:.*:]]
+; CHECK-NEXT:  [[ENTRY:.*]]:
 ; CHECK-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, ptr [[P]], i64 1
 ; CHECK-NEXT:    [[INITVAL:%.*]] = load i32, ptr [[P]], align 4
 ; CHECK-NEXT:    [[INITOP:%.*]] = load i32, ptr [[INCDEC_PTR]], align 4
@@ -21,22 +21,18 @@ define void @simple(ptr nocapture readonly %p) {
 ; CHECK-NEXT:      i32 0, label %[[OP0_CLONE:.*]]
 ; CHECK-NEXT:      i32 1, label %[[OP1S_CLONE:.*]]
 ; CHECK-NEXT:    ]
-; CHECK:       [[OP0:.*]]:
-; CHECK-NEXT:    br label %[[DOTSPLIT:.*]]
-; CHECK:       [[DOTSPLIT]]:
-; CHECK-NEXT:    [[MERGE:%.*]] = phi ptr [ [[PTR:%.*]], %[[OP0]] ], [ [[INCDEC_PTR]], %[[OP0_CLONE]] ]
-; CHECK-NEXT:    [[MERGE2:%.*]] = phi i32 [ 0, %[[OP0]] ], [ [[INITVAL]], %[[OP0_CLONE]] ]
+; CHECK:       [[OP0_CLONE]]:
+; CHECK-NEXT:    [[P_ADDR_0:%.*]] = phi ptr [ [[INCDEC_PTR]], %[[ENTRY]] ], [ [[PTR:%.*]], %[[OP0:.*]] ]
+; CHECK-NEXT:    [[MERGE2:%.*]] = phi i32 [ [[INITVAL]], %[[ENTRY]] ], [ 0, %[[OP0]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[MERGE2]])
-; CHECK-NEXT:    br label %[[INDIRECTGOTO:.*]]
-; CHECK:       [[OP1S:.*]]:
 ; CHECK-NEXT:    br label %[[DOTSPLIT3:.*]]
-; CHECK:       [[DOTSPLIT3]]:
-; CHECK-NEXT:    [[MERGE5:%.*]] = phi ptr [ [[PTR]], %[[OP1S]] ], [ [[INCDEC_PTR]], %[[OP1S_CLONE]] ]
-; CHECK-NEXT:    [[MERGE7:%.*]] = phi i32 [ 1, %[[OP1S]] ], [ [[INITVAL]], %[[OP1S_CLONE]] ]
+; CHECK:       [[OP1S_CLONE]]:
+; CHECK-NEXT:    [[P_ADDR_1:%.*]] = phi ptr [ [[INCDEC_PTR]], %[[ENTRY]] ], [ [[PTR]], %[[OP1S:.*]] ]
+; CHECK-NEXT:    [[MERGE7:%.*]] = phi i32 [ [[INITVAL]], %[[ENTRY]] ], [ 1, %[[OP1S]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[MERGE7]])
-; CHECK-NEXT:    br label %[[INDIRECTGOTO]]
-; CHECK:       [[INDIRECTGOTO]]:
-; CHECK-NEXT:    [[P_ADDR_SINK:%.*]] = phi ptr [ [[MERGE5]], %[[DOTSPLIT3]] ], [ [[MERGE]], %[[DOTSPLIT]] ]
+; CHECK-NEXT:    br label %[[DOTSPLIT3]]
+; CHECK:       [[DOTSPLIT3]]:
+; CHECK-NEXT:    [[P_ADDR_SINK:%.*]] = phi ptr [ [[P_ADDR_1]], %[[OP1S_CLONE]] ], [ [[P_ADDR_0]], %[[OP0_CLONE]] ]
 ; CHECK-NEXT:    [[PTR]] = getelementptr inbounds i32, ptr [[P_ADDR_SINK]], i64 1
 ; CHECK-NEXT:    [[NEWP:%.*]] = load i32, ptr [[P_ADDR_SINK]], align 4
 ; CHECK-NEXT:    [[IDX:%.*]] = sext i32 [[NEWP]] to i64
@@ -46,12 +42,12 @@ define void @simple(ptr nocapture readonly %p) {
 ; CHECK-NEXT:      ptr edgeaddress(@simple, 0), label %[[OP0]]
 ; CHECK-NEXT:      ptr edgeaddress(@simple, 1), label %[[OP1S]]
 ; CHECK-NEXT:    ]
+; CHECK:       [[OP1S]]:
+; CHECK-NEXT:    br label %[[OP1S_CLONE]]
+; CHECK:       [[OP0]]:
+; CHECK-NEXT:    br label %[[OP0_CLONE]]
 ; CHECK:       [[EXIT]]:
 ; CHECK-NEXT:    ret void
-; CHECK:       [[OP0_CLONE]]:
-; CHECK-NEXT:    br label %[[DOTSPLIT]]
-; CHECK:       [[OP1S_CLONE]]:
-; CHECK-NEXT:    br label %[[DOTSPLIT3]]
 ;
 entry:
   %incdec.ptr = getelementptr inbounds i32, ptr %p, i64 1

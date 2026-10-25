@@ -2161,18 +2161,6 @@ value llvm_switch_default_dest(value Val) {
   return to_val(BB);
 }
 
-/* llvalue -> int -> llbuilder -> llvalue */
-value llvm_build_indirect_br(value Addr, value EstimatedDests, value B) {
-  return to_val(LLVMBuildIndirectBr(Builder_val(B), Value_val(Addr),
-                                    Int_val(EstimatedDests)));
-}
-
-/* llvalue -> llbasicblock -> unit */
-value llvm_add_destination(value IndirectBr, value Dest) {
-  LLVMAddDestination(Value_val(IndirectBr), BasicBlock_val(Dest));
-  return Val_unit;
-}
-
 /* lltype -> llvalue -> llvalue array -> llbasicblock -> llbasicblock ->
    string -> llbuilder -> llvalue */
 value llvm_build_invoke_nat(value FnTy, value Fn, value Args, value Then,

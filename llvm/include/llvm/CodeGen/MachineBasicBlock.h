@@ -322,7 +322,7 @@ public:
   const MachineFunction *getParent() const { return xParent; }
   MachineFunction *getParent() { return xParent; }
 
-  /// Returns true if the original IR terminator is an `indirectbr` with
+  /// Returns true if the original IR terminator is an `indirectswitch` with
   /// successor blocks. This typically corresponds to a `goto` in C, rather than
   /// jump tables.
   bool terminatorIsComputedGotoWithSuccessors() const {

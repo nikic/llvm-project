@@ -61,12 +61,6 @@ L1:                                               ; preds = %L2, %bb2
 ; ARM: str [[R1b]], [[[R_NEXTADDR_b]]]
 
 ; THUMB: %L1
-; THUMB: b [[SPLITBB:LBB[0-9_]+]]
-
-; THUMB: %.split4
-; THUMB: muls
-
-; THUMB: [[SPLITBB]]:
 ; THUMB: ldr [[R2:r[0-9]+]], LCPI
 ; THUMB: add [[R2]], pc
 ; THUMB: str [[R2]], [r[[NEXTADDR_REG]]]
