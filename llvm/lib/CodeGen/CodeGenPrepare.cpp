@@ -776,7 +776,10 @@ bool CodeGenPrepare::eliminateFallThrough(Function &F) {
     // edge, just collapse it.
     BasicBlock *SinglePred = BB->getSinglePredecessor();
 
-    // Don't merge if BB's address is taken.
+    // Don't merge if BB's address is taken. A blockaddress is data-only, so
+    // this would be legal, but its main remaining users (e.g.
+    // SanitizerCoverage tables) want the address of the block's own code, and
+    // the backend keeps an address-taken block separate anyway.
     if (!SinglePred || SinglePred == BB || BB->hasAddressTaken())
       continue;
 
@@ -3066,6 +3069,7 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB,
   }
 
   // If we eliminated all predecessors of the block, delete the block now.
+  // Keep an address-taken block (see eliminateFallThrough).
   if (Changed && !BB->hasAddressTaken() && pred_empty(BB)) {
     // Copy the fake uses found in the original return block to all blocks
     // that contain tail calls.

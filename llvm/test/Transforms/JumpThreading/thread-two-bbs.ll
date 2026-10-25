@@ -248,7 +248,9 @@ declare void @bar(i32)
 
 
 ;; Test that we skip unconditional PredBB when threading jumps through two
-;; successive basic blocks.
+;; successive basic blocks. (The blockaddress no longer prevents merging %bb
+;; into %pred.bb, so the jumps are threaded after merging, and the blockaddress
+;; refers to one of the copies of %bb.)
 
 define i32 @foo4(ptr %0) {
 ; CHECK-LABEL: @foo4(
@@ -256,17 +258,18 @@ define i32 @foo4(ptr %0) {
 ; CHECK-NEXT:    [[SIZE:%.*]] = call i64 @get_size(ptr [[TMP0:%.*]])
 ; CHECK-NEXT:    [[GOOD:%.*]] = icmp ugt i64 [[SIZE]], 3
 ; CHECK-NEXT:    br i1 [[GOOD]], label [[PRED_BB:%.*]], label [[PRED_PRED_BB:%.*]]
-; CHECK:       pred.pred.bb:
-; CHECK-NEXT:    call void @effect()
-; CHECK-NEXT:    br label [[PRED_BB]]
-; CHECK:       pred.bb:
+; CHECK:       bb.thread:
 ; CHECK-NEXT:    [[V:%.*]] = load i32, ptr [[TMP0]], align 4
+; CHECK-NEXT:    call void @effect1(ptr blockaddress(@foo4, [[PRED_PRED_BB]]))
 ; CHECK-NEXT:    br label [[BB:%.*]]
-; CHECK:       bb:
-; CHECK-NEXT:    call void @effect1(ptr blockaddress(@foo4, [[BB]]))
-; CHECK-NEXT:    br i1 [[GOOD]], label [[EXIT:%.*]], label [[EXIT]]
+; CHECK:       cont1:
+; CHECK-NEXT:    call void @effect()
+; CHECK-NEXT:    [[V1:%.*]] = load i32, ptr [[TMP0]], align 4
+; CHECK-NEXT:    call void @effect1(ptr blockaddress(@foo4, [[PRED_PRED_BB]]))
+; CHECK-NEXT:    br label [[BB]]
 ; CHECK:       exit:
-; CHECK-NEXT:    ret i32 [[V]]
+; CHECK-NEXT:    [[V3:%.*]] = phi i32 [ [[V]], [[PRED_BB]] ], [ [[V1]], [[PRED_PRED_BB]] ]
+; CHECK-NEXT:    ret i32 [[V3]]
 ;
 entry:
   %size = call i64 @get_size(ptr %0)

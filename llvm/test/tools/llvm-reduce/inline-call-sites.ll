@@ -327,22 +327,15 @@ L3:                                               ; preds = %L1
 ; RESULT-NEXT: store i32 1000, ptr null
 ; RESULT-NEXT: br i1 %arg0, label %call, label %ret
 
+; The address-taken blocks are merged into %call (a blockaddress is
+; data-only), and the blockaddresses of the inlined copies then refer to %call.
 ; RESULT: call:
 ; RESULT-NEXT: store i32 2000, ptr null, align 4
 ; RESULT-NEXT: call void @llvm.lifetime.start.p0(ptr %alloca.i)
-; RESULT-NEXT: br label %L1.i
-
-; RESULT: L1.i: ; preds = %call
 ; RESULT-NEXT: store i32 999, ptr null, align 4
-; RESULT-NEXT: br label %L2.i
-
-; RESULT: L2.i:
-; RESULT-NEXT: store ptr blockaddress(@calls_func_with_fallthrough_blockaddress_use, %L1.i), ptr %alloca.i, align 8
-; RESULT-NEXT: store ptr blockaddress(@calls_func_with_fallthrough_blockaddress_use, %L2.i), ptr %alloca.i, align 8
+; RESULT-NEXT: store ptr blockaddress(@calls_func_with_fallthrough_blockaddress_use, %call), ptr %alloca.i, align 8
+; RESULT-NEXT: store ptr blockaddress(@calls_func_with_fallthrough_blockaddress_use, %call), ptr %alloca.i, align 8
 ; RESULT-NEXT: store ptr blockaddress(@callee_with_fallthrough_blockaddress_use, %L3), ptr %alloca.i, align 8
-; RESULT-NEXT: br label %callee_with_fallthrough_blockaddress_use.exit
-
-; RESULT: callee_with_fallthrough_blockaddress_use.exit:    ; preds = %L2.i
 ; RESULT-NEXT: %load.i = load ptr, ptr %alloca.i, align 8
 ; RESULT-NEXT: call void @llvm.lifetime.end.p0(ptr %alloca.i)
 ; RESULT-NEXT: store i32 3000, ptr null, align 4

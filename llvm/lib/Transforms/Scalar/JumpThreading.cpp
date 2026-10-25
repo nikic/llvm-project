@@ -914,16 +914,6 @@ static unsigned getBestDestForJumpOnUndef(BasicBlock *BB) {
   return MinSucc;
 }
 
-static bool hasAddressTakenAndUsed(BasicBlock *BB) {
-  if (!BB->hasAddressTaken()) return false;
-
-  // If the block has its address taken, it may be a tree of dead constants
-  // hanging off of it.  These shouldn't keep the block alive.
-  BlockAddress *BA = BlockAddress::get(BB);
-  BA->removeDeadConstantUsers();
-  return !BA->use_empty();
-}
-
 /// processBlock - If there are any predecessors whose control can be threaded
 /// through to a successor, transform them now.
 bool JumpThreadingPass::processBlock(BasicBlock *BB) {
@@ -1891,7 +1881,12 @@ bool JumpThreadingPass::maybeMergeBasicBlockIntoOnlyPred(BasicBlock *BB) {
 
   const Instruction *TI = SinglePred->getTerminator();
   if (TI->isSpecialTerminator() || TI->getNumSuccessors() != 1 ||
-      SinglePred == BB || hasAddressTakenAndUsed(BB))
+      SinglePred == BB)
+    return false;
+
+  // Don't lose a blockaddress of BB by making it the entry block (see
+  // MergeBlockIntoPredecessor).
+  if (BB->hasAddressTaken() && SinglePred->isEntryBlock())
     return false;
 
   // MergeBasicBlockIntoOnlyPred may delete SinglePred, we need to avoid

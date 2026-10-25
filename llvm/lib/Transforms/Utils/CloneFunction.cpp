@@ -955,7 +955,7 @@ void llvm::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFunc,
     }
 
     BasicBlock *Dest = BI->getSuccessor();
-    if (!Dest->getSinglePredecessor() || Dest->hasAddressTaken()) {
+    if (!Dest->getSinglePredecessor()) {
       ++I;
       continue;
     }

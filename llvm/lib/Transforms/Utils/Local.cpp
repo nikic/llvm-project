@@ -780,9 +780,10 @@ void llvm::MergeBasicBlockIntoOnlyPred(BasicBlock *DestBB,
     Updates.push_back({DominatorTree::Delete, PredBB, DestBB});
   }
 
-  // Zap anything that took the address of DestBB.  Not doing this will give the
-  // address an invalid value.
-  if (DestBB->hasAddressTaken()) {
+  // A blockaddress of DestBB now refers to the merged block, unless DestBB
+  // becomes the entry block, whose address can't be taken. Zap it in that
+  // case, like for a deleted block.
+  if (ReplaceEntryBB && DestBB->hasAddressTaken()) {
     BlockAddress *BA = BlockAddress::get(DestBB);
     Constant *Replacement =
       ConstantInt::get(Type::getInt32Ty(BA->getContext()), 1);

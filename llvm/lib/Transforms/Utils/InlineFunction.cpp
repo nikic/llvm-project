@@ -3398,6 +3398,9 @@ void llvm::InlineFunctionImpl(CallBase &CB, InlineFunctionInfo &IFI,
     // Move all of the instructions right before the call.
     OrigBB->splice(CB.getIterator(), &*FirstNewBlock, FirstNewBlock->begin(),
                    FirstNewBlock->end());
+    // A blockaddress of the cloned block now refers to OrigBB.
+    if (FirstNewBlock->hasAddressTaken())
+      FirstNewBlock->replaceAllUsesWith(OrigBB);
     // Remove the cloned basic block.
     Caller->back().eraseFromParent();
 

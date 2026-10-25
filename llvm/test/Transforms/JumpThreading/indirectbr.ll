@@ -64,16 +64,18 @@ L2:                                               ; preds = %indirectgoto
 
 
 ; PR4151
-; Don't merge address-taken blocks.
+; A blockaddress is data-only, so address-taken blocks are merged (except into
+; the entry block), and the blockaddresses then refer to the merged block.
 @.str = private unnamed_addr constant [4 x i8] c"%p\0A\00"
 
 ; CHECK-LABEL: @test3(
-; CHECK: __here:
-; CHECK: blockaddress(@test3, %__here)
-; CHECK: __here1:
-; CHECK: blockaddress(@test3, %__here1)
-; CHECK: __here3:
-; CHECK: blockaddress(@test3, %__here3)
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br label %__here3
+; CHECK:       __here3:
+; CHECK-NEXT:    call {{.*}} blockaddress(@test3, %__here3)
+; CHECK-NEXT:    call {{.*}} blockaddress(@test3, %__here3)
+; CHECK-NEXT:    call {{.*}} blockaddress(@test3, %__here3)
+; CHECK-NEXT:    ret void
 define void @test3() nounwind ssp noredzone {
 entry:
   br label %__here

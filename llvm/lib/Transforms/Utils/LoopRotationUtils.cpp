@@ -906,7 +906,7 @@ static bool shouldSpeculateInstrs(BasicBlock::iterator Begin,
 /// I don't believe this invalidates SCEV.
 bool LoopRotate::simplifyLoopLatch(Loop *L) {
   BasicBlock *Latch = L->getLoopLatch();
-  if (!Latch || Latch->hasAddressTaken())
+  if (!Latch)
     return false;
 
   UncondBrInst *Jmp = dyn_cast<UncondBrInst>(Latch->getTerminator());

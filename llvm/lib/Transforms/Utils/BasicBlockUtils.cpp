@@ -239,15 +239,19 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DomTreeUpdater *DTU,
                                      MemoryDependenceResults *MemDep,
                                      bool PredecessorWithTwoSuccessors,
                                      DominatorTree *DT) {
-  if (BB->hasAddressTaken())
-    return false;
-
   // Can't merge if there are multiple predecessors, or no predecessors.
   BasicBlock *PredBB = BB->getUniquePredecessor();
   if (!PredBB) return false;
 
   // Don't break self-loops.
   if (PredBB == BB) return false;
+
+  // A blockaddress is data-only, so an address-taken block can be merged and
+  // its blockaddress then refers to PredBB. But the address of the entry block
+  // can't be taken, so merging into the entry block would replace the
+  // blockaddress with a placeholder. Avoid losing the address in that case.
+  if (BB->hasAddressTaken() && PredBB->isEntryBlock())
+    return false;
 
   // Don't break unwinding instructions or terminators with other side-effects.
   Instruction *PTI = PredBB->getTerminator();
