@@ -933,6 +933,19 @@ void Interpreter::visitIndirectBrInst(IndirectBrInst &I) {
   SwitchToNewBasicBlock((BasicBlock*)Dest, SF);
 }
 
+void Interpreter::visitIndirectSwitchInst(IndirectSwitchInst &I) {
+  ExecutionContext &SF = ECStack.back();
+  void *Addr = GVTOP(getOperandValue(I.getAddress(), SF));
+  // Edge addresses evaluate to a pointer to the EdgeAddress constant.
+  for (auto Case : I.cases()) {
+    if (Case.getCaseValue() == Addr) {
+      SwitchToNewBasicBlock(Case.getCaseSuccessor(), SF);
+      return;
+    }
+  }
+  reportFatalUsageError("indirectswitch on an address that is not one of its "
+                        "cases (undefined behavior)");
+}
 
 // SwitchToNewBasicBlock - This method is used to jump to a new basic block.
 // This function handles the actual updating of block and instruction iterators

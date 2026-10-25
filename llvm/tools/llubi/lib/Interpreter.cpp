@@ -1049,6 +1049,23 @@ public:
     reportImmediateUB() << "Indirect branch on invalid target BB.";
   }
 
+  void visitIndirectSwitchInst(IndirectSwitchInst &ISI) {
+    auto &Target = getValue(ISI.getAddress());
+    if (Target.isPoison()) {
+      reportImmediateUB() << "Indirect switch on poison.";
+      return;
+    }
+    if (EdgeAddress *EA = Ctx.getTargetEdge(Target.asPointer())) {
+      auto It = ISI.findCaseValue(EA);
+      if (It != ISI.case_end())
+        jumpTo(ISI, It->getCaseSuccessor());
+      else
+        reportImmediateUB() << "Indirect switch on unlisted edge address.";
+      return;
+    }
+    reportImmediateUB() << "Indirect switch on invalid edge address.";
+  }
+
   void returnFromCallee() {
     if (hasProgramExited())
       return;

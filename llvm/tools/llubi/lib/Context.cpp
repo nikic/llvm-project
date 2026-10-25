@@ -52,6 +52,18 @@ bool Context::initGlobalValues() {
                                     std::make_pair(&BB, BlockObj));
       BlockAddrMap.try_emplace(&BB, deriveFromMemoryObject(BlockObj));
     }
+
+    // Each edgeaddress gets its own address, which is non-null as required,
+    // and identifies the indirectswitch case using it.
+    for (EdgeAddress *EA : F.getEdgeAddresses()) {
+      auto EdgeObj = allocate(0, 1, F.getName(), DL.getProgramAddressSpace(),
+                              MemInitKind::Zeroed, MemAllocKind::BlockAddress);
+      if (!EdgeObj)
+        return false;
+      ValidEdgeTargets.try_emplace(EdgeObj->getAddress(),
+                                   std::make_pair(EA, EdgeObj));
+      EdgeAddrMap.try_emplace(EA, deriveFromMemoryObject(EdgeObj));
+    }
   }
 
   for (GlobalVariable &GV : M.globals()) {
@@ -170,6 +182,9 @@ MaterializedConstant Context::getConstantValueImpl(Constant *C) {
   if (auto *BA = dyn_cast<BlockAddress>(C))
     return MaterializedConstant(BlockAddrMap.at(BA->getBasicBlock()),
                                 /*Cacheable=*/true);
+
+  if (auto *EA = dyn_cast<EdgeAddress>(C))
+    return MaterializedConstant(EdgeAddrMap.at(EA), /*Cacheable=*/true);
 
   if (auto *GV = dyn_cast<GlobalVariable>(C))
     return MaterializedConstant(GlobalAddrMap.at(GV), /*Cacheable=*/true);
@@ -1279,6 +1294,16 @@ Function *Context::getTargetFunction(const Pointer &Ptr) {
   // TODO: check the provenance of pointer.
   return It->second.first;
 }
+EdgeAddress *Context::getTargetEdge(const Pointer &Ptr) {
+  if (Ptr.address().getActiveBits() > 64)
+    return nullptr;
+  auto It = ValidEdgeTargets.find(Ptr.address().getZExtValue());
+  if (It == ValidEdgeTargets.end())
+    return nullptr;
+  // TODO: check the provenance of pointer.
+  return It->second.first;
+}
+
 BasicBlock *Context::getTargetBlock(const Pointer &Ptr) {
   if (Ptr.address().getActiveBits() > 64)
     return nullptr;

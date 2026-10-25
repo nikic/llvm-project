@@ -922,6 +922,9 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
       Result = PTOGV(getPointerToFunctionOrStub(const_cast<Function*>(F)));
     else if (const GlobalVariable *GV = dyn_cast<GlobalVariable>(C))
       Result = PTOGV(getOrEmitGlobalVariable(const_cast<GlobalVariable*>(GV)));
+    else if (const auto *EA = dyn_cast<EdgeAddress>(C))
+      // The interpreter identifies an edgeaddress by the constant itself.
+      Result = PTOGV(const_cast<EdgeAddress *>(EA));
     else
       llvm_unreachable("Unknown constant pointer type!");
     break;

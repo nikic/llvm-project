@@ -313,10 +313,13 @@ class Context {
   size_t NoncacheableConstCount = 0;
   DenseMap<Function *, Pointer> FuncAddrMap;
   DenseMap<BasicBlock *, Pointer> BlockAddrMap;
+  DenseMap<EdgeAddress *, Pointer> EdgeAddrMap;
   DenseMap<uint64_t, std::pair<Function *, IntrusiveRefCntPtr<MemoryObject>>>
       ValidFuncTargets;
   DenseMap<uint64_t, std::pair<BasicBlock *, IntrusiveRefCntPtr<MemoryObject>>>
       ValidBlockTargets;
+  DenseMap<uint64_t, std::pair<EdgeAddress *, IntrusiveRefCntPtr<MemoryObject>>>
+      ValidEdgeTargets;
   DenseMap<GlobalVariable *, Pointer> GlobalAddrMap;
   MaterializedConstant getConstantValueImpl(Constant *C);
   MaterializedConstant evaluateConstantExpression(ConstantExpr *CE);
@@ -444,6 +447,7 @@ public:
 
   Function *getTargetFunction(const Pointer &Ptr);
   BasicBlock *getTargetBlock(const Pointer &Ptr);
+  EdgeAddress *getTargetEdge(const Pointer &Ptr);
 
   /// Initialize global variables and function/block objects. This function
   /// should be called before executing any function. Returns false if the
