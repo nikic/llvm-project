@@ -9,6 +9,7 @@
 ; O0-NEXT: require<runtime-libcall-info>
 ; O0-NEXT: require<libcall-lowering-info>
 ; O0-NEXT: pre-isel-intrinsic-lowering
+; O0-NEXT: prepare-edgeaddress
 ; O0-NEXT: function
 ; O0-NEXT:   expand-ir-insts<O0>
 ; O0-NEXT: nvvm-reflect
@@ -73,6 +74,7 @@
 ; O2-NEXT: function
 ; O2-NEXT:   objc-arc-contract
 ; O2-NEXT: pre-isel-intrinsic-lowering
+; O2-NEXT: prepare-edgeaddress
 ; O2-NEXT: function
 ; O2-NEXT:   expand-ir-insts<O2>
 ; O2-NEXT: nvvm-reflect

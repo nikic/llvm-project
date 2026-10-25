@@ -331,6 +331,7 @@ findIBRPredecessor(BasicBlock *BB, SmallVectorImpl<BasicBlock *> &OtherPreds) {
     Instruction *PredTerm = PredBB->getTerminator();
     switch (PredTerm->getOpcode()) {
     case Instruction::IndirectBr:
+    case Instruction::IndirectSwitch:
       if (IBB)
         return nullptr;
       IBB = PredBB;
@@ -358,7 +359,7 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
   // this lowers the common case's overhead to O(Blocks) instead of O(Edges).
   SmallSetVector<BasicBlock *, 16> Targets;
   for (auto &BB : F) {
-    if (isa<IndirectBrInst>(BB.getTerminator()))
+    if (isa<IndirectBrInst, IndirectSwitchInst>(BB.getTerminator()))
       Targets.insert_range(successors(&BB));
   }
 

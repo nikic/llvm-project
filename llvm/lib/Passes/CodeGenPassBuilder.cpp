@@ -67,6 +67,7 @@
 #include "llvm/CodeGen/PostRAMachineSink.h"
 #include "llvm/CodeGen/PostRASchedulerList.h"
 #include "llvm/CodeGen/PreISelIntrinsicLowering.h"
+#include "llvm/CodeGen/PrepareEdgeAddress.h"
 #include "llvm/CodeGen/ProcessImplicitDefs.h"
 #include "llvm/CodeGen/RegAllocEvictionAdvisor.h"
 #include "llvm/CodeGen/RegAllocFast.h"
@@ -368,6 +369,7 @@ void CodeGenPassBuilder::addISelPasses(PassManagerWrapper &PMW) {
     flushFPMsToMPM(PMW);
   }
   addModulePass(PreISelIntrinsicLoweringPass(&TM), PMW);
+  addModulePass(PrepareEdgeAddressPass(), PMW);
   addFunctionPass(ExpandIRInstsPass(TM, getOptLevel()), PMW);
 
   addIRPasses(PMW);

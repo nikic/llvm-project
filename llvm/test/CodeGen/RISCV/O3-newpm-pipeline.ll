@@ -15,6 +15,7 @@
 ; CHECK-NEXT: function
 ; CHECK-NEXT:   objc-arc-contract
 ; CHECK-NEXT: pre-isel-intrinsic-lowering
+; CHECK-NEXT: prepare-edgeaddress
 ; CHECK-NEXT: function
 ; CHECK-NEXT:   expand-ir-insts<O3>
 ; CHECK-NEXT:   atomic-expand

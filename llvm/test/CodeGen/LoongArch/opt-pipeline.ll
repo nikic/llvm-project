@@ -37,6 +37,7 @@
 ; LAXX-NEXT:       Function Alias Analysis Results
 ; LAXX-NEXT:       ObjC ARC contraction
 ; LAXX-NEXT:     Pre-ISel Intrinsic Lowering
+; LAXX-NEXT:     Prepare edgeaddress uses for code generation
 ; LAXX-NEXT:     FunctionPass Manager
 ; LAXX-NEXT:       Expand IR instructions
 ; LAXX-NEXT:       Expand Atomic instructions

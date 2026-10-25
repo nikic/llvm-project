@@ -36,6 +36,7 @@
 #include "llvm/BinaryFormat/COFF.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/BinaryFormat/ELF.h"
+#include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/AsmPrinterAnalysis.h"
 #include "llvm/CodeGen/BasicBlockSectionsProfileReader.h"
 #include "llvm/CodeGen/GCMetadata.h"
@@ -3950,9 +3951,14 @@ const MCExpr *AsmPrinter::lowerConstant(const Constant *CV,
   if (const BlockAddress *BA = dyn_cast<BlockAddress>(CV))
     return lowerBlockAddressConstant(*BA);
 
-  if (isa<EdgeAddress>(CV))
-    // TODO: Implement lowering of edgeaddress.
-    reportFatalUsageError("edgeaddress is not yet supported");
+  // An edgeaddress is the address of its indirectswitch case destination,
+  // which is an address-taken block.
+  if (const auto *EA = dyn_cast<EdgeAddress>(CV)) {
+    if (const BasicBlock *Dest = getEdgeAddressDestination(*EA))
+      return lowerBlockAddressConstant(
+          *BlockAddress::get(EA->getType(), const_cast<BasicBlock *>(Dest)));
+    return MCSymbolRefExpr::create(getSymbol(EA->getFunction()), Ctx);
+  }
 
   if (const auto *Equiv = dyn_cast<DSOLocalEquivalent>(CV))
     return getObjFileLowering().lowerDSOLocalEquivalent(

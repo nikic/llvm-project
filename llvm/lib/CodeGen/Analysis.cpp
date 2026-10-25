@@ -179,6 +179,49 @@ void llvm::computeValueLLTs(const DataLayout &DL, Type &Ty,
   }
 }
 
+const BasicBlock *llvm::getEdgeAddressDestination(const EdgeAddress &EA) {
+  if (EA.getFunction()->hasAvailableExternallyLinkage())
+    return nullptr;
+  for (const Use &U : EA.uses()) {
+    // Operand 0 is the address, then the destinations, then the case values.
+    auto *ISI = dyn_cast<IndirectSwitchInst>(U.getUser());
+    if (ISI && U.getOperandNo() > ISI->getNumCases())
+      return ISI->getSuccessor(U.getOperandNo() - 1 - ISI->getNumCases());
+  }
+  return nullptr;
+}
+
+bool llvm::isEdgeAddressTaken(const EdgeAddress &EA) {
+  return any_of(EA.uses(), [](const Use &U) {
+    const User *Usr = U.getUser();
+    if (isa<IndirectSwitchInst>(Usr))
+      return U.getOperandNo() == 0;
+    const auto *C = dyn_cast<Constant>(Usr);
+    return !C || isa<GlobalValue>(C) || C->isConstantUsed();
+  });
+}
+
+void llvm::markEdgeAddressDestinationsAddressTaken(
+    const Function &F,
+    function_ref<MachineBasicBlock *(const BasicBlock &)> GetMBB) {
+  if (!F.hasEdgeAddress())
+    return;
+  for (const BasicBlock &BB : F) {
+    auto *ISI = dyn_cast<IndirectSwitchInst>(BB.getTerminator());
+    if (!ISI)
+      continue;
+    for (auto Case : ISI->cases()) {
+      if (!isEdgeAddressTaken(*Case.getCaseValue()))
+        continue;
+      auto *Dest = const_cast<BasicBlock *>(Case.getCaseSuccessor());
+      // The AsmPrinter emits labels for address-taken blocks that have a
+      // blockaddress, which edgeaddresses are lowered to.
+      BlockAddress::get(Dest);
+      GetMBB(*Dest)->setAddressTakenIRBlock(Dest);
+    }
+  }
+}
+
 /// ExtractTypeInfo - Returns the type info, possibly bitcast, encoded in V.
 GlobalValue *llvm::ExtractTypeInfo(Value *V) {
   V = V->stripPointerCasts();

@@ -319,6 +319,9 @@ void FunctionLoweringInfo::set(const Function &fn, MachineFunction &mf,
     }
   }
 
+  markEdgeAddressDestinationsAddressTaken(
+      *Fn, [&](const BasicBlock &BB) { return getMBB(&BB); });
+
   if (isFuncletEHPersonality(Personality)) {
     WinEHFuncInfo &EHInfo = *MF->getWinEHFuncInfo();
 

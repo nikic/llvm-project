@@ -9,6 +9,7 @@
 ; CHECK-NEXT:      Function Alias Analysis Results
 ; CHECK-NEXT:      ObjC ARC contraction
 ; CHECK-NEXT:    Pre-ISel Intrinsic Lowering
+; CHECK-NEXT:    Prepare edgeaddress uses for code generation
 ; CHECK-NEXT:    FunctionPass Manager
 ; CHECK-NEXT:      Expand IR instructions
 ; CHECK-NEXT:      Expand Atomic instructions

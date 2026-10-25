@@ -2020,9 +2020,15 @@ SDValue SelectionDAGBuilder::getValueImpl(const Value *V) {
     if (const BlockAddress *BA = dyn_cast<BlockAddress>(C))
       return DAG.getBlockAddress(BA, VT);
 
-    if (isa<EdgeAddress>(C))
-      // TODO: Implement lowering of edgeaddress.
-      reportFatalUsageError("edgeaddress is not yet supported");
+    // An edgeaddress is the address of its indirectswitch case destination,
+    // which FunctionLoweringInfo marked as address-taken.
+    if (const auto *EA = dyn_cast<EdgeAddress>(C)) {
+      if (const BasicBlock *Dest = getEdgeAddressDestination(*EA))
+        return DAG.getBlockAddress(
+            BlockAddress::get(EA->getType(), const_cast<BasicBlock *>(Dest)),
+            VT);
+      return getValue(EA->getFunction());
+    }
 
     if (const auto *Equiv = dyn_cast<DSOLocalEquivalent>(C))
       return getValue(Equiv->getGlobalValue());
@@ -3766,7 +3772,8 @@ void SelectionDAGBuilder::UpdateSplitBlock(MachineBasicBlock *First,
       BTB.Parent = Last;
 }
 
-void SelectionDAGBuilder::visitIndirectBr(const IndirectBrInst &I) {
+void SelectionDAGBuilder::visitIndirectBranch(const Instruction &I,
+                                              const Value *Address) {
   MachineBasicBlock *IndirectBrMBB = FuncInfo.MBB;
 
   // Update machine-CFG edges with unique successors.
@@ -3782,14 +3789,18 @@ void SelectionDAGBuilder::visitIndirectBr(const IndirectBrInst &I) {
   }
   IndirectBrMBB->normalizeSuccProbs();
 
-  DAG.setRoot(DAG.getNode(ISD::BRIND, getCurSDLoc(),
-                          MVT::Other, getControlRoot(),
-                          getValue(I.getAddress())));
+  DAG.setRoot(DAG.getNode(ISD::BRIND, getCurSDLoc(), MVT::Other,
+                          getControlRoot(), getValue(Address)));
+}
+
+void SelectionDAGBuilder::visitIndirectBr(const IndirectBrInst &I) {
+  visitIndirectBranch(I, I.getAddress());
 }
 
 void SelectionDAGBuilder::visitIndirectSwitch(const IndirectSwitchInst &I) {
-  // TODO: Implement lowering of indirectswitch.
-  reportFatalUsageError("indirectswitch is not yet supported");
+  // The case values are not needed: edgeaddresses are lowered to the addresses
+  // of the destinations.
+  visitIndirectBranch(I, I.getAddress());
 }
 
 void SelectionDAGBuilder::visitUnreachable(const UnreachableInst &I) {

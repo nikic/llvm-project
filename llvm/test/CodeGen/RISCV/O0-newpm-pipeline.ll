@@ -13,6 +13,7 @@
 ; CHECK-NEXT: require<runtime-libcall-info>
 ; CHECK-NEXT: require<libcall-lowering-info>
 ; CHECK-NEXT: pre-isel-intrinsic-lowering
+; CHECK-NEXT: prepare-edgeaddress
 ; CHECK-NEXT: function
 ; CHECK-NEXT:   expand-ir-insts<O0>
 ; CHECK-NEXT:   atomic-expand

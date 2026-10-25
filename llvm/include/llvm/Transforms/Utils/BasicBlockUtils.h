@@ -632,6 +632,8 @@ LLVM_ABI CondBrInst *GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
 // If BPI and BFI aren't non-null, BPI/BFI will be updated accordingly.
 // When `IgnoreBlocksWithoutPHI` is set to `true` critical edges leading to a
 // block without phi-instructions will not be split.
+// indirectswitch edges are handled the same way: while they could be split
+// normally, that would add a branch on the indirect edge.
 LLVM_ABI bool SplitIndirectBrCriticalEdges(Function &F,
                                            bool IgnoreBlocksWithoutPHI,
                                            BranchProbabilityInfo *BPI = nullptr,

@@ -193,6 +193,7 @@ add_llvm_component_library(LLVMCodeGen
   PostRAHazardRecognizer.cpp
   PostRASchedulerList.cpp
   PreISelIntrinsicLowering.cpp
+  PrepareEdgeAddress.cpp
   ProcessImplicitDefs.cpp
   PrologEpilogInserter.cpp
   PseudoProbeInserter.cpp

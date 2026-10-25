@@ -254,6 +254,7 @@ LLVM_ABI void initializePostRAHazardRecognizerLegacyPass(PassRegistry &);
 LLVM_ABI void initializePostRAMachineSinkingLegacyPass(PassRegistry &);
 LLVM_ABI void initializePostRASchedulerLegacyPass(PassRegistry &);
 LLVM_ABI void initializePreISelIntrinsicLoweringLegacyPassPass(PassRegistry &);
+LLVM_ABI void initializePrepareEdgeAddressLegacyPassPass(PassRegistry &);
 LLVM_ABI void initializePrintFunctionPassWrapperPass(PassRegistry &);
 LLVM_ABI void initializePrintModulePassWrapperPass(PassRegistry &);
 LLVM_ABI void initializeProcessImplicitDefsLegacyPass(PassRegistry &);

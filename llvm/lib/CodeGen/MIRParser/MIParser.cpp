@@ -41,6 +41,7 @@
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/CodeGenTypes/LowLevelType.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -846,8 +847,15 @@ bool MIParser::parseBasicBlockDefinition(
   MBB->setMaxBytesForAlignment(MaxBytesForAlignment);
   if (MachineBlockAddressTaken)
     MBB->setMachineBlockAddressTaken();
-  if (AddressTakenIRBlock)
+  if (AddressTakenIRBlock) {
+    // Edgeaddresses are lowered to blockaddresses of indirectswitch
+    // destinations, which may not exist in the IR yet.
+    if (any_of(predecessors(AddressTakenIRBlock), [](const BasicBlock *Pred) {
+          return isa<IndirectSwitchInst>(Pred->getTerminator());
+        }))
+      BlockAddress::get(AddressTakenIRBlock);
     MBB->setAddressTakenIRBlock(AddressTakenIRBlock);
+  }
   MBB->setIsEHPad(IsLandingPad);
   MBB->setIsInlineAsmBrIndirectTarget(IsInlineAsmBrIndirectTarget);
   MBB->setIsEHFuncletEntry(IsEHFuncletEntry);

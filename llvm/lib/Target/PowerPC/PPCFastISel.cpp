@@ -19,6 +19,7 @@
 #include "PPCMachineFunctionInfo.h"
 #include "PPCSelectionDAGInfo.h"
 #include "PPCSubtarget.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/FastISel.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
@@ -1858,9 +1859,11 @@ bool PPCFastISel::SelectIndirectBr(const Instruction *I) {
     .addReg(AddrReg);
   BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD, TII.get(PPC::BCTR8));
 
-  const IndirectBrInst *IB = cast<IndirectBrInst>(I);
-  for (const BasicBlock *SuccBB : IB->successors())
-    FuncInfo.MBB->addSuccessor(FuncInfo.getMBB(SuccBB));
+  // Handles indirectbr and indirectswitch.
+  SmallPtrSet<const BasicBlock *, 32> Seen;
+  for (const BasicBlock *SuccBB : successors(I))
+    if (Seen.insert(SuccBB).second)
+      FuncInfo.MBB->addSuccessor(FuncInfo.getMBB(SuccBB));
 
   return true;
 }
@@ -1940,6 +1943,7 @@ bool PPCFastISel::fastSelectInstruction(const Instruction *I) {
     case Instruction::CondBr:
       return SelectBranch(I);
     case Instruction::IndirectBr:
+    case Instruction::IndirectSwitch:
       return SelectIndirectBr(I);
     case Instruction::FPExt:
       return SelectFPExt(I);

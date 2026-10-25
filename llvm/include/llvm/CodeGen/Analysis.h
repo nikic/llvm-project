@@ -15,12 +15,15 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/IR/Instructions.h"
 
 namespace llvm {
 template <typename T> class SmallVectorImpl;
+class BasicBlock;
 class Constant;
+class EdgeAddress;
 class GlobalValue;
 class LLT;
 class MachineBasicBlock;
@@ -98,6 +101,22 @@ LLVM_ABI void computeValueLLTs(const DataLayout &DL, Type &Ty,
 
 /// ExtractTypeInfo - Returns the type info, possibly bitcast, encoded in V.
 LLVM_ABI GlobalValue *ExtractTypeInfo(Value *V);
+
+/// Return the destination of the indirectswitch case that uses \p EA as its
+/// case value, i.e. the block whose address is the value of \p EA. Returns null
+/// if there is no such case, or if the function is not code generated; the
+/// value of \p EA is then unspecified and lowered to the function address.
+LLVM_ABI const BasicBlock *getEdgeAddressDestination(const EdgeAddress &EA);
+
+/// Return true if \p EA has a (live) use other than as an indirectswitch case
+/// value, in which case the destination of its case is an address-taken block.
+LLVM_ABI bool isEdgeAddressTaken(const EdgeAddress &EA);
+
+/// Mark the machine basic blocks of the destinations of indirectswitch cases in
+/// \p F whose edgeaddress is taken as address-taken.
+LLVM_ABI void markEdgeAddressDestinationsAddressTaken(
+    const Function &F,
+    function_ref<MachineBasicBlock *(const BasicBlock &)> GetMBB);
 
 /// Return true if landingpad result type \p Ty is a struct of an exception
 /// pointer (pointer or integer) and an integer selector, the only lowerable

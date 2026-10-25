@@ -944,6 +944,7 @@ bool TargetPassConfig::addISelPasses() {
   if (getOptLevel() != CodeGenOptLevel::None)
     addPass(createObjCARCContractPass());
   addPass(createPreISelIntrinsicLoweringPass());
+  addPass(createPrepareEdgeAddressPass());
   addPass(createExpandIRInstsPass(getOptLevel()));
   addIRPasses();
 

@@ -19,6 +19,10 @@
 /// get the builtin non-jump-table lowering of a switch even when the input
 /// source contained an explicit indirect branch construct.
 ///
+/// `indirectswitch` instructions are expanded into a `switch` in the same
+/// block, over integers that replace the `edgeaddress` constants used as its
+/// case values.
+///
 /// Note that it doesn't make any sense to enable this pass unless a target also
 /// disables jump-table lowering of switches. Doing that is likely to pessimize
 /// the code.
@@ -27,6 +31,8 @@
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
@@ -118,10 +124,101 @@ FunctionPass *llvm::createIndirectBrExpandPass(CodeGenOptLevel OptLevel) {
   return new IndirectBrExpandLegacyPass(OptLevel);
 }
 
+/// Whether \p U is the use of an edgeaddress as an indirectswitch case value.
+static bool isIndirectSwitchCaseUse(const Use &U) {
+  return isa<IndirectSwitchInst>(U.getUser()) && U.getOperandNo() != 0;
+}
+
+/// Replace \p ISI with a switch over small integers, and replace the
+/// edgeaddress constants used as its case values with those integers.
+static void
+expandIndirectSwitch(IndirectSwitchInst *ISI,
+                     SmallVectorImpl<DominatorTree::UpdateType> &Updates) {
+  BasicBlock *BB = ISI->getParent();
+  Function &F = *BB->getParent();
+  const DataLayout &DL = F.getDataLayout();
+
+  // Only cases whose edgeaddress is used for something other than the case
+  // value itself can be taken.
+  SmallVector<unsigned> LiveCases;
+  for (unsigned I = 0, E = ISI->getNumCases(); I != E; ++I) {
+    EdgeAddress *EA = ISI->getCaseValue(I);
+    EA->removeDeadConstantUsers();
+    if (!all_of(EA->uses(), isIndirectSwitchCaseUse))
+      LiveCases.push_back(I);
+    else
+      ISI->getSuccessor(I)->removePredecessor(BB, /*KeepOneInputPHIs=*/true);
+  }
+
+  SmallSetVector<BasicBlock *, 8> OldSuccs(llvm::from_range, successors(ISI));
+  SmallPtrSet<BasicBlock *, 8> NewSuccs;
+  SmallVector<std::pair<EdgeAddress *, Constant *>> Replacements;
+  if (LiveCases.empty()) {
+    (void)new UnreachableInst(F.getContext(), ISI->getIterator());
+  } else {
+    auto *ITy =
+        cast<IntegerType>(DL.getIntPtrType(ISI->getAddress()->getType()));
+    Value *SwitchValue = CastInst::CreatePointerCast(
+        ISI->getAddress(), ITy,
+        Twine(ISI->getAddress()->getName()) + ".switch_cast",
+        ISI->getIterator());
+    // Use the first live case as the default destination; values not matching
+    // any case are undefined behavior. Integers start at 1, as null may be
+    // compared with an edgeaddress.
+    BasicBlock *DefaultBB = ISI->getSuccessor(LiveCases[0]);
+    auto *SI = SwitchInst::Create(SwitchValue, DefaultBB, LiveCases.size() - 1,
+                                  ISI->getIterator());
+    NewSuccs.insert(DefaultBB);
+    for (auto [Idx, CaseIdx] : enumerate(LiveCases)) {
+      ConstantInt *C = ConstantInt::get(ITy, Idx + 1);
+      if (Idx != 0) {
+        SI->addCase(C, ISI->getSuccessor(CaseIdx));
+        NewSuccs.insert(ISI->getSuccessor(CaseIdx));
+      }
+      EdgeAddress *EA = ISI->getCaseValue(CaseIdx);
+      Replacements.push_back({EA, ConstantExpr::getIntToPtr(C, EA->getType())});
+    }
+
+    SmallVector<uint32_t> Weights;
+    if (extractBranchWeights(*ISI, Weights)) {
+      SmallVector<uint32_t> NewWeights;
+      for (unsigned CaseIdx : LiveCases)
+        NewWeights.push_back(Weights[CaseIdx]);
+      setBranchWeights(*SI, NewWeights, /*IsExpected=*/false);
+    } else {
+      setExplicitlyUnknownBranchWeightsIfProfiled(*SI, DEBUG_TYPE);
+    }
+  }
+
+  for (BasicBlock *Succ : OldSuccs)
+    if (!NewSuccs.contains(Succ))
+      Updates.push_back({DominatorTree::Delete, BB, Succ});
+  ISI->eraseFromParent();
+
+  for (auto [EA, C] : Replacements)
+    EA->replaceAllUsesWith(C);
+}
+
 bool runImpl(Function &F, const TargetLowering *TLI, DomTreeUpdater *DTU,
              function_ref<BlockFrequencyInfo *()> GetBFI,
              bool PreserveProfile) {
   auto &DL = F.getDataLayout();
+
+  // Expand indirectswitch instructions first. Unlike indirectbr, each of
+  // them can be expanded in place.
+  bool ExpandedIndirectSwitch = false;
+  {
+    SmallVector<IndirectSwitchInst *, 1> IndirectSwitches;
+    for (BasicBlock &BB : F)
+      if (auto *ISI = dyn_cast<IndirectSwitchInst>(BB.getTerminator()))
+        IndirectSwitches.push_back(ISI);
+    SmallVector<DominatorTree::UpdateType, 8> Updates;
+    for (IndirectSwitchInst *ISI : IndirectSwitches)
+      expandIndirectSwitch(ISI, Updates);
+    if (DTU)
+      DTU->applyUpdates(Updates);
+    ExpandedIndirectSwitch = !IndirectSwitches.empty();
+  }
 
   SmallVector<IndirectBrInst *, 1> IndirectBrs;
   SmallVector<uint64_t, 1> IndirectBrsBlockFrequencies;
@@ -183,7 +280,7 @@ bool runImpl(Function &F, const TargetLowering *TLI, DomTreeUpdater *DTU,
     }
 
   if (IndirectBrs.empty())
-    return false;
+    return ExpandedIndirectSwitch;
 
   // If we need to replace any indirectbrs we need to establish integer
   // constants that will correspond to each of the basic blocks in the function

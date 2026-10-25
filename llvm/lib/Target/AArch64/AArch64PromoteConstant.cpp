@@ -247,7 +247,7 @@ static bool containsOnlyConstantData(const Constant *C) {
   if (isa<ConstantData>(C))
     return true;
 
-  if (isa<GlobalValue>(C) || isa<BlockAddress>(C) || isa<ConstantExpr>(C))
+  if (isa<GlobalValue, BlockAddress, EdgeAddress, ConstantExpr>(C))
     return false;
 
   return all_of(C->operands(), [](const Use &U) {
@@ -300,7 +300,7 @@ static bool shouldConvertUse(const Constant *Cst, const Instruction *Instr,
     return false;
 
   // Expected address must be a constant.
-  if (isa<const IndirectBrInst>(Instr))
+  if (isa<const IndirectBrInst, const IndirectSwitchInst>(Instr))
     return false;
 
   // Do not mess with intrinsics.

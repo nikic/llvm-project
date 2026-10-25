@@ -481,6 +481,11 @@ LLVM_ABI FunctionPass *createInterleavedAccessPass();
 ///
 LLVM_ABI FunctionPass *createInterleavedLoadCombinePass();
 
+/// PrepareEdgeAddress - This pass replaces uses of edgeaddress constants in
+/// functions other than their own with loads from private globals.
+///
+LLVM_ABI ModulePass *createPrepareEdgeAddressPass();
+
 /// LowerEmuTLS - This pass generates __emutls_[vt].xyz variables for all
 /// TLS variables for the emulated TLS model.
 ///

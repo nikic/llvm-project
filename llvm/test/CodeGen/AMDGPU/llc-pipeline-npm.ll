@@ -13,6 +13,7 @@
 ; GCN-O0-NEXT: require<runtime-libcall-info>
 ; GCN-O0-NEXT: require<libcall-lowering-info>
 ; GCN-O0-NEXT: pre-isel-intrinsic-lowering
+; GCN-O0-NEXT: prepare-edgeaddress
 ; GCN-O0-NEXT: function
 ; GCN-O0-NEXT:   expand-ir-insts<O0>
 ; GCN-O0-NEXT: amdgpu-remove-incompatible-functions
@@ -114,6 +115,7 @@
 ; GCN-O2-NEXT: function
 ; GCN-O2-NEXT:   objc-arc-contract
 ; GCN-O2-NEXT: pre-isel-intrinsic-lowering
+; GCN-O2-NEXT: prepare-edgeaddress
 ; GCN-O2-NEXT: function
 ; GCN-O2-NEXT:   expand-ir-insts<O2>
 ; GCN-O2-NEXT: amdgpu-remove-incompatible-functions
@@ -302,6 +304,7 @@
 ; GCN-O3-NEXT: function
 ; GCN-O3-NEXT:   objc-arc-contract
 ; GCN-O3-NEXT: pre-isel-intrinsic-lowering
+; GCN-O3-NEXT: prepare-edgeaddress
 ; GCN-O3-NEXT: function
 ; GCN-O3-NEXT:   expand-ir-insts<O3>
 ; GCN-O3-NEXT: amdgpu-remove-incompatible-functions

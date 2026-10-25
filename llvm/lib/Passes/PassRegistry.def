@@ -104,6 +104,7 @@ MODULE_PASS("inliner-wrapper-no-mandatory-first",
 MODULE_PASS("insert-gcov-profiling", GCOVProfilerPass())
 MODULE_PASS("instrprof", InstrProfilingLoweringPass())
 MODULE_PASS("ctx-instr-lower", PGOCtxProfLoweringPass())
+MODULE_PASS("prepare-edgeaddress", PrepareEdgeAddressPass())
 MODULE_PASS("print<ctx-prof-analysis>", CtxProfAnalysisPrinterPass(errs()))
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 MODULE_PASS("instrumentor", InstrumentorPass())

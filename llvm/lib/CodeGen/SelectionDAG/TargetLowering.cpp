@@ -6718,7 +6718,7 @@ void TargetLowering::ComputeConstraintToUse(AsmOperandInfo &OpInfo,
       return;
     }
 
-    if (isa<BasicBlock>(v) || isa<BlockAddress>(v)) {
+    if (isa<BasicBlock, BlockAddress, EdgeAddress>(v)) {
       OpInfo.ConstraintCode = "i";
       return;
     }

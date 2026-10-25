@@ -739,6 +739,11 @@ Constant::PossibleRelocationsTy Constant::getRelocationInfo() const {
             cast<BlockAddress>(LHSOp0)->getFunction() ==
                 cast<BlockAddress>(RHSOp0)->getFunction())
           return NoRelocation;
+        // The same holds for edgeaddresses, which are lowered to labels.
+        if (isa<EdgeAddress>(LHSOp0) && isa<EdgeAddress>(RHSOp0) &&
+            cast<EdgeAddress>(LHSOp0)->getFunction() ==
+                cast<EdgeAddress>(RHSOp0)->getFunction())
+          return NoRelocation;
 
         // Relative pointers do not need to be dynamically relocated.
         if (auto *RHSGV =

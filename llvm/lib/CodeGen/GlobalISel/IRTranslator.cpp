@@ -487,8 +487,9 @@ class IRTranslatorImpl {
   bool translateIndirectBr(const User &U, MachineIRBuilder &MIRBuilder);
 
   bool translateIndirectSwitch(const User &U, MachineIRBuilder &MIRBuilder) {
-    // TODO: Implement lowering of indirectswitch.
-    reportFatalUsageError("indirectswitch is not yet supported");
+    // The case values are not needed: edgeaddresses are lowered to the
+    // addresses of the destinations.
+    return translateIndirectBr(U, MIRBuilder);
   }
 
   bool translateExtractValue(const User &U, MachineIRBuilder &MIRBuilder);
@@ -2123,9 +2124,12 @@ bool IRTranslatorImpl::lowerSwitchWorkItem(SwitchCG::SwitchWorkListItem W,
 
 bool IRTranslatorImpl::translateIndirectBr(const User &U,
                                            MachineIRBuilder &MIRBuilder) {
-  const IndirectBrInst &BrInst = cast<IndirectBrInst>(U);
+  // Handles both indirectbr and indirectswitch, which have the address as
+  // their first operand.
+  assert((isa<IndirectBrInst, IndirectSwitchInst>(U)) && "Unexpected branch");
+  const Instruction &BrInst = cast<Instruction>(U);
 
-  const Register Tgt = getOrCreateVReg(*BrInst.getAddress());
+  const Register Tgt = getOrCreateVReg(*BrInst.getOperand(0));
   MIRBuilder.buildBrIndirect(Tgt);
 
   // Link successors.
@@ -4855,9 +4859,15 @@ bool IRTranslatorImpl::translate(const Constant &C, Register Reg) {
     EntryBuilder->buildBuildVector(Reg, Ops);
   } else if (auto *BA = dyn_cast<BlockAddress>(&C)) {
     EntryBuilder->buildBlockAddress(Reg, BA);
-  } else if (isa<EdgeAddress>(C)) {
-    // TODO: Implement lowering of edgeaddress.
-    reportFatalUsageError("edgeaddress is not yet supported");
+  } else if (auto *EA = dyn_cast<EdgeAddress>(&C)) {
+    // An edgeaddress is the address of its indirectswitch case destination,
+    // which was marked as address-taken.
+    if (const BasicBlock *Dest = getEdgeAddressDestination(*EA))
+      EntryBuilder->buildBlockAddress(
+          Reg,
+          BlockAddress::get(EA->getType(), const_cast<BasicBlock *>(Dest)));
+    else
+      EntryBuilder->buildGlobalValue(Reg, EA->getFunction());
   } else
     return false;
 
@@ -5268,6 +5278,9 @@ bool IRTranslatorImpl::runOnMachineFunction(
     if (!HasMustTailInVarArgFn)
       HasMustTailInVarArgFn = checkForMustTailInVarArgFn(IsVarArg, BB);
   }
+
+  markEdgeAddressDestinationsAddressTaken(
+      F, [&](const BasicBlock &BB) { return &getMBB(BB); });
 
   VMap.reserveVRegs(NumValues);
   MRI->reserveVirtRegs(NumValues);

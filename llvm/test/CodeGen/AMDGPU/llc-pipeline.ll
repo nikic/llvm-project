@@ -15,6 +15,7 @@
 
 ; GCN-O0:  ModulePass Manager
 ; GCN-O0-NEXT:    Pre-ISel Intrinsic Lowering
+; GCN-O0-NEXT:    Prepare edgeaddress uses for code generation
 ; GCN-O0-NEXT:    FunctionPass Manager
 ; GCN-O0-NEXT:      Expand IR instructions
 ; GCN-O0-NEXT:    AMDGPU Remove Incompatible Functions
@@ -178,6 +179,7 @@
 ; GCN-O1-NEXT:      Function Alias Analysis Results
 ; GCN-O1-NEXT:      ObjC ARC contraction
 ; GCN-O1-NEXT:    Pre-ISel Intrinsic Lowering
+; GCN-O1-NEXT:    Prepare edgeaddress uses for code generation
 ; GCN-O1-NEXT:    FunctionPass Manager
 ; GCN-O1-NEXT:      Expand IR instructions
 ; GCN-O1-NEXT:    AMDGPU Remove Incompatible Functions
@@ -476,6 +478,7 @@
 ; GCN-O1-OPTS-NEXT:      Function Alias Analysis Results
 ; GCN-O1-OPTS-NEXT:      ObjC ARC contraction
 ; GCN-O1-OPTS-NEXT:    Pre-ISel Intrinsic Lowering
+; GCN-O1-OPTS-NEXT:    Prepare edgeaddress uses for code generation
 ; GCN-O1-OPTS-NEXT:    FunctionPass Manager
 ; GCN-O1-OPTS-NEXT:      Expand IR instructions
 ; GCN-O1-OPTS-NEXT:    AMDGPU Remove Incompatible Functions
@@ -803,6 +806,7 @@
 ; GCN-O2-NEXT:      Function Alias Analysis Results
 ; GCN-O2-NEXT:      ObjC ARC contraction
 ; GCN-O2-NEXT:    Pre-ISel Intrinsic Lowering
+; GCN-O2-NEXT:    Prepare edgeaddress uses for code generation
 ; GCN-O2-NEXT:    FunctionPass Manager
 ; GCN-O2-NEXT:      Expand IR instructions
 ; GCN-O2-NEXT:    AMDGPU Remove Incompatible Functions
@@ -1135,6 +1139,7 @@
 ; GCN-O3-NEXT:      Function Alias Analysis Results
 ; GCN-O3-NEXT:      ObjC ARC contraction
 ; GCN-O3-NEXT:    Pre-ISel Intrinsic Lowering
+; GCN-O3-NEXT:    Prepare edgeaddress uses for code generation
 ; GCN-O3-NEXT:    FunctionPass Manager
 ; GCN-O3-NEXT:      Expand IR instructions
 ; GCN-O3-NEXT:    AMDGPU Remove Incompatible Functions

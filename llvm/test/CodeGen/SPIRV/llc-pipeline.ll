@@ -24,6 +24,7 @@
 ; SPIRV-O0-NEXT:Machine Branch Probability Analysis
 ; SPIRV-O0-NEXT:  ModulePass Manager
 ; SPIRV-O0-NEXT:    Pre-ISel Intrinsic Lowering
+; SPIRV-O0-NEXT:    Prepare edgeaddress uses for code generation
 ; SPIRV-O0-NEXT:    FunctionPass Manager
 ; SPIRV-O0-NEXT:      Expand IR instructions
 ; SPIRV-O0-NEXT:      Expand Atomic instructions
@@ -110,6 +111,7 @@
 ; SPIRV-Opt-NEXT:      Function Alias Analysis Results
 ; SPIRV-Opt-NEXT:      ObjC ARC contraction
 ; SPIRV-Opt-NEXT:    Pre-ISel Intrinsic Lowering
+; SPIRV-Opt-NEXT:    Prepare edgeaddress uses for code generation
 ; SPIRV-Opt-NEXT:    FunctionPass Manager
 ; SPIRV-Opt-NEXT:      Expand IR instructions
 ; SPIRV-Opt-NEXT:      Expand Atomic instructions

@@ -531,6 +531,7 @@ private:
   void visitUncondBr(const UncondBrInst &I);
   void visitCondBr(const CondBrInst &I);
   void visitSwitch(const SwitchInst &I);
+  void visitIndirectBranch(const Instruction &I, const Value *Address);
   void visitIndirectBr(const IndirectBrInst &I);
   void visitIndirectSwitch(const IndirectSwitchInst &I);
   void visitUnreachable(const UnreachableInst &I);

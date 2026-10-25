@@ -864,8 +864,8 @@ bool CodeGenPrepare::isMergingEmptyBlockProfitable(BasicBlock *BB,
   // such empty block (BB), ISel will place COPY instructions in BB, not in the
   // predecessor of BB.
   BasicBlock *Pred = BB->getUniquePredecessor();
-  if (!Pred || !(isa<SwitchInst>(Pred->getTerminator()) ||
-                 isa<IndirectBrInst>(Pred->getTerminator())))
+  if (!Pred || !isa<SwitchInst, IndirectBrInst, IndirectSwitchInst>(
+                   Pred->getTerminator()))
     return true;
 
   if (BB->getTerminator() != &*BB->getFirstNonPHIOrPseudoProbe())
@@ -8624,7 +8624,7 @@ static bool tryUnmergingGEPsAcrossIndirectBr(GetElementPtrInst *GEPI,
   BasicBlock *SrcBlock = GEPI->getParent();
   // Check that SrcBlock ends with an IndirectBr. If not, give up. The common
   // (non-IndirectBr) cases exit early here.
-  if (!isa<IndirectBrInst>(SrcBlock->getTerminator()))
+  if (!isa<IndirectBrInst, IndirectSwitchInst>(SrcBlock->getTerminator()))
     return false;
   // Check that GEPI is a simple gep with a single constant index.
   if (!GEPSequentialConstIndexed(GEPI))
