@@ -115,8 +115,9 @@ extern cl::opt<bool> MemProfReportHintedSizes;
 // references basic block address we can't import it separately from function
 // containing that basic block. For simplicity we currently don't import such
 // global vars at all. When importing function we aren't interested if any
-// instruction in it takes an address of any basic block, because instruction
-// can only take an address of basic block located in the same function.
+// instruction in it takes an address of a basic block of the same function:
+// a blockaddress is data-only and may refer to any copy of the block (see
+// LangRef), so importing (and inlining) such a function is fine.
 // The same holds for edgeaddress, which may additionally be used outside of
 // its function, so `RefEdgeAddress` (if non-null) is set to true if the
 // analyzed value references any edgeaddress, and such a function can't be
@@ -392,7 +393,6 @@ static void computeFunctionSummary(
 #endif
 
   bool HasInlineAsmMaybeReferencingInternal = false;
-  bool HasIndirBranchToBlockAddress = false;
   // An edgeaddress may be used outside of its function, and a function with
   // an indirectswitch can't be inlined, so we don't import functions which
   // reference any edgeaddress.
@@ -400,18 +400,6 @@ static void computeFunctionSummary(
   bool HasUnknownCall = false;
   bool MayThrow = false;
   for (const BasicBlock &BB : F) {
-    // We don't allow inlining of function with indirect branch to blockaddress.
-    // If the blockaddress escapes the function, e.g., via a global variable,
-    // inlining may lead to an invalid cross-function reference. So we shouldn't
-    // import such function either.
-    if (BB.hasAddressTaken()) {
-      for (User *U : BlockAddress::get(const_cast<BasicBlock *>(&BB))->users())
-        if (!isa<CallBrInst>(*U)) {
-          HasIndirBranchToBlockAddress = true;
-          break;
-        }
-    }
-
     for (const Instruction &I : BB) {
       if (isa<PseudoProbeInst>(I))
         continue;
@@ -756,7 +744,6 @@ static void computeFunctionSummary(
   bool NonRenamableLocal = isNonRenamableLocal(F);
   bool NotEligibleForImport = NonRenamableLocal ||
                               HasInlineAsmMaybeReferencingInternal ||
-                              HasIndirBranchToBlockAddress ||
                               HasEdgeAddressRef || HasLocalIFuncCallOrRef;
   GlobalValueSummary::GVFlags Flags(
       F.getLinkage(), F.getVisibility(), NotEligibleForImport,

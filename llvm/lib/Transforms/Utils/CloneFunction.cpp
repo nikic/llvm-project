@@ -276,12 +276,12 @@ void llvm::CloneFunctionBodyInto(Function &NewFunc, const Function &OldFunc,
     // Add basic block mapping.
     VMap[&BB] = CBB;
 
-    // It is only legal to clone a function if a block address within that
-    // function is never referenced outside of the function.  Given that, we
-    // want to map block addresses from the old function to block addresses in
-    // the clone. (This is different from the generic ValueMapper
-    // implementation, which generates an invalid blockaddress when
-    // cloning a function.)
+    // Map block addresses from the old function used by the cloned code to
+    // block addresses in the clone (LangRef allows a blockaddress used by
+    // duplicated code to refer to the copied block). Uses outside of the
+    // cloned code keep referring to the old block. (This is different from the
+    // generic ValueMapper implementation, which generates an invalid
+    // blockaddress when cloning a function.)
     if (BB.hasAddressTaken()) {
       Constant *OldBBAddr = BlockAddress::get(const_cast<Function *>(&OldFunc),
                                               const_cast<BasicBlock *>(&BB));
@@ -472,7 +472,26 @@ public:
         newFunc->getAttributes().hasFnAttr(Attribute::StrictFP);
   }
 
-  /// The specified block is found to be reachable, clone it and
+  /// Return true if \p C is used, directly or through other constants, by an
+/// instruction in \p F.
+static bool isUsedInFunction(const Constant *C, const Function *F) {
+  SmallVector<const User *, 8> Worklist(C->users());
+  SmallPtrSet<const User *, 8> Visited;
+  while (!Worklist.empty()) {
+    const User *U = Worklist.pop_back_val();
+    if (!Visited.insert(U).second)
+      continue;
+    if (auto *I = dyn_cast<Instruction>(U)) {
+      if (I->getFunction() == F)
+        return true;
+    } else if (isa<Constant>(U) && !isa<GlobalValue>(U)) {
+      append_range(Worklist, U->users());
+    }
+  }
+  return false;
+}
+
+/// The specified block is found to be reachable, clone it and
   /// anything that it can reach.
   void CloneBlock(const BasicBlock *BB, BasicBlock::const_iterator StartingInst,
                   std::vector<const BasicBlock *> &ToClone);
@@ -543,20 +562,21 @@ void PruningFunctionCloner::CloneBlock(
   Twine NewName(BB->hasName() ? Twine(BB->getName()) + NameSuffix : "");
   BBEntry = NewBB = BasicBlock::Create(BB->getContext(), NewName, NewFunc);
 
-  // It is only legal to clone a function if a block address within that
-  // function is never referenced outside of the function.  Given that, we
-  // want to map block addresses from the old function to block addresses in
-  // the clone. (This is different from the generic ValueMapper
-  // implementation, which generates an invalid blockaddress when
+  // Map block addresses from the old function used by the cloned code to
+  // block addresses in the clone (LangRef allows a blockaddress used by
+  // duplicated code to refer to the copied block). Uses outside of the cloned
+  // code keep referring to the old block. (This is different from the generic
+  // ValueMapper implementation, which generates an invalid blockaddress when
   // cloning a function.)
+  // Only do this if the old function uses the blockaddress, so the copied
+  // block doesn't get an unused blockaddress (e.g. when inlining a function
+  // whose blockaddresses are only used by a SanitizerCoverage table).
   //
   // Note that we don't need to fix the mapping for unreachable blocks;
   // the default mapping there is safe.
-  if (BB->hasAddressTaken()) {
-    Constant *OldBBAddr = BlockAddress::get(const_cast<Function *>(OldFunc),
-                                            const_cast<BasicBlock *>(BB));
+  if (BlockAddress *OldBBAddr = BlockAddress::lookup(BB);
+      OldBBAddr && isUsedInFunction(OldBBAddr, OldFunc))
     VMap[OldBBAddr] = BlockAddress::get(NewFunc, NewBB);
-  }
 
   bool hasCalls = false, hasDynamicAllocas = false, hasStaticAllocas = false;
   bool hasMemProfMetadata = false;

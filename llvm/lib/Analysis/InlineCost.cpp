@@ -2985,17 +2985,6 @@ InlineResult CallAnalyzer::analyze() {
 
     onBlockStart(BB);
 
-    // Disallow inlining a blockaddress.
-    // A blockaddress only has defined behavior for an indirect branch in the
-    // same function, and we do not currently support inlining indirect
-    // branches.  But, the inliner may not see an indirect branch that ends up
-    // being dead code at a particular call site. If the blockaddress escapes
-    // the function, e.g., via a global variable, inlining may lead to an
-    // invalid cross-function reference.
-    // FIXME: pr/39560: continue relaxing this overt restriction.
-    if (BB->hasAddressTaken())
-      return InlineResult::failure("blockaddress used");
-
     // Analyze the cost of this block. If we blow through the threshold, this
     // returns false, and we can bail on out.
     InlineResult IR = analyzeBlock(BB, *EphValues);
@@ -3320,10 +3309,6 @@ InlineResult llvm::isInlineViable(Function &F) {
     return InlineResult::failure("contains indirect branches");
 
   for (BasicBlock &BB : F) {
-    // Disallow inlining of blockaddresses.
-    if (BB.hasAddressTaken())
-      return InlineResult::failure("blockaddress used");
-
     for (auto &II : BB) {
       CallBase *Call = dyn_cast<CallBase>(&II);
       if (!Call)
