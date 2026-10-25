@@ -518,6 +518,7 @@ protected:
   bool visitSelectInst(SelectInst &SI);
   bool visitSwitchInst(SwitchInst &SI);
   bool visitIndirectBrInst(IndirectBrInst &IBI);
+  bool visitIndirectSwitchInst(IndirectSwitchInst &ISI);
   bool visitResumeInst(ResumeInst &RI);
   bool visitCleanupReturnInst(CleanupReturnInst &RI);
   bool visitCatchReturnInst(CatchReturnInst &RI);
@@ -2694,6 +2695,15 @@ bool CallAnalyzer::visitIndirectBrInst(IndirectBrInst &IBI) {
   return false;
 }
 
+bool CallAnalyzer::visitIndirectSwitchInst(IndirectSwitchInst &ISI) {
+  // An indirectswitch can't be duplicated: its case values are edge addresses
+  // of the callee, which may also be used outside the callee, and each edge
+  // address may be a case of only one indirectswitch.
+  if (ISI.getNumCases() != 0)
+    HasIndirectBr = true;
+  return false;
+}
+
 bool CallAnalyzer::visitResumeInst(ResumeInst &RI) {
   // FIXME: It's not clear that a single instruction is an accurate model for
   // the inline cost of a resume instruction.
@@ -3318,6 +3328,11 @@ InlineCost llvm::getInlineCost(
 
 InlineResult llvm::isInlineViable(Function &F) {
   bool ReturnsTwice = F.hasFnAttribute(Attribute::ReturnsTwice);
+  // Disallow inlining of functions which contain an indirectswitch, which
+  // can't be duplicated.
+  if (F.hasIndirectSwitch())
+    return InlineResult::failure("contains indirect branches");
+
   for (BasicBlock &BB : F) {
     // Disallow inlining of functions which contain indirect branches.
     if (isa<IndirectBrInst>(BB.getTerminator()))

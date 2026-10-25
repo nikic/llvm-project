@@ -983,6 +983,12 @@ public:
   /// ID.
   SmallVector<EdgeAddress *> getEdgeAddresses() const;
 
+  /// Returns true if this function contains an indirectswitch with at least
+  /// one case. Such a function (or a part of it containing the
+  /// indirectswitch) cannot be duplicated, e.g. by inlining. This is cheap if
+  /// the function has no edge addresses.
+  bool hasIndirectSwitch() const;
+
   /// Replace each edgeaddress(@this, N) with edgeaddress(@NewF, N).
   ///
   /// Edge addresses are not uses of their function, so replaceAllUsesWith()

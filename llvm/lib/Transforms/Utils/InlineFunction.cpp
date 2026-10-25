@@ -2612,6 +2612,12 @@ llvm::InlineResult llvm::CanInlineCallSite(const CallBase &CB,
       CalledFunc->isDeclaration()) // call!
     return InlineResult::failure("external or indirect");
 
+  // An indirectswitch can't be duplicated, as its case values (edge addresses
+  // of the callee) may also be used outside the callee, and each edge address
+  // may be a case of only one indirectswitch.
+  if (CalledFunc->hasIndirectSwitch())
+    return InlineResult::failure("callee contains indirectswitch");
+
   // Don't inline if we've already inlined this callee through this call site
   // before to prevent infinite inlining through mutually recursive functions.
   if (MDNode *InlineHistory = CB.getMetadata(LLVMContext::MD_inline_history)) {

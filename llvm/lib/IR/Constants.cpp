@@ -2201,6 +2201,25 @@ EdgeAddress *EdgeAddress::lookup(const Function *F, unsigned ID) {
   return It->second.lookup(ID);
 }
 
+IndirectSwitchInst *EdgeAddress::getIndirectSwitch() const {
+  for (const Use &U : uses()) {
+    // Operand 0 is the address, then the destinations, then the case values.
+    auto *ISI = dyn_cast<IndirectSwitchInst>(U.getUser());
+    if (ISI && U.getOperandNo() > ISI->getNumCases())
+      return ISI;
+  }
+  return nullptr;
+}
+
+BasicBlock *EdgeAddress::getDestination() const {
+  for (const Use &U : uses()) {
+    auto *ISI = dyn_cast<IndirectSwitchInst>(U.getUser());
+    if (ISI && U.getOperandNo() > ISI->getNumCases())
+      return ISI->getSuccessor(U.getOperandNo() - 1 - ISI->getNumCases());
+  }
+  return nullptr;
+}
+
 /// Remove the constant from the constant table.
 void EdgeAddress::destroyConstantImpl() {
   auto &Map = getContext().pImpl->EdgeAddresses;

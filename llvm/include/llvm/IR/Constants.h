@@ -43,6 +43,7 @@
 
 namespace llvm {
 
+class IndirectSwitchInst;
 template <class ConstantClass> struct ConstantAggrKeyType;
 
 /// Base class for constants with no operands.
@@ -1184,6 +1185,14 @@ public:
 
   Function *getFunction() const { return F; }
   unsigned getID() const { return ID; }
+
+  /// Return the indirectswitch that has this edge address as a case value, or
+  /// null if there is none. There is at most one such indirectswitch.
+  LLVM_ABI IndirectSwitchInst *getIndirectSwitch() const;
+
+  /// Return the destination of the indirectswitch case for this edge address,
+  /// or null if it is not a case of any indirectswitch.
+  LLVM_ABI BasicBlock *getDestination() const;
 
   /// EdgeAddress is always a pointer.
   PointerType *getType() const { return cast<PointerType>(Value::getType()); }

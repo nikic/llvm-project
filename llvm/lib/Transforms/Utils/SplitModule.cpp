@@ -152,6 +152,9 @@ static void findPartitions(Module &M, ClusterIDMapType &ClusterIDMap,
           continue;
         addAllGlobalValueUsers(GVtoClusterMap, F, BA);
       }
+      // Likewise, an edgeaddress of F can't be referenced from another module.
+      for (const EdgeAddress *EA : F->getEdgeAddresses())
+        addAllGlobalValueUsers(GVtoClusterMap, F, EA);
     }
 
     if (GV.hasLocalLinkage())

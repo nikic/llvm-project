@@ -117,13 +117,17 @@ extern cl::opt<bool> MemProfReportHintedSizes;
 // global vars at all. When importing function we aren't interested if any
 // instruction in it takes an address of any basic block, because instruction
 // can only take an address of basic block located in the same function.
+// The same holds for edgeaddress, which may additionally be used outside of
+// its function, so `RefEdgeAddress` (if non-null) is set to true if the
+// analyzed value references any edgeaddress, and such a function can't be
+// imported either.
 // Set `RefLocalLinkageIFunc` to true if the analyzed value references a
 // local-linkage ifunc.
 static bool
 findRefEdges(ModuleSummaryIndex &Index, const User *CurUser,
              SetVector<ValueInfo, SmallVector<ValueInfo, 0>> &RefEdges,
-             SmallPtrSet<const User *, 8> &Visited,
-             bool &RefLocalLinkageIFunc) {
+             SmallPtrSet<const User *, 8> &Visited, bool &RefLocalLinkageIFunc,
+             bool *RefEdgeAddress = nullptr) {
   bool HasBlockAddress = false;
   SmallVector<const User *, 32> Worklist;
   if (Visited.insert(CurUser).second)
@@ -139,6 +143,12 @@ findRefEdges(ModuleSummaryIndex &Index, const User *CurUser,
         continue;
       if (isa<BlockAddress>(Operand)) {
         HasBlockAddress = true;
+        continue;
+      }
+      if (isa<EdgeAddress>(Operand)) {
+        HasBlockAddress = true;
+        if (RefEdgeAddress)
+          *RefEdgeAddress = true;
         continue;
       }
       if (auto *GV = dyn_cast<GlobalValue>(Operand)) {
@@ -383,6 +393,10 @@ static void computeFunctionSummary(
 
   bool HasInlineAsmMaybeReferencingInternal = false;
   bool HasIndirBranchToBlockAddress = false;
+  // An edgeaddress may be used outside of its function, and a function with
+  // an indirectswitch can't be inlined, so we don't import functions which
+  // reference any edgeaddress.
+  bool HasEdgeAddressRef = false;
   bool HasUnknownCall = false;
   bool MayThrow = false;
   for (const BasicBlock &BB : F) {
@@ -423,16 +437,20 @@ static void computeFunctionSummary(
           // so we add them to RefEdges as we do with all other instructions
           // except non-volatile load.
           Value *Stored = I.getOperand(0);
-          if (auto *GV = dyn_cast<GlobalValue>(Stored))
+          if (isa<EdgeAddress>(Stored))
+            HasEdgeAddressRef = true;
+          else if (auto *GV = dyn_cast<GlobalValue>(Stored))
             // findRefEdges will try to examine GV operands, so instead
             // of calling it we should add GV to RefEdges directly.
             RefEdges.insert(Index.getOrInsertValueInfo(GV));
           else if (auto *U = dyn_cast<User>(Stored))
-            findRefEdges(Index, U, RefEdges, Visited, HasLocalIFuncCallOrRef);
+            findRefEdges(Index, U, RefEdges, Visited, HasLocalIFuncCallOrRef,
+                         &HasEdgeAddressRef);
           continue;
         }
       }
-      findRefEdges(Index, &I, RefEdges, Visited, HasLocalIFuncCallOrRef);
+      findRefEdges(Index, &I, RefEdges, Visited, HasLocalIFuncCallOrRef,
+                   &HasEdgeAddressRef);
       const auto *CB = dyn_cast<CallBase>(&I);
       if (!CB) {
         if (I.mayThrow())
@@ -661,7 +679,8 @@ static void computeFunctionSummary(
             SmallPtrSet<const User *, 8> &Cache) {
           for (const auto *I : Instrs) {
             Cache.erase(I);
-            findRefEdges(Index, I, Edges, Cache, HasLocalIFuncCallOrRef);
+            findRefEdges(Index, I, Edges, Cache, HasLocalIFuncCallOrRef,
+                         &HasEdgeAddressRef);
           }
         };
 
@@ -735,9 +754,10 @@ static void computeFunctionSummary(
 #endif
 
   bool NonRenamableLocal = isNonRenamableLocal(F);
-  bool NotEligibleForImport =
-      NonRenamableLocal || HasInlineAsmMaybeReferencingInternal ||
-      HasIndirBranchToBlockAddress || HasLocalIFuncCallOrRef;
+  bool NotEligibleForImport = NonRenamableLocal ||
+                              HasInlineAsmMaybeReferencingInternal ||
+                              HasIndirBranchToBlockAddress ||
+                              HasEdgeAddressRef || HasLocalIFuncCallOrRef;
   GlobalValueSummary::GVFlags Flags(
       F.getLinkage(), F.getVisibility(), NotEligibleForImport,
       /* Live = */ false, F.isDSOLocal(), F.canBeOmittedFromSymbolTable(),

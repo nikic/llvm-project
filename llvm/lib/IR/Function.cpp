@@ -959,6 +959,16 @@ SmallVector<EdgeAddress *> Function::getEdgeAddresses() const {
   return EAs;
 }
 
+bool Function::hasIndirectSwitch() const {
+  if (!hasEdgeAddress())
+    return false;
+  for (EdgeAddress *EA :
+       make_second_range(getContext().pImpl->EdgeAddresses.find(this)->second))
+    if (EA->getIndirectSwitch())
+      return true;
+  return false;
+}
+
 void Function::dropEdgeAddresses() {
   if (!hasEdgeAddress())
     return;
