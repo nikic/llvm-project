@@ -293,6 +293,9 @@ unsigned MSP430InstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
   case TargetOpcode::KILL:
   case TargetOpcode::DBG_VALUE:
     return 0;
+  case TargetOpcode::INSTRUCTION_POINTER:
+    // mov pc, rd
+    return 2;
   case TargetOpcode::INLINEASM:
   case TargetOpcode::INLINEASM_BR: {
     const MachineFunction *MF = MI.getParent()->getParent();

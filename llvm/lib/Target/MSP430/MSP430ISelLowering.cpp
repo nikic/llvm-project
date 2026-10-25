@@ -78,6 +78,8 @@ MSP430TargetLowering::MSP430TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::GlobalAddress,    MVT::i16,   Custom);
   setOperationAction(ISD::ExternalSymbol,   MVT::i16,   Custom);
   setOperationAction(ISD::BlockAddress,     MVT::i16,   Custom);
+  // INSTRUCTION_POINTER is lowered to "mov pc, rd".
+  setOperationAction(ISD::INSTRUCTION_POINTER, MVT::i16, Legal);
   setOperationAction(ISD::BR_JT,            MVT::Other, Expand);
   setOperationAction(ISD::BR_CC,            MVT::i8,    Custom);
   setOperationAction(ISD::BR_CC,            MVT::i16,   Custom);

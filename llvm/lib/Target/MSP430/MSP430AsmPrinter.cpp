@@ -29,6 +29,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
@@ -154,6 +155,14 @@ bool MSP430AsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
 void MSP430AsmPrinter::emitInstruction(const MachineInstr *MI) {
   MSP430_MC::verifyInstructionPredicates(MI->getOpcode(),
                                          getSubtargetInfo().getFeatureBits());
+
+  if (MI->getOpcode() == TargetOpcode::INSTRUCTION_POINTER) {
+    // "mov pc, rd" produces the address of the next instruction.
+    EmitToStreamer(*OutStreamer, MCInstBuilder(MSP430::MOV16rr)
+                                     .addReg(MI->getOperand(0).getReg())
+                                     .addReg(MSP430::PC));
+    return;
+  }
 
   MSP430MCInstLower MCInstLowering(OutContext, *this);
 
