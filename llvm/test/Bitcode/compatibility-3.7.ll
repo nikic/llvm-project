@@ -738,9 +738,9 @@ defaultdest.1:
 defaultdest.2:
 
   indirectbr i8* blockaddress(@instructions.terminators, %defaultdest.2), [label %defaultdest.2]
-  ; CHECK: indirectbr ptr blockaddress(@instructions.terminators, %defaultdest.2), [label %defaultdest.2]
+  ; CHECK: br label %[[DISPATCH:[0-9]+]]
   indirectbr i8* blockaddress(@instructions.terminators, %defaultdest.2), [label %defaultdest.2, label %defaultdest.2]
-  ; CHECK: indirectbr ptr blockaddress(@instructions.terminators, %defaultdest.2), [label %defaultdest.2, label %defaultdest.2]
+  ; CHECK: br label %[[DISPATCH]]
 
   invoke fastcc void @f.fastcc()
   ; CHECK: invoke fastcc void @f.fastcc()
@@ -755,6 +755,11 @@ exc:
   ; CHECK: unreachable
 
   ret void
+  ; indirectbr is upgraded to indirectswitch in a dispatch block.
+  ; CHECK: [[DISPATCH]]:
+  ; CHECK-NEXT: indirectswitch ptr edgeaddress(@instructions.terminators, 0), [
+  ; CHECK-NEXT: ptr edgeaddress(@instructions.terminators, 0), label %defaultdest.2
+  ; CHECK-NEXT: ]
 }
 
 ; Instructions -- Binary Operations

@@ -678,6 +678,10 @@ class BitcodeReader : public BitcodeReaderBase, public GVMaterializer {
   /// gets moved into another Module.
   std::vector<Function *> BackwardRefFunctions;
 
+  /// Destinations of upgraded indirectbr instructions, and their edge
+  /// addresses that blockaddress references to them are upgraded to.
+  DenseMap<const BasicBlock *, EdgeAddress *> UpgradedBlockAddresses;
+
   /// Indicates that we are using a new encoding for instruction operands where
   /// most operands in the current FUNCTION_BLOCK are encoded relative to the
   /// instruction number, for a more compact encoding.  Some instruction
@@ -1728,6 +1732,14 @@ Expected<Value *> BitcodeReader::materializeValue(unsigned StartValID,
               ++BBI;
             }
             BB = &*BBI;
+            // Block addresses of upgraded indirectbr destinations are edge
+            // addresses.
+            if (EdgeAddress *EA = UpgradedBlockAddresses.lookup(BB)) {
+              C = EA;
+              if (C->getType() != BC->getType())
+                return error("blockaddress type mismatch");
+              break;
+            }
           } else {
             // Otherwise insert a placeholder and remember it so it can be
             // inserted when the function is parsed.
@@ -5124,6 +5136,8 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
   // expanded.
   SmallMapVector<std::pair<BasicBlock *, BasicBlock *>, BasicBlock *, 4>
     ConstExprEdgeBBs;
+  // indirectbr instructions to upgrade once the function is complete.
+  SmallVector<UpgradedIndirectBr, 0> IndirectBrs;
 
   DebugLoc LastLoc;
   auto getLastInstruction = [&]() -> Instruction * {
@@ -6048,20 +6062,23 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
       unsigned OpTyID = Record[0];
       Type *OpTy = getTypeByID(OpTyID);
       Value *Address = getValue(Record, 1, NextValueNo, OpTy, OpTyID, CurBB);
-      if (!OpTy || !Address)
+      if (!OpTy || !Address || !OpTy->isPointerTy())
         return error("Invalid indirectbr record");
-      unsigned NumDests = Record.size()-2;
-      IndirectBrInst *IBI = IndirectBrInst::Create(Address, NumDests);
-      InstructionList.push_back(IBI);
+      // indirectbr was removed: it is upgraded to indirectswitch once the
+      // function is complete. Until then, an indirectswitch without cases
+      // stands in for it.
+      unsigned NumDests = Record.size() - 2;
+      SmallVector<BasicBlock *, 8> Dests;
       for (unsigned i = 0, e = NumDests; i != e; ++i) {
-        if (BasicBlock *DestBB = getBasicBlock(Record[2+i])) {
-          IBI->addDestination(DestBB);
-        } else {
-          delete IBI;
+        BasicBlock *DestBB = getBasicBlock(Record[2 + i]);
+        if (!DestBB)
           return error("Invalid indirectbr record");
-        }
+        Dests.push_back(DestBB);
       }
-      I = IBI;
+      auto *ISI = IndirectSwitchInst::Create(Address, NumDests);
+      IndirectBrs.push_back({ISI, std::move(Dests)});
+      InstructionList.push_back(ISI);
+      I = ISI;
       break;
     }
     case bitc::FUNC_CODE_INST_INDIRECTSWITCH: {
@@ -7222,6 +7239,9 @@ OutOfRecordLoop:
   if (MDLoader->hasFwdRefs())
     return error("Invalid function metadata: outgoing forward refs");
 
+  if (!IndirectBrs.empty())
+    UpgradeIndirectBranches(*F, IndirectBrs, &UpgradedBlockAddresses);
+
   if (PhiConstExprBB)
     PhiConstExprBB->eraseFromParent();
 
@@ -7229,6 +7249,14 @@ OutOfRecordLoop:
     BasicBlock *From = Pair.first.first;
     BasicBlock *To = Pair.first.second;
     BasicBlock *EdgeBB = Pair.second;
+    // An upgraded indirectbr may branch to a dispatch block instead (possibly
+    // via edge blocks inserted by previous iterations), which got the PHI
+    // entries from From. Put the edge block on that edge.
+    if (!is_contained(successors(From), To)) {
+      if (!isa<UncondBrInst>(From->getTerminator()))
+        return error("Invalid phi record");
+      To = From->getTerminator()->getSuccessor(0);
+    }
     UncondBrInst::Create(To, EdgeBB);
     From->getTerminator()->replaceSuccessorWith(To, EdgeBB);
     To->replacePhiUsesWith(From, EdgeBB);
@@ -7337,8 +7365,8 @@ Error BitcodeReader::materialize(GlobalValue *GV) {
           ExpectedNumOperands = SI->getNumSuccessors();
         else if (isa<CallInst>(&I))
           ExpectedNumOperands = 1;
-        else if (IndirectBrInst *IBI = dyn_cast<IndirectBrInst>(&I))
-          ExpectedNumOperands = IBI->getNumDestinations();
+        else if (auto *ISI = dyn_cast<IndirectSwitchInst>(&I))
+          ExpectedNumOperands = ISI->getNumSuccessors();
         else if (isa<SelectInst>(&I))
           ExpectedNumOperands = 2;
         else

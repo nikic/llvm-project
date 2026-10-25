@@ -19,6 +19,7 @@
 #include "llvm/AsmParser/NumberedValues.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Attributes.h"
+#include "llvm/IR/AutoUpgrade.h"
 #include "llvm/IR/FMF.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/ModuleSummaryIndex.h"
@@ -162,6 +163,12 @@ namespace llvm {
     // The key is the function ValID, the value maps edge IDs to placeholder
     // values that will be replaced once the function is defined.
     std::map<ValID, std::map<unsigned, GlobalValue *>> ForwardRefEdgeAddresses;
+
+    // indirectbr instructions to upgrade at the end of the module, once all
+    // metadata (branch weights) is resolved. All blockaddress references to
+    // their destinations are upgraded then, regardless of where they are.
+    SmallVector<std::pair<Function *, SmallVector<UpgradedIndirectBr, 0>>, 0>
+        PendingIndirectBrUpgrades;
 
     // Attribute builder reference information.
     std::map<Value*, std::vector<unsigned> > ForwardRefAttrGroups;
@@ -554,6 +561,9 @@ namespace llvm {
                                     LocTy Loc);
 
       LLVM_ABI bool resolveForwardRefBlockAddresses();
+
+      /// indirectbr instructions of this function.
+      SmallVector<UpgradedIndirectBr, 0> IndirectBrs;
     };
 
     bool convertValIDToValue(Type *Ty, ValID &ID, Value *&V,

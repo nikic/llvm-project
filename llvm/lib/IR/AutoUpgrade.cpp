@@ -26,6 +26,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IRBuilder.h"
@@ -45,6 +46,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/NVVMIntrinsicUtils.h"
+#include "llvm/IR/ProfDataUtils.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/AMDGPUAddrSpace.h"
@@ -8054,4 +8056,285 @@ void llvm::UpgradeOperandBundles(std::vector<OperandBundleDef> &Bundles) {
     return OBD.getTag() == "clang.arc.attachedcall" &&
            OBD.inputs().empty();
   });
+}
+
+void llvm::repairIndirectBrDispatchDominance(Function &F) {
+  DominatorTree DT(F);
+  SmallVector<Instruction *, 8> Defs;
+  for (BasicBlock &BB : F) {
+    if (!DT.isReachableFromEntry(&BB))
+      continue;
+    for (Instruction &I : BB)
+      if (!I.getType()->isTokenTy() && !isa<CallBrInst>(I) &&
+          any_of(I.uses(), [&](const Use &U) { return !DT.dominates(&I, U); }))
+        Defs.push_back(&I);
+  }
+  if (Defs.empty())
+    return;
+
+  // Dominance frontiers (Cooper, Harvey, Kennedy).
+  DenseMap<BasicBlock *, SmallSetVector<BasicBlock *, 4>> DF;
+  for (BasicBlock &BB : F) {
+    if (!DT.isReachableFromEntry(&BB) || !BB.hasNPredecessorsOrMore(2))
+      continue;
+    BasicBlock *IDom = DT.getNode(&BB)->getIDom()->getBlock();
+    for (BasicBlock *Pred : predecessors(&BB)) {
+      if (!DT.isReachableFromEntry(Pred))
+        continue;
+      for (BasicBlock *Runner = Pred; Runner != IDom;
+           Runner = DT.getNode(Runner)->getIDom()->getBlock())
+        DF[Runner].insert(&BB);
+    }
+  }
+
+  for (Instruction *I : Defs) {
+    // The block in which I becomes available. An invoke result is available
+    // at the start of the normal destination, if the invoke is its only
+    // predecessor.
+    BasicBlock *DefBB = I->getParent();
+    bool DefinedAtStart = false;
+    if (auto *II = dyn_cast<InvokeInst>(I)) {
+      DefBB = II->getNormalDest();
+      if (DefBB->getSinglePredecessor() != II->getParent())
+        continue;
+      DefinedAtStart = true;
+    }
+
+    // Uses to rewrite: non-PHI uses by block, PHI uses by incoming block.
+    DenseMap<BasicBlock *, SmallVector<Use *, 4>> BlockUses, EdgeUses;
+    for (Use &U : I->uses()) {
+      if (auto *PN = dyn_cast<PHINode>(U.getUser()))
+        EdgeUses[PN->getIncomingBlock(U)].push_back(&U);
+      else
+        BlockUses[cast<Instruction>(U.getUser())->getParent()].push_back(&U);
+    }
+
+    // Insert PHI nodes at the iterated dominance frontier of the definition.
+    SmallMapVector<BasicBlock *, PHINode *, 8> PHIs;
+    SmallVector<BasicBlock *, 8> Worklist{DefBB};
+    while (!Worklist.empty()) {
+      auto It = DF.find(Worklist.pop_back_val());
+      if (It == DF.end())
+        continue;
+      for (BasicBlock *Frontier : It->second) {
+        if (PHIs.contains(Frontier))
+          continue;
+        PHIs[Frontier] = PHINode::Create(
+            I->getType(), pred_size(Frontier),
+            I->hasName() ? I->getName() + ".dispatch" : "", Frontier->begin());
+        Worklist.push_back(Frontier);
+      }
+    }
+
+    // Rename along the dominator tree.
+    Value *Poison = PoisonValue::get(I->getType());
+    SmallVector<std::pair<DomTreeNode *, Value *>, 16> Stack{
+        {DT.getRootNode(), Poison}};
+    while (!Stack.empty()) {
+      auto [Node, Cur] = Stack.pop_back_val();
+      BasicBlock *BB = Node->getBlock();
+      if (PHINode *PN = PHIs.lookup(BB))
+        Cur = PN;
+      if (BB == DefBB && DefinedAtStart)
+        Cur = I;
+      // Uses in the block of a non-invoke definition follow the definition.
+      if (BB != DefBB || DefinedAtStart)
+        for (Use *U : BlockUses.lookup(BB))
+          U->set(Cur);
+      if (BB == DefBB)
+        Cur = I;
+      for (Use *U : EdgeUses.lookup(BB))
+        U->set(Cur);
+      for (BasicBlock *Succ : successors(BB))
+        if (PHINode *PN = PHIs.lookup(Succ))
+          PN->addIncoming(Cur, BB);
+      for (DomTreeNode *Child : Node->children())
+        Stack.emplace_back(Child, Cur);
+    }
+    for (auto [BB, PN] : PHIs)
+      for (BasicBlock *Pred : predecessors(BB))
+        if (!DT.isReachableFromEntry(Pred))
+          PN->addIncoming(Poison, Pred);
+
+    // Remove PHI nodes that turned out to be unnecessary.
+    bool Changed = true;
+    while (Changed) {
+      Changed = false;
+      for (auto &[BB, PN] : PHIs) {
+        if (!PN)
+          continue;
+        Value *Same = PN->hasConstantValue();
+        if (!PN->use_empty() && !Same)
+          continue;
+        if (Same)
+          PN->replaceAllUsesWith(Same);
+        PN->eraseFromParent();
+        PN = nullptr;
+        Changed = true;
+      }
+    }
+  }
+}
+
+void llvm::UpgradeIndirectBranches(
+    Function &F, MutableArrayRef<UpgradedIndirectBr> IndirectBrs,
+    DenseMap<const BasicBlock *, EdgeAddress *> *DestEdgeAddresses) {
+  // Give every distinct destination an edge address, in order of first
+  // appearance. Skip IDs that are already used by the function (only possible
+  // for hand-written IR mixing indirectbr and edgeaddress).
+  SmallVector<std::pair<BasicBlock *, EdgeAddress *>, 16> Cases;
+  SmallDenseMap<BasicBlock *, unsigned, 16> CaseIndex;
+  SmallVector<UpgradedIndirectBr *, 4> Branches;
+  unsigned NextID = 0;
+  for (UpgradedIndirectBr &IBr : IndirectBrs) {
+    if (IBr.Dests.empty()) {
+      // Executing an indirectbr without destinations is undefined behavior.
+      // Keep it as an indirectswitch without cases.
+      IBr.Placeholder->setMetadata(LLVMContext::MD_prof, nullptr);
+      continue;
+    }
+    Branches.push_back(&IBr);
+    for (BasicBlock *Dest : IBr.Dests) {
+      if (!CaseIndex.try_emplace(Dest, Cases.size()).second)
+        continue;
+      while (EdgeAddress::lookup(&F, NextID))
+        ++NextID;
+      Cases.emplace_back(Dest, EdgeAddress::get(&F, NextID++));
+    }
+  }
+  if (Branches.empty())
+    return;
+
+  // The indirectswitch address must have the function's pointer type.
+  auto GetAddress = [&](IndirectSwitchInst *Placeholder) -> Value * {
+    Value *Addr = Placeholder->getAddress();
+    if (Addr->getType() == F.getType())
+      return Addr;
+    return CastInst::CreatePointerBitCastOrAddrSpaceCast(
+        Addr, F.getType(), "", Placeholder->getIterator());
+  };
+
+  // The weight of a case is the sum of the weights of all edges to its
+  // destination.
+  SmallVector<uint64_t, 16> Weights(Cases.size(), 0);
+  bool HasWeights = true;
+  bool IsExpected = false;
+  for (UpgradedIndirectBr *IBr : Branches) {
+    SmallVector<uint32_t, 16> BrWeights;
+    MDNode *MD = IBr->Placeholder->getMetadata(LLVMContext::MD_prof);
+    if (!MD || !extractBranchWeights(MD, BrWeights) ||
+        BrWeights.size() != IBr->Dests.size()) {
+      HasWeights = false;
+      break;
+    }
+    IsExpected |= hasBranchWeightOrigin(MD);
+    for (auto [Dest, Weight] : zip_equal(IBr->Dests, BrWeights))
+      Weights[CaseIndex[Dest]] += Weight;
+  }
+
+  IndirectSwitchInst *Dispatch;
+  bool NeedsSSARepair = false;
+  if (Branches.size() == 1) {
+    // Upgrade the indirectbr in place. Each destination is a successor only
+    // once now, so drop the PHI entries of duplicate edges.
+    Dispatch = Branches.front()->Placeholder;
+    Dispatch->setAddress(GetAddress(Dispatch));
+    BasicBlock *Pred = Dispatch->getParent();
+    for (BasicBlock *Dest : make_first_range(Cases)) {
+      for (PHINode &PN : Dest->phis()) {
+        bool Seen = false;
+        PN.removeIncomingValueIf(
+            [&](unsigned I) {
+              if (PN.getIncomingBlock(I) != Pred)
+                return false;
+              return std::exchange(Seen, true);
+            },
+            /*DeletePHIIfEmpty=*/false);
+      }
+    }
+    if (getBranchWeightMDNode(*Dispatch))
+      Dispatch->setMetadata(LLVMContext::MD_prof, nullptr);
+  } else {
+    // Several indirectbrs branch to a new dispatch block, which ends in the
+    // only indirectswitch of the function.
+    BasicBlock *DispatchBB = BasicBlock::Create(F.getContext(), "", &F);
+    unsigned NumPreds = Branches.size();
+    SmallVector<Value *, 4> Addrs;
+    for (UpgradedIndirectBr *IBr : Branches)
+      Addrs.push_back(GetAddress(IBr->Placeholder));
+    Value *Addr = Addrs.front();
+    if (!all_equal(Addrs)) {
+      auto *AddrPN = PHINode::Create(F.getType(), NumPreds, "", DispatchBB);
+      for (auto [IBr, A] : zip_equal(Branches, Addrs))
+        AddrPN->addIncoming(A, IBr->Placeholder->getParent());
+      Addr = AddrPN;
+    }
+    Dispatch = IndirectSwitchInst::Create(Addr, Cases.size(), DispatchBB);
+
+    // The dispatch block replaces the indirectbr blocks as predecessor of the
+    // destinations. Merge their incoming values in PHI nodes of the dispatch
+    // block. The value from an indirectbr that doesn't list the destination
+    // doesn't matter: jumping to it from there was undefined behavior.
+    SmallPtrSet<BasicBlock *, 8> Preds;
+    for (UpgradedIndirectBr *IBr : Branches)
+      Preds.insert(IBr->Placeholder->getParent());
+    for (BasicBlock *Dest : make_first_range(Cases)) {
+      for (PHINode &PN : Dest->phis()) {
+        SmallVector<Value *, 4> Incoming;
+        for (UpgradedIndirectBr *IBr : Branches) {
+          int Idx = PN.getBasicBlockIndex(IBr->Placeholder->getParent());
+          Incoming.push_back(Idx < 0 ? nullptr : PN.getIncomingValue(Idx));
+        }
+        if (all_of(Incoming, [](Value *V) { return !V; }))
+          continue;
+        Value *NewIncoming = Incoming.front();
+        if (!NewIncoming || !all_equal(Incoming)) {
+          PHINode *DispatchPN = PHINode::Create(PN.getType(), NumPreds, "",
+                                                Dispatch->getIterator());
+          for (auto [IBr, V] : zip_equal(Branches, Incoming))
+            DispatchPN->addIncoming(V ? V : PoisonValue::get(PN.getType()),
+                                    IBr->Placeholder->getParent());
+          NewIncoming = DispatchPN;
+        }
+        PN.removeIncomingValueIf(
+            [&](unsigned I) { return Preds.contains(PN.getIncomingBlock(I)); },
+            /*DeletePHIIfEmpty=*/false);
+        PN.addIncoming(NewIncoming, DispatchBB);
+      }
+    }
+
+    // Destinations an indirectbr didn't list are reachable from it now.
+    NeedsSSARepair = any_of(Branches, [&](UpgradedIndirectBr *IBr) {
+      return SmallPtrSet<BasicBlock *, 16>(llvm::from_range, IBr->Dests)
+                 .size() != Cases.size();
+    });
+
+    // Replace the indirectbrs by branches to the dispatch block.
+    for (UpgradedIndirectBr *IBr : Branches) {
+      IndirectSwitchInst *Placeholder = IBr->Placeholder;
+      BasicBlock *Pred = Placeholder->getParent();
+      DebugLoc DL = Placeholder->getDebugLoc();
+      Placeholder->eraseFromParent();
+      UncondBrInst::Create(DispatchBB, Pred)->setDebugLoc(DL);
+      IBr->Placeholder = nullptr;
+    }
+  }
+
+  for (auto [Dest, EA] : Cases)
+    Dispatch->addCase(EA, Dest);
+  if (HasWeights)
+    setFittedBranchWeights(*Dispatch, Weights, IsExpected);
+  if (NeedsSSARepair)
+    repairIndirectBrDispatchDominance(F);
+
+  // Block addresses of the destinations become edge addresses.
+  for (auto [Dest, EA] : Cases) {
+    if (DestEdgeAddresses)
+      (*DestEdgeAddresses)[Dest] = EA;
+    if (BlockAddress *BA = BlockAddress::lookup(Dest)) {
+      BA->replaceAllUsesWith(
+          ConstantExpr::getPointerBitCastOrAddrSpaceCast(EA, BA->getType()));
+      BA->destroyConstant();
+    }
+  }
 }

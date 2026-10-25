@@ -13,15 +13,21 @@
 #ifndef LLVM_IR_AUTOUPGRADE_H
 #define LLVM_IR_AUTOUPGRADE_H
 
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Compiler.h"
 #include <vector>
 
 namespace llvm {
   class AttrBuilder;
+  class BasicBlock;
   class CallBase;
   class Constant;
+  class EdgeAddress;
   class Function;
+  class IndirectSwitchInst;
   class Instruction;
   class GlobalVariable;
   class MDNode;
@@ -160,6 +166,38 @@ namespace llvm {
   /// Upgrade operand bundles (without knowing about their user instruction).
   LLVM_ABI void
   UpgradeOperandBundles(std::vector<OperandBundleDef> &OperandBundles);
+
+  /// An `indirectbr` instruction read from old IR or bitcode. The IR readers
+  /// represent it by an `indirectswitch` without cases (\p Placeholder) in
+  /// place of the `indirectbr` until UpgradeIndirectBranches() is called;
+  /// \p Dests are the listed destinations, in order and with duplicates.
+  struct UpgradedIndirectBr {
+    IndirectSwitchInst *Placeholder;
+    SmallVector<BasicBlock *, 8> Dests;
+  };
+
+  /// Upgrade the `indirectbr` instructions of \p F (all of which must be
+  /// passed in \p IndirectBrs, in instruction order) to a single
+  /// `indirectswitch`. Every distinct destination gets an edge address ID, in
+  /// order of first appearance. A single `indirectbr` is replaced in place;
+  /// several branch to a new dispatch block holding the `indirectswitch`, with
+  /// PHI nodes for the address and for incoming values of destination PHIs.
+  /// `indirectbr` instructions without destinations become `indirectswitch`
+  /// instructions without cases.
+  ///
+  /// All block addresses of destinations are replaced by the corresponding edge
+  /// addresses. If \p DestEdgeAddresses is given, it receives the destination
+  /// -> edge address mapping, for block addresses read later.
+  LLVM_ABI void UpgradeIndirectBranches(
+      Function &F, MutableArrayRef<UpgradedIndirectBr> IndirectBrs,
+      DenseMap<const BasicBlock *, EdgeAddress *> *DestEdgeAddresses = nullptr);
+
+  /// Merging indirect branches into a dispatch block adds paths through it
+  /// from an indirect branch to destinations it didn't list. They are never
+  /// taken (that was undefined behavior), but definitions may no longer
+  /// dominate their uses. Rebuild SSA form for such definitions of \p F, with
+  /// poison as the value on the new paths.
+  LLVM_ABI void repairIndirectBrDispatchDominance(Function &F);
 
 } // End llvm namespace
 

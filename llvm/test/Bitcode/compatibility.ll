@@ -1416,10 +1416,10 @@ defaultdest.1:
   ret void
 defaultdest.2:
 
-  indirectbr ptr blockaddress(@instructions.terminators, %defaultdest.2), [label %defaultdest.2]
-  ; CHECK: indirectbr ptr blockaddress(@instructions.terminators, %defaultdest.2), [label %defaultdest.2]
-  indirectbr ptr blockaddress(@instructions.terminators, %defaultdest.2), [label %defaultdest.2, label %defaultdest.2]
-  ; CHECK: indirectbr ptr blockaddress(@instructions.terminators, %defaultdest.2), [label %defaultdest.2, label %defaultdest.2]
+  indirectswitch ptr edgeaddress(@instructions.terminators, 0), [ ptr edgeaddress(@instructions.terminators, 0), label %defaultdest.2 ]
+  ; CHECK: indirectswitch ptr edgeaddress(@instructions.terminators, 0), [
+  ; CHECK-NEXT: ptr edgeaddress(@instructions.terminators, 0), label %defaultdest.2
+  ; CHECK-NEXT: ]
 
   invoke fastcc void @f.fastcc()
   ; CHECK: invoke fastcc void @f.fastcc()

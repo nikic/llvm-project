@@ -444,6 +444,11 @@ bool LLParser::validateEndOfModule(bool UpgradeDebugInfo) {
   }
   PendingDbgInsts.clear();
 
+  // Upgrade indirectbr instructions, now that their branch weights are known.
+  for (auto &[F, IndirectBrs] : PendingIndirectBrUpgrades)
+    UpgradeIndirectBranches(*F, IndirectBrs);
+  PendingIndirectBrUpgrades.clear();
+
   for (const auto &[Name, Info] : make_early_inc_range(ForwardRefVals)) {
     if (StringRef(Name).starts_with("llvm.")) {
       Intrinsic::ID IID = Intrinsic::lookupIntrinsicID(Name);
@@ -4050,6 +4055,8 @@ bool LLParser::PerFunctionState::finishFunction() {
     return P.error(ForwardRefValIDs.begin()->second.second,
                    "use of undefined value '%" +
                        Twine(ForwardRefValIDs.begin()->first) + "'");
+  if (!IndirectBrs.empty())
+    P.PendingIndirectBrUpgrades.emplace_back(&F, std::move(IndirectBrs));
   return false;
 }
 
@@ -8265,7 +8272,7 @@ bool LLParser::parseIndirectBr(Instruction *&Inst, PerFunctionState &PFS) {
     return error(AddrLoc, "indirectbr address must have pointer type");
 
   // parse the destination list.
-  SmallVector<BasicBlock*, 16> DestList;
+  SmallVector<BasicBlock *, 8> DestList;
 
   if (Lex.getKind() != lltok::rsquare) {
     BasicBlock *DestBB;
@@ -8283,10 +8290,11 @@ bool LLParser::parseIndirectBr(Instruction *&Inst, PerFunctionState &PFS) {
   if (parseToken(lltok::rsquare, "expected ']' at end of block list"))
     return true;
 
-  IndirectBrInst *IBI = IndirectBrInst::Create(Address, DestList.size());
-  for (BasicBlock *Dest : DestList)
-    IBI->addDestination(Dest);
-  Inst = IBI;
+  // indirectbr was removed: it is upgraded to indirectswitch once the function
+  // is complete. Until then, an indirectswitch without cases stands in for it.
+  auto *ISI = IndirectSwitchInst::Create(Address, DestList.size());
+  PFS.IndirectBrs.push_back({ISI, std::move(DestList)});
+  Inst = ISI;
   return false;
 }
 
