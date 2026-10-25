@@ -132,19 +132,11 @@ define ptr @h() {
   ret ptr edgeaddress(@f, 9)
 }
 
-; The address operand is an edgeaddress itself.
+; The address operand is an edgeaddress itself (folded to a branch by
+; CodeGenPrepare when optimizing).
 define i32 @direct() {
 ; SDAG-LABEL: direct:
 ; SDAG:       # %bb.0: # %entry
-; SDAG-NEXT:    addis 3, 2, .LC2@toc@ha
-; SDAG-NEXT:    ld 3, .LC2@toc@l(3)
-; SDAG-NEXT:    mtctr 3
-; SDAG-NEXT:    bctr
-; SDAG-NEXT:  .LBB3_1: # %a
-; SDAG-NEXT:    li 3, 1
-; SDAG-NEXT:    blr
-; SDAG-NEXT:  .Ltmp3: # Block address taken
-; SDAG-NEXT:  .LBB3_2: # %b
 ; SDAG-NEXT:    li 3, 2
 ; SDAG-NEXT:    blr
 ;
@@ -178,20 +170,20 @@ b:
 define i32 @rel(i32 %i) {
 ; SDAG-LABEL: rel:
 ; SDAG:       # %bb.0: # %entry
-; SDAG-NEXT:    addis 4, 2, .LC3@toc@ha
+; SDAG-NEXT:    addis 4, 2, .LC2@toc@ha
 ; SDAG-NEXT:    rldic 3, 3, 2, 30
-; SDAG-NEXT:    ld 4, .LC3@toc@l(4)
+; SDAG-NEXT:    ld 4, .LC2@toc@l(4)
 ; SDAG-NEXT:    lwax 3, 4, 3
-; SDAG-NEXT:    addis 4, 2, .LC4@toc@ha
-; SDAG-NEXT:    ld 4, .LC4@toc@l(4)
+; SDAG-NEXT:    addis 4, 2, .LC3@toc@ha
+; SDAG-NEXT:    ld 4, .LC3@toc@l(4)
 ; SDAG-NEXT:    add 3, 4, 3
 ; SDAG-NEXT:    mtctr 3
 ; SDAG-NEXT:    bctr
-; SDAG-NEXT:  .Ltmp4: # Block address taken
+; SDAG-NEXT:  .Ltmp3: # Block address taken
 ; SDAG-NEXT:  .LBB4_1: # %a
 ; SDAG-NEXT:    li 3, 10
 ; SDAG-NEXT:    blr
-; SDAG-NEXT:  .Ltmp5: # Block address taken
+; SDAG-NEXT:  .Ltmp4: # Block address taken
 ; SDAG-NEXT:  .LBB4_2: # %b
 ; SDAG-NEXT:    li 3, 20
 ; SDAG-NEXT:    blr

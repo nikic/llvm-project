@@ -1,0 +1,100 @@
+--- !Analysis
+Pass:            prolog-epilog
+Name:            StackSize
+Function:        callThroughPtrWithArgs
+Args:
+  - NumStackBytes:   '112'
+  - String:          ' stack bytes in function '''
+  - Function:        callThroughPtrWithArgs
+  - String:          ''''
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+Function:        callThroughPtrWithArgs
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          'ld '
+  - String:          ': '
+  - INST_ld:         '4'
+  - String:          "\n"
+  - String:          'li '
+  - String:          ': '
+  - INST_li:         '3'
+  - String:          "\n"
+  - String:          'std '
+  - String:          ': '
+  - INST_std:        '2'
+  - String:          "\n"
+  - String:          'addi '
+  - String:          ': '
+  - INST_addi:       '1'
+  - String:          "\n"
+  - String:          "bctrl\n\tld 2, "
+  - String:          ': '
+  - INST_bctrl:      '1'
+  - String:          "\n"
+  - String:          blr
+  - String:          ': '
+  - INST_blr:        '1'
+  - String:          "\n"
+  - String:          'mflr '
+  - String:          ': '
+  - INST_mflr:       '1'
+  - String:          "\n"
+  - String:          'mtctr '
+  - String:          ': '
+  - INST_mtctr:      '1'
+  - String:          "\n"
+  - String:          'mtlr '
+  - String:          ': '
+  - INST_mtlr:       '1'
+  - String:          "\n"
+  - String:          'stdu '
+  - String:          ': '
+  - INST_stdu:       '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionCount
+Function:        callThroughPtrWithArgs
+Args:
+  - NumInstructions: '16'
+  - String:          ' instructions in function'
+...
+--- !Analysis
+Pass:            target-features
+Name:            EnabledFeatures
+Function:        callThroughPtrWithArgs
+Args:
+  - String:          'Enabled features for '
+  - Function:        '@callThroughPtrWithArgs'
+  - String:          ': '
+  - String:          ''
+  - Feature:         64bit
+  - String:          ','
+  - Feature:         64bit-support
+  - String:          ','
+  - Feature:         aix
+  - String:          ','
+  - Feature:         crbits
+  - String:          ','
+  - Feature:         fpu
+  - String:          ','
+  - Feature:         fres
+  - String:          ','
+  - Feature:         frsqrte
+  - String:          ','
+  - Feature:         fsqrt
+  - String:          ','
+  - Feature:         hard-float
+  - String:          ','
+  - Feature:         invariant-function-descriptors
+  - String:          ','
+  - Feature:         mfocrf
+  - String:          ','
+  - Feature:         stfiwx
+...

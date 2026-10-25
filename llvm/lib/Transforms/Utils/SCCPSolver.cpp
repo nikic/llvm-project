@@ -1409,11 +1409,24 @@ void SCCPInstVisitor::getFeasibleSuccessors(Instruction &TI,
     return;
   }
 
-  // TODO: Determine the feasible successor if the address is a known
-  // edgeaddress.
+  // If the address of an indirectswitch is a known edgeaddress, only the
+  // corresponding case is feasible.
   if (auto *ISI = dyn_cast<IndirectSwitchInst>(&TI)) {
-    if (!getValueState(ISI->getAddress()).isUnknownOrUndef())
-      Succs.assign(TI.getNumSuccessors(), true);
+    const ValueLatticeElement &AddrValue = getValueState(ISI->getAddress());
+    auto *EA = dyn_cast_or_null<EdgeAddress>(
+        getConstant(AddrValue, ISI->getAddress()->getType()));
+    if (!EA) {
+      // Overdefined or unknown address?
+      if (!AddrValue.isUnknownOrUndef())
+        Succs.assign(TI.getNumSuccessors(), true);
+      return;
+    }
+
+    // If the edgeaddress is not one of the cases, we have undefined behavior
+    // and no successor is executable.
+    auto Case = ISI->findCaseValue(EA);
+    if (Case != ISI->case_end())
+      Succs[Case->getSuccessorIndex()] = true;
     return;
   }
 

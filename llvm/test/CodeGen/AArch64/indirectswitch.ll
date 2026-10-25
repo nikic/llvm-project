@@ -214,18 +214,11 @@ define ptr @h() {
   ret ptr edgeaddress(@f, 9)
 }
 
-; The address operand is an edgeaddress itself.
+; The address operand is an edgeaddress itself (folded to a branch by
+; CodeGenPrepare when optimizing).
 define i32 @direct() {
 ; SDAG-LABEL: direct:
 ; SDAG:       // %bb.0: // %entry
-; SDAG-NEXT:    adrp x8, .Ltmp3
-; SDAG-NEXT:    add x8, x8, :lo12:.Ltmp3
-; SDAG-NEXT:    br x8
-; SDAG-NEXT:  .LBB3_1: // %common.ret
-; SDAG-NEXT:    mov w0, #1 // =0x1
-; SDAG-NEXT:    ret
-; SDAG-NEXT:  .Ltmp3: // Block address taken
-; SDAG-NEXT:  .LBB3_2: // %b
 ; SDAG-NEXT:    mov w0, #2 // =0x2
 ; SDAG-NEXT:    ret
 ;
@@ -265,14 +258,6 @@ define i32 @direct() {
 ;
 ; GISEL-LABEL: direct:
 ; GISEL:       // %bb.0: // %entry
-; GISEL-NEXT:    adrp x8, .Ltmp3
-; GISEL-NEXT:    add x8, x8, :lo12:.Ltmp3
-; GISEL-NEXT:    br x8
-; GISEL-NEXT:  .LBB3_1: // %common.ret
-; GISEL-NEXT:    mov w0, #1 // =0x1
-; GISEL-NEXT:    ret
-; GISEL-NEXT:  .Ltmp3: // Block address taken
-; GISEL-NEXT:  .LBB3_2: // %b
 ; GISEL-NEXT:    mov w0, #2 // =0x2
 ; GISEL-NEXT:    ret
 entry:
@@ -293,17 +278,17 @@ define i32 @rel(i32 %i) {
 ; SDAG-LABEL: rel:
 ; SDAG:       // %bb.0: // %entry
 ; SDAG-NEXT:    adrp x8, :got:reltbl
-; SDAG-NEXT:    adrp x9, .Ltmp4
-; SDAG-NEXT:    add x9, x9, :lo12:.Ltmp4
+; SDAG-NEXT:    adrp x9, .Ltmp3
+; SDAG-NEXT:    add x9, x9, :lo12:.Ltmp3
 ; SDAG-NEXT:    ldr x8, [x8, :got_lo12:reltbl]
 ; SDAG-NEXT:    ldrsw x8, [x8, w0, uxtw #2]
 ; SDAG-NEXT:    add x8, x9, x8
 ; SDAG-NEXT:    br x8
-; SDAG-NEXT:  .Ltmp4: // Block address taken
+; SDAG-NEXT:  .Ltmp3: // Block address taken
 ; SDAG-NEXT:  .LBB4_1: // %common.ret
 ; SDAG-NEXT:    mov w0, #10 // =0xa
 ; SDAG-NEXT:    ret
-; SDAG-NEXT:  .Ltmp5: // Block address taken
+; SDAG-NEXT:  .Ltmp4: // Block address taken
 ; SDAG-NEXT:  .LBB4_2: // %b
 ; SDAG-NEXT:    mov w0, #20 // =0x14
 ; SDAG-NEXT:    ret
@@ -355,17 +340,17 @@ define i32 @rel(i32 %i) {
 ; GISEL-LABEL: rel:
 ; GISEL:       // %bb.0: // %entry
 ; GISEL-NEXT:    adrp x8, :got:reltbl
-; GISEL-NEXT:    adrp x9, .Ltmp4
-; GISEL-NEXT:    add x9, x9, :lo12:.Ltmp4
+; GISEL-NEXT:    adrp x9, .Ltmp3
+; GISEL-NEXT:    add x9, x9, :lo12:.Ltmp3
 ; GISEL-NEXT:    ldr x8, [x8, :got_lo12:reltbl]
 ; GISEL-NEXT:    ldrsw x8, [x8, w0, uxtw #2]
 ; GISEL-NEXT:    add x8, x9, x8
 ; GISEL-NEXT:    br x8
-; GISEL-NEXT:  .Ltmp4: // Block address taken
+; GISEL-NEXT:  .Ltmp3: // Block address taken
 ; GISEL-NEXT:  .LBB4_1: // %common.ret
 ; GISEL-NEXT:    mov w0, #10 // =0xa
 ; GISEL-NEXT:    ret
-; GISEL-NEXT:  .Ltmp5: // Block address taken
+; GISEL-NEXT:  .Ltmp4: // Block address taken
 ; GISEL-NEXT:  .LBB4_2: // %b
 ; GISEL-NEXT:    mov w0, #20 // =0x14
 ; GISEL-NEXT:    ret

@@ -177,32 +177,16 @@ define ptr @h() {
   ret ptr edgeaddress(@f, 9)
 }
 
-; The address operand is an edgeaddress itself.
+; The address operand is an edgeaddress itself (folded to a branch by
+; CodeGenPrepare when optimizing).
 define i32 @direct() {
 ; STATIC-LABEL: direct:
 ; STATIC:       # %bb.0: # %entry
-; STATIC-NEXT:    lui a0, %hi(.Ltmp3)
-; STATIC-NEXT:    addi a0, a0, %lo(.Ltmp3)
-; STATIC-NEXT:    jr a0
-; STATIC-NEXT:  .LBB3_1: # %a
-; STATIC-NEXT:    li a0, 1
-; STATIC-NEXT:    ret
-; STATIC-NEXT:  .Ltmp3: # Block address taken
-; STATIC-NEXT:  .LBB3_2: # %b
 ; STATIC-NEXT:    li a0, 2
 ; STATIC-NEXT:    ret
 ;
 ; PIC-LABEL: direct:
 ; PIC:       # %bb.0: # %entry
-; PIC-NEXT:  .Lpcrel_hi3:
-; PIC-NEXT:    auipc a0, %pcrel_hi(.Ltmp3)
-; PIC-NEXT:    addi a0, a0, %pcrel_lo(.Lpcrel_hi3)
-; PIC-NEXT:    jr a0
-; PIC-NEXT:  .LBB3_1: # %a
-; PIC-NEXT:    li a0, 1
-; PIC-NEXT:    ret
-; PIC-NEXT:  .Ltmp3: # Block address taken
-; PIC-NEXT:  .LBB3_2: # %b
 ; PIC-NEXT:    li a0, 2
 ; PIC-NEXT:    ret
 ;
@@ -241,38 +225,38 @@ define i32 @rel(i32 %i) {
 ; STATIC-NEXT:    srli a0, a0, 30
 ; STATIC-NEXT:    add a0, a1, a0
 ; STATIC-NEXT:    lw a0, 0(a0)
-; STATIC-NEXT:    lui a1, %hi(.Ltmp4)
-; STATIC-NEXT:    addi a1, a1, %lo(.Ltmp4)
+; STATIC-NEXT:    lui a1, %hi(.Ltmp3)
+; STATIC-NEXT:    addi a1, a1, %lo(.Ltmp3)
 ; STATIC-NEXT:    add a0, a1, a0
 ; STATIC-NEXT:    jr a0
-; STATIC-NEXT:  .Ltmp4: # Block address taken
+; STATIC-NEXT:  .Ltmp3: # Block address taken
 ; STATIC-NEXT:  .LBB4_1: # %a
 ; STATIC-NEXT:    li a0, 10
 ; STATIC-NEXT:    ret
-; STATIC-NEXT:  .Ltmp5: # Block address taken
+; STATIC-NEXT:  .Ltmp4: # Block address taken
 ; STATIC-NEXT:  .LBB4_2: # %b
 ; STATIC-NEXT:    li a0, 20
 ; STATIC-NEXT:    ret
 ;
 ; PIC-LABEL: rel:
 ; PIC:       # %bb.0: # %entry
-; PIC-NEXT:  .Lpcrel_hi4:
+; PIC-NEXT:  .Lpcrel_hi3:
 ; PIC-NEXT:    auipc a1, %got_pcrel_hi(reltbl)
-; PIC-NEXT:    ld a1, %pcrel_lo(.Lpcrel_hi4)(a1)
+; PIC-NEXT:    ld a1, %pcrel_lo(.Lpcrel_hi3)(a1)
 ; PIC-NEXT:    slli a0, a0, 32
 ; PIC-NEXT:    srli a0, a0, 30
 ; PIC-NEXT:    add a0, a1, a0
 ; PIC-NEXT:    lw a0, 0(a0)
-; PIC-NEXT:  .Lpcrel_hi5:
-; PIC-NEXT:    auipc a1, %pcrel_hi(.Ltmp4)
-; PIC-NEXT:    addi a1, a1, %pcrel_lo(.Lpcrel_hi5)
+; PIC-NEXT:  .Lpcrel_hi4:
+; PIC-NEXT:    auipc a1, %pcrel_hi(.Ltmp3)
+; PIC-NEXT:    addi a1, a1, %pcrel_lo(.Lpcrel_hi4)
 ; PIC-NEXT:    add a0, a1, a0
 ; PIC-NEXT:    jr a0
-; PIC-NEXT:  .Ltmp4: # Block address taken
+; PIC-NEXT:  .Ltmp3: # Block address taken
 ; PIC-NEXT:  .LBB4_1: # %a
 ; PIC-NEXT:    li a0, 10
 ; PIC-NEXT:    ret
-; PIC-NEXT:  .Ltmp5: # Block address taken
+; PIC-NEXT:  .Ltmp4: # Block address taken
 ; PIC-NEXT:  .LBB4_2: # %b
 ; PIC-NEXT:    li a0, 20
 ; PIC-NEXT:    ret

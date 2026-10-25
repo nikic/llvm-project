@@ -164,23 +164,13 @@ define ptr @h() {
   ret ptr edgeaddress(@f, 9)
 }
 
-; The address operand is an edgeaddress itself.
+; The address operand is an edgeaddress itself (folded to a branch by
+; CodeGenPrepare when optimizing).
 define i32 @direct() {
 ; SDAG-LABEL: direct:
 ; SDAG:       @ %bb.0: @ %entry
-; SDAG-NEXT:    ldr r0, .LCPI3_0
-; SDAG-NEXT:    bx r0
-; SDAG-NEXT:  .LBB3_1: @ %common.ret
-; SDAG-NEXT:    mov r0, #1
-; SDAG-NEXT:    bx lr
-; SDAG-NEXT:  .Ltmp3: @ Block address taken
-; SDAG-NEXT:  .LBB3_2: @ %b
 ; SDAG-NEXT:    mov r0, #2
 ; SDAG-NEXT:    bx lr
-; SDAG-NEXT:    .p2align 2
-; SDAG-NEXT:  @ %bb.3:
-; SDAG-NEXT:  .LCPI3_0:
-; SDAG-NEXT:    .long .Ltmp3
 ;
 ; FAST-LABEL: direct:
 ; FAST:       @ %bb.0: @ %entry
@@ -200,19 +190,8 @@ define i32 @direct() {
 ;
 ; THUMB2-LABEL: direct:
 ; THUMB2:       @ %bb.0: @ %entry
-; THUMB2-NEXT:    ldr r0, .LCPI3_0
-; THUMB2-NEXT:    mov pc, r0
-; THUMB2-NEXT:  .LBB3_1: @ %common.ret
-; THUMB2-NEXT:    movs r0, #1
-; THUMB2-NEXT:    bx lr
-; THUMB2-NEXT:  .Ltmp3: @ Block address taken
-; THUMB2-NEXT:  .LBB3_2: @ %b
 ; THUMB2-NEXT:    movs r0, #2
 ; THUMB2-NEXT:    bx lr
-; THUMB2-NEXT:    .p2align 2
-; THUMB2-NEXT:  @ %bb.3:
-; THUMB2-NEXT:  .LCPI3_0:
-; THUMB2-NEXT:    .long .Ltmp3
 entry:
   indirectswitch ptr edgeaddress(@direct, 1), [ ptr edgeaddress(@direct, 0), label %a
                                                 ptr edgeaddress(@direct, 1), label %b ]
@@ -236,18 +215,18 @@ define i32 @rel(i32 %i) {
 ; SDAG-NEXT:    ldr r1, .LCPI4_0
 ; SDAG-NEXT:    add r0, r1, r0
 ; SDAG-NEXT:    bx r0
-; SDAG-NEXT:  .Ltmp4: @ Block address taken
+; SDAG-NEXT:  .Ltmp3: @ Block address taken
 ; SDAG-NEXT:  .LBB4_1: @ %common.ret
 ; SDAG-NEXT:    mov r0, #10
 ; SDAG-NEXT:    bx lr
-; SDAG-NEXT:  .Ltmp5: @ Block address taken
+; SDAG-NEXT:  .Ltmp4: @ Block address taken
 ; SDAG-NEXT:  .LBB4_2: @ %b
 ; SDAG-NEXT:    mov r0, #20
 ; SDAG-NEXT:    bx lr
 ; SDAG-NEXT:    .p2align 2
 ; SDAG-NEXT:  @ %bb.3:
 ; SDAG-NEXT:  .LCPI4_0:
-; SDAG-NEXT:    .long .Ltmp4
+; SDAG-NEXT:    .long .Ltmp3
 ;
 ; FAST-LABEL: rel:
 ; FAST:       @ %bb.0: @ %entry
@@ -279,18 +258,18 @@ define i32 @rel(i32 %i) {
 ; THUMB2-NEXT:    ldr r1, .LCPI4_0
 ; THUMB2-NEXT:    add r0, r1
 ; THUMB2-NEXT:    mov pc, r0
-; THUMB2-NEXT:  .Ltmp4: @ Block address taken
+; THUMB2-NEXT:  .Ltmp3: @ Block address taken
 ; THUMB2-NEXT:  .LBB4_1: @ %common.ret
 ; THUMB2-NEXT:    movs r0, #10
 ; THUMB2-NEXT:    bx lr
-; THUMB2-NEXT:  .Ltmp5: @ Block address taken
+; THUMB2-NEXT:  .Ltmp4: @ Block address taken
 ; THUMB2-NEXT:  .LBB4_2: @ %b
 ; THUMB2-NEXT:    movs r0, #20
 ; THUMB2-NEXT:    bx lr
 ; THUMB2-NEXT:    .p2align 2
 ; THUMB2-NEXT:  @ %bb.3:
 ; THUMB2-NEXT:  .LCPI4_0:
-; THUMB2-NEXT:    .long .Ltmp4
+; THUMB2-NEXT:    .long .Ltmp3
 entry:
   %idx = zext i32 %i to i64
   %slot = getelementptr [2 x i32], ptr @reltbl, i64 0, i64 %idx

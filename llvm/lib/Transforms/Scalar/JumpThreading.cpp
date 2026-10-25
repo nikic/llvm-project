@@ -441,7 +441,7 @@ static unsigned getJumpThreadDuplicationCost(const ScalarOptions &Opts,
       Bonus = 6;
 
     // The same holds for indirect branches, but slightly more so.
-    if (isa<IndirectBrInst>(StopAt))
+    if (isa<IndirectBrInst, IndirectSwitchInst>(StopAt))
       Bonus = 8;
   }
 
@@ -526,6 +526,9 @@ static Constant *getKnownConstant(Value *Val, ConstantPreference Preference) {
 
   if (Preference == WantBlockAddress)
     return dyn_cast<BlockAddress>(Val->stripPointerCasts());
+
+  if (Preference == WantEdgeAddress)
+    return dyn_cast<EdgeAddress>(Val->stripPointerCasts());
 
   return dyn_cast<ConstantInt>(Val);
 }
@@ -963,6 +966,12 @@ bool JumpThreadingPass::processBlock(BasicBlock *BB) {
     if (IB->getNumSuccessors() == 0) return false;
     Condition = IB->getAddress()->stripPointerCasts();
     Preference = WantBlockAddress;
+  } else if (auto *ISI = dyn_cast<IndirectSwitchInst>(Terminator)) {
+    // Can't thread indirect switch with no cases.
+    if (ISI->getNumCases() == 0)
+      return false;
+    Condition = ISI->getAddress()->stripPointerCasts();
+    Preference = WantEdgeAddress;
   } else {
     return false; // Must be an invoke or callbr.
   }
@@ -1605,6 +1614,11 @@ bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
     } else if (SwitchInst *SI = dyn_cast<SwitchInst>(BB->getTerminator())) {
       assert(isa<ConstantInt>(Val) && "Expecting a constant integer");
       DestBB = SI->findCaseValue(cast<ConstantInt>(Val))->getCaseSuccessor();
+    } else if (auto *ISI = dyn_cast<IndirectSwitchInst>(BB->getTerminator())) {
+      // If the edgeaddress is not a case, the edge is UB, which is
+      // represented by a null destination, like undef.
+      auto Case = ISI->findCaseValue(cast<EdgeAddress>(Val));
+      DestBB = Case != ISI->case_end() ? Case->getCaseSuccessor() : nullptr;
     } else {
       assert(isa<IndirectBrInst>(BB->getTerminator())
               && "Unexpected terminator");

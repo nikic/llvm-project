@@ -161,7 +161,8 @@ define ptr @h() {
   ret ptr edgeaddress(@f, 9)
 }
 
-; The address operand is an edgeaddress itself.
+; The address operand is an edgeaddress itself (folded to a branch by
+; CodeGenPrepare when optimizing).
 define i32 @direct() {
 ; CHECK-LABEL: direct:
 ; CHECK:         .functype direct () -> (i32)

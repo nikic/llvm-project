@@ -8758,6 +8758,10 @@ static bool handleGuaranteedWellDefinedOps(const Instruction *I,
       if (Handle(cast<SwitchInst>(I)->getCondition()))
         return true;
       break;
+    case Instruction::IndirectSwitch:
+      if (Handle(cast<IndirectSwitchInst>(I)->getAddress()))
+        return true;
+      break;
     case Instruction::CondBr:
       if (Handle(cast<CondBrInst>(I)->getCondition()))
         return true;

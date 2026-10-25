@@ -150,29 +150,16 @@ define ptr @h() {
   ret ptr edgeaddress(@f, 9)
 }
 
-; The address operand is an edgeaddress itself.
+; The address operand is an edgeaddress itself (folded to a branch by
+; CodeGenPrepare when optimizing).
 define i32 @direct() {
 ; STATIC-LABEL: direct:
 ; STATIC:       # %bb.0: # %entry
-; STATIC-NEXT:    movl $.Ltmp3, %eax
-; STATIC-NEXT:    jmpq *%rax
-; STATIC-NEXT:  .LBB3_1: # %a
-; STATIC-NEXT:    movl $1, %eax
-; STATIC-NEXT:    retq
-; STATIC-NEXT:  .Ltmp3: # Block address taken
-; STATIC-NEXT:  .LBB3_2: # %b
 ; STATIC-NEXT:    movl $2, %eax
 ; STATIC-NEXT:    retq
 ;
 ; PIC-LABEL: direct:
 ; PIC:       # %bb.0: # %entry
-; PIC-NEXT:    leaq .Ltmp3(%rip), %rax
-; PIC-NEXT:    jmpq *%rax
-; PIC-NEXT:  .LBB3_1: # %a
-; PIC-NEXT:    movl $1, %eax
-; PIC-NEXT:    retq
-; PIC-NEXT:  .Ltmp3: # Block address taken
-; PIC-NEXT:  .LBB3_2: # %b
 ; PIC-NEXT:    movl $2, %eax
 ; PIC-NEXT:    retq
 ;
@@ -207,13 +194,13 @@ define i32 @rel(i32 %i) {
 ; STATIC-NEXT:    movl %edi, %eax
 ; STATIC-NEXT:    movq reltbl@GOTPCREL(%rip), %rcx
 ; STATIC-NEXT:    movslq (%rcx,%rax,4), %rax
-; STATIC-NEXT:    leaq .Ltmp4(%rax), %rax
+; STATIC-NEXT:    leaq .Ltmp3(%rax), %rax
 ; STATIC-NEXT:    jmpq *%rax
-; STATIC-NEXT:  .Ltmp4: # Block address taken
+; STATIC-NEXT:  .Ltmp3: # Block address taken
 ; STATIC-NEXT:  .LBB4_1: # %a
 ; STATIC-NEXT:    movl $10, %eax
 ; STATIC-NEXT:    retq
-; STATIC-NEXT:  .Ltmp5: # Block address taken
+; STATIC-NEXT:  .Ltmp4: # Block address taken
 ; STATIC-NEXT:  .LBB4_2: # %b
 ; STATIC-NEXT:    movl $20, %eax
 ; STATIC-NEXT:    retq
@@ -223,14 +210,14 @@ define i32 @rel(i32 %i) {
 ; PIC-NEXT:    movl %edi, %eax
 ; PIC-NEXT:    movq reltbl@GOTPCREL(%rip), %rcx
 ; PIC-NEXT:    movslq (%rcx,%rax,4), %rax
-; PIC-NEXT:    leaq .Ltmp4(%rip), %rcx
+; PIC-NEXT:    leaq .Ltmp3(%rip), %rcx
 ; PIC-NEXT:    addq %rax, %rcx
 ; PIC-NEXT:    jmpq *%rcx
-; PIC-NEXT:  .Ltmp4: # Block address taken
+; PIC-NEXT:  .Ltmp3: # Block address taken
 ; PIC-NEXT:  .LBB4_1: # %a
 ; PIC-NEXT:    movl $10, %eax
 ; PIC-NEXT:    retq
-; PIC-NEXT:  .Ltmp5: # Block address taken
+; PIC-NEXT:  .Ltmp4: # Block address taken
 ; PIC-NEXT:  .LBB4_2: # %b
 ; PIC-NEXT:    movl $20, %eax
 ; PIC-NEXT:    retq

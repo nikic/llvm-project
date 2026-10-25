@@ -294,6 +294,7 @@ class SimplifyCFGOpt {
   bool simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder);
   bool simplifyDuplicateSwitchArms(SwitchInst *SI, DomTreeUpdater *DTU);
   bool simplifyIndirectBr(IndirectBrInst *IBI);
+  bool simplifyIndirectSwitch(IndirectSwitchInst *ISI);
   bool simplifyUncondBranch(UncondBrInst *BI, IRBuilder<> &Builder);
   bool simplifyCondBranch(CondBrInst *BI, IRBuilder<> &Builder);
   bool foldCondBranchOnValueKnownInPredecessor(CondBrInst *BI);
@@ -845,6 +846,49 @@ private:
 
 } // end anonymous namespace
 
+/// Remove the cases of \p ISI for which \p ShouldRemove returns true, updating
+/// the phis of the removed destinations and the branch weights of \p ISI.
+/// Returns true if any case was removed. Note that a case value whose case is
+/// removed from the indirectswitch has an unspecified value, so this is only
+/// legal if the case cannot be taken.
+static bool removeIndirectSwitchCases(
+    IndirectSwitchInst *ISI,
+    function_ref<bool(IndirectSwitchInst::CaseHandle)> ShouldRemove,
+    SmallSetVector<BasicBlock *, 8> &RemovedSuccs) {
+  BasicBlock *BB = ISI->getParent();
+  SmallVector<uint32_t> Weights;
+  bool HasWeights = extractBranchWeights(*ISI, Weights);
+  bool Changed = false;
+  for (auto I = ISI->case_begin(); I != ISI->case_end();) {
+    if (!ShouldRemove(*I)) {
+      ++I;
+      continue;
+    }
+    BasicBlock *Dest = I->getCaseSuccessor();
+    Dest->removePredecessor(BB);
+    RemovedSuccs.insert(Dest);
+    if (HasWeights) {
+      // removeCase() moves the last case into the removed one's slot.
+      Weights[I->getCaseIndex()] = Weights.back();
+      Weights.pop_back();
+    }
+    I = ISI->removeCase(I);
+    Changed = true;
+  }
+
+  // Edges to a block that is still a successor have not been removed.
+  for (BasicBlock *Succ : successors(ISI))
+    RemovedSuccs.remove(Succ);
+
+  if (Changed && HasWeights) {
+    if (Weights.empty())
+      ISI->setMetadata(LLVMContext::MD_prof, nullptr);
+    else
+      setBranchWeights(*ISI, Weights, /*IsExpected=*/false);
+  }
+  return Changed;
+}
+
 static void eraseTerminatorAndDCECond(Instruction *TI,
                                       MemorySSAUpdater *MSSAU = nullptr) {
   Instruction *Cond = nullptr;
@@ -854,6 +898,8 @@ static void eraseTerminatorAndDCECond(Instruction *TI,
     Cond = dyn_cast<Instruction>(BI->getCondition());
   } else if (IndirectBrInst *IBI = dyn_cast<IndirectBrInst>(TI)) {
     Cond = dyn_cast<Instruction>(IBI->getAddress());
+  } else if (auto *ISI = dyn_cast<IndirectSwitchInst>(TI)) {
+    Cond = dyn_cast<Instruction>(ISI->getAddress());
   }
 
   TI->eraseFromParent();
@@ -6060,6 +6106,19 @@ bool SimplifyCFGOpt::simplifyUnreachable(UnreachableInst *UI) {
       // Note that the default destination can't be removed!
       if (DTU && SI->getDefaultDest() != BB)
         Updates.push_back({DominatorTree::Delete, Predecessor, BB});
+    } else if (auto *ISI = dyn_cast<IndirectSwitchInst>(TI)) {
+      // Taking a case to BB is UB, so the case can be removed. Its edge
+      // address then has an unspecified value, which is fine, as any use of it
+      // as the indirectswitch address would have been UB.
+      SmallSetVector<BasicBlock *, 8> RemovedSuccs;
+      Changed |= removeIndirectSwitchCases(
+          ISI,
+          [BB](IndirectSwitchInst::CaseHandle Case) {
+            return Case.getCaseSuccessor() == BB;
+          },
+          RemovedSuccs);
+      if (DTU && !RemovedSuccs.empty())
+        Updates.push_back({DominatorTree::Delete, Predecessor, BB});
     } else if (auto *II = dyn_cast<InvokeInst>(TI)) {
       if (II->getUnwindDest() == BB) {
         if (DTU) {
@@ -8707,6 +8766,66 @@ bool SimplifyCFGOpt::simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
   return false;
 }
 
+bool SimplifyCFGOpt::simplifyIndirectSwitch(IndirectSwitchInst *ISI) {
+  BasicBlock *BB = ISI->getParent();
+
+  // Remove cases whose edge address is not used anywhere else: the address
+  // can then never be equal to it. This is the equivalent of removing
+  // destinations which are not address-taken from an indirectbr.
+  SmallSetVector<BasicBlock *, 8> RemovedSuccs;
+  bool Changed = removeIndirectSwitchCases(
+      ISI,
+      [](IndirectSwitchInst::CaseHandle Case) {
+        return Case.getCaseValue()->hasOneUse();
+      },
+      RemovedSuccs);
+  if (DTU && !RemovedSuccs.empty()) {
+    SmallVector<DominatorTree::UpdateType, 8> Updates;
+    for (BasicBlock *RemovedSucc : RemovedSuccs)
+      Updates.push_back({DominatorTree::Delete, BB, RemovedSucc});
+    DTU->applyUpdates(Updates);
+  }
+
+  if (ISI->getNumCases() == 0) {
+    // If the indirectswitch has no cases, change it to unreachable.
+    new UnreachableInst(ISI->getContext(), ISI->getIterator());
+    eraseTerminatorAndDCECond(ISI);
+    return true;
+  }
+
+  // If all cases have the same destination, change it to a direct branch.
+  BasicBlock *Dest = ISI->getSuccessor(0);
+  if (all_of(successors(ISI), equal_to(Dest))) {
+    for (unsigned I = 1, E = ISI->getNumSuccessors(); I != E; ++I)
+      Dest->removePredecessor(BB);
+    UncondBrInst::Create(Dest, ISI->getIterator())
+        ->setDebugLoc(ISI->getDebugLoc());
+    eraseTerminatorAndDCECond(ISI);
+    return true;
+  }
+
+  // indirectswitch (select %c, edgeaddress(@f, A), edgeaddress(@f, B))
+  //   -> br %c, <case A destination>, <case B destination>
+  if (auto *SI = dyn_cast<SelectInst>(ISI->getAddress())) {
+    auto *TEA = dyn_cast<EdgeAddress>(SI->getTrueValue());
+    auto *FEA = dyn_cast<EdgeAddress>(SI->getFalseValue());
+    if (TEA && FEA) {
+      auto TCase = ISI->findCaseValue(TEA);
+      auto FCase = ISI->findCaseValue(FEA);
+      if (TCase != ISI->case_end() && FCase != ISI->case_end()) {
+        SmallVector<uint32_t> SelectBranchWeights(2);
+        extractBranchWeights(*SI, SelectBranchWeights);
+        if (simplifyTerminatorOnSelect(
+                ISI, SI->getCondition(), TCase->getCaseSuccessor(),
+                FCase->getCaseSuccessor(), SelectBranchWeights[0],
+                SelectBranchWeights[1]))
+          return requestResimplify();
+      }
+    }
+  }
+  return Changed;
+}
+
 bool SimplifyCFGOpt::simplifyIndirectBr(IndirectBrInst *IBI) {
   BasicBlock *BB = IBI->getParent();
   bool Changed = false;
@@ -9180,6 +9299,7 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I, bool PtrValu
       case Instruction::Call:
       case Instruction::CallBr:
       case Instruction::Invoke:
+      case Instruction::IndirectSwitch:
       case Instruction::UDiv:
       case Instruction::URem:
         // Note: signed div/rem of INT_MIN / -1 is also immediate UB, not
@@ -9238,6 +9358,11 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I, bool PtrValu
         return !PtrValueMayBeModified;
       }
     }
+
+    // An indirectswitch on null or undef is undefined, as no edgeaddress is
+    // equal to null.
+    if (auto *ISI = dyn_cast<IndirectSwitchInst>(User))
+      return ISI->getAddress() == I && !PtrValueMayBeModified;
 
     // Load from null is undefined.
     if (LoadInst *LI = dyn_cast<LoadInst>(User))
@@ -9442,6 +9567,9 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
     break;
   case Instruction::IndirectBr:
     Changed |= simplifyIndirectBr(cast<IndirectBrInst>(Terminator));
+    break;
+  case Instruction::IndirectSwitch:
+    Changed |= simplifyIndirectSwitch(cast<IndirectSwitchInst>(Terminator));
     break;
   }
 

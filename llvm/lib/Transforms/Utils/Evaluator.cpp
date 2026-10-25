@@ -550,6 +550,15 @@ bool Evaluator::EvaluateBlock(BasicBlock::iterator CurInst, BasicBlock *&NextBB,
           NextBB = BA->getBasicBlock();
         else
           return false;  // Cannot determine.
+      } else if (auto *ISI = dyn_cast<IndirectSwitchInst>(CurInst)) {
+        auto *EA = dyn_cast<EdgeAddress>(
+            getVal(ISI->getAddress())->stripPointerCasts());
+        if (!EA)
+          return false; // Cannot determine.
+        auto Case = ISI->findCaseValue(EA);
+        if (Case == ISI->case_end())
+          return false; // Undefined behavior.
+        NextBB = Case->getCaseSuccessor();
       } else if (isa<ReturnInst>(CurInst)) {
         NextBB = nullptr;
       } else {

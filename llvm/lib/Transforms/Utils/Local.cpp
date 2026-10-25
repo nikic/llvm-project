@@ -395,6 +395,49 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
     }
   }
 
+  if (auto *ISI = dyn_cast<IndirectSwitchInst>(T)) {
+    // indirectswitch edgeaddress(@F, N) -> br label <case N destination>
+    auto *EA = dyn_cast<EdgeAddress>(ISI->getAddress()->stripPointerCasts());
+    if (!EA)
+      return false;
+
+    // If the edgeaddress is not one of the cases, we have undefined behavior.
+    auto Case = ISI->findCaseValue(EA);
+    BasicBlock *TheOnlyDest =
+        Case != ISI->case_end() ? Case->getCaseSuccessor() : nullptr;
+    SmallSetVector<BasicBlock *, 8> RemovedSuccessors;
+    bool KeptDest = false;
+    for (BasicBlock *Succ : successors(ISI)) {
+      if (Succ == TheOnlyDest && !KeptDest) {
+        KeptDest = true;
+        continue;
+      }
+      Succ->removePredecessor(BB);
+      if (Succ != TheOnlyDest)
+        RemovedSuccessors.insert(Succ);
+    }
+
+    Instruction *NewTI;
+    if (TheOnlyDest)
+      NewTI = UncondBrInst::Create(TheOnlyDest, ISI->getIterator());
+    else
+      NewTI = new UnreachableInst(BB->getContext(), ISI->getIterator());
+    NewTI->setDebugLoc(ISI->getDebugLoc());
+    Value *Address = ISI->getAddress();
+    ISI->eraseFromParent();
+    if (DeleteDeadConditions)
+      // Delete pointer cast instructions.
+      RecursivelyDeleteTriviallyDeadInstructions(Address, TLI);
+
+    if (DTU) {
+      SmallVector<DominatorTree::UpdateType, 8> Updates;
+      for (BasicBlock *RemovedSuccessor : RemovedSuccessors)
+        Updates.push_back({DominatorTree::Delete, BB, RemovedSuccessor});
+      DTU->applyUpdates(Updates);
+    }
+    return true;
+  }
+
   return false;
 }
 
