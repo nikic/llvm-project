@@ -454,6 +454,23 @@ static bool hasDistinctMetadataIntrinsic(const Function &F) {
   return false;
 }
 
+/// Check whether the address of a block of \p F is used outside of \p F
+/// (e.g. in a global variable). When merging, the body of one of the functions
+/// is discarded, which would turn such block addresses into dangling values.
+static bool hasBlockAddressUsedOutside(const Function &F) {
+  for (const BasicBlock &BB : F) {
+    if (!BB.hasAddressTaken())
+      continue;
+    BlockAddress *BA = BlockAddress::lookup(&BB);
+    for (const User *U : BA->users()) {
+      const auto *I = dyn_cast<Instruction>(U);
+      if (!I || I->getFunction() != &F)
+        return true;
+    }
+  }
+  return false;
+}
+
 /// Check whether \p F is eligible for function merging.
 static bool isEligibleForMerging(Function &F) {
   // Oracle functions of llvm.speculative.load may only be referenced by
@@ -461,7 +478,7 @@ static bool isEligibleForMerging(Function &F) {
   return !F.isDeclaration() && !F.hasAvailableExternallyLinkage() &&
          !F.hasFnAttribute(Attribute::NoIPA) &&
          !F.hasFnAttribute("oracle-function") &&
-         !hasDistinctMetadataIntrinsic(F);
+         !hasDistinctMetadataIntrinsic(F) && !hasBlockAddressUsedOutside(F);
 }
 
 inline Function *asPtr(Function *Fn) { return Fn; }
