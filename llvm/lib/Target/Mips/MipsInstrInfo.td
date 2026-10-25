@@ -2342,6 +2342,24 @@ let AdditionalPredicates = [NotInMicroMips] in {
 let AdditionalPredicates = [NotInMips16Mode, NotInMicroMips] in {
   def TAILCALL : TailCall<J, jmptarget>, ISA_MIPS1;
 }
+
+// Pseudos for llvm.instruction.pointer on targets without a suitable
+// PC-relative instruction (pre-R6 MIPS32/MIPS64). They are expanded to
+// "bal 1f; nop; 1: move $rd, $ra" in the AsmPrinter, producing the address of
+// the move, and clobber $ra.
+let hasSideEffects = 1, hasNoSchedulingInfo = 1, Size = 12 in {
+  let Defs = [R31] in
+  def PseudoInstructionPointer : MipsPseudo<(outs GPR32Opnd:$rd), (ins), []>;
+  let Defs = [R31_64] in
+  def PseudoInstructionPointer64 : MipsPseudo<(outs GPR64Opnd:$rd), (ins), []>;
+}
+
+// Pseudo for llvm.instruction.pointer on pre-R6 microMIPS, which is expanded
+// to "addiupc $rd, 0". This needs a separate pseudo, as addiupc only supports
+// a subset of the registers.
+let hasSideEffects = 1, hasNoSchedulingInfo = 1, Size = 4 in
+def PseudoInstructionPointerMM : MipsPseudo<(outs GPRMM16Opnd:$rd), (ins), []>;
+
 let AdditionalPredicates = [NotInMips16Mode, NotInMicroMips,
                             NoIndirectJumpGuards] in
   def TAILCALLREG : TailCallReg<JR, GPR32Opnd>, ISA_MIPS1_NOT_32R6_64R6;

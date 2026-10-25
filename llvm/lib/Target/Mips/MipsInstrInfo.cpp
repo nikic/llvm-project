@@ -748,6 +748,9 @@ unsigned MipsInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
     // If this machine instr is a constant pool entry, its size is recorded as
     // operand #2.
     return MI.getOperand(2).getImm();
+  case TargetOpcode::INSTRUCTION_POINTER:
+    // addiupc (R6) or extended addiu $rx, $pc, 0 (MIPS16).
+    return 4;
   }
 }
 

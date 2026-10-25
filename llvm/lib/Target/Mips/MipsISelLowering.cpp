@@ -245,6 +245,14 @@ MipsTargetLowering::MipsTargetLowering(const MipsTargetMachine &TM,
       getTargetMachine().getTargetTriple().isOSLinux())
     setOperationAction(ISD::READCYCLECOUNTER, MVT::i64, Custom);
 
+  // INSTRUCTION_POINTER is selected to the generic pseudo on R6 (addiupc) and
+  // in MIPS16 mode (addiu $rx, $pc, 0). Pre-R6 microMIPS needs a pseudo that
+  // restricts the registers, and other pre-R6 targets need a bal-based pseudo
+  // that clobbers $ra.
+  setOperationAction(
+      ISD::INSTRUCTION_POINTER, ABI.ArePtrs64bit() ? MVT::i64 : MVT::i32,
+      Subtarget.hasMips32r6() || Subtarget.inMips16Mode() ? Legal : Custom);
+
   // Lower fmin/fmax/fclass operations for MIPS R6.
   if (Subtarget.hasMips32r6()) {
     setOperationAction(ISD::FMINNUM_IEEE, MVT::f32, Legal);
@@ -1293,6 +1301,8 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) const
   case ISD::FP_TO_SINT:         return lowerFP_TO_SINT(Op, DAG);
   case ISD::READCYCLECOUNTER:
     return lowerREADCYCLECOUNTER(Op, DAG);
+  case ISD::INSTRUCTION_POINTER:
+    return lowerINSTRUCTION_POINTER(Op, DAG);
   case ISD::ConstantFP:
     return lowerConstantFP(Op, DAG);
   }
@@ -2164,6 +2174,19 @@ SDValue MipsTargetLowering::lowerConstantFP(SDValue Op,
   }
 
   return SDValue();
+}
+
+SDValue MipsTargetLowering::lowerINSTRUCTION_POINTER(SDValue Op,
+                                                     SelectionDAG &DAG) const {
+  EVT VT = Op.getValueType();
+  unsigned Opc;
+  if (Subtarget.inMicroMipsMode())
+    Opc = Mips::PseudoInstructionPointerMM;
+  else
+    Opc = VT == MVT::i64 ? Mips::PseudoInstructionPointer64
+                         : Mips::PseudoInstructionPointer;
+  return SDValue(
+      DAG.getMachineNode(Opc, SDLoc(Op), VT, MVT::Other, Op.getOperand(0)), 0);
 }
 
 SDValue MipsTargetLowering::lowerREADCYCLECOUNTER(SDValue Op,

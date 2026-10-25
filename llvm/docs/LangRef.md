@@ -15304,7 +15304,7 @@ operations with side effects. However, a call whose result is unused may be
 removed.
 
 This intrinsic is only supported on some targets, including AArch64, ARM,
-LoongArch, PowerPC, RISC-V, SystemZ and x86.
+LoongArch, MIPS, PowerPC, RISC-V, SystemZ and x86.
 
 #### '`llvm.swift.async.context.addr`' Intrinsic
 

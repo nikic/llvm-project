@@ -232,6 +232,12 @@ void MipsAsmPrinter::emitInstruction(const MachineInstr *MI) {
   case Mips::PATCHABLE_TAIL_CALL:
     LowerPATCHABLE_TAIL_CALL(*MI);
     return;
+  case TargetOpcode::INSTRUCTION_POINTER:
+  case Mips::PseudoInstructionPointer:
+  case Mips::PseudoInstructionPointer64:
+  case Mips::PseudoInstructionPointerMM:
+    LowerINSTRUCTION_POINTER(*MI);
+    return;
   }
 
   if (Subtarget->getMCCLOpts().jalr_reloc &&
@@ -1194,6 +1200,57 @@ void MipsAsmPrinter::EmitSled(const MachineInstr &MI, SledKind Kind) {
   }
 
   recordSled(CurSled, MI, Kind, 2);
+}
+
+void MipsAsmPrinter::LowerINSTRUCTION_POINTER(const MachineInstr &MI) {
+  Register Reg = MI.getOperand(0).getReg();
+  switch (MI.getOpcode()) {
+  case TargetOpcode::INSTRUCTION_POINTER: {
+    // "addiupc $rd, 0" (R6) or "addiu $rx, $pc, 0" (MIPS16) produces the
+    // address of the instruction itself (rounded down to a multiple of 4 for
+    // MIPS16).
+    unsigned Opc;
+    if (Subtarget->inMips16Mode())
+      Opc = Mips::AddiuRxPcImmX16;
+    else if (Subtarget->inMicroMipsMode())
+      Opc = Mips::ADDIUPC_MMR6;
+    else
+      Opc = Mips::ADDIUPC;
+    EmitToStreamer(*OutStreamer, MCInstBuilder(Opc).addReg(Reg).addImm(0));
+    return;
+  }
+  case Mips::PseudoInstructionPointerMM:
+    // "addiupc $rd, 0" produces the address of the word containing the
+    // instruction.
+    EmitToStreamer(*OutStreamer,
+                   MCInstBuilder(Mips::ADDIUPC_MM).addReg(Reg).addImm(0));
+    return;
+  case Mips::PseudoInstructionPointer:
+  case Mips::PseudoInstructionPointer64: {
+    // Emit:
+    //     bal 1f
+    //     nop
+    // 1:  move $rd, $ra
+    // which produces the address of the move.
+    bool Is64 = MI.getOpcode() == Mips::PseudoInstructionPointer64;
+    MCSymbol *Label = OutContext.createTempSymbol();
+    EmitToStreamer(*OutStreamer,
+                   MCInstBuilder(Mips::BGEZAL)
+                       .addReg(Mips::R0)
+                       .addExpr(MCSymbolRefExpr::create(Label, OutContext)));
+    EmitToStreamer(
+        *OutStreamer,
+        MCInstBuilder(Mips::SLL).addReg(Mips::R0).addReg(Mips::R0).addImm(0));
+    OutStreamer->emitLabel(Label);
+    EmitToStreamer(*OutStreamer, MCInstBuilder(Is64 ? Mips::OR64 : Mips::OR)
+                                     .addReg(Reg)
+                                     .addReg(Is64 ? Mips::RA_64 : Mips::RA)
+                                     .addReg(Is64 ? Mips::R0_64 : Mips::R0));
+    return;
+  }
+  default:
+    llvm_unreachable("Unexpected opcode");
+  }
 }
 
 void MipsAsmPrinter::LowerPATCHABLE_FUNCTION_ENTER(const MachineInstr &MI) {

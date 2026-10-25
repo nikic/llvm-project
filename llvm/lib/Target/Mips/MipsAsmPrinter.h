@@ -48,6 +48,7 @@ class LLVM_LIBRARY_VISIBILITY MipsAsmPrinter : public AsmPrinter {
 
 public:
   // XRay-specific lowering for Mips.
+  void LowerINSTRUCTION_POINTER(const MachineInstr &MI);
   void LowerPATCHABLE_FUNCTION_ENTER(const MachineInstr &MI);
   void LowerPATCHABLE_FUNCTION_EXIT(const MachineInstr &MI);
   void LowerPATCHABLE_TAIL_CALL(const MachineInstr &MI);
