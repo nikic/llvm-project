@@ -891,6 +891,50 @@ TEST(ConstantsTest, BlockAddressCAPITest) {
   EXPECT_EQ(&BB, OutBB);
 }
 
+// Replacing a block moves its blockaddress to the replacement, unless the
+// replacement is the entry block.
+TEST(ConstantsTest, BlockAddressRAUW) {
+  const char *IR = R"(
+    @g = global [3 x ptr] [ptr blockaddress(@f, %a), ptr blockaddress(@f, %b),
+                           ptr blockaddress(@f, %c)]
+    define void @f() {
+    entry:
+      br label %a
+    a:
+      br label %b
+    b:
+      br label %c
+    c:
+      ret void
+    }
+  )";
+  LLVMContext Context;
+  SMDiagnostic Error;
+  std::unique_ptr<Module> M = parseAssemblyString(IR, Error, Context);
+  ASSERT_TRUE(M);
+  Function *F = M->getFunction("f");
+  GlobalVariable *G = M->getGlobalVariable("g");
+  auto It = F->begin();
+  BasicBlock *Entry = &*It++, *A = &*It++, *B = &*It++, *C = &*It++;
+
+  // b -> c: c already has a blockaddress, so both entries now use it.
+  B->replaceAllUsesWith(C);
+  EXPECT_FALSE(B->hasAddressTaken());
+  auto *Init = cast<ConstantArray>(G->getInitializer());
+  EXPECT_EQ(Init->getOperand(1), BlockAddress::get(C));
+  EXPECT_EQ(Init->getOperand(2), BlockAddress::get(C));
+
+  // a -> entry: placeholder.
+  A->replaceAllUsesWith(Entry);
+  EXPECT_FALSE(A->hasAddressTaken());
+  EXPECT_FALSE(Entry->hasAddressTaken());
+  Init = cast<ConstantArray>(G->getInitializer());
+  EXPECT_EQ(Init->getOperand(0),
+            ConstantExpr::getIntToPtr(
+                ConstantInt::get(Type::getInt32Ty(Context), 1),
+                PointerType::getUnqual(Context)));
+}
+
 TEST(ConstantsTest, EdgeAddress) {
   LLVMContext Context;
   Module M("m", Context);

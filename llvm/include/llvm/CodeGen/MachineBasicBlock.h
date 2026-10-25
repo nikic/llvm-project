@@ -294,9 +294,14 @@ public:
 
   /// Test whether this block is the target of an IR BlockAddress.  (There can
   /// more than one MBB associated with an IR BB where the address is taken.)
+  /// This is either the destination of an `indirectswitch` (whose edge
+  /// addresses are lowered to block addresses), or a block with a data-only IR
+  /// `blockaddress` (e.g. for a SanitizerCoverage table).
   ///
   /// If this function returns true, it _does_ mean that branch target
   /// enforcement needs to put a BTI or equivalent at the start of the block.
+  /// (This is conservative for data-only blockaddresses, which are never
+  /// branched to.)
   bool isIRBlockAddressTaken() const { return AddressTakenIRBlock; }
 
   /// Retrieves the BasicBlock which corresponds to this MachineBasicBlock.

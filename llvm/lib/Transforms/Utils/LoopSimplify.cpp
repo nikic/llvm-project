@@ -22,10 +22,9 @@
 //
 // This pass also guarantees that loops will have exactly one backedge.
 //
-// Callbr instructions introduce complications, particularly in asm-goto where
-// blockaddress expressions are used: it may not be possible to transform the
-// loop and make these guarantees. Client code should check that these
-// conditions are true before relying on them.
+// Callbr instructions (asm-goto) introduce complications: it may not be
+// possible to transform the loop and make these guarantees. Client code should
+// check that these conditions are true before relying on them.
 //
 // Note that the simplifycfg pass will clean up blocks which are split out but
 // end up being unnecessary, so usage of this pass should not pessimize

@@ -186,6 +186,16 @@ Makes programs 10x faster by doing Special New Thing.
   addresses. `blockaddress` constants of other blocks are kept, but a block
   address can no longer be the destination of an indirect branch.
 
+* `blockaddress` is now a data-only constant: it is a best-effort address of
+  code belonging to the block, intended for identifying code locations (e.g.
+  SanitizerCoverage tables), and transferring control to it is undefined
+  behavior. It is no longer guaranteed to be distinct from other addresses.
+  Blocks whose address is taken can now be merged into their predecessor
+  (the `blockaddress` then refers to the merged block), duplicated (loop
+  unrolling, unroll-and-jam, loop fusion, CHR) and extracted (HotColdSplitting,
+  CodeExtractor), and functions using `blockaddress` can be inlined and
+  imported by ThinLTO.
+
 ### Changes to LLVM infrastructure
 
 * Removed `TargetOptions::FloatABIType`. The soft float ABI should be

@@ -661,8 +661,14 @@ public:
   LLVM_ABI BasicBlock::iterator erase(BasicBlock::iterator FromIt,
                                       BasicBlock::iterator ToIt);
 
-  /// Returns true if there are any uses of this basic block other than
-  /// direct branches, switches, etc. to it.
+  /// Returns true if there is a blockaddress constant for this basic block.
+  ///
+  /// A blockaddress is data-only: it is never the target of a control
+  /// transfer, so the block may be merged, duplicated or deleted (see
+  /// LangRef). RAUW moves the blockaddress to the replacement block (or
+  /// replaces it with a placeholder if that is the entry block), and deleting
+  /// the block replaces it with a placeholder. Transforms may still prefer to
+  /// keep such blocks to keep the address meaningful.
   bool hasAddressTaken() const {
     return SubclassOptionalData & HasAddressTaken;
   }

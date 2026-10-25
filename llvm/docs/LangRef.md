@@ -5577,25 +5577,42 @@ of its operand.
 
 `blockaddress(@function, %block)`
 
-The '`blockaddress`' constant computes the address of the specified
-basic block in the specified function.
+The '`blockaddress`' constant computes a best-effort address of code that
+belongs to the specified basic block in the specified function. It is intended
+for identifying code locations, for example in coverage tables (such as
+SanitizerCoverage's `pc-table` and `control-flow` tables) or for target-specific
+uses in intrinsics, and never denotes a control flow target. Indirect branches
+use {ref}`edgeaddress <edgeaddress>` constants and the
+'{ref}`indirectswitch <i_indirectswitch>`' instruction instead.
 
 It always has a `ptr addrspace(P)` type, where `P` is the address space
 of the function containing `%block` (usually `addrspace(0)`).
 
 Taking the address of the entry block is illegal.
 
-This value only has defined behavior when used for comparisons against null.
-Pointer equality tests between label addresses results in undefined behavior
---- though, again, comparison against null is ok, and no label is equal to the
-null pointer. This may be passed around as an opaque pointer sized value as
-long as the bits are not inspected. A block address cannot be used as the
-destination of an indirect branch: indirect branches use
-{ref}`edgeaddress <edgeaddress>` constants and the
-'{ref}`indirectswitch <i_indirectswitch>`' instruction.
+A '`blockaddress`' is never equal to null. Each '`blockaddress`' constant
+always evaluates to the same value. Apart from that, its value is unspecified:
+it is not guaranteed to be distinct from other '`blockaddress`' constants, from
+the address of any other code, or from other pointers. The value may be passed
+around as an opaque pointer-sized value, stored to memory, and loaded again.
+Transferring control to a '`blockaddress`' (with an indirect branch, a call, or
+from inline assembly) is undefined behavior.
 
-Finally, some targets may provide defined semantics when using the value
-as the operand to an inline assembly, but that is target specific.
+The address is best-effort: transformations do not have to preserve a relation
+between the value and the code of `%block`, and may freely duplicate, merge,
+move, or delete the block:
+
+- If the block is merged into another block, the '`blockaddress`' may refer to
+  the merged block afterwards.
+- If the block is deleted, all uses of the '`blockaddress`' may be replaced by
+  a non-null placeholder value (LLVM uses `inttoptr (i32 1 to ptr)`).
+- If the code of the block is duplicated, the '`blockaddress`' refers to one of
+  the copies. If the '`blockaddress`' constant itself is used by duplicated code
+  (for example, when the function is inlined or cloned), the copy may use the
+  '`blockaddress`' of the corresponding copied block instead.
+
+The value may also be used as an operand of inline assembly (for example, to
+emit it into a data section), but the assembly must not transfer control to it.
 
 (edgeaddress)=
 

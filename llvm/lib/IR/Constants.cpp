@@ -2164,6 +2164,13 @@ Value *BlockAddress::handleOperandChangeImpl(Value *From, Value *To) {
   assert(From == getBasicBlock());
   BasicBlock *NewBB = cast<BasicBlock>(To);
 
+  // The address of the entry block can't be taken. Treat replacing a block
+  // with the entry block (e.g. merging it into the entry block) like deleting
+  // the block and use the same placeholder value.
+  if (NewBB->getParent() && NewBB->isEntryBlock())
+    return ConstantExpr::getIntToPtr(
+        ConstantInt::get(Type::getInt32Ty(getContext()), 1), getType());
+
   // See if the 'new' entry already exists, if not, just update this in place
   // and return early.
   if (BlockAddress *NewBA = getContext().pImpl->BlockAddresses.lookup(NewBB))

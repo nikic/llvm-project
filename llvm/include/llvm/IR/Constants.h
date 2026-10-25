@@ -1084,7 +1084,9 @@ public:
   }
 };
 
-/// The address of a basic block.
+/// The address of a basic block. This is a best-effort address of code
+/// belonging to the block, used to identify code locations. It is never a
+/// control transfer target (see \c EdgeAddress for that).
 ///
 class BlockAddress final : public Constant {
   friend class Constant;
