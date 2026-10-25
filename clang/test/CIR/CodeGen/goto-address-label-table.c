@@ -10,10 +10,14 @@
 // CIR-DAG: cir.global "private" internal dso_local @h.tbl = #cir.const_array<[#cir.block_addr_info<@h, "L1"> : !cir.ptr<!void>]> : !cir.array<!cir.ptr<!void> x 1>
 // CIR-DAG: cir.global "private" internal dso_local @m.ctbl = #cir.const_array<[#cir.block_addr_info<@m, "A2"> : !cir.ptr<!void>]> : !cir.array<!cir.ptr<!void> x 1>
 
-// LLVM-DAG: @f.tbl = internal global [2 x ptr] [ptr blockaddress(@f, %[[FL1:[0-9a-zA-Z_.]+]]), ptr blockaddress(@f, %[[FL2:[0-9a-zA-Z_.]+]])], align 16
-// LLVM-DAG: @g.tbl = internal global [3 x ptr] [ptr blockaddress(@g, %[[GA:[0-9a-zA-Z_.]+]]), ptr blockaddress(@g, %[[GA]]), ptr blockaddress(@g, %[[GB:[0-9a-zA-Z_.]+]])], align 16
-// LLVM-DAG: @h.tbl = internal global [1 x ptr] [ptr blockaddress(@h, %{{[0-9a-zA-Z_.]+}})], align 8
-// LLVM-DAG: @m.ctbl = internal global [1 x ptr] [ptr blockaddress(@m, %[[MA2:[0-9a-zA-Z_.]+]])], align 8
+// LLVMCIR-DAG: @f.tbl = internal global [2 x ptr] [ptr blockaddress(@f, %[[FL1:[0-9a-zA-Z_.]+]]), ptr blockaddress(@f, %[[FL2:[0-9a-zA-Z_.]+]])], align 16
+// LLVMCIR-DAG: @g.tbl = internal global [3 x ptr] [ptr blockaddress(@g, %[[GA:[0-9a-zA-Z_.]+]]), ptr blockaddress(@g, %[[GA]]), ptr blockaddress(@g, %[[GB:[0-9a-zA-Z_.]+]])], align 16
+// LLVMCIR-DAG: @h.tbl = internal global [1 x ptr] [ptr blockaddress(@h, %{{[0-9a-zA-Z_.]+}})], align 8
+// LLVMCIR-DAG: @m.ctbl = internal global [1 x ptr] [ptr blockaddress(@m, %[[MA2:[0-9a-zA-Z_.]+]])], align 8
+// OGCG-DAG: @f.tbl = internal global [2 x ptr] [ptr edgeaddress(@f, 0), ptr edgeaddress(@f, 1)], align 16
+// OGCG-DAG: @g.tbl = internal global [3 x ptr] [ptr edgeaddress(@g, 0), ptr edgeaddress(@g, 0), ptr edgeaddress(@g, 1)], align 16
+// OGCG-DAG: @h.tbl = internal global [1 x ptr] [ptr edgeaddress(@h, 0)], align 8
+// OGCG-DAG: @m.ctbl = internal global [1 x ptr] [ptr edgeaddress(@m, 0)], align 8
 
 int f(int x) {
   static const void *tbl[] = {&&L1, &&L2};
@@ -31,10 +35,14 @@ L2:
 // CIR:   cir.label "L2"
 
 // LLVM-LABEL: define dso_local i32 @f(
-// LLVM:   indirectbr ptr %{{.*}}, [label %[[FL1]], label %[[FL2]]]
+// LLVMCIR:   indirectbr ptr %{{.*}}, [label %[[FL1]], label %[[FL2]]]
+// OGCG:      indirectswitch ptr %{{.*}}, [
+// OGCG-NEXT:   ptr edgeaddress(@f, 0), label %L1
+// OGCG-NEXT:   ptr edgeaddress(@f, 1), label %L2
+// OGCG-NEXT: ]
 
 // A appears twice in g's table, but a block only needs to be listed once as an
-// indirect-branch successor, so CIR drops the duplicate (classic keeps it).
+// indirect-branch successor, so both CIR and classic codegen list it once.
 int g(int x) {
   static const void *tbl[] = {&&A, &&A, &&B};
   goto *tbl[x];
@@ -51,10 +59,13 @@ B:
 
 // LLVM-LABEL: define dso_local i32 @g(
 // LLVMCIR:   indirectbr ptr %{{.*}}, [label %[[GA]], label %[[GB]]]
-// OGCG:   indirectbr ptr %{{.*}}, [label %[[GA]], label %[[GA]], label %[[GB]]]
+// OGCG:      indirectswitch ptr %{{.*}}, [
+// OGCG-NEXT:   ptr edgeaddress(@g, 0), label %A
+// OGCG-NEXT:   ptr edgeaddress(@g, 1), label %B
+// OGCG-NEXT: ]
 
 // h takes a label address but never executes a `goto *`, so CIR emits no
-// indirect goto (classic still emits a dead poisoned indirectbr).
+// indirect goto (neither does classic codegen).
 int h(int x) {
   static const void *tbl[] = {&&L1};
   (void)tbl;
@@ -68,7 +79,8 @@ L1:
 
 // LLVM-LABEL: define dso_local i32 @h(
 // LLVMCIR-NOT: indirectbr
-// OGCG:   indirectbr ptr poison, [label %{{.+}}]
+// OGCG-NOT: indirect
+// OGCG: }
 
 // A2's address comes from a constant table, B2's from a runtime block-address
 // op; both feed the same indirect branch.
@@ -91,4 +103,9 @@ B2:
 // CIR-DAG:   cir.label "B2"
 
 // LLVM-LABEL: define dso_local i32 @m(
-// LLVM:   indirectbr ptr %{{.*}}, [label %[[MA2]], label %{{.+}}]
+// LLVMCIR:   indirectbr ptr %{{.*}}, [label %[[MA2]], label %{{.+}}]
+// OGCG:      store ptr edgeaddress(@m, 1), ptr %p
+// OGCG:      indirectswitch ptr %{{.*}}, [
+// OGCG-NEXT:   ptr edgeaddress(@m, 0), label %A2
+// OGCG-NEXT:   ptr edgeaddress(@m, 1), label %B2
+// OGCG-NEXT: ]

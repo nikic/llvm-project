@@ -582,7 +582,8 @@ public:
   Value *VisitUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *E);
   Value *VisitAddrLabelExpr(const AddrLabelExpr *E) {
     llvm::Value *V = CGF.GetAddrOfLabel(E->getLabel());
-    return Builder.CreateBitCast(V, ConvertType(E->getType()));
+    return Builder.CreatePointerBitCastOrAddrSpaceCast(
+        V, ConvertType(E->getType()));
   }
 
   Value *VisitSizeOfPackExpr(SizeOfPackExpr *E) {

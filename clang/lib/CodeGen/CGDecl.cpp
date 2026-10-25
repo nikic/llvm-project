@@ -929,7 +929,7 @@ static bool canEmitInitWithFewStoresAfterBZero(llvm::Constant *Init,
     return true;
   if (isa<llvm::ConstantInt>(Init) || isa<llvm::ConstantFP>(Init) ||
       isa<llvm::ConstantVector>(Init) || isa<llvm::BlockAddress>(Init) ||
-      isa<llvm::ConstantExpr>(Init))
+      isa<llvm::EdgeAddress>(Init) || isa<llvm::ConstantExpr>(Init))
     return Init->isNullValue() || NumStores--;
 
   // See if we can emit each element.
@@ -966,7 +966,7 @@ void CodeGenFunction::emitStoresForInitAfterBZero(llvm::Constant *Init,
 
   if (isa<llvm::ConstantInt>(Init) || isa<llvm::ConstantFP>(Init) ||
       isa<llvm::ConstantVector>(Init) || isa<llvm::BlockAddress>(Init) ||
-      isa<llvm::ConstantExpr>(Init)) {
+      isa<llvm::EdgeAddress>(Init) || isa<llvm::ConstantExpr>(Init)) {
     auto *I = Builder.CreateStore(Init, Loc, isVolatile);
     addInstToCurrentSourceAtom(I, nullptr);
     if (IsAutoInit)

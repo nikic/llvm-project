@@ -33,14 +33,16 @@ LABEL_A:
 
 // OGCG: define dso_local void @A()
 // OGCG:   [[PTR:%.*]] = alloca ptr, align 8
-// OGCG:   store ptr blockaddress(@A, %LABEL_A), ptr [[PTR]], align 8
+// OGCG:   store ptr edgeaddress(@A, 0), ptr [[PTR]], align 8
 // OGCG:   [[BLOCKADD:%.*]] = load ptr, ptr [[PTR]], align 8
 // OGCG:   br label %indirectgoto
 // OGCG: LABEL_A:                                                ; preds = %indirectgoto
 // OGCG:   ret void
 // OGCG: indirectgoto:                                     ; preds = %entry
 // OGCG:   %indirect.goto.dest = phi ptr [ [[BLOCKADD]], %entry ]
-// OGCG:   indirectbr ptr %indirect.goto.dest, [label %LABEL_A]
+// OGCG:   indirectswitch ptr %indirect.goto.dest, [
+// OGCG-NEXT: ptr edgeaddress(@A, 0), label %LABEL_A
+// OGCG-NEXT: ]
 
 void B(void) {
 LABEL_B:
@@ -73,12 +75,14 @@ LABEL_B:
 // OGCG:   [[PTR:%.*]] = alloca ptr, align 8
 // OGCG:   br label %LABEL_B
 // OGCG: LABEL_B:                                                ; preds = %indirectgoto, %entry
-// OGCG:   store ptr blockaddress(@B, %LABEL_B), ptr [[PTR]], align 8
+// OGCG:   store ptr edgeaddress(@B, 0), ptr [[PTR]], align 8
 // OGCG:   [[BLOCKADD:%.*]] = load ptr, ptr [[PTR]], align 8
 // OGCG:   br label %indirectgoto
 // OGCG: indirectgoto:                                     ; preds = %LABEL_B
 // OGCG:   %indirect.goto.dest = phi ptr [ [[BLOCKADD]], %LABEL_B ]
-// OGCG:   indirectbr ptr %indirect.goto.dest, [label %LABEL_B]
+// OGCG:   indirectswitch ptr %indirect.goto.dest, [
+// OGCG-NEXT: ptr edgeaddress(@B, 0), label %LABEL_B
+// OGCG-NEXT: ]
 
 void C(int x) {
   void *ptr = (x == 0) ? &&LABEL_A : &&LABEL_B;
@@ -115,7 +119,7 @@ LABEL_B:
 // LLVM:   indirectbr ptr [[PHI]], [label %[[LABEL_A]], label %[[LABEL_B]]]
 
 // OGCG: define dso_local void @C
-// OGCG:   [[COND:%.*]] = select i1 [[CMP:%.*]], ptr blockaddress(@C, %LABEL_A), ptr blockaddress(@C, %LABEL_B)
+// OGCG:   [[COND:%.*]] = select i1 [[CMP:%.*]], ptr edgeaddress(@C, 0), ptr edgeaddress(@C, 1)
 // OGCG:   store ptr [[COND]], ptr [[PTR:%.*]], align 8
 // OGCG:   [[BLOCKADD:%.*]] = load ptr, ptr [[PTR]], align 8
 // OGCG:   br label %indirectgoto
@@ -127,7 +131,10 @@ LABEL_B:
 // OGCG:   ret void
 // OGCG: indirectgoto:                                     ; preds = %entry
 // OGCG:   %indirect.goto.dest = phi ptr [ [[BLOCKADD]], %entry ]
-// OGCG:   indirectbr ptr %indirect.goto.dest, [label %LABEL_A, label %LABEL_B]
+// OGCG:   indirectswitch ptr %indirect.goto.dest, [
+// OGCG-NEXT: ptr edgeaddress(@C, 0), label %LABEL_A
+// OGCG-NEXT: ptr edgeaddress(@C, 1), label %LABEL_B
+// OGCG-NEXT: ]
 
 void D(void) {
   void *ptr = &&LABEL_A;
@@ -172,19 +179,21 @@ LABEL_A:
 // OGCG:   %[[PTR:.*]] = alloca ptr, align 8
 // OGCG:   %[[PTR2:.*]] = alloca ptr, align 8
 // OGCG:   %[[PTR3:.*]] = alloca ptr, align 8
-// OGCG:   store ptr blockaddress(@D, %LABEL_A), ptr %[[PTR]], align 8
-// OGCG:   store ptr blockaddress(@D, %LABEL_A), ptr %[[PTR2]], align 8
+// OGCG:   store ptr edgeaddress(@D, 0), ptr %[[PTR]], align 8
+// OGCG:   store ptr edgeaddress(@D, 0), ptr %[[PTR2]], align 8
 // OGCG:   %[[BLOCKADD:.*]] = load ptr, ptr %[[PTR2]], align 8
 // OGCG:   br label %indirectgoto
-// OGCG: LABEL_A:                                                ; preds = %indirectgoto, %indirectgoto, %indirectgoto
-// OGCG:   store ptr blockaddress(@D, %LABEL_A), ptr %[[PTR3]], align 8
+// OGCG: LABEL_A:                                                ; preds = %indirectgoto{{$}}
+// OGCG:   store ptr edgeaddress(@D, 0), ptr %[[PTR3]], align 8
 // OGCG:   ret void
 // OGCG: indirectgoto:                                     ; preds = %entry
 // OGCG:   %indirect.goto.dest = phi ptr [ %[[BLOCKADD]], %entry ]
-// OGCG:   indirectbr ptr %indirect.goto.dest, [label %LABEL_A, label %LABEL_A, label %LABEL_A]
+// OGCG:   indirectswitch ptr %indirect.goto.dest, [
+// OGCG-NEXT: ptr edgeaddress(@D, 0), label %LABEL_A
+// OGCG-NEXT: ]
 
 // E takes label addresses but never executes a `goto *`, so CIR emits no
-// indirect branch (classic still emits a dead poisoned indirectbr, see OGCG).
+// indirect branch (neither does classic codegen, see OGCG).
 void E(void) {
   void *ptr = &&LABEL_D;
   void *ptr2 = &&LABEL_C;
@@ -204,18 +213,18 @@ LABEL_D:
 // LLVM-NOT:   indirectbr
 
 // OGCG: define dso_local void @E() #0 {
-// OGCG:   store ptr blockaddress(@E, %LABEL_D), ptr %ptr, align 8
-// OGCG:   store ptr blockaddress(@E, %LABEL_C), ptr %ptr2, align 8
+// OGCG:   store ptr edgeaddress(@E, 0), ptr %ptr, align 8
+// OGCG:   store ptr edgeaddress(@E, 1), ptr %ptr2, align 8
 // OGCG:   br label %LABEL_A
-// OGCG: LABEL_A:                                                ; preds = %indirectgoto, %entry
+// OGCG: LABEL_A:                                                ; preds = %entry
 // OGCG:   br label %LABEL_B
-// OGCG: LABEL_B:                                                ; preds = %indirectgoto, %LABEL_A
-// OGCG:   store ptr blockaddress(@E, %LABEL_B), ptr %ptr3, align 8
-// OGCG:   store ptr blockaddress(@E, %LABEL_A), ptr %ptr4, align 8
+// OGCG: LABEL_B:                                                ; preds = %LABEL_A
+// OGCG:   store ptr edgeaddress(@E, 2), ptr %ptr3, align 8
+// OGCG:   store ptr edgeaddress(@E, 3), ptr %ptr4, align 8
 // OGCG:   br label %LABEL_C
-// OGCG: LABEL_C:                                                ; preds = %LABEL_B, %indirectgoto
+// OGCG: LABEL_C:                                                ; preds = %LABEL_B
 // OGCG:   br label %LABEL_D
-// OGCG: LABEL_D:                                                ; preds = %LABEL_C, %indirectgoto
+// OGCG: LABEL_D:                                                ; preds = %LABEL_C
 // OGCG:   ret void
-// OGCG: indirectgoto:                                     ; No predecessors!
-// OGCG:   indirectbr ptr poison, [label %LABEL_D, label %LABEL_C, label %LABEL_B, label %LABEL_A]
+// OGCG-NOT: indirectgoto
+// OGCG: }

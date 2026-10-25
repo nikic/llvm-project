@@ -5,7 +5,7 @@
 // CHECK: internal global ptr @"_ZZNK17pr18020_constexpr3$_1clEvE2l1"
 // CHECK: @_ZZL14deduced_returnvE1n = internal global i32 42
 // CHECK: @_ZZZL20block_deduced_returnvEUb_E1n = internal global i32 42
-// CHECK: @_ZZ18static_local_labelPvE1q = linkonce_odr global ptr blockaddress(@_Z18static_local_labelPv, %{{.*}})
+// CHECK: @_ZZ18static_local_labelPvE1q = linkonce_odr global ptr edgeaddress(@_Z18static_local_labelPv, 0)
 // CHECK: @"_ZZNK3$_2clEvE1x" = internal global i32 42
 
 namespace pr6769 {

@@ -183,8 +183,14 @@ l2:
 // CIR:         cir.cast integral %[[DIFF]] : !s64i -> !u64i
 
 // LLVM-OGCG-LABEL: define {{.*}}ptr @_Z16const_label_addri(
-// LLVM-OGCG:         store ptr inttoptr (i64 sub (i64 ptrtoint (ptr blockaddress(@_Z16const_label_addri, %[[L2:.*]]) to i64), i64 ptrtoint (ptr blockaddress(@_Z16const_label_addri, %[[L1:.*]]) to i64)) to ptr), ptr %{{.*}}
-// LLVM-OGCG:         phi ptr [ blockaddress(@_Z16const_label_addri, %[[L1]]), %{{.*}} ]
+// LLVM:              store ptr inttoptr (i64 sub (i64 ptrtoint (ptr blockaddress(@_Z16const_label_addri, %[[L2:.*]]) to i64), i64 ptrtoint (ptr blockaddress(@_Z16const_label_addri, %[[L1:.*]]) to i64)) to ptr), ptr %{{.*}}
+// LLVM:              phi ptr [ blockaddress(@_Z16const_label_addri, %[[L1]]), %{{.*}} ]
+// OGCG:              store ptr inttoptr (i64 sub (i64 ptrtoint (ptr edgeaddress(@_Z16const_label_addri, 1) to i64), i64 ptrtoint (ptr edgeaddress(@_Z16const_label_addri, 0) to i64)) to ptr), ptr %{{.*}}
+// OGCG:              phi ptr [ edgeaddress(@_Z16const_label_addri, 0), %{{.*}} ]
+// OGCG-NEXT:         indirectswitch ptr %{{.*}}, [
+// OGCG-NEXT:           ptr edgeaddress(@_Z16const_label_addri, 0), label %l1
+// OGCG-NEXT:           ptr edgeaddress(@_Z16const_label_addri, 1), label %l2
+// OGCG-NEXT:         ]
 
 // Static data members named through a member access.
 

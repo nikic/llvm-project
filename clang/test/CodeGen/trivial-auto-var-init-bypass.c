@@ -354,7 +354,7 @@ CONT:
 // ZERO-NEXT:    store ptr null, ptr [[TARGET]], align 8, !annotation [[META1]]
 // ZERO-NEXT:    store i32 0, ptr [[X]], align 4, !annotation [[META1]]
 // ZERO-NEXT:    store i32 [[N]], ptr [[N_ADDR]], align 4
-// ZERO-NEXT:    store ptr blockaddress(@computed_goto, %[[SKIP:.*]]), ptr [[TARGET]], align 8
+// ZERO-NEXT:    store ptr edgeaddress(@computed_goto, 0), ptr [[TARGET]], align 8
 // ZERO-NEXT:    [[TMP0:%.*]] = load i32, ptr [[N_ADDR]], align 4
 // ZERO-NEXT:    [[TOBOOL:%.*]] = icmp ne i32 [[TMP0]], 0
 // ZERO-NEXT:    br i1 [[TOBOOL]], label %[[IF_THEN:.*]], label %[[IF_END:.*]]
@@ -363,13 +363,15 @@ CONT:
 // ZERO-NEXT:    br label %[[INDIRECTGOTO:.*]]
 // ZERO:       [[IF_END]]:
 // ZERO-NEXT:    store i32 0, ptr [[X]], align 4, !annotation [[META1]]
-// ZERO-NEXT:    br label %[[SKIP]]
+// ZERO-NEXT:    br label %[[SKIP:.*]]
 // ZERO:       [[SKIP]]:
 // ZERO-NEXT:    call void @use(ptr noundef [[X]])
 // ZERO-NEXT:    ret void
 // ZERO:       [[INDIRECTGOTO]]:
 // ZERO-NEXT:    [[INDIRECT_GOTO_DEST:%.*]] = phi ptr [ [[TMP1]], %[[IF_THEN]] ]
-// ZERO-NEXT:    indirectbr ptr [[INDIRECT_GOTO_DEST]], [label %[[SKIP]]]
+// ZERO-NEXT:    indirectswitch ptr [[INDIRECT_GOTO_DEST]], [
+// ZERO-NEXT:      ptr edgeaddress(@computed_goto, 0), label %[[SKIP]]
+// ZERO-NEXT:    ]
 //
 // PATTERN-LABEL: define dso_local void @computed_goto(
 // PATTERN-SAME: i32 noundef [[N:%.*]]) #[[ATTR0]] {
@@ -380,7 +382,7 @@ CONT:
 // PATTERN-NEXT:    store ptr inttoptr (i64 -6148914691236517206 to ptr), ptr [[TARGET]], align 8, !annotation [[META1]]
 // PATTERN-NEXT:    store i32 -1431655766, ptr [[X]], align 4, !annotation [[META1]]
 // PATTERN-NEXT:    store i32 [[N]], ptr [[N_ADDR]], align 4
-// PATTERN-NEXT:    store ptr blockaddress(@computed_goto, %[[SKIP:.*]]), ptr [[TARGET]], align 8
+// PATTERN-NEXT:    store ptr edgeaddress(@computed_goto, 0), ptr [[TARGET]], align 8
 // PATTERN-NEXT:    [[TMP0:%.*]] = load i32, ptr [[N_ADDR]], align 4
 // PATTERN-NEXT:    [[TOBOOL:%.*]] = icmp ne i32 [[TMP0]], 0
 // PATTERN-NEXT:    br i1 [[TOBOOL]], label %[[IF_THEN:.*]], label %[[IF_END:.*]]
@@ -389,13 +391,15 @@ CONT:
 // PATTERN-NEXT:    br label %[[INDIRECTGOTO:.*]]
 // PATTERN:       [[IF_END]]:
 // PATTERN-NEXT:    store i32 -1431655766, ptr [[X]], align 4, !annotation [[META1]]
-// PATTERN-NEXT:    br label %[[SKIP]]
+// PATTERN-NEXT:    br label %[[SKIP:.*]]
 // PATTERN:       [[SKIP]]:
 // PATTERN-NEXT:    call void @use(ptr noundef [[X]])
 // PATTERN-NEXT:    ret void
 // PATTERN:       [[INDIRECTGOTO]]:
 // PATTERN-NEXT:    [[INDIRECT_GOTO_DEST:%.*]] = phi ptr [ [[TMP1]], %[[IF_THEN]] ]
-// PATTERN-NEXT:    indirectbr ptr [[INDIRECT_GOTO_DEST]], [label %[[SKIP]]]
+// PATTERN-NEXT:    indirectswitch ptr [[INDIRECT_GOTO_DEST]], [
+// PATTERN-NEXT:      ptr edgeaddress(@computed_goto, 0), label %[[SKIP]]
+// PATTERN-NEXT:    ]
 //
 void computed_goto(int n) {
   void *target = &&SKIP;

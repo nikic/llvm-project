@@ -1606,11 +1606,21 @@ private:
   /// calling llvm.stacksave for multiple VLAs in the same scope.
   bool DidCallStackSave = false;
 
-  /// IndirectBranch - The first time an indirect goto is seen we create a block
-  /// with an indirect branch.  Every time we see the address of a label taken,
-  /// we add the label to the indirect goto.  Every subsequent indirect goto is
-  /// codegen'd as a jump to the IndirectBranch's basic block.
-  llvm::IndirectBrInst *IndirectBranch = nullptr;
+  /// Address-taken labels of the current function. Each label whose address
+  /// is taken gets an \c edgeaddress with a per-function ID (0..n-1, in the
+  /// order the addresses are first taken).
+  llvm::DenseMap<const LabelDecl *, llvm::EdgeAddress *> LabelEdgeAddresses;
+  /// The cases of the indirect goto block's indirectswitch, in ID order.
+  SmallVector<std::pair<llvm::EdgeAddress *, llvm::BasicBlock *>, 0>
+      IndirectGotoCases;
+
+  /// The first time a (non-constant) indirect goto is seen we create a block
+  /// starting with this PHI of all indirect goto targets. Every indirect goto
+  /// is codegen'd as a jump to this block. FinishFunction terminates the block
+  /// with an indirectswitch over all address-taken labels. If the function has
+  /// no indirect goto, no such block is created, and the edge addresses of the
+  /// address-taken labels are not cases of any indirectswitch.
+  llvm::PHINode *IndirectGotoDest = nullptr;
 
   /// LocalDeclMap - This keeps track of the LLVM allocas or globals for local C
   /// decls.
@@ -3195,7 +3205,7 @@ public:
   /// the input field number being accessed.
   static unsigned getAccessedFieldNo(unsigned Idx, const llvm::Constant *Elts);
 
-  llvm::BlockAddress *GetAddrOfLabel(const LabelDecl *L);
+  llvm::EdgeAddress *GetAddrOfLabel(const LabelDecl *L);
   llvm::BasicBlock *GetIndirectGotoBlock();
 
   /// Check if \p E is a C++ "this" pointer wrapped in value-preserving casts.

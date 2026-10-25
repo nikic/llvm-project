@@ -35,7 +35,7 @@ __device__ int foo1() {
 // CHECK-GFX1200-NEXT:    [[S_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[S]] to ptr
 // CHECK-GFX1200-NEXT:    [[S2_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[S2]] to ptr
 // CHECK-GFX1200-NEXT:    store i32 [[ID]], ptr [[ID_ADDR_ASCAST]], align 4
-// CHECK-GFX1200-NEXT:    call void @llvm.amdgcn.s.prefetch.inst.p0(ptr blockaddress(@_Z4foo2i, %[[NOBAR:.*]]), i32 0)
+// CHECK-GFX1200-NEXT:    call void @llvm.amdgcn.s.prefetch.inst.p0(ptr edgeaddress(@_Z4foo2i, 0), i32 0)
 // CHECK-GFX1200-NEXT:    [[TMP0:%.*]] = load i32, ptr [[ID_ADDR_ASCAST]], align 4
 // CHECK-GFX1200-NEXT:    [[CMP:%.*]] = icmp eq i32 [[TMP0]], 0
 // CHECK-GFX1200-NEXT:    br i1 [[CMP]], label %[[IF_THEN:.*]], label %[[IF_END:.*]]
@@ -46,7 +46,7 @@ __device__ int foo1() {
 // CHECK-GFX1200-NEXT:    store i32 [[CALL]], ptr addrspace(5) [[RETVAL]], align 4
 // CHECK-GFX1200-NEXT:    br label %[[RETURN:.*]]
 // CHECK-GFX1200:       [[IF_END]]:
-// CHECK-GFX1200-NEXT:    br label %[[NOBAR]]
+// CHECK-GFX1200-NEXT:    br label %[[NOBAR:.*]]
 // CHECK-GFX1200:       [[NOBAR]]:
 // CHECK-GFX1200-NEXT:    store ptr addrspacecast (ptr addrspace(4) @.str.1 to ptr), ptr [[S2_ASCAST]], align 8
 // CHECK-GFX1200-NEXT:    [[TMP2:%.*]] = load ptr, ptr [[S2_ASCAST]], align 8
@@ -56,8 +56,6 @@ __device__ int foo1() {
 // CHECK-GFX1200:       [[RETURN]]:
 // CHECK-GFX1200-NEXT:    [[TMP3:%.*]] = load i32, ptr addrspace(5) [[RETVAL]], align 4
 // CHECK-GFX1200-NEXT:    ret i32 [[TMP3]]
-// CHECK-GFX1200:       [[INDIRECTGOTO:.*:]]
-// CHECK-GFX1200-NEXT:    indirectbr ptr poison, [label %[[NOBAR]]]
 //
 __device__ int foo2(int id) {
   __builtin_amdgcn_s_prefetch_inst(&&NOBAR, 0);

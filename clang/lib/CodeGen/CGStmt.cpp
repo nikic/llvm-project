@@ -881,9 +881,10 @@ void CodeGenFunction::EmitIndirectGotoStmt(const IndirectGotoStmt &S) {
     return;
   }
 
-  // Ensure that we have an i8* for our PHI node.
-  llvm::Value *V = Builder.CreateBitCast(EmitScalarExpr(S.getTarget()),
-                                         Int8PtrTy, "addr");
+  // Ensure that we have a pointer in the program address space for our PHI
+  // node.
+  llvm::Value *V = Builder.CreatePointerBitCastOrAddrSpaceCast(
+      EmitScalarExpr(S.getTarget()), CurFn->getType(), "addr");
   llvm::BasicBlock *CurBB = Builder.GetInsertBlock();
 
   // Get the basic block for the indirect goto.

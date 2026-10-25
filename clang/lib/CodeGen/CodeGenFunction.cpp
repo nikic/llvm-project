@@ -437,9 +437,13 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
          "did not remove all scopes from cleanup stack!");
 
   // If someone did an indirect goto, emit the indirect goto block at the end of
-  // the function.
-  if (IndirectBranch) {
-    EmitBlock(IndirectBranch->getParent());
+  // the function, ending in an indirectswitch over all address-taken labels.
+  if (IndirectGotoDest) {
+    EmitBlock(IndirectGotoDest->getParent());
+    llvm::IndirectSwitchInst *ISI = Builder.CreateIndirectSwitch(
+        IndirectGotoDest, IndirectGotoCases.size());
+    for (auto [EA, BB] : IndirectGotoCases)
+      ISI->addCase(EA, BB);
     Builder.ClearInsertionPoint();
   }
 
@@ -468,16 +472,6 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
     llvm::Instruction *PostPtr = PostAllocaInsertPt;
     PostAllocaInsertPt = nullptr;
     PostPtr->eraseFromParent();
-  }
-
-  // If someone took the address of a label but never did an indirect goto, we
-  // made a zero entry PHI node, which is illegal, zap it now.
-  if (IndirectBranch) {
-    llvm::PHINode *PN = cast<llvm::PHINode>(IndirectBranch->getAddress());
-    if (PN->getNumIncomingValues() == 0) {
-      PN->replaceAllUsesWith(llvm::PoisonValue::get(PN->getType()));
-      PN->eraseFromParent();
-    }
   }
 
   EmitIfUsed(*this, EHResumeBlock);
@@ -2398,31 +2392,30 @@ CodeGenFunction::EmitNullInitialization(Address DestPtr, QualType Ty) {
   }
 }
 
-llvm::BlockAddress *CodeGenFunction::GetAddrOfLabel(const LabelDecl *L) {
-  // Make sure that there is a block for the indirect goto.
-  if (!IndirectBranch)
-    GetIndirectGotoBlock();
-
-  llvm::BasicBlock *BB = getJumpDestForLabel(L).getBlock();
-
-  // Make sure the indirect branch includes all of the address-taken blocks.
-  IndirectBranch->addDestination(BB);
-  return llvm::BlockAddress::get(CurFn->getType(), BB);
+llvm::EdgeAddress *CodeGenFunction::GetAddrOfLabel(const LabelDecl *L) {
+  llvm::EdgeAddress *&EA = LabelEdgeAddresses[L];
+  if (!EA) {
+    // Allocate the next ID and remember the label's block as the destination
+    // of the indirect goto block's indirectswitch case for it.
+    EA = llvm::EdgeAddress::get(CurFn, IndirectGotoCases.size());
+    IndirectGotoCases.emplace_back(EA, getJumpDestForLabel(L).getBlock());
+  }
+  return EA;
 }
 
 llvm::BasicBlock *CodeGenFunction::GetIndirectGotoBlock() {
-  // If we already made the indirect branch for indirect goto, return its block.
-  if (IndirectBranch) return IndirectBranch->getParent();
+  // If we already made the block for indirect goto, return it.
+  if (IndirectGotoDest)
+    return IndirectGotoDest->getParent();
 
   CGBuilderTy TmpBuilder(CGM, createBasicBlock("indirectgoto"));
 
-  // Create the PHI node that indirect gotos will add entries to.
-  llvm::Value *DestVal = TmpBuilder.CreatePHI(Int8PtrTy, 0,
-                                              "indirect.goto.dest");
-
-  // Create the indirect branch instruction.
-  IndirectBranch = TmpBuilder.CreateIndirectBr(DestVal);
-  return IndirectBranch->getParent();
+  // Create the PHI node that indirect gotos will add entries to. The
+  // indirectswitch is created in FinishFunction, once all address-taken labels
+  // are known.
+  IndirectGotoDest =
+      TmpBuilder.CreatePHI(CurFn->getType(), 0, "indirect.goto.dest");
+  return IndirectGotoDest->getParent();
 }
 
 /// Computes the length of an array in elements, as well as the base

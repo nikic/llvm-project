@@ -3,7 +3,7 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fclangir -emit-llvm %s -o %t-cir.ll
 // RUN: FileCheck --check-prefix=LLVM --input-file=%t-cir.ll %s
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm %s -o %t.ll
-// RUN: FileCheck --check-prefix=LLVM --input-file=%t.ll %s
+// RUN: FileCheck --check-prefix=OGCG --input-file=%t.ll %s
 
 // CIR: cir.global "private" internal dso_local @g.ar = #cir.block_addr_diff<@g, "l2", "l1"> : !s64i
 // CIR: cir.global "private" internal dso_local @f.s = #cir.const_record<{#cir.block_addr_diff<@f, "A", "B"> : !s32i, #cir.block_addr_diff<@f, "B", "A"> : !s32i}> : !rec_S2
@@ -20,6 +20,17 @@
 // LLVM-DAG: @d.s = internal global %struct.S { ptr blockaddress(@d, %[[D_A:.*]]), ptr blockaddress(@d, %[[D_B:.*]]) }, align 8
 // LLVM-DAG: @f.s = internal global %struct.S2 { i32 trunc (i{{..}} sub (i{{..}} ptrtoint (ptr blockaddress(@f, %[[F_A:.*]]) to i{{..}}), i{{..}} ptrtoint (ptr blockaddress(@f, %[[F_B:.*]]) to i{{..}})) to i32), i32 trunc (i{{..}} sub (i{{..}} ptrtoint (ptr blockaddress(@f, %[[F_B]]) to i{{..}}), i{{..}} ptrtoint (ptr blockaddress(@f, %[[F_A]]) to i{{..}})) to i32) }, align 4
 // LLVM-DAG: @g.ar = internal global {{.*}} sub (i{{..}} ptrtoint (ptr blockaddress(@g, %[[LABEL_GL2:.*]]) to i{{..}}), i{{..}} ptrtoint (ptr blockaddress(@g, %[[LABEL_GL1:.*]]) to i{{..}}))
+
+// Classic codegen emits edgeaddress instead of blockaddress; the function
+// bodies are the same as above.
+// OGCG-DAG: @a.a = internal global ptr edgeaddress(@a, 0), align 8
+// OGCG-DAG: @b.ar = internal global i32 trunc (i64 sub (i64 ptrtoint (ptr edgeaddress(@b, 0) to i64), i64 ptrtoint (ptr edgeaddress(@b, 1) to i64)) to i32), align 4
+// OGCG-DAG: @c.tbl = internal global [3 x ptr] [ptr edgeaddress(@c, 0), ptr edgeaddress(@c, 0), ptr edgeaddress(@c, 1)], align 16
+// OGCG-DAG: @d.s = internal global %struct.S { ptr edgeaddress(@d, 0), ptr edgeaddress(@d, 1) }, align 8
+// OGCG-DAG: @e.arr = internal global [2 x i32] [i32 trunc (i64 sub (i64 ptrtoint (ptr edgeaddress(@e, 0) to i64), i64 ptrtoint (ptr edgeaddress(@e, 1) to i64)) to i32), i32 trunc (i64 sub (i64 ptrtoint (ptr edgeaddress(@e, 2) to i64), i64 ptrtoint (ptr edgeaddress(@e, 0) to i64)) to i32)], align 4
+// OGCG-DAG: @f.s = internal global %struct.S2 { i32 trunc (i64 sub (i64 ptrtoint (ptr edgeaddress(@f, 0) to i64), i64 ptrtoint (ptr edgeaddress(@f, 1) to i64)) to i32), i32 trunc (i64 sub (i64 ptrtoint (ptr edgeaddress(@f, 1) to i64), i64 ptrtoint (ptr edgeaddress(@f, 0) to i64)) to i32) }, align 4
+// OGCG-DAG: @g.ar = internal global i64 sub (i64 ptrtoint (ptr edgeaddress(@g, 0) to i64), i64 ptrtoint (ptr edgeaddress(@g, 1) to i64)), align 8
+// OGCG-NOT: indirect
 
 void a(void) {
 A:;

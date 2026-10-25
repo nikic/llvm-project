@@ -668,17 +668,17 @@ void nested_loops_switch(int n, int c) {
 // variables fall back to a single function-scope init in entry. Even though a
 // regular switch is also present, its case targets must NOT reinitialize -- that
 // could clobber a variable still live across the computed jump. One init in
-// entry, none after the indirectbr.
+// entry, none after the indirectswitch.
 // UNINIT-LABEL:  test_computed_goto_multi_scope(
 // ZERO-LABEL:    test_computed_goto_multi_scope(
 // ZERO:      entry:
 // ZERO:      store i32 0, ptr %x, align 4, !annotation [[AUTO_INIT:!.+]]
-// ZERO:      indirectbr
+// ZERO:      indirectswitch
 // ZERO-NOT:  store i32 0, ptr %x, align 4, !annotation
 // PATTERN-LABEL: test_computed_goto_multi_scope(
 // PATTERN:      entry:
 // PATTERN:      store i32 -1431655766, ptr %x, align 4, !annotation [[AUTO_INIT:!.+]]
-// PATTERN:      indirectbr
+// PATTERN:      indirectswitch
 // PATTERN-NOT:  store i32 -1431655766, ptr %x, align 4, !annotation
 void test_computed_goto_multi_scope(int n, int c) {
   void *targets[] = {&&L1, &&L2};

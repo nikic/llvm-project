@@ -503,7 +503,7 @@ namespace CrossFuncLabelDiff {
   // Make sure we refuse to constant-fold the variable b.
   constexpr long a(bool x) { return x ? 0 : (long)&&lbl + (0 && ({lbl: 0;})); }
   void test() { static long b = (long)&&lbl - a(false); lbl: return; }
-  // CHECK: sub nsw i64 ptrtoint (ptr blockaddress(@_ZN18CrossFuncLabelDiff4testEv, {{.*}}) to i64),
+  // CHECK: sub nsw i64 ptrtoint (ptr edgeaddress(@_ZN18CrossFuncLabelDiff4testEv, 0) to i64),
   // CHECK: store i64 {{.*}}, ptr @_ZZN18CrossFuncLabelDiff4testEvE1b, align 8
 }
 

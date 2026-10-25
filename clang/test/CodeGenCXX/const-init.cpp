@@ -84,7 +84,7 @@ void UnfoldableAddrLabelDiff2() { static short x = (long)&&a-(long)&&b; a:b:retu
 
 
 // But make sure we do fold this.
-// CHECK: @_ZZ21FoldableAddrLabelDiffvE1x = internal global i64 sub (i64 ptrtoint (ptr blockaddress(@_Z21FoldableAddrLabelDiffv
+// CHECK: @_ZZ21FoldableAddrLabelDiffvE1x = internal global i64 sub (i64 ptrtoint (ptr edgeaddress(@_Z21FoldableAddrLabelDiffv, 0)
 void FoldableAddrLabelDiff() { static long x = (long)&&a-(long)&&b; a:b:return;}
 
 // CHECK: @i = constant ptr @PR9558
