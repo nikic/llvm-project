@@ -114,6 +114,9 @@ static bool runSCCP(Function &F, const DataLayout &DL,
   for (BasicBlock &BB : F)
     MadeChanges |= Solver.removeNonFeasibleEdges(&BB, DTU, NewUnreachableBB);
 
+  // Keep dead blocks whose address is taken: deleting them would destroy
+  // their blockaddress, which may still be referenced by lattice values of
+  // the solver. They are removed by later CFG cleanups.
   for (BasicBlock *DeadBB : BlocksToErase)
     if (!DeadBB->hasAddressTaken())
       DTU.deleteBB(DeadBB);

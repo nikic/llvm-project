@@ -253,6 +253,9 @@ static bool runIPSCCP(
     for (BasicBlock &BB : F)
       MadeChanges |= Solver.removeNonFeasibleEdges(&BB, DTU, NewUnreachableBB);
 
+    // Keep dead blocks whose address is taken: deleting them would destroy
+    // their blockaddress, which may still be referenced by lattice values of
+    // the solver (e.g. for arguments or return values of other functions).
     for (BasicBlock *DeadBB : BlocksToErase)
       if (!DeadBB->hasAddressTaken())
         DTU.deleteBB(DeadBB);

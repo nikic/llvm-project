@@ -845,8 +845,8 @@ getOrderedBlocks(PHINode &Phi, BasicBlock *const LastBlock, int NumBlocks) {
   BasicBlock *CurBlock = LastBlock;
   for (int BlockIndex = NumBlocks - 1; BlockIndex > 0; --BlockIndex) {
     if (CurBlock->hasAddressTaken()) {
-      // Somebody is jumping to the block through an address, all bets are
-      // off.
+      // Merging deletes the block, which would replace its blockaddress with
+      // a placeholder.
       LLVM_DEBUG(dbgs() << "skip: block " << BlockIndex
                         << " has its address taken\n");
       return {};

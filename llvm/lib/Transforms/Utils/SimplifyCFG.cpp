@@ -1932,9 +1932,10 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(Instruction *TI,
   if (SuccSize < 2)
     return false;
 
-  // If either of the blocks has it's address taken, then we can't do this fold,
-  // because the code we'd hoist would no longer run when we jump into the block
-  // by it's address.
+  // If either of the blocks has its address taken, don't do this fold: it may
+  // delete the block, which replaces its blockaddress with a placeholder. A
+  // blockaddress is data-only, but e.g. inline asm using it as a symbolic
+  // operand (constraint "S") can't be compiled with the placeholder.
   SmallSetVector<BasicBlock *, 4> UniqueSuccessors(from_range, successors(BB));
   for (auto *Succ : UniqueSuccessors) {
     if (Succ->hasAddressTaken())
@@ -4047,7 +4048,9 @@ static bool foldTwoEntryPHINode(PHINode *PN, const TargetTransformInfo &TTI,
         return Changed;
       }
 
-  // If either of the blocks has it's address taken, we can't do this fold.
+  // If either of the blocks has its address taken, don't do this fold: it
+  // deletes the blocks, which replaces their blockaddress with a placeholder
+  // (see hoistCommonCodeFromSuccessors).
   if (any_of(IfBlocks,
              [](BasicBlock *IfBlock) { return IfBlock->hasAddressTaken(); }))
     return Changed;
@@ -8451,8 +8454,8 @@ struct EqualBBWrapper {
     if (!BI)
       return false;
 
-    // Avoid blocks that are "address-taken" (blockaddress) or have unusual
-    // uses.
+    // Avoid blocks that are "address-taken" (merging deletes the block, which
+    // replaces its blockaddress with a placeholder) or have unusual uses.
     if (BB->hasAddressTaken() || BB->isEHPad())
       return false;
 

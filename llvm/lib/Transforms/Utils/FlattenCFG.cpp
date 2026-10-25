@@ -152,7 +152,8 @@ bool FlattenCFGOpt::FlattenParallelAndOr(BasicBlock *BB, IRBuilder<> &Builder) {
     if (isa<UncondBrInst>(Pred->getTerminator())) {
       // Case 1: Pred (BB3) is an unconditional block, it should
       // have a single predecessor (BB2) that is also a predecessor
-      // of \param BB (BB4) and should not have address-taken.
+      // of \param BB (BB4) and should not have address-taken (merging would
+      // delete it and replace its blockaddress with a placeholder).
       // There should exist only one such unconditional
       // branch among the predecessors.
       if (UnCondBlock || !PP || !Preds.contains(PP) ||
