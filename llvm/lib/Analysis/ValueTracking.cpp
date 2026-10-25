@@ -7817,6 +7817,7 @@ bool llvm::isSafeToSpeculativelyExecuteWithOpcode(
   case Instruction::UncondBr:
   case Instruction::CondBr:
   case Instruction::IndirectBr:
+  case Instruction::IndirectSwitch:
   case Instruction::Switch:
   case Instruction::Unreachable:
   case Instruction::Fence:
