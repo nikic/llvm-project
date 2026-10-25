@@ -80,7 +80,7 @@ l3:
 // expressions on edgeaddress. They are not supported with ptrauth indirect
 // gotos.
 // NOPTRAUTH-LABEL: define {{.*}}i32 @label_diff(
-// NOPTRAUTH:         getelementptr inbounds i8, ptr edgeaddress(@label_diff, 0), i64 %
+// NOPTRAUTH:         getelementptr i8, ptr edgeaddress(@label_diff, 0), i64 %
 // NOPTRAUTH:         indirectswitch ptr %{{.*}}, [
 // NOPTRAUTH-NEXT:      ptr edgeaddress(@label_diff, 0), label %a
 // NOPTRAUTH-NEXT:      ptr edgeaddress(@label_diff, 1), label %b

@@ -4656,7 +4656,11 @@ llvm::Value *CodeGenFunction::EmitPointerArithmetic(
   else
     elemTy = ConvertTypeForMem(elementType);
 
-  if (getLangOpts().PointerOverflowDefined)
+  // A label address does not point into an allocated object, so arithmetic on
+  // it (the GNU idiom `goto *(&&base + offsets[i])` with label-difference
+  // offset tables) must not be inbounds.
+  if (getLangOpts().PointerOverflowDefined ||
+      isa<AddrLabelExpr>(pointerOperand->IgnoreParenCasts()))
     return Builder.CreateGEP(elemTy, pointer, index, "add.ptr");
 
   return EmitCheckedInBoundsGEP(elemTy, pointer, index, isSigned, isSubtraction,

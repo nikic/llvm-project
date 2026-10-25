@@ -6,6 +6,9 @@
 // CHECK: @_ZZ2tfILi1EEiiE3tbl = linkonce_odr global [2 x ptr] [ptr edgeaddress(@_Z2tfILi1EEii, 0), ptr edgeaddress(@_Z2tfILi1EEii, 1)]
 // CHECK: @_ZZ2tfILi2EEiiE3tbl = linkonce_odr global [2 x ptr] [ptr edgeaddress(@_Z2tfILi2EEii, 0), ptr edgeaddress(@_Z2tfILi2EEii, 1)]
 
+// Arithmetic on a label address is not inbounds.
+// CHECK-LABEL: define {{.*}}i32 @_Z10label_diffi(
+// CHECK:         getelementptr i8, ptr edgeaddress(@_Z10label_diffi, 0), i64 %
 int label_diff(int x) {
   static const int offs[] = {(int)((long)&&a - (long)&&a),
                              (int)((long)&&b - (long)&&a)};
