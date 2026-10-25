@@ -265,6 +265,7 @@ bool SparcFrameLowering::isLeafProc(MachineFunction &MF) const
   return !(MFI.hasCalls()               // has calls
            || MRI.isPhysRegUsed(SP::L0) // Too many registers needed
            || MRI.isPhysRegUsed(SP::O6) // %sp is used
+           || !MRI.def_empty(SP::O7)    // %o7 holds the return address
            || hasFP(MF)                 // need %fp
            || MF.hasInlineAsm()         // has inline assembly
            || SMFI->isLargeProc());     // is a large procedure

@@ -1998,6 +1998,12 @@ SparcTargetLowering::SparcTargetLowering(const TargetMachine &TM,
   if (Subtarget->hasLeonCycleCounter())
     setOperationAction(ISD::READCYCLECOUNTER, MVT::i64, Custom);
 
+  // INSTRUCTION_POINTER is lowered to "rd %pc" on V9. V8 needs a call-based
+  // pseudo that clobbers %o7.
+  setOperationAction(ISD::INSTRUCTION_POINTER,
+                     Subtarget->is64Bit() ? MVT::i64 : MVT::i32,
+                     Subtarget->isV9() ? Legal : Custom);
+
   if (Subtarget->isVIS3()) {
     setOperationAction(ISD::CTLZ, MVT::i32, Legal);
     setOperationAction(ISD::CTLZ, MVT::i64, Legal);
@@ -3213,6 +3219,10 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) const {
 
   case ISD::RETURNADDR:         return LowerRETURNADDR(Op, DAG, *this,
                                                        Subtarget);
+  case ISD::INSTRUCTION_POINTER:
+    return SDValue(DAG.getMachineNode(SP::GETPC, SDLoc(Op), MVT::i32,
+                                      MVT::Other, Op.getOperand(0)),
+                   0);
   case ISD::FRAMEADDR:          return LowerFRAMEADDR(Op, DAG,
                                                       Subtarget);
   case ISD::GlobalTLSAddress:   return LowerGlobalTLSAddress(Op, DAG);

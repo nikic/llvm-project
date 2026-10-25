@@ -773,6 +773,9 @@ unsigned SparcInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
   if (Opcode == TargetOpcode::BUNDLE)
     return getInstBundleSize(MI);
 
+  if (Opcode == TargetOpcode::INSTRUCTION_POINTER)
+    return 4; // rd %pc
+
   if (MI.getOpcode() == SP::GETPCX) {
     const TargetMachine &TM = MI.getParent()->getParent()->getTarget();
     if (TM.isPositionIndependent())

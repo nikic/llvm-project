@@ -354,6 +354,29 @@ void SparcAsmPrinter::emitInstruction(const MachineInstr *MI) {
   case SP::GETPCX:
     LowerGETPCXAndEmitMCInsts(MI, getSubtargetInfo());
     return;
+  case TargetOpcode::INSTRUCTION_POINTER: {
+    // "rd %pc, %rd" produces the address of the rd instruction itself.
+    MCOperand RD = MCOperand::createReg(MI->getOperand(0).getReg());
+    EmitRDPC(*OutStreamer, RD, getSubtargetInfo());
+    return;
+  }
+  case SP::GETPC: {
+    // Emit:
+    //     call 1f
+    //     mov %o7, %rd
+    // 1:
+    // which produces the address of the call. The call writes %o7 before the
+    // instruction in its delay slot is executed.
+    MCSymbol *Label = OutContext.createTempSymbol();
+    MCOperand Callee = createPCXCallOP(Label, OutContext);
+    EmitCall(*OutStreamer, Callee, getSubtargetInfo());
+    MCOperand RD = MCOperand::createReg(MI->getOperand(0).getReg());
+    MCOperand RS1 = MCOperand::createReg(SP::G0);
+    MCOperand RS2 = MCOperand::createReg(SP::O7);
+    EmitBinary(*OutStreamer, SP::ORrr, RS1, RS2, RD, getSubtargetInfo());
+    OutStreamer->emitLabel(Label);
+    return;
+  }
   }
   MachineBasicBlock::const_instr_iterator I = MI->getIterator();
   MachineBasicBlock::const_instr_iterator E = MI->getParent()->instr_end();

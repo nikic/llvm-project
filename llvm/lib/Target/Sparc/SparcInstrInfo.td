@@ -609,6 +609,13 @@ let Defs = [O7] in {
   def GETPCX : Pseudo<(outs getPCX:$getpcseq), (ins), "$getpcseq", [] >;
 }
 
+// Pseudo for llvm.instruction.pointer on V8, which has no "rd %pc". It is
+// expanded to "call 1f; mov %o7, $rd; 1:", which produces the address of the
+// call and clobbers %o7.
+let Defs = [O7], hasSideEffects = 1, Size = 8 in {
+  def GETPC : Pseudo<(outs IntRegs:$rd), (ins), "!GETPC $rd", []>;
+}
+
 let Defs = [O6], Uses = [O6] in {
 def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                                "!ADJCALLSTACKDOWN $amt1, $amt2",
