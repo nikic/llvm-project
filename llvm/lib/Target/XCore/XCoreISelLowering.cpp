@@ -86,6 +86,9 @@ XCoreTargetLowering::XCoreTargetLowering(const TargetMachine &TM,
 
   setOperationAction(ISD::GlobalAddress, MVT::i32,   Custom);
   setOperationAction(ISD::BlockAddress, MVT::i32 , Custom);
+  // INSTRUCTION_POINTER is lowered to an ldap of a following label, which
+  // clobbers r11.
+  setOperationAction(ISD::INSTRUCTION_POINTER, MVT::i32, Custom);
 
   // Conversion of i64 -> double produces constantpool nodes
   setOperationAction(ISD::ConstantPool, MVT::i32,   Custom);
@@ -181,6 +184,10 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::SUB:                return ExpandADDSUB(Op.getNode(), DAG);
   case ISD::FRAMEADDR:          return LowerFRAMEADDR(Op, DAG);
   case ISD::RETURNADDR:         return LowerRETURNADDR(Op, DAG);
+  case ISD::INSTRUCTION_POINTER:
+    return SDValue(DAG.getMachineNode(XCore::INSTRUCTION_POINTER_R11, SDLoc(Op),
+                                      MVT::i32, MVT::Other, Op.getOperand(0)),
+                   0);
   case ISD::FRAME_TO_ARGS_OFFSET: return LowerFRAME_TO_ARGS_OFFSET(Op, DAG);
   case ISD::INIT_TRAMPOLINE:    return LowerINIT_TRAMPOLINE(Op, DAG);
   case ISD::ADJUST_TRAMPOLINE:  return LowerADJUST_TRAMPOLINE(Op, DAG);

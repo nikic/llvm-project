@@ -362,6 +362,14 @@ def ADJCALLSTACKUP : PseudoInstXCore<(outs), (ins i32imm:$amt1, i32imm:$amt2),
 }
 
 let isReMaterializable = 1 in
+// Pseudo for llvm.instruction.pointer. It is expanded to
+// "ldap r11, 1f; 1: mov $dst, r11", which produces the address of the mov and
+// clobbers r11, as ldap can only write r11.
+let Defs = [R11], hasSideEffects = 1, Size = 4 in
+def INSTRUCTION_POINTER_R11 : PseudoInstXCore<(outs GRRegs:$dst), (ins),
+                                              "# INSTRUCTION_POINTER $dst",
+                                              []>;
+
 def FRAME_TO_ARGS_OFFSET : PseudoInstXCore<(outs GRRegs:$dst), (ins),
                                "# FRAME_TO_ARGS_OFFSET $dst",
                                [(set GRRegs:$dst, (frametoargsoffset))]>;

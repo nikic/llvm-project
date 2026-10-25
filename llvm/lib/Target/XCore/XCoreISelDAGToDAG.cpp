@@ -139,6 +139,12 @@ bool XCoreDAGToDAGISel::SelectInlineAsmMemoryOperand(
 }
 
 void XCoreDAGToDAGISel::Select(SDNode *N) {
+  // Skip nodes that were already selected during lowering.
+  if (N->isMachineOpcode()) {
+    N->setNodeId(-1);
+    return;
+  }
+
   SDLoc dl(N);
   switch (N->getOpcode()) {
   default: break;

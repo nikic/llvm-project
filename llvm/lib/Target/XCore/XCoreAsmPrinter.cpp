@@ -31,6 +31,7 @@
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Compiler.h"
@@ -270,6 +271,22 @@ void XCoreAsmPrinter::emitInstruction(const MachineInstr *MI) {
       return;
     }
     break;
+  case XCore::INSTRUCTION_POINTER_R11: {
+    // Emit "ldap r11, 1f; 1: mov $dst, r11", which produces the address of
+    // the mov.
+    MCSymbol *Label = OutContext.createTempSymbol();
+    EmitToStreamer(*OutStreamer,
+                   MCInstBuilder(XCore::LDAPF_u10)
+                       .addExpr(MCSymbolRefExpr::create(Label, OutContext)));
+    OutStreamer->emitLabel(Label);
+    Register Dst = MI->getOperand(0).getReg();
+    if (Dst != XCore::R11) {
+      O << "\tmov " << XCoreInstPrinter::getRegisterName(Dst) << ", "
+        << XCoreInstPrinter::getRegisterName(XCore::R11);
+      OutStreamer->emitRawText(O.str());
+    }
+    return;
+  }
   case XCore::BR_JT:
   case XCore::BR_JT32:
     O << "\tbru "
