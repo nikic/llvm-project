@@ -74,6 +74,8 @@ LanaiTargetLowering::LanaiTargetLowering(const TargetMachine &TM,
 
   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
   setOperationAction(ISD::BlockAddress, MVT::i32, Custom);
+  // INSTRUCTION_POINTER is lowered to "add %pc, 0, %rd".
+  setOperationAction(ISD::INSTRUCTION_POINTER, MVT::i32, Legal);
   setOperationAction(ISD::JumpTable, MVT::i32, Custom);
   setOperationAction(ISD::ConstantPool, MVT::i32, Custom);
 

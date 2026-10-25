@@ -211,6 +211,16 @@ void LanaiAsmPrinter::emitInstruction(const MachineInstr *MI) {
       continue;
     }
 
+    if (I->getOpcode() == TargetOpcode::INSTRUCTION_POINTER) {
+      // "add %pc, 0, %rd" produces the address of the add itself.
+      OutStreamer->emitInstruction(MCInstBuilder(Lanai::ADD_I_LO)
+                                       .addReg(I->getOperand(0).getReg())
+                                       .addReg(Lanai::PC)
+                                       .addImm(0),
+                                   getSubtargetInfo());
+      continue;
+    }
+
     customEmitInstruction(&*I);
   } while ((++I != E) && I->isInsideBundle());
 }
