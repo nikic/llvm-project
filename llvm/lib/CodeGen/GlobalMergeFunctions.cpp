@@ -99,6 +99,12 @@ bool isEligibleFunction(Function *F) {
   if (!F->hasName())
     return false;
 
+  // The body of a merged function is moved into a new function, and the edge
+  // addresses of the other merged functions would have to be redirected to it
+  // as well. Skip functions with edge addresses for simplicity.
+  if (F->hasEdgeAddress())
+    return false;
+
   // If function contains callsites with musttail, if we merge
   // it, the merged function will have the musttail callsite, but
   // the number of parameters can change, thus the parameter count

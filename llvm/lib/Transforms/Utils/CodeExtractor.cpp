@@ -85,6 +85,11 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
   if (BB.hasAddressTaken())
     return false;
 
+  // An indirectswitch can't be moved to another function, as its case values
+  // are edge addresses of its function. (Its destinations can be extracted.)
+  if (isa<IndirectSwitchInst>(BB.getTerminator()))
+    return false;
+
   // don't hoist code that uses another basicblock address, as it's likely to
   // lead to unexpected behavior, like cross-function jumps
   SmallPtrSet<User const *, 16> Visited;
@@ -96,6 +101,11 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
       continue;
     if (isa<BlockAddress const>(Curr))
       return false; // even a reference to self is likely to be not compatible
+    // Uses of an edgeaddress outside of its function are legal, but less
+    // efficient.
+    if (auto *EA = dyn_cast<EdgeAddress>(Curr);
+        EA && EA->getFunction() == BB.getParent())
+      return false;
 
     if (isa<Instruction>(Curr) && cast<Instruction>(Curr)->getParent() != &BB)
       continue;

@@ -781,6 +781,10 @@ static void copyMetadataIfPresent(Function *From, Function *To,
 // For better debugability, under MergeFunctionsPDI, we do not modify G's
 // call sites to point to F even when within the same translation unit.
 void MergeFunctions::writeThunk(Function *F, Function *G) {
+  // G's body is replaced by a call to the equivalent F, so G's edge addresses
+  // (which may be passed to G) now refer to the corresponding edges of F.
+  G->transferEdgeAddressesTo(*F);
+
   std::optional<uint64_t> GEntryCount = G->getEntryCount();
   BasicBlock *GEntryBlock = nullptr;
   std::vector<Instruction *> PDIUnrelatedWL;
@@ -895,6 +899,8 @@ static bool canBeAliasee(const Function *F) {
 
 // Replace G with an alias to F (deleting function G)
 void MergeFunctions::writeAlias(Function *F, Function *G) {
+  G->transferEdgeAddressesTo(*F);
+
   PointerType *PtrType = G->getType();
   auto *GA =
       GlobalAlias::create(G->getFunctionType(), PtrType->getAddressSpace(),
@@ -953,6 +959,7 @@ bool MergeFunctions::writeThunkOrAliasIfNeeded(Function *F, Function *G) {
     return false;
 
   if (ShouldErase) {
+    G->transferEdgeAddressesTo(*F);
     G->eraseFromParent();
     return true;
   }
@@ -1236,6 +1243,8 @@ void MergeFunctions::mergeTwoFunctions(Function *F, Function *G) {
     // stop here and delete G. There's no need for a thunk. (See note on
     // MergeFunctionsPDI above).
     if (G->isDiscardableIfUnused() && G->use_empty() && !MergeFunctionsPDI) {
+      // Edge addresses are not uses of G and may still be referenced.
+      G->transferEdgeAddressesTo(*F);
       G->eraseFromParent();
       ++NumFunctionsMerged;
       return;
