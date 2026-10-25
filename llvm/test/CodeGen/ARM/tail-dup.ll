@@ -7,7 +7,7 @@
 ; CHECK: mov pc
 ; CHECK: mov pc
 
-@fn.codetable = internal unnamed_addr constant [3 x ptr] [ptr blockaddress(@fn, %RETURN), ptr blockaddress(@fn, %INCREMENT), ptr blockaddress(@fn, %DECREMENT)], align 4
+@fn.codetable = internal unnamed_addr constant [3 x ptr] [ptr edgeaddress(@fn, 0), ptr edgeaddress(@fn, 1), ptr edgeaddress(@fn, 2)], align 4
 
 define i32 @fn(ptr nocapture %opcodes) nounwind readonly ssp {
 entry:
@@ -33,7 +33,7 @@ indirectgoto:                                     ; preds = %DECREMENT, %INCREME
   %indirect.goto.dest.in = phi ptr [ %arrayidx, %entry ], [ %arrayidx4, %DECREMENT ], [ %arrayidx2, %INCREMENT ]
   %opcodes.addr.0 = getelementptr inbounds i32, ptr %opcodes.pn, i32 1
   %indirect.goto.dest = load ptr, ptr %indirect.goto.dest.in, align 4
-  indirectbr ptr %indirect.goto.dest, [label %RETURN, label %INCREMENT, label %DECREMENT]
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@fn, 0), label %RETURN ptr edgeaddress(@fn, 1), label %INCREMENT ptr edgeaddress(@fn, 2), label %DECREMENT ]
 
 RETURN:                                           ; preds = %indirectgoto
   ret i32 %result.0

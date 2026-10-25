@@ -29,18 +29,18 @@ target triple = "i386-apple-macosx"
 ; CHECK-EXHAUSTIVE-NOT: error: register allocation failed: maximum {{depth|interference}} for recoloring reached
 define void @fp_dh_f870bf31fd8ffe068450366e3f05389a(ptr %arg) #0 {
 bb:
-  indirectbr ptr undef, [label %bb85, label %bb206]
+  indirectswitch ptr undef, [ ptr edgeaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, 0), label %bb85 ptr edgeaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, 1), label %bb206 ]
 
 bb85:                                             ; preds = %bb222, %bb85, %bb
-  store ptr blockaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, %bb206), ptr undef, align 4
-  indirectbr ptr undef, [label %bb439, label %bb85]
+  store ptr edgeaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, 1), ptr undef, align 4
+  indirectswitch ptr undef, [ ptr edgeaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, 2), label %bb439 ptr edgeaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, 3), label %bb85 ]
 
 bb206:                                            ; preds = %bb
   %tmp = getelementptr [499 x i32], ptr @fp_dh_36985b17790d59a27994eaab5dcb00ee, i32 0, i32 undef
   %tmp207 = load i32, ptr %tmp
   %tmp208 = add i32 %tmp207, 1
   %tmp209 = inttoptr i32 %tmp208 to ptr
-  indirectbr ptr %tmp209, [label %bb213]
+  indirectswitch ptr %tmp209, [ ptr edgeaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, 4), label %bb213 ]
 
 bb213:                                            ; preds = %bb206
   %tmp214 = load i32, ptr @fp_dh_18716afa4a5354de0a302c8edb3b0ee1, align 4
@@ -51,7 +51,7 @@ bb213:                                            ; preds = %bb206
   store i32 %tmp219, ptr undef, align 4
   %tmp220 = select i1 false, i32 359373646, i32 1677237955
   %tmp221 = add i32 %tmp220, 0
-  indirectbr ptr undef, [label %bb432, label %bb222]
+  indirectswitch ptr undef, [ ptr edgeaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, 5), label %bb432 ptr edgeaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, 6), label %bb222 ]
 
 bb222:                                            ; preds = %bb213
   %tmp224 = load i32, ptr undef, align 4
@@ -163,7 +163,7 @@ bb222:                                            ; preds = %bb213
   %tmp338 = load i32, ptr %tmp337
   %tmp339 = add i32 %tmp338, 1
   %tmp340 = inttoptr i32 %tmp339 to ptr
-  indirectbr ptr %tmp340, [label %bb85, label %bb439]
+  indirectswitch ptr %tmp340, [ ptr edgeaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, 7), label %bb85 ptr edgeaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, 8), label %bb439 ]
 
 bb432:                                            ; preds = %bb432, %bb213
   %tmp433 = phi i32 [ %tmp221, %bb213 ], [ %tmp433, %bb432 ]
@@ -172,7 +172,7 @@ bb432:                                            ; preds = %bb432, %bb213
   %tmp436 = load i32, ptr %tmp435
   %tmp437 = add i32 %tmp436, 1
   %tmp438 = inttoptr i32 %tmp437 to ptr
-  indirectbr ptr %tmp438, [label %bb432]
+  indirectswitch ptr %tmp438, [ ptr edgeaddress(@fp_dh_f870bf31fd8ffe068450366e3f05389a, 9), label %bb432 ]
 
 bb439:                                            ; preds = %bb222, %bb85
   ret void

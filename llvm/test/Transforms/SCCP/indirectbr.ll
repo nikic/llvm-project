@@ -15,7 +15,7 @@ define void @indbrtest1() {
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  indirectbr ptr blockaddress(@indbrtest1, %BB1), [label %BB0, label %BB1]
+  indirectswitch ptr edgeaddress(@indbrtest1, 1), [ ptr edgeaddress(@indbrtest1, 0), label %BB0 ptr edgeaddress(@indbrtest1, 1), label %BB1 ]
 BB0:
   call void @BB0_f()
   br label %BB1
@@ -37,9 +37,9 @@ define void @indbrtest2() {
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %a = ptrtoint ptr blockaddress(@indbrtest2, %BB1) to i64
+  %a = ptrtoint ptr edgeaddress(@indbrtest2, 1) to i64
   %b = inttoptr i64 %a to ptr
-  indirectbr ptr %b, [label %BB0, label %BB1]
+  indirectswitch ptr %b, [ ptr edgeaddress(@indbrtest2, 0), label %BB0 ptr edgeaddress(@indbrtest2, 1), label %BB1 ]
 BB0:
   call void @BB0_f()
   br label %BB1
@@ -54,17 +54,20 @@ define void @indbrtest3(ptr %Q) {
 ; CHECK-LABEL: @indbrtest3(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T:%.*]] = load ptr, ptr [[Q:%.*]], align 8
-; CHECK-NEXT:    indirectbr ptr [[T]], [label [[BB0:%.*]], label %BB1]
+; CHECK-NEXT:    indirectswitch ptr [[T]], [
+; CHECK-NEXT:      ptr edgeaddress(@indbrtest3, 0), label [[BB0:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@indbrtest3, 1), label [[BB1:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       BB0:
 ; CHECK-NEXT:    call void @BB0_f()
-; CHECK-NEXT:    br label [[BB1:%.*]]
+; CHECK-NEXT:    br label [[BB1]]
 ; CHECK:       BB1:
 ; CHECK-NEXT:    call void @BB1_f()
 ; CHECK-NEXT:    ret void
 ;
 entry:
   %t = load ptr, ptr %Q
-  indirectbr ptr %t, [label %BB0, label %BB1]
+  indirectswitch ptr %t, [ ptr edgeaddress(@indbrtest3, 0), label %BB0 ptr edgeaddress(@indbrtest3, 1), label %BB1 ]
 BB0:
   call void @BB0_f()
   br label %BB1
@@ -81,7 +84,7 @@ define void @indbrtest4(ptr %Q) {
 ; CHECK-NEXT:    unreachable
 ;
 entry:
-  indirectbr ptr undef, [label %BB0, label %BB1]
+  indirectswitch ptr undef, [ ptr edgeaddress(@indbrtest4, 0), label %BB0 ptr edgeaddress(@indbrtest4, 1), label %BB1 ]
 BB0:
   call void @BB0_f()
   ret void
@@ -99,8 +102,11 @@ define internal i32 @indbrtest5(i1 %c) {
 ; CHECK:       bb2:
 ; CHECK-NEXT:    br label [[BRANCH_BLOCK]]
 ; CHECK:       branch.block:
-; CHECK-NEXT:    [[ADDR:%.*]] = phi ptr [ blockaddress(@indbrtest5, [[TARGET1:%.*]]), [[BB1]] ], [ blockaddress(@indbrtest5, [[TARGET2:%.*]]), [[BB2]] ]
-; CHECK-NEXT:    indirectbr ptr [[ADDR]], [label [[TARGET1]], label %target2]
+; CHECK-NEXT:    [[ADDR:%.*]] = phi ptr [ edgeaddress(@indbrtest5, 0), [[BB1]] ], [ edgeaddress(@indbrtest5, 1), [[BB2]] ]
+; CHECK-NEXT:    indirectswitch ptr [[ADDR]], [
+; CHECK-NEXT:      ptr edgeaddress(@indbrtest5, 0), label [[TARGET1:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@indbrtest5, 1), label [[TARGET2:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       target1:
 ; CHECK-NEXT:    br label [[TARGET2]]
 ; CHECK:       target2:
@@ -117,8 +123,8 @@ bb2:
   br label %branch.block
 
 branch.block:
-  %addr = phi ptr [blockaddress(@indbrtest5, %target1), %bb1], [blockaddress(@indbrtest5, %target2), %bb2]
-  indirectbr ptr %addr, [label %target1, label %target2]
+  %addr = phi ptr [edgeaddress(@indbrtest5, 0), %bb1], [edgeaddress(@indbrtest5, 1), %bb2]
+  indirectswitch ptr %addr, [ ptr edgeaddress(@indbrtest5, 0), label %target1 ptr edgeaddress(@indbrtest5, 1), label %target2 ]
 
 target1:
   br label %target2
@@ -151,7 +157,7 @@ entry:
   br i1 %c, label %indbr, label %BB0
 
 indbr:
-  indirectbr ptr blockaddress(@indbr_duplicate_successors_phi, %BB0), [label %BB0, label %BB0, label %BB1]
+  indirectswitch ptr edgeaddress(@indbr_duplicate_successors_phi, 0), [ ptr edgeaddress(@indbr_duplicate_successors_phi, 0), label %BB0 ptr edgeaddress(@indbr_duplicate_successors_phi, 1), label %BB0 ptr edgeaddress(@indbr_duplicate_successors_phi, 2), label %BB1 ]
 
 BB0:
   %phi = phi i32 [ %x, %entry ], [ 0, %indbr ], [ 0, %indbr ]

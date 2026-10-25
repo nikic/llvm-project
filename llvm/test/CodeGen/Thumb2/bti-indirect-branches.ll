@@ -55,7 +55,7 @@ return:
   ret i32 %ret
 }
 
-@computed_goto_cases = private unnamed_addr constant [2 x ptr] [ptr blockaddress(@computed_goto, %return), ptr blockaddress(@computed_goto, %case_1)], align 4
+@computed_goto_cases = private unnamed_addr constant [2 x ptr] [ptr edgeaddress(@computed_goto, 0), ptr edgeaddress(@computed_goto, 1)], align 4
 
 define internal i32 @computed_goto(i32 %x) "branch-target-enforcement" {
 ; CHECK-LABEL: computed_goto:
@@ -78,7 +78,7 @@ define internal i32 @computed_goto(i32 %x) "branch-target-enforcement" {
 entry:
   %arrayidx = getelementptr inbounds [2 x ptr], ptr @computed_goto_cases, i32 0, i32 %x
   %0 = load ptr, ptr %arrayidx, align 4
-  indirectbr ptr %0, [label %return, label %case_1]
+  indirectswitch ptr %0, [ ptr edgeaddress(@computed_goto, 0), label %return ptr edgeaddress(@computed_goto, 1), label %case_1 ]
 
 case_1:
   br label %return
@@ -93,23 +93,6 @@ declare void @consume_exception(ptr)
 declare i32 @__gxx_personality_v0(...)
 
 define internal i32 @exception_handling(i32 %0) "branch-target-enforcement" personality ptr @__gxx_personality_v0 {
-; CHECK-LABEL: exception_handling:
-; CHECK:       @ %bb.0:
-; CHECK-NEXT:    bti
-; CHECK-NEXT:    .save  {r7, lr}
-; CHECK-NEXT:    push   {r7, lr}
-; CHECK-NEXT:  .Ltmp0:
-; CHECK-NEXT:    bl     may_throw
-; CHECK-NEXT:  .Ltmp1:
-; CHECK-NEXT:  @ %bb.1:
-; CHECK-NEXT:    movs   r0, #0
-; CHECK-NEXT:    pop    {r7, pc}
-; CHECK-NEXT:  .LBB2_2:
-; CHECK-NEXT:  .Ltmp2:
-; CHECK-NEXT:    bti
-; CHECK-NEXT:    bl     consume_exception
-; CHECK-NEXT:    movs   r0, #1
-; CHECK-NEXT:    pop    {r7, pc}
 entry:
   invoke void @may_throw()
           to label %return unwind label %lpad

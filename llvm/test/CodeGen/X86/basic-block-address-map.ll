@@ -22,8 +22,8 @@ define void @_Z3bazb(i1 zeroext, i1 zeroext) personality ptr @__gxx_personality_
   br i1 %1, label %12, label %10
 
 10:
-  %11 = select i1 %1, ptr blockaddress(@_Z3bazb, %3), ptr blockaddress(@_Z3bazb, %12) ; <ptr> [#uses=1]
-  indirectbr ptr %11, [label %3, label %12]
+  %11 = select i1 %1, ptr edgeaddress(@_Z3bazb, 0), ptr edgeaddress(@_Z3bazb, 1) ; <ptr> [#uses=1]
+  indirectswitch ptr %11, [ ptr edgeaddress(@_Z3bazb, 0), label %3 ptr edgeaddress(@_Z3bazb, 1), label %12 ]
 
 12:
   ret void

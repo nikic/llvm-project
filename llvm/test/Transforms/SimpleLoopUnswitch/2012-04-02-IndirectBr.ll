@@ -8,7 +8,10 @@
 ; CHECK-NEXT:  br label %"16"
 
 ; CHECK:       "16":                                             ; preds = %"22", %"5"
-; CHECK-NEXT:  indirectbr ptr undef, [label %"22", label %"33"]
+; CHECK-NEXT:  indirectswitch ptr undef, [
+; CHECK-NEXT:    ptr edgeaddress(@foo, 0), label %"22"
+; CHECK-NEXT:    ptr edgeaddress(@foo, 1), label %"33"
+; CHECK-NEXT:  ]
 
 ; CHECK:       "22":                                             ; preds = %"16"
 ; CHECK-NEXT:  br i1 %0, label %"16", label %"26"
@@ -28,7 +31,7 @@ entry:
   br label %"16"
 
 "16":                                             ; preds = %"22", %"5"
-  indirectbr ptr undef, [label %"22", label %"33"]
+  indirectswitch ptr undef, [ ptr edgeaddress(@foo, 0), label %"22" ptr edgeaddress(@foo, 1), label %"33" ]
 
 "22":                                             ; preds = %"16"
   br i1 %0, label %"16", label %"26"

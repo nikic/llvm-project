@@ -32,7 +32,7 @@ entry:
   br label %L
 
 L:                                                ; preds = %L, %entry
-  indirectbr ptr inttoptr (i32 add (i32 ptrtoint (ptr blockaddress(@main, %L) to i32), i32 sub (i32 ptrtoint (ptr blockaddress(@main, %return) to i32), i32 ptrtoint (ptr blockaddress(@main, %L) to i32))) to ptr), [label %return, label %L]
+  indirectswitch ptr inttoptr (i32 add (i32 ptrtoint (ptr edgeaddress(@main, 1) to i32), i32 sub (i32 ptrtoint (ptr edgeaddress(@main, 0) to i32), i32 ptrtoint (ptr edgeaddress(@main, 1) to i32))) to ptr), [ ptr edgeaddress(@main, 0), label %return ptr edgeaddress(@main, 1), label %L ]
 
 return:                                           ; preds = %L
   ret i32 15

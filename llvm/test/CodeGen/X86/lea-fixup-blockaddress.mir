@@ -4,8 +4,8 @@
 
 --- |
   define i32 @square(i32 %0) local_unnamed_addr {
-    %blub = getelementptr i8, ptr blockaddress(@square, %2), i32 %0
-    indirectbr ptr %blub, [label %2]
+    %blub = getelementptr i8, ptr edgeaddress(@square, 0), i32 %0
+    indirectswitch ptr %blub, [ ptr edgeaddress(@square, 0), label %2 ]
 
   2:
     ret i32 0

@@ -6,7 +6,7 @@
 ; CHECK: .split:
 ; CHECK: br label %while.body.clone
 ; CHECK: if.else1:
-; CHECK: indirectbr
+; CHECK: indirectswitch
 ; CHECK: while.body.clone:
 ; CHECK: br label %.split
 
@@ -32,6 +32,6 @@ while.body:
   br label %while.body
 
 if.else1:
-  indirectbr ptr undef, [label %if.then, label %while.body, label %if.else, label %if.else1]
+  indirectswitch ptr undef, [ ptr edgeaddress(@test, 0), label %if.then ptr edgeaddress(@test, 1), label %while.body ptr edgeaddress(@test, 2), label %if.else ptr edgeaddress(@test, 3), label %if.else1 ]
 }
 

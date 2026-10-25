@@ -85,7 +85,14 @@ define void @indirectbr_could_not_split() {
 ; CHECK-NEXT:  [[ENTRY:.*:]]
 ; CHECK-NEXT:    br i1 false, label %[[IBR:.*]], label %[[EXIT:.*]]
 ; CHECK:       [[IBR]]:
-; CHECK-NEXT:    indirectbr ptr null, [label %[[EXIT]], label %exit]
+; CHECK-NEXT:    indirectswitch ptr null, [
+; CHECK-NEXT:      ptr edgeaddress(@indirectbr_could_not_split, 0), label %[[IBR_EXIT_CRIT_EDGE:.*]]
+; CHECK-NEXT:      ptr edgeaddress(@indirectbr_could_not_split, 1), label %[[IBR_EXIT_CRIT_EDGE1:.*]]
+; CHECK-NEXT:    ]
+; CHECK:       [[IBR_EXIT_CRIT_EDGE1]]:
+; CHECK-NEXT:    br label %[[EXIT]]
+; CHECK:       [[IBR_EXIT_CRIT_EDGE]]:
+; CHECK-NEXT:    br label %[[EXIT]]
 ; CHECK:       [[EXIT]]:
 ; CHECK-NEXT:    ret void
 ;
@@ -93,7 +100,7 @@ entry:
   br i1 false, label %ibr, label %exit
 
 ibr:
-  indirectbr ptr null, [label %exit, label %exit]
+  indirectswitch ptr null, [ ptr edgeaddress(@indirectbr_could_not_split, 0), label %exit ptr edgeaddress(@indirectbr_could_not_split, 1), label %exit ]
 
 exit:
   ret void

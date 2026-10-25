@@ -80,7 +80,7 @@ define double @test2c(ptr %P) {
 ; CHECK-NEXT:    call void @foo()
 ; CHECK-NEXT:    br i1 true, label [[LOOP]], label [[OUT:%.*]]
 ; CHECK:       Out:
-; CHECK-NEXT:    [[A_LE:%.*]] = load double, ptr [[P:%.*]], align 8, !invariant.load !0
+; CHECK-NEXT:    [[A_LE:%.*]] = load double, ptr [[P:%.*]], align 8, !invariant.load [[META0:![0-9]+]]
 ; CHECK-NEXT:    ret double [[A_LE]]
 ;
   br label %Loop
@@ -498,10 +498,18 @@ define void @test13(i1 %arg) {
 ; CHECK:       lab38:
 ; CHECK-NEXT:    ret void
 ; CHECK:       lab59:
-; CHECK-NEXT:    indirectbr ptr undef, [label [[LAB60]], label %lab38]
-; CHECK:       lab60:
+; CHECK-NEXT:    indirectswitch ptr undef, [
+; CHECK-NEXT:      ptr edgeaddress(@test13, 0), label [[LAB60_PREHEADER:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test13, 1), label [[LAB38]]
+; CHECK-NEXT:    ]
+; CHECK:       lab60.preheader:
 ; CHECK-NEXT:    store i32 2145244101, ptr undef, align 4
-; CHECK-NEXT:    indirectbr ptr undef, [label [[LAB21:%.*]], label %lab19]
+; CHECK-NEXT:    br label [[LAB60]]
+; CHECK:       lab60:
+; CHECK-NEXT:    indirectswitch ptr undef, [
+; CHECK-NEXT:      ptr edgeaddress(@test13, 2), label [[LAB21:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test13, 3), label [[LAB19:%.*]]
+; CHECK-NEXT:    ]
 ;
   br label %lab59
 
@@ -521,11 +529,11 @@ lab38:
   ret void
 
 lab59:
-  indirectbr ptr undef, [label %lab60, label %lab38]
+  indirectswitch ptr undef, [ ptr edgeaddress(@test13, 0), label %lab60 ptr edgeaddress(@test13, 1), label %lab38 ]
 
 lab60:
   store i32 2145244101, ptr undef, align 4
-  indirectbr ptr undef, [label %lab21, label %lab19]
+  indirectswitch ptr undef, [ ptr edgeaddress(@test13, 2), label %lab21 ptr edgeaddress(@test13, 3), label %lab19 ]
 }
 
 ; Check if LICM can sink a sinkable instruction the exit blocks through
@@ -630,9 +638,9 @@ define i32 @test16(i1 %c, ptr %P, ptr %P2, i64 %V) {
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[LOOP_PH]] ], [ [[NEXT:%.*]], [[CONTLOOP:%.*]] ]
 ; CHECK-NEXT:    [[L2:%.*]] = call i32 @getv()
 ; CHECK-NEXT:    switch i32 [[L2]], label [[CONTLOOP]] [
-; CHECK-NEXT:    i32 32, label [[OUT_SPLIT_LOOP_EXIT1:%.*]]
-; CHECK-NEXT:    i32 46, label [[OUT_SPLIT_LOOP_EXIT1]]
-; CHECK-NEXT:    i32 95, label [[OUT_SPLIT_LOOP_EXIT1]]
+; CHECK-NEXT:      i32 32, label [[OUT_SPLIT_LOOP_EXIT1:%.*]]
+; CHECK-NEXT:      i32 46, label [[OUT_SPLIT_LOOP_EXIT1]]
+; CHECK-NEXT:      i32 95, label [[OUT_SPLIT_LOOP_EXIT1]]
 ; CHECK-NEXT:    ]
 ; CHECK:       ContLoop:
 ; CHECK-NEXT:    [[NEXT]] = add nuw i64 [[IV]], 1
@@ -803,36 +811,55 @@ Out12:
 define i32 @test19(i1 %cond, i1 %cond2, ptr %address, i32 %v1) nounwind {
 ; CHECK-LABEL: @test19(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[INDIRECT_GOTO_DEST:%.*]] = select i1 [[COND:%.*]], ptr blockaddress(@test19, [[EXIT:%.*]]), ptr [[ADDRESS:%.*]]
-; CHECK-NEXT:    [[INDIRECT_GOTO_DEST2:%.*]] = select i1 [[COND2:%.*]], ptr blockaddress(@test19, [[EXIT]]), ptr [[ADDRESS]]
+; CHECK-NEXT:    [[INDIRECT_GOTO_DEST:%.*]] = select i1 [[COND:%.*]], ptr edgeaddress(@test19, 1), ptr [[ADDRESS:%.*]]
+; CHECK-NEXT:    [[INDIRECT_GOTO_DEST2:%.*]] = select i1 [[COND2:%.*]], ptr edgeaddress(@test19, 1), ptr [[ADDRESS]]
 ; CHECK-NEXT:    br label [[L0:%.*]]
+; CHECK:       L0.loopexit:
+; CHECK-NEXT:    br label [[L0]]
 ; CHECK:       L0:
 ; CHECK-NEXT:    [[V2:%.*]] = call i32 @getv()
 ; CHECK-NEXT:    [[SINKABLE:%.*]] = mul i32 [[V1:%.*]], [[V2]]
 ; CHECK-NEXT:    [[SINKABLE2:%.*]] = add i32 [[V1]], [[V2]]
-; CHECK-NEXT:    indirectbr ptr [[INDIRECT_GOTO_DEST]], [label [[L1:%.*]], label %exit]
+; CHECK-NEXT:    br label [[DISPATCH:%.*]]
 ; CHECK:       L1:
-; CHECK-NEXT:    indirectbr ptr [[INDIRECT_GOTO_DEST2]], [label [[L0]], label %exit]
+; CHECK-NEXT:    br label [[DISPATCH]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[SINKABLE]], [[L0]] ], [ [[SINKABLE2]], [[L1]] ]
+; CHECK-NEXT:    [[R:%.*]] = phi i32 [ [[R_DISPATCH:%.*]], [[DISPATCH]] ]
 ; CHECK-NEXT:    ret i32 [[R]]
+; CHECK:       dispatch:
+; CHECK-NEXT:    [[DISPATCH_ADDR:%.*]] = phi ptr [ [[INDIRECT_GOTO_DEST]], [[L0]] ], [ [[INDIRECT_GOTO_DEST2]], [[L1:%.*]] ]
+; CHECK-NEXT:    [[R_DISPATCH]] = phi i32 [ [[SINKABLE]], [[L0]] ], [ [[SINKABLE2]], [[L1]] ]
+; CHECK-NEXT:    indirectswitch ptr [[DISPATCH_ADDR]], [
+; CHECK-NEXT:      ptr edgeaddress(@test19, 0), label [[L1]]
+; CHECK-NEXT:      ptr edgeaddress(@test19, 1), label [[EXIT:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test19, 2), label [[L0_LOOPEXIT:%.*]]
+; CHECK-NEXT:    ]
 ;
 entry:
   br label %L0
 L0:
-  %indirect.goto.dest = select i1 %cond, ptr blockaddress(@test19, %exit), ptr %address
+  %indirect.goto.dest = select i1 %cond, ptr edgeaddress(@test19, 1), ptr %address
   %v2 = call i32 @getv()
   %sinkable = mul i32 %v1, %v2
   %sinkable2 = add i32 %v1, %v2
-  indirectbr ptr %indirect.goto.dest, [label %L1, label %exit]
+  br label %dispatch
 
 L1:
-  %indirect.goto.dest2 = select i1 %cond2, ptr blockaddress(@test19, %exit), ptr %address
-  indirectbr ptr %indirect.goto.dest2, [label %L0, label %exit]
+  %indirect.goto.dest2 = select i1 %cond2, ptr edgeaddress(@test19, 1), ptr %address
+  br label %dispatch
 
 exit:
-  %r = phi i32 [%sinkable, %L0], [%sinkable2, %L1]
+  %r = phi i32 [ %r.dispatch, %dispatch ]
   ret i32 %r
+
+dispatch:
+  %dispatch.addr = phi ptr [ %indirect.goto.dest, %L0 ], [ %indirect.goto.dest2, %L1 ]
+  %r.dispatch = phi i32 [ %sinkable, %L0 ], [ %sinkable2, %L1 ]
+  indirectswitch ptr %dispatch.addr, [
+  ptr edgeaddress(@test19, 0), label %L1
+  ptr edgeaddress(@test19, 1), label %exit
+  ptr edgeaddress(@test19, 2), label %L0
+  ]
 }
 
 
@@ -849,10 +876,10 @@ define void @test20(ptr %s, i1 %b, i32 %v1, i32 %v2) personality ptr @__CxxFrame
 ; CHECK-NEXT:    br i1 [[B:%.*]], label [[TRY_CONT:%.*]], label [[WHILE_BODY:%.*]]
 ; CHECK:       while.body:
 ; CHECK-NEXT:    invoke void @may_throw()
-; CHECK-NEXT:    to label [[WHILE_BODY2:%.*]] unwind label [[CATCH_DISPATCH:%.*]]
+; CHECK-NEXT:            to label [[WHILE_BODY2:%.*]] unwind label [[CATCH_DISPATCH:%.*]]
 ; CHECK:       while.body2:
 ; CHECK-NEXT:    invoke void @may_throw2()
-; CHECK-NEXT:    to label [[WHILE_COND]] unwind label [[CATCH_DISPATCH]]
+; CHECK-NEXT:            to label [[WHILE_COND]] unwind label [[CATCH_DISPATCH]]
 ; CHECK:       catch.dispatch:
 ; CHECK-NEXT:    [[DOTLCSSA1:%.*]] = phi i32 [ [[SINKABLE]], [[WHILE_BODY]] ], [ [[SINKABLE2]], [[WHILE_BODY2]] ]
 ; CHECK-NEXT:    [[CP:%.*]] = cleanuppad within none []
@@ -933,16 +960,16 @@ define void @test22(i1 %b, i32 %v1, i32 %v2) personality ptr @__CxxFrameHandler3
 ; CHECK-NEXT:    br i1 [[B:%.*]], label [[TRY_CONT:%.*]], label [[WHILE_BODY:%.*]]
 ; CHECK:       while.body:
 ; CHECK-NEXT:    invoke void @may_throw()
-; CHECK-NEXT:    to label [[WHILE_BODY2:%.*]] unwind label [[LPADBB:%.*]]
+; CHECK-NEXT:            to label [[WHILE_BODY2:%.*]] unwind label [[LPADBB:%.*]]
 ; CHECK:       while.body2:
 ; CHECK-NEXT:    [[V:%.*]] = call i32 @getv()
 ; CHECK-NEXT:    [[MUL:%.*]] = mul i32 [[V]], [[V2:%.*]]
 ; CHECK-NEXT:    invoke void @may_throw2()
-; CHECK-NEXT:    to label [[WHILE_COND]] unwind label [[LPADBB]]
+; CHECK-NEXT:            to label [[WHILE_COND]] unwind label [[LPADBB]]
 ; CHECK:       lpadBB:
 ; CHECK-NEXT:    [[DOTLCSSA1:%.*]] = phi i32 [ 0, [[WHILE_BODY]] ], [ [[MUL]], [[WHILE_BODY2]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = landingpad { ptr, i32 }
-; CHECK-NEXT:    catch ptr null
+; CHECK-NEXT:            catch ptr null
 ; CHECK-NEXT:    br label [[LPADBBSUCC1:%.*]]
 ; CHECK:       lpadBBSucc1:
 ; CHECK-NEXT:    ret void

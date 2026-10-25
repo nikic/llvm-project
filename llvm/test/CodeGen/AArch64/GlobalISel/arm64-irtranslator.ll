@@ -147,7 +147,7 @@ false:
 ; CHECK: [[BB_L2]].{{[a-zA-Z0-9.]+}} (ir-block-address-taken %ir-block.{{[a-zA-Z0-9.]+}}):
 ; CHECK-NEXT: RET_ReallyLR
 
-@indirectbr.L = internal unnamed_addr constant [3 x ptr] [ptr blockaddress(@indirectbr, %L1), ptr blockaddress(@indirectbr, %L2), ptr null], align 8
+@indirectbr.L = internal unnamed_addr constant [3 x ptr] [ptr edgeaddress(@indirectbr, 0), ptr edgeaddress(@indirectbr, 1), ptr null], align 8
 
 define void @indirectbr() {
 entry:
@@ -158,7 +158,7 @@ L1:                                               ; preds = %entry, %L1
   %idxprom = zext i32 %i to i64
   %arrayidx = getelementptr inbounds [3 x ptr], ptr @indirectbr.L, i64 0, i64 %idxprom
   %brtarget = load ptr, ptr %arrayidx, align 8
-  indirectbr ptr %brtarget, [label %L1, label %L2]
+  indirectswitch ptr %brtarget, [ ptr edgeaddress(@indirectbr, 0), label %L1 ptr edgeaddress(@indirectbr, 1), label %L2 ]
 L2:                                               ; preds = %L1
   ret void
 }
@@ -2279,8 +2279,8 @@ define void @test_blockaddress() {
 ; CHECK-LABEL: name: test_blockaddress
 ; CHECK: [[BADDR:%[0-9]+]]:_(p0) = G_BLOCK_ADDR blockaddress(@test_blockaddress, %ir-block.block)
 ; CHECK: G_STORE [[BADDR]](p0)
-  store ptr blockaddress(@test_blockaddress, %block), ptr @addr
-  indirectbr ptr blockaddress(@test_blockaddress, %block), [label %block]
+  store ptr edgeaddress(@test_blockaddress, 0), ptr @addr
+  indirectswitch ptr edgeaddress(@test_blockaddress, 0), [ ptr edgeaddress(@test_blockaddress, 0), label %block ]
 block:
   ret void
 }

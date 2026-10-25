@@ -1,9 +1,9 @@
 ; RUN: opt -S < %s -passes=jump-threading | FileCheck %s
 
-; Keep block addresses alive.
+; Keep edge addresses alive.
 @addresses = constant [4 x ptr] [
-  ptr blockaddress(@test1, %L1), ptr blockaddress(@test1, %L2),
-  ptr blockaddress(@test2, %L1), ptr blockaddress(@test2, %L2)
+  ptr edgeaddress(@test1, 0), ptr edgeaddress(@test1, 1),
+  ptr edgeaddress(@test2, 0), ptr edgeaddress(@test2, 1)
 ]
 
 declare void @bar()
@@ -11,13 +11,15 @@ declare void @baz()
 
 
 
-; Check basic jump threading for indirectbr instructions.
+; Check basic jump threading for indirectswitch instructions.
 
 ; CHECK: void @test1
 ; CHECK: br i1 %tobool, label %L1, label %indirectgoto
 ; CHECK-NOT: if.else:
 ; CHECK: L1:
-; CHECK: indirectbr ptr %address, [label %L1, label %L2]
+; CHECK: indirectswitch ptr %address, [
+; CHECK-NEXT: ptr edgeaddress(@test1, 0), label %L1
+; CHECK-NEXT: ptr edgeaddress(@test1, 1), label %L2
 define void @test1(i32 %i, ptr %address) nounwind {
 entry:
   %rem = srem i32 %i, 2
@@ -36,22 +38,20 @@ L2:                                               ; preds = %indirectgoto
   ret void
 
 indirectgoto:                                     ; preds = %if.else, %entry
-  %indirect.goto.dest = phi ptr [ %address, %if.else ], [ blockaddress(@test1, %L1), %entry ]
-  indirectbr ptr %indirect.goto.dest, [label %L1, label %L2]
+  %indirect.goto.dest = phi ptr [ %address, %if.else ], [ edgeaddress(@test1, 0), %entry ]
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@test1, 0), label %L1 ptr edgeaddress(@test1, 1), label %L2 ]
 }
 
 
-; Check constant folding of indirectbr
+; Check constant folding of indirectswitch
 
 ; CHECK: void @test2
-; CHECK: entry:
-; CHECK-NEXT: br label %L1
-; CHECK: L1:
+; CHECK-NEXT: L1:
 ; CHECK-NEXT: call void @bar
 ; CHECK-NEXT: ret void
 define void @test2() nounwind {
 entry:
-  indirectbr ptr blockaddress(@test2, %L1), [label %L1, label %L2]
+  indirectswitch ptr edgeaddress(@test2, 0), [ ptr edgeaddress(@test2, 0), label %L1 ptr edgeaddress(@test2, 1), label %L2 ]
 
 L1:                                               ; preds = %indirectgoto
   call void @bar()

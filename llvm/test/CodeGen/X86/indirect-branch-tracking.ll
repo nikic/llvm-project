@@ -24,8 +24,8 @@ define i8 @test1(){
 ; X86_64-NEXT: endbr64
 ; X86-NEXT:    endbr32
 entry:
-  %0 = select i1 undef, ptr blockaddress(@test1, %bb), ptr blockaddress(@test1, %bb6) ; <ptr> [#uses=1]
-  indirectbr ptr %0, [label %bb, label %bb6]
+  %0 = select i1 undef, ptr edgeaddress(@test1, 0), ptr edgeaddress(@test1, 1) ; <ptr> [#uses=1]
+  indirectswitch ptr %0, [ ptr edgeaddress(@test1, 0), label %bb ptr edgeaddress(@test1, 1), label %bb6 ]
 
 bb:                                               ; preds = %entry
   ret i8 1

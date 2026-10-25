@@ -130,7 +130,7 @@ indirectgoto:                                     ; preds = %if.then18, %if.then
   %idxprom21 = zext i32 %0 to i64
   %arrayidx22 = getelementptr inbounds [256 x ptr], ptr @targets, i64 0, i64 %idxprom21
   %target = load ptr, ptr %arrayidx22, align 8
-  indirectbr ptr %target, [label %unknown_op, label %sw.bb, label %TARGET_1, label %TARGET_2], !prof !41, !irr_loop !42
+  indirectswitch ptr %target, [ ptr edgeaddress(@_Z11irreduciblePh, 0), label %unknown_op ptr edgeaddress(@_Z11irreduciblePh, 1), label %sw.bb ptr edgeaddress(@_Z11irreduciblePh, 2), label %TARGET_1 ptr edgeaddress(@_Z11irreduciblePh, 3), label %TARGET_2 ], !prof !41, !irr_loop !42
 }
 
 !36 = !{!"branch_weights", i32 0, i32 0, i32 201, i32 1}
@@ -215,7 +215,7 @@ indirectgoto:                                     ; preds = %if.then18, %if.then
   %idxprom21 = zext i32 %0 to i64
   %arrayidx22 = getelementptr inbounds [256 x ptr], ptr @targets, i64 0, i64 %idxprom21
   %target = load ptr, ptr %arrayidx22, align 8
-  indirectbr ptr %target, [label %unknown_op, label %sw.bb, label %TARGET_1, label %TARGET_2], !prof !41, !irr_loop !42
+  indirectswitch ptr %target, [ ptr edgeaddress(@_Z11irreduciblePh2, 0), label %unknown_op ptr edgeaddress(@_Z11irreduciblePh2, 1), label %sw.bb ptr edgeaddress(@_Z11irreduciblePh2, 2), label %TARGET_1 ptr edgeaddress(@_Z11irreduciblePh2, 3), label %TARGET_2 ], !prof !41, !irr_loop !42
 }
 
 ; CHECK-LABEL: Printing analysis {{.*}} for function '_Z11irreduciblePh2':

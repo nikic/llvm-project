@@ -10,8 +10,11 @@ define fastcc i1 @test(ptr byval(%type) %a, ptr byval(%type) %b, i1 %cond) {
 ; CHECK-LABEL: define fastcc i1 @test(
 ; CHECK-SAME: ptr byval([[TYPE:%.*]]) [[A:%.*]], ptr byval([[TYPE]]) [[B:%.*]], i1 [[COND:%.*]]) {
 ; CHECK-NEXT:  [[ENTRY:.*:]]
-; CHECK-NEXT:    [[VALUE401:%.*]] = select i1 [[COND]], ptr blockaddress(@test, %[[BLOCK307:.*]]), ptr blockaddress(@test, %[[EXIT:.*]])
-; CHECK-NEXT:    indirectbr ptr [[VALUE401]], [label %[[BLOCK307]], label %exit]
+; CHECK-NEXT:    [[VALUE401:%.*]] = select i1 [[COND]], ptr edgeaddress(@test, 0), ptr edgeaddress(@test, 1)
+; CHECK-NEXT:    indirectswitch ptr [[VALUE401]], [
+; CHECK-NEXT:      ptr edgeaddress(@test, 0), label %[[BLOCK307:.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test, 1), label %[[EXIT:.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       [[BLOCK307]]:
 ; CHECK-NEXT:    [[VALUE403:%.*]] = load i64, ptr [[A]], align 8
 ; CHECK-NEXT:    [[VALUE404:%.*]] = load i64, ptr [[A]], align 8
@@ -19,34 +22,26 @@ define fastcc i1 @test(ptr byval(%type) %a, ptr byval(%type) %b, i1 %cond) {
 ; CHECK-NEXT:    br i1 [[CMP_I]], label %[[LAND_LHS_TRUE_I:.*]], label %[[TEST_EXIT:.*]]
 ; CHECK:       [[LAND_LHS_TRUE_I]]:
 ; CHECK-NEXT:    [[B_I:%.*]] = getelementptr [[TYPE]], ptr [[A]], i64 0, i32 0
-; CHECK-NEXT:    [[VALUE405:%.*]] = load i64, ptr [[B_I]], align 8
 ; CHECK-NEXT:    [[B3_I:%.*]] = getelementptr [[TYPE]], ptr [[B]], i64 0, i32 0
+; CHECK-NEXT:    [[VALUE405:%.*]] = load i64, ptr [[B_I]], align 8
 ; CHECK-NEXT:    [[VALUE406:%.*]] = load i64, ptr [[B3_I]], align 8
 ; CHECK-NEXT:    [[CMP4_I:%.*]] = icmp eq i64 [[VALUE405]], [[VALUE406]]
-; CHECK-NEXT:    br i1 [[CMP4_I]], label %[[LAND_LHS_TRUE5_I:.*]], label %[[TEST_EXIT]]
-; CHECK:       [[LAND_LHS_TRUE5_I]]:
+; CHECK-NEXT:    br i1 [[CMP4_I]], label %"land.lhs.true5.i+land.rhs.i", label %[[TEST_EXIT]]
+; CHECK:       "land.lhs.true5.i+land.rhs.i":
 ; CHECK-NEXT:    [[C_I:%.*]] = getelementptr [[TYPE]], ptr [[A]], i64 0, i32 2
-; CHECK-NEXT:    [[VALUE407:%.*]] = load i64, ptr [[C_I]], align 8
 ; CHECK-NEXT:    [[C6_I:%.*]] = getelementptr [[TYPE]], ptr [[B]], i64 0, i32 2
-; CHECK-NEXT:    [[VALUE408:%.*]] = load i64, ptr [[C6_I]], align 8
-; CHECK-NEXT:    [[CMP7_I:%.*]] = icmp eq i64 [[VALUE407]], [[VALUE408]]
-; CHECK-NEXT:    br i1 [[CMP7_I]], label %[[LAND_RHS_I:.*]], label %[[TEST_EXIT]]
-; CHECK:       [[LAND_RHS_I]]:
-; CHECK-NEXT:    [[D_I:%.*]] = getelementptr [[TYPE]], ptr [[A]], i64 0, i32 3
-; CHECK-NEXT:    [[VALUE409:%.*]] = load i64, ptr [[D_I]], align 8
-; CHECK-NEXT:    [[D8_I:%.*]] = getelementptr [[TYPE]], ptr [[B]], i64 0, i32 3
-; CHECK-NEXT:    [[VALUE410:%.*]] = load i64, ptr [[D8_I]], align 8
-; CHECK-NEXT:    [[CMP9_I:%.*]] = icmp eq i64 [[VALUE409]], [[VALUE410]]
+; CHECK-NEXT:    [[MEMCMP:%.*]] = call i32 @memcmp(ptr [[C_I]], ptr [[C6_I]], i64 16)
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i32 [[MEMCMP]], 0
 ; CHECK-NEXT:    br label %[[TEST_EXIT]]
 ; CHECK:       [[TEST_EXIT]]:
-; CHECK-NEXT:    [[VALUE411:%.*]] = phi i1 [ false, %[[LAND_LHS_TRUE5_I]] ], [ false, %[[LAND_LHS_TRUE_I]] ], [ false, %[[BLOCK307]] ], [ [[CMP9_I]], %[[LAND_RHS_I]] ]
+; CHECK-NEXT:    [[VALUE411:%.*]] = phi i1 [ [[TMP10]], %"land.lhs.true5.i+land.rhs.i" ], [ false, %[[LAND_LHS_TRUE_I]] ], [ false, %[[BLOCK307]] ]
 ; CHECK-NEXT:    ret i1 false
 ; CHECK:       [[EXIT]]:
 ; CHECK-NEXT:    ret i1 false
 ;
 entry:
-  %Value401 = select i1 %cond, ptr blockaddress(@test, %Block307), ptr blockaddress(@test, %exit)
-  indirectbr ptr %Value401, [label %Block307, label %exit]
+  %Value401 = select i1 %cond, ptr edgeaddress(@test, 0), ptr edgeaddress(@test, 1)
+  indirectswitch ptr %Value401, [ ptr edgeaddress(@test, 0), label %Block307 ptr edgeaddress(@test, 1), label %exit ]
 
 Block307:                                         ; preds = %entry
   %Value403 = load i64, ptr %a, align 8

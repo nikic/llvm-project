@@ -7,11 +7,11 @@
 declare void @foo() nounwind
 declare void @bar() nounwind
 
-define void @f(ptr %indirect.goto.dest) nounwind uwtable ssp {
+define void @f(i1 %c) nounwind uwtable ssp {
 entry:
-  indirectbr ptr %indirect.goto.dest, [label %FOO, label %BAR]
+  br i1 %c, label %FOO, label %BAR
 
-  ; CHECK: indirectbr ptr %0, [label %2, label %3]
+  ; CHECK: br i1 %0, label %2, label %3
 
 FOO:
   call void @foo()

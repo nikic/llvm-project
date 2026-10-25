@@ -1,6 +1,6 @@
 ; RUN: llc -O0 -fast-isel -fast-isel-abort=1 -verify-machineinstrs -mtriple=arm64-apple-darwin < %s | FileCheck %s
 
-@fn.table = internal global [2 x ptr] [ptr blockaddress(@fn, %ZERO), ptr blockaddress(@fn, %ONE)], align 8
+@fn.table = internal global [2 x ptr] [ptr edgeaddress(@fn, 0), ptr edgeaddress(@fn, 1)], align 8
 
 define i32 @fn(i32 %target) nounwind {
 entry:
@@ -32,5 +32,5 @@ indirectgoto:                                     ; preds = %entry
 ; CHECK:      ldr [[REG:x[0-9]+]], [sp]
 ; CHECK-NEXT: br [[REG]]
   %indirect.goto.dest = phi ptr [ %1, %entry ]
-  indirectbr ptr %indirect.goto.dest, [label %ZERO, label %ONE]
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@fn, 0), label %ZERO ptr edgeaddress(@fn, 1), label %ONE ]
 }

@@ -4,7 +4,7 @@
 
   define i32 @indirectbr(ptr %addr) {
   entry:
-    indirectbr ptr %addr, [label %L1, label %L2]
+    indirectswitch ptr %addr, [ ptr edgeaddress(@indirectbr, 0), label %L1 ptr edgeaddress(@indirectbr, 1), label %L2 ]
 
   L1:
     ret i32 0
@@ -22,18 +22,21 @@ tracksRegLiveness: true
 body:             |
   ; MIPS32-LABEL: name: indirectbr
   ; MIPS32: bb.0.entry:
-  ; MIPS32:   successors: %bb.1(0x40000000), %bb.2(0x40000000)
-  ; MIPS32:   liveins: $r4
-  ; MIPS32:   [[COPY:%[0-9]+]]:gprb(p0) = COPY $r4
-  ; MIPS32:   [[C:%[0-9]+]]:gprb(s32) = G_CONSTANT i32 1
-  ; MIPS32:   [[C1:%[0-9]+]]:gprb(s32) = G_CONSTANT i32 0
-  ; MIPS32:   G_BRINDIRECT [[COPY]](p0)
-  ; MIPS32: bb.1.L1:
-  ; MIPS32:   $r2 = COPY [[C1]](s32)
-  ; MIPS32:   RetRA implicit $r2
-  ; MIPS32: bb.2.L2:
-  ; MIPS32:   $r2 = COPY [[C]](s32)
-  ; MIPS32:   RetRA implicit $r2
+  ; MIPS32-NEXT:   successors: %bb.1(0x40000000), %bb.2(0x40000000)
+  ; MIPS32-NEXT:   liveins: $r4
+  ; MIPS32-NEXT: {{  $}}
+  ; MIPS32-NEXT:   [[COPY:%[0-9]+]]:gprb(p0) = COPY $r4
+  ; MIPS32-NEXT:   [[C:%[0-9]+]]:gprb(s32) = G_CONSTANT i32 1
+  ; MIPS32-NEXT:   [[C1:%[0-9]+]]:gprb(s32) = G_CONSTANT i32 0
+  ; MIPS32-NEXT:   G_BRINDIRECT [[COPY]](p0)
+  ; MIPS32-NEXT: {{  $}}
+  ; MIPS32-NEXT: bb.1.L1:
+  ; MIPS32-NEXT:   $r2 = COPY [[C1]](s32)
+  ; MIPS32-NEXT:   RetRA implicit $r2
+  ; MIPS32-NEXT: {{  $}}
+  ; MIPS32-NEXT: bb.2.L2:
+  ; MIPS32-NEXT:   $r2 = COPY [[C]](s32)
+  ; MIPS32-NEXT:   RetRA implicit $r2
   bb.1.entry:
     successors: %bb.2, %bb.3
     liveins: $r4

@@ -10,11 +10,11 @@ define i32 @f(ptr addrspace(1) %r) nounwind {
 entry:
 ; CHECK: clre
   call void @llvm.xcore.clre()
-  call void @llvm.xcore.setv.p1(ptr addrspace(1) %r, ptr blockaddress(@f, %L1))
-  call void @llvm.xcore.setv.p1(ptr addrspace(1) %r, ptr blockaddress(@f, %L2))
+  call void @llvm.xcore.setv.p1(ptr addrspace(1) %r, ptr edgeaddress(@f, 0))
+  call void @llvm.xcore.setv.p1(ptr addrspace(1) %r, ptr edgeaddress(@f, 1))
   %goto_addr = call ptr @llvm.xcore.waitevent()
 ; CHECK: waiteu
-  indirectbr ptr %goto_addr, [label %L1, label %L2]
+  indirectswitch ptr %goto_addr, [ ptr edgeaddress(@f, 0), label %L1 ptr edgeaddress(@f, 1), label %L2 ]
 L1:
   br label %ret
 L2:
@@ -29,11 +29,11 @@ define i32 @g(ptr addrspace(1) %r) nounwind {
 entry:
 ; CHECK: clre
   call void @llvm.xcore.clre()
-  call void @llvm.xcore.setv.p1(ptr addrspace(1) %r, ptr blockaddress(@f, %L1))
-  %goto_addr = call ptr @llvm.xcore.checkevent(ptr blockaddress(@f, %L2))
+  call void @llvm.xcore.setv.p1(ptr addrspace(1) %r, ptr edgeaddress(@f, 0))
+  %goto_addr = call ptr @llvm.xcore.checkevent(ptr edgeaddress(@f, 1))
 ; CHECK: setsr 1
 ; CHECK: clrsr 1
-  indirectbr ptr %goto_addr, [label %L1, label %L2]
+  indirectswitch ptr %goto_addr, [ ptr edgeaddress(@g, 0), label %L1 ptr edgeaddress(@g, 1), label %L2 ]
 L1:
   br label %ret
 L2:

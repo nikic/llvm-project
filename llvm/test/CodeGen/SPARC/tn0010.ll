@@ -34,5 +34,5 @@ store_block:
   br label %indirectgoto
 
 indirectgoto:
-  indirectbr ptr null, [label %dispatch, label %store_block]
+  indirectswitch ptr null, [ ptr edgeaddress(@simulator_kernel, 0), label %dispatch ptr edgeaddress(@simulator_kernel, 1), label %store_block ]
 }

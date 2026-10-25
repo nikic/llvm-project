@@ -25,19 +25,27 @@ Case4:          ; preds = %0
 }
 
 
-@Addr = global ptr blockaddress(@indbrtest, %BB1)
+@Addr = global ptr edgeaddress(@indbrtest, 0)
 @Addr3 = global ptr blockaddress(@squared, %Case1)
 
 
 define i32 @indbrtest(ptr %P, ptr %Q) {
-  indirectbr ptr %P, [label %BB1, label %BB2, label %BB3]
+  br label %dispatch
 BB1:
-  indirectbr ptr %Q, []
+  indirectswitch ptr %Q, []
 BB2:
-  %R = bitcast ptr blockaddress(@indbrtest, %BB3) to ptr
-  indirectbr ptr %R, [label %BB1, label %BB2, label %BB3]
+  %R = bitcast ptr edgeaddress(@indbrtest, 2) to ptr
+  br label %dispatch
 BB3:
   ret i32 2
+
+dispatch:
+  %dispatch.addr = phi ptr [ %P, %0 ], [ %R, %BB2 ]
+  indirectswitch ptr %dispatch.addr, [
+    ptr edgeaddress(@indbrtest, 0), label %BB1
+    ptr edgeaddress(@indbrtest, 1), label %BB2
+    ptr edgeaddress(@indbrtest, 2), label %BB3
+  ]
 }
 
 

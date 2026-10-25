@@ -6,20 +6,15 @@ target triple = "x86_64-unknown-linux-gnu"
 declare void @use(i32) local_unnamed_addr
 declare void @useptr(ptr) local_unnamed_addr
 
-; CHECK: @simple.targets = constant [2 x ptr] [ptr blockaddress(@simple, %bb0), ptr blockaddress(@simple, %bb1)], align 16
-@simple.targets = constant [2 x ptr] [ptr blockaddress(@simple, %bb0), ptr blockaddress(@simple, %bb1)], align 16
+@simple.targets = constant [2 x ptr] [ptr edgeaddress(@simple, 0), ptr edgeaddress(@simple, 1)], align 16
 
-; CHECK: @multi.targets = constant [2 x ptr] [ptr blockaddress(@multi, %bb0), ptr blockaddress(@multi, %bb1)], align 16
-@multi.targets = constant [2 x ptr] [ptr blockaddress(@multi, %bb0), ptr blockaddress(@multi, %bb1)], align 16
+@multi.targets = constant [2 x ptr] [ptr edgeaddress(@multi, 0), ptr edgeaddress(@multi, 1)], align 16
 
-; CHECK: @loop.targets = constant [2 x ptr] [ptr blockaddress(@loop, %bb0), ptr blockaddress(@loop, %bb1)], align 16
-@loop.targets = constant [2 x ptr] [ptr blockaddress(@loop, %bb0), ptr blockaddress(@loop, %bb1)], align 16
+@loop.targets = constant [2 x ptr] [ptr edgeaddress(@loop, 0), ptr edgeaddress(@loop, 1)], align 16
 
-; CHECK: @nophi.targets = constant [2 x ptr] [ptr blockaddress(@nophi, %bb0), ptr blockaddress(@nophi, %bb1)], align 16
-@nophi.targets = constant [2 x ptr] [ptr blockaddress(@nophi, %bb0), ptr blockaddress(@nophi, %bb1)], align 16
+@nophi.targets = constant [2 x ptr] [ptr edgeaddress(@nophi, 0), ptr edgeaddress(@nophi, 1)], align 16
 
-; CHECK: @noncritical.targets = constant [2 x ptr] [ptr blockaddress(@noncritical, %bb0), ptr blockaddress(@noncritical, %bb1)], align 16
-@noncritical.targets = constant [2 x ptr] [ptr blockaddress(@noncritical, %bb0), ptr blockaddress(@noncritical, %bb1)], align 16
+@noncritical.targets = constant [2 x ptr] [ptr edgeaddress(@noncritical, 0), ptr edgeaddress(@noncritical, 1)], align 16
 
 ; Check that we break the critical edge when an jump table has only one use.
 define void @simple(ptr nocapture readonly %p) {
@@ -29,8 +24,8 @@ define void @simple(ptr nocapture readonly %p) {
 ; CHECK-NEXT:    [[INITVAL:%.*]] = load i32, ptr [[P]], align 4
 ; CHECK-NEXT:    [[INITOP:%.*]] = load i32, ptr [[INCDEC_PTR]], align 4
 ; CHECK-NEXT:    switch i32 [[INITOP]], label [[EXIT:%.*]] [
-; CHECK-NEXT:    i32 0, label [[BB0_CLONE:%.*]]
-; CHECK-NEXT:    i32 1, label [[BB1_CLONE:%.*]]
+; CHECK-NEXT:      i32 0, label [[BB0_CLONE:%.*]]
+; CHECK-NEXT:      i32 1, label [[BB1_CLONE:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       bb0:
 ; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
@@ -53,7 +48,10 @@ define void @simple(ptr nocapture readonly %p) {
 ; CHECK-NEXT:    [[IDX:%.*]] = sext i32 [[NEWP]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x ptr], ptr @simple.targets, i64 0, i64 [[IDX]]
 ; CHECK-NEXT:    [[NEWOP:%.*]] = load ptr, ptr [[ARRAYIDX]], align 8
-; CHECK-NEXT:    indirectbr ptr [[NEWOP]], [label [[BB0]], label %bb1]
+; CHECK-NEXT:    indirectswitch ptr [[NEWOP]], [
+; CHECK-NEXT:      ptr edgeaddress(@simple, 0), label [[BB0]]
+; CHECK-NEXT:      ptr edgeaddress(@simple, 1), label [[BB1]]
+; CHECK-NEXT:    ]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
 ; CHECK:       bb0.clone:
@@ -89,7 +87,7 @@ indirectgoto:
   %idx = sext i32 %newp to i64
   %arrayidx = getelementptr inbounds [2 x ptr], ptr @simple.targets, i64 0, i64 %idx
   %newop = load ptr, ptr %arrayidx, align 8
-  indirectbr ptr %newop, [label %bb0, label %bb1]
+  indirectswitch ptr %newop, [ ptr edgeaddress(@simple, 0), label %bb0 ptr edgeaddress(@simple, 1), label %bb1 ]
 
 exit:
   ret void
@@ -103,31 +101,49 @@ define void @multi(ptr nocapture readonly %p) {
 ; CHECK-NEXT:    [[INITVAL:%.*]] = load i32, ptr [[P]], align 4
 ; CHECK-NEXT:    [[INITOP:%.*]] = load i32, ptr [[INCDEC_PTR]], align 4
 ; CHECK-NEXT:    switch i32 [[INITOP]], label [[EXIT:%.*]] [
-; CHECK-NEXT:    i32 0, label [[BB0:%.*]]
-; CHECK-NEXT:    i32 1, label [[BB1:%.*]]
+; CHECK-NEXT:      i32 0, label [[BB0:%.*]]
+; CHECK-NEXT:      i32 1, label [[BB1:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       bb0:
-; CHECK-NEXT:    [[P_ADDR_0:%.*]] = phi ptr [ [[INCDEC_PTR]], [[ENTRY:%.*]] ], [ [[NEXT0:%.*]], [[BB0]] ], [ [[NEXT1:%.*]], [[BB1]] ]
-; CHECK-NEXT:    [[OPCODE_0:%.*]] = phi i32 [ [[INITVAL]], [[ENTRY]] ], [ 0, [[BB0]] ], [ 1, [[BB1]] ]
+; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
+; CHECK:       .split:
+; CHECK-NEXT:    [[P_ADDR_0:%.*]] = phi ptr [ [[P_ADDR_0_DISPATCH:%.*]], [[BB2:%.*]] ], [ [[INCDEC_PTR]], [[BB0]] ]
+; CHECK-NEXT:    [[OPCODE_0:%.*]] = phi i32 [ [[OPCODE_0_DISPATCH:%.*]], [[BB2]] ], [ [[INITVAL]], [[BB0]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[OPCODE_0]])
-; CHECK-NEXT:    [[NEXT0]] = getelementptr inbounds i32, ptr [[P_ADDR_0]], i64 1
+; CHECK-NEXT:    [[NEXT0:%.*]] = getelementptr inbounds i32, ptr [[P_ADDR_0]], i64 1
 ; CHECK-NEXT:    [[NEWP0:%.*]] = load i32, ptr [[P_ADDR_0]], align 4
 ; CHECK-NEXT:    [[IDX0:%.*]] = sext i32 [[NEWP0]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds [2 x ptr], ptr @multi.targets, i64 0, i64 [[IDX0]]
 ; CHECK-NEXT:    [[NEWOP0:%.*]] = load ptr, ptr [[ARRAYIDX0]], align 8
-; CHECK-NEXT:    indirectbr ptr [[NEWOP0]], [label [[BB0]], label %bb1]
+; CHECK-NEXT:    br label [[DISPATCH:%.*]]
 ; CHECK:       bb1:
-; CHECK-NEXT:    [[P_ADDR_1:%.*]] = phi ptr [ [[INCDEC_PTR]], [[ENTRY]] ], [ [[NEXT0]], [[BB0]] ], [ [[NEXT1]], [[BB1]] ]
-; CHECK-NEXT:    [[OPCODE_1:%.*]] = phi i32 [ [[INITVAL]], [[ENTRY]] ], [ 0, [[BB0]] ], [ 1, [[BB1]] ]
+; CHECK-NEXT:    br label [[DOTSPLIT3:%.*]]
+; CHECK:       .split3:
+; CHECK-NEXT:    [[P_ADDR_1:%.*]] = phi ptr [ [[P_ADDR_1_DISPATCH:%.*]], [[BB3:%.*]] ], [ [[INCDEC_PTR]], [[BB1]] ]
+; CHECK-NEXT:    [[OPCODE_1:%.*]] = phi i32 [ [[OPCODE_1_DISPATCH:%.*]], [[BB3]] ], [ [[INITVAL]], [[BB1]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[OPCODE_1]])
-; CHECK-NEXT:    [[NEXT1]] = getelementptr inbounds i32, ptr [[P_ADDR_1]], i64 1
+; CHECK-NEXT:    [[NEXT1:%.*]] = getelementptr inbounds i32, ptr [[P_ADDR_1]], i64 1
 ; CHECK-NEXT:    [[NEWP1:%.*]] = load i32, ptr [[P_ADDR_1]], align 4
 ; CHECK-NEXT:    [[IDX1:%.*]] = sext i32 [[NEWP1]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds [2 x ptr], ptr @multi.targets, i64 0, i64 [[IDX1]]
 ; CHECK-NEXT:    [[NEWOP1:%.*]] = load ptr, ptr [[ARRAYIDX1]], align 8
-; CHECK-NEXT:    indirectbr ptr [[NEWOP1]], [label [[BB0]], label %bb1]
+; CHECK-NEXT:    br label [[DISPATCH]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
+; CHECK:       dispatch:
+; CHECK-NEXT:    [[DISPATCH_ADDR:%.*]] = phi ptr [ [[NEWOP0]], [[DOTSPLIT]] ], [ [[NEWOP1]], [[DOTSPLIT3]] ]
+; CHECK-NEXT:    [[P_ADDR_0_DISPATCH]] = phi ptr [ [[NEXT0]], [[DOTSPLIT]] ], [ [[NEXT1]], [[DOTSPLIT3]] ]
+; CHECK-NEXT:    [[OPCODE_0_DISPATCH]] = phi i32 [ 0, [[DOTSPLIT]] ], [ 1, [[DOTSPLIT3]] ]
+; CHECK-NEXT:    [[P_ADDR_1_DISPATCH]] = phi ptr [ [[NEXT0]], [[DOTSPLIT]] ], [ [[NEXT1]], [[DOTSPLIT3]] ]
+; CHECK-NEXT:    [[OPCODE_1_DISPATCH]] = phi i32 [ 0, [[DOTSPLIT]] ], [ 1, [[DOTSPLIT3]] ]
+; CHECK-NEXT:    indirectswitch ptr [[DISPATCH_ADDR]], [
+; CHECK-NEXT:      ptr edgeaddress(@multi, 0), label [[BB2]]
+; CHECK-NEXT:      ptr edgeaddress(@multi, 1), label [[BB3]]
+; CHECK-NEXT:    ]
+; CHECK:       bb0.clone:
+; CHECK-NEXT:    br label [[DOTSPLIT]]
+; CHECK:       bb1.clone:
+; CHECK-NEXT:    br label [[DOTSPLIT3]]
 ;
 entry:
   %incdec.ptr = getelementptr inbounds i32, ptr %p, i64 1
@@ -139,29 +155,40 @@ entry:
   ]
 
 bb0:
-  %p.addr.0 = phi ptr [ %incdec.ptr, %entry ], [ %next0, %bb0 ], [ %next1, %bb1 ]
-  %opcode.0 = phi i32 [ %initval, %entry ], [ 0, %bb0 ], [ 1, %bb1 ]
+  %p.addr.0 = phi ptr [ %incdec.ptr, %entry ], [ %p.addr.0.dispatch, %dispatch ]
+  %opcode.0 = phi i32 [ %initval, %entry ], [ %opcode.0.dispatch, %dispatch ]
   tail call void @use(i32 %opcode.0)
   %next0 = getelementptr inbounds i32, ptr %p.addr.0, i64 1
   %newp0 = load i32, ptr %p.addr.0, align 4
   %idx0 = sext i32 %newp0 to i64
   %arrayidx0 = getelementptr inbounds [2 x ptr], ptr @multi.targets, i64 0, i64 %idx0
   %newop0 = load ptr, ptr %arrayidx0, align 8
-  indirectbr ptr %newop0, [label %bb0, label %bb1]
+  br label %dispatch
 
 bb1:
-  %p.addr.1 = phi ptr [ %incdec.ptr, %entry ], [ %next0, %bb0 ], [ %next1, %bb1 ]
-  %opcode.1 = phi i32 [ %initval, %entry ], [ 0, %bb0 ], [ 1, %bb1 ]
+  %p.addr.1 = phi ptr [ %incdec.ptr, %entry ], [ %p.addr.1.dispatch, %dispatch ]
+  %opcode.1 = phi i32 [ %initval, %entry ], [ %opcode.1.dispatch, %dispatch ]
   tail call void @use(i32 %opcode.1)
   %next1 = getelementptr inbounds i32, ptr %p.addr.1, i64 1
   %newp1 = load i32, ptr %p.addr.1, align 4
   %idx1 = sext i32 %newp1 to i64
   %arrayidx1 = getelementptr inbounds [2 x ptr], ptr @multi.targets, i64 0, i64 %idx1
   %newop1 = load ptr, ptr %arrayidx1, align 8
-  indirectbr ptr %newop1, [label %bb0, label %bb1]
+  br label %dispatch
 
 exit:
   ret void
+
+dispatch:
+  %dispatch.addr = phi ptr [ %newop0, %bb0 ], [ %newop1, %bb1 ]
+  %p.addr.0.dispatch = phi ptr [ %next0, %bb0 ], [ %next1, %bb1 ]
+  %opcode.0.dispatch = phi i32 [ 0, %bb0 ], [ 1, %bb1 ]
+  %p.addr.1.dispatch = phi ptr [ %next0, %bb0 ], [ %next1, %bb1 ]
+  %opcode.1.dispatch = phi i32 [ 0, %bb0 ], [ 1, %bb1 ]
+  indirectswitch ptr %dispatch.addr, [
+  ptr edgeaddress(@multi, 0), label %bb0
+  ptr edgeaddress(@multi, 1), label %bb1
+  ]
 }
 
 ; Make sure we do the right thing for cases where the indirectbr branches to
@@ -180,7 +207,10 @@ define i64 @loop(ptr nocapture readonly %p) {
 ; CHECK-NEXT:    [[IDX:%.*]] = srem i64 [[MERGE]], 2
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x ptr], ptr @loop.targets, i64 0, i64 [[IDX]]
 ; CHECK-NEXT:    [[TARGET:%.*]] = load ptr, ptr [[ARRAYIDX]], align 8
-; CHECK-NEXT:    indirectbr ptr [[TARGET]], [label [[BB0]], label %bb1]
+; CHECK-NEXT:    indirectswitch ptr [[TARGET]], [
+; CHECK-NEXT:      ptr edgeaddress(@loop, 0), label [[BB0]]
+; CHECK-NEXT:      ptr edgeaddress(@loop, 1), label [[BB1:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       bb1:
 ; CHECK-NEXT:    ret i64 [[I_NEXT]]
 ;
@@ -195,7 +225,7 @@ bb0:
   %idx = srem i64 %i, 2
   %arrayidx = getelementptr inbounds [2 x ptr], ptr @loop.targets, i64 0, i64 %idx
   %target = load ptr, ptr %arrayidx, align 8
-  indirectbr ptr %target, [label %bb0, label %bb1]
+  indirectswitch ptr %target, [ ptr edgeaddress(@loop, 0), label %bb0 ptr edgeaddress(@loop, 1), label %bb1 ]
 
 bb1:
   ret i64 %i.next
@@ -208,8 +238,8 @@ define void @nophi(ptr %p) {
 ; CHECK-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, ptr [[P:%.*]], i64 1
 ; CHECK-NEXT:    [[INITOP:%.*]] = load i32, ptr [[INCDEC_PTR]], align 4
 ; CHECK-NEXT:    switch i32 [[INITOP]], label [[EXIT:%.*]] [
-; CHECK-NEXT:    i32 0, label [[BB0:%.*]]
-; CHECK-NEXT:    i32 1, label [[BB1:%.*]]
+; CHECK-NEXT:      i32 0, label [[BB0:%.*]]
+; CHECK-NEXT:      i32 1, label [[BB1:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       bb0:
 ; CHECK-NEXT:    tail call void @use(i32 0)
@@ -223,7 +253,10 @@ define void @nophi(ptr %p) {
 ; CHECK-NEXT:    [[IDX:%.*]] = sext i32 [[NEWP]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x ptr], ptr @nophi.targets, i64 0, i64 [[IDX]]
 ; CHECK-NEXT:    [[NEWOP:%.*]] = load ptr, ptr [[ARRAYIDX]], align 8
-; CHECK-NEXT:    indirectbr ptr [[NEWOP]], [label [[BB0]], label %bb1]
+; CHECK-NEXT:    indirectswitch ptr [[NEWOP]], [
+; CHECK-NEXT:      ptr edgeaddress(@nophi, 0), label [[BB0]]
+; CHECK-NEXT:      ptr edgeaddress(@nophi, 1), label [[BB1]]
+; CHECK-NEXT:    ]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
 ;
@@ -247,7 +280,7 @@ indirectgoto:
   %idx = sext i32 %newp to i64
   %arrayidx = getelementptr inbounds [2 x ptr], ptr @nophi.targets, i64 0, i64 %idx
   %newop = load ptr, ptr %arrayidx, align 8
-  indirectbr ptr %newop, [label %bb0, label %bb1]
+  indirectswitch ptr %newop, [ ptr edgeaddress(@nophi, 0), label %bb0 ptr edgeaddress(@nophi, 1), label %bb1 ]
 
 exit:
   ret void
@@ -258,7 +291,10 @@ define i32 @noncritical(i32 %k, ptr %p)
 ; CHECK-LABEL: @noncritical(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[D:%.*]] = add i32 [[K:%.*]], 1
-; CHECK-NEXT:    indirectbr ptr [[P:%.*]], [label [[BB0:%.*]], label %bb1]
+; CHECK-NEXT:    indirectswitch ptr [[P:%.*]], [
+; CHECK-NEXT:      ptr edgeaddress(@noncritical, 0), label [[BB0:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@noncritical, 1), label [[BB1:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       bb0:
 ; CHECK-NEXT:    [[R0:%.*]] = sub i32 [[K]], [[D]]
 ; CHECK-NEXT:    br label [[EXIT:%.*]]
@@ -266,13 +302,13 @@ define i32 @noncritical(i32 %k, ptr %p)
 ; CHECK-NEXT:    [[R1:%.*]] = sub i32 [[D]], [[K]]
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[V:%.*]] = phi i32 [ [[R0]], [[BB0]] ], [ [[R1]], [[BB1:%.*]] ]
+; CHECK-NEXT:    [[V:%.*]] = phi i32 [ [[R0]], [[BB0]] ], [ [[R1]], [[BB1]] ]
 ; CHECK-NEXT:    ret i32 [[V]]
 ;
 {
 entry:
   %d = add i32 %k, 1
-  indirectbr ptr %p, [label %bb0, label %bb1]
+  indirectswitch ptr %p, [ ptr edgeaddress(@noncritical, 0), label %bb0 ptr edgeaddress(@noncritical, 1), label %bb1 ]
 
 bb0:
   %v00 = phi i32 [%k, %entry]

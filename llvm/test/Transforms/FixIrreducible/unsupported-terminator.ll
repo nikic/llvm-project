@@ -4,9 +4,9 @@
 define i32 @test(i1 %cond) {
 entry:
   %target = select i1 %cond,
-                   ptr blockaddress(@test, %then),
-                   ptr blockaddress(@test, %else)
-  indirectbr ptr %target, [label %then, label %else]
+                   ptr edgeaddress(@test, 0),
+                   ptr edgeaddress(@test, 1)
+  indirectswitch ptr %target, [ ptr edgeaddress(@test, 0), label %then ptr edgeaddress(@test, 1), label %else ]
 
 then:
   br label %else

@@ -4,18 +4,25 @@
 define void @test(ptr %addr) {
 ; CHECK-LABEL: define void @test(
 ; CHECK-SAME: ptr [[ADDR:%.*]]) {
-; CHECK-NEXT:    indirectbr ptr [[ADDR]], [label %[[A:.*]], label %C]
+; CHECK-NEXT:    indirectswitch ptr [[ADDR]], [
+; CHECK-NEXT:      ptr edgeaddress(@test, 0), label %[[A:.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test, 1), label %[[C1:.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       [[A]]:
-; CHECK-NEXT:    br i1 true, label %[[B:.*]], label %[[C_LOOPEXIT:.*]]
+; CHECK-NEXT:    switch i32 0, label %[[B:.*]] [
+; CHECK-NEXT:      i32 1, label %[[C:.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       [[B]]:
-; CHECK-NEXT:    br i1 true, label %[[A]], label %[[C_LOOPEXIT]]
+; CHECK-NEXT:    br label %[[C_LOOPEXIT:.*]]
 ; CHECK:       [[C_LOOPEXIT]]:
-; CHECK-NEXT:    br label %[[C:.*]]
+; CHECK-NEXT:    br label %[[C_LOOPEXIT]]
 ; CHECK:       [[C]]:
+; CHECK-NEXT:    br label %[[C1]]
+; CHECK:       [[C1]]:
 ; CHECK-NEXT:    unreachable
 ;
 
-  indirectbr ptr %addr, [label %A, label %C]
+  indirectswitch ptr %addr, [ ptr edgeaddress(@test, 0), label %A ptr edgeaddress(@test, 1), label %C ]
 
 A:
   br i1 true, label %B, label %C

@@ -10,17 +10,20 @@ define i32 @duplicate_pred_condbr(ptr %addr, i1 %cond) {
 ; CHECK-LABEL: define i32 @duplicate_pred_condbr(
 ; CHECK-SAME: ptr [[ADDR:%.*]], i1 [[COND:%.*]]) {
 ; CHECK-NEXT:  [[ENTRY:.*:]]
-; CHECK-NEXT:    indirectbr ptr [[ADDR]], [label %[[TARGET:.*]], label %[[COND_BB:.*]]]
+; CHECK-NEXT:    indirectswitch ptr [[ADDR]], [
+; CHECK-NEXT:      ptr edgeaddress(@duplicate_pred_condbr, 0), label %[[TARGET:.*]]
+; CHECK-NEXT:      ptr edgeaddress(@duplicate_pred_condbr, 1), label %[[COND_BB:.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       [[COND_BB]]:
-; CHECK-NEXT:    br [[DOTSPLIT:label %.*]]
+; CHECK-NEXT:    br label %[[DOTSPLIT:.*]]
 ; CHECK:       [[TARGET]]:
-; CHECK-NEXT:    br [[DOTSPLIT]]
-; CHECK:       [[_SPLIT:.*:]]
+; CHECK-NEXT:    br label %[[DOTSPLIT]]
+; CHECK:       [[DOTSPLIT]]:
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ 0, %[[TARGET]] ], [ 1, %[[COND_BB]] ]
 ; CHECK-NEXT:    ret i32 [[MERGE]]
 ;
 entry:
-  indirectbr ptr %addr, [label %target, label %cond.bb]
+  indirectswitch ptr %addr, [ ptr edgeaddress(@duplicate_pred_condbr, 0), label %target ptr edgeaddress(@duplicate_pred_condbr, 1), label %cond.bb ]
 
 cond.bb:
   br i1 %cond, label %target, label %target

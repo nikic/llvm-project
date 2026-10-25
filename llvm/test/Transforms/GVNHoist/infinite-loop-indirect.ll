@@ -124,7 +124,10 @@ define i32 @test13(ptr %P, ptr %Ptr, ptr nocapture readonly %i) {
 ; CHECK-NEXT:    [[X:%.*]] = getelementptr inbounds [[CLASS_BAR]], ptr [[AGG_TMP]], i64 0, i32 1
 ; CHECK-NEXT:    [[Y:%.*]] = load ptr, ptr [[X]], align 8
 ; CHECK-NEXT:    [[B2:%.*]] = bitcast ptr [[Y]] to ptr
-; CHECK-NEXT:    indirectbr ptr [[PTR]], [label [[BRBLOCK:%.*]], label %B2]
+; CHECK-NEXT:    indirectswitch ptr [[PTR]], [
+; CHECK-NEXT:      ptr edgeaddress(@test13, 0), label [[BRBLOCK:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test13, 1), label [[B2:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       B2:
 ; CHECK-NEXT:    store i32 4, ptr [[P]], align 4
 ; CHECK-NEXT:    br label [[BRBLOCK]]
@@ -141,7 +144,7 @@ entry:
   %agg.tmp = alloca %class.bar, align 8
   %x= getelementptr inbounds %class.bar, ptr %agg.tmp, i64 0, i32 1
   %y = load ptr, ptr %x, align 8
-  indirectbr ptr %Ptr, [label %BrBlock, label %B2]
+  indirectswitch ptr %Ptr, [ ptr edgeaddress(@test13, 0), label %BrBlock ptr edgeaddress(@test13, 1), label %B2 ]
 
 B2:
   %b1 = bitcast ptr %y to ptr
@@ -170,7 +173,11 @@ define i32 @test14(ptr %P, ptr %Ptr, ptr nocapture readonly %i) {
 ; CHECK-NEXT:    [[AGG_TMP:%.*]] = alloca [[CLASS_BAR:%.*]], align 8
 ; CHECK-NEXT:    [[X:%.*]] = getelementptr inbounds [[CLASS_BAR]], ptr [[AGG_TMP]], i64 0, i32 1
 ; CHECK-NEXT:    [[Y:%.*]] = load ptr, ptr [[X]], align 8
-; CHECK-NEXT:    indirectbr ptr [[PTR]], [label [[BRBLOCK:%.*]], label [[B2:%.*]], label %T]
+; CHECK-NEXT:    indirectswitch ptr [[PTR]], [
+; CHECK-NEXT:      ptr edgeaddress(@test14, 0), label [[BRBLOCK:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test14, 1), label [[B2:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test14, 2), label [[T:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       B2:
 ; CHECK-NEXT:    [[B1:%.*]] = bitcast ptr [[Y]] to ptr
 ; CHECK-NEXT:    store i32 4, ptr [[P]], align 4
@@ -179,7 +186,7 @@ define i32 @test14(ptr %P, ptr %Ptr, ptr nocapture readonly %i) {
 ; CHECK-NEXT:    [[B2:%.*]] = bitcast ptr [[Y]] to ptr
 ; CHECK-NEXT:    [[L:%.*]] = load i32, ptr [[P]], align 4
 ; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[L]], 42
-; CHECK-NEXT:    br i1 [[C]], label [[T:%.*]], label [[F:%.*]]
+; CHECK-NEXT:    br i1 [[C]], label [[T]], label [[F:%.*]]
 ; CHECK:       T:
 ; CHECK-NEXT:    [[PI:%.*]] = load i32, ptr [[I]], align 4
 ; CHECK-NEXT:    ret i32 [[PI]]
@@ -191,7 +198,7 @@ entry:
   %agg.tmp = alloca %class.bar, align 8
   %x= getelementptr inbounds %class.bar, ptr %agg.tmp, i64 0, i32 1
   %y = load ptr, ptr %x, align 8
-  indirectbr ptr %Ptr, [label %BrBlock, label %B2, label %T]
+  indirectswitch ptr %Ptr, [ ptr edgeaddress(@test14, 0), label %BrBlock ptr edgeaddress(@test14, 1), label %B2 ptr edgeaddress(@test14, 2), label %T ]
 
 B2:
   %b1 = bitcast ptr %y to ptr
@@ -222,27 +229,36 @@ define i32 @test16(ptr %P, ptr %Ptr, ptr nocapture readonly %i) {
 ; CHECK-NEXT:    [[AGG_TMP:%.*]] = alloca [[CLASS_BAR:%.*]], align 8
 ; CHECK-NEXT:    [[X:%.*]] = getelementptr inbounds [[CLASS_BAR]], ptr [[AGG_TMP]], i64 0, i32 1
 ; CHECK-NEXT:    [[Y:%.*]] = load ptr, ptr [[X]], align 8
-; CHECK-NEXT:    indirectbr ptr [[PTR]], [label [[BRBLOCK:%.*]], label %B2]
+; CHECK-NEXT:    indirectswitch ptr [[PTR]], [
+; CHECK-NEXT:      ptr edgeaddress(@test16, 0), label [[BRBLOCK:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test16, 1), label [[B2:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       B2:
 ; CHECK-NEXT:    [[B1:%.*]] = bitcast ptr [[Y]] to ptr
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[I]], align 4
 ; CHECK-NEXT:    store i32 [[TMP0]], ptr [[P]], align 4
 ; CHECK-NEXT:    br label [[BRBLOCK]]
 ; CHECK:       BrBlock:
-; CHECK-NEXT:    [[B2:%.*]] = bitcast ptr [[Y]] to ptr
+; CHECK-NEXT:    [[BC2:%.*]] = bitcast ptr [[Y]] to ptr
 ; CHECK-NEXT:    [[L:%.*]] = load i32, ptr [[P]], align 4
 ; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[L]], 42
 ; CHECK-NEXT:    br i1 [[C]], label [[T:%.*]], label [[F:%.*]]
 ; CHECK:       T:
-; CHECK-NEXT:    indirectbr ptr [[P]], [label [[BRBLOCK]], label %B2]
+; CHECK-NEXT:    indirectswitch ptr [[P]], [
+; CHECK-NEXT:      ptr edgeaddress(@test16, 2), label [[BRBLOCK]]
+; CHECK-NEXT:      ptr edgeaddress(@test16, 3), label [[B2]]
+; CHECK-NEXT:    ]
 ; CHECK:       F:
-; CHECK-NEXT:    indirectbr ptr [[PTR]], [label [[BRBLOCK]], label %B2]
+; CHECK-NEXT:    indirectswitch ptr [[PTR]], [
+; CHECK-NEXT:      ptr edgeaddress(@test16, 4), label [[BRBLOCK]]
+; CHECK-NEXT:      ptr edgeaddress(@test16, 5), label [[B2]]
+; CHECK-NEXT:    ]
 ;
 entry:
   %agg.tmp = alloca %class.bar, align 8
   %x= getelementptr inbounds %class.bar, ptr %agg.tmp, i64 0, i32 1
   %y = load ptr, ptr %x, align 8
-  indirectbr ptr %Ptr, [label %BrBlock, label %B2]
+  indirectswitch ptr %Ptr, [ ptr edgeaddress(@test16, 0), label %BrBlock ptr edgeaddress(@test16, 1), label %B2 ]
 
 B2:
   %b1 = bitcast ptr %y to ptr
@@ -251,16 +267,16 @@ B2:
   br label %BrBlock
 
 BrBlock:
-  %b2 = bitcast ptr %y to ptr
+  %bc2 = bitcast ptr %y to ptr
   %L = load i32, ptr %P
   %C = icmp eq i32 %L, 42
   br i1 %C, label %T, label %F
 
 T:
-  indirectbr ptr %P, [label %BrBlock, label %B2]
+  indirectswitch ptr %P, [ ptr edgeaddress(@test16, 2), label %BrBlock ptr edgeaddress(@test16, 3), label %B2 ]
 
 F:
-  indirectbr ptr %Ptr, [label %BrBlock, label %B2]
+  indirectswitch ptr %Ptr, [ ptr edgeaddress(@test16, 4), label %BrBlock ptr edgeaddress(@test16, 5), label %B2 ]
 }
 
 

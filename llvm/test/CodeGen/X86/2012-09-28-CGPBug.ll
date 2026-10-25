@@ -1,7 +1,7 @@
 ; RUN: llc -mtriple=i386-apple-macosx < %s | FileCheck %s
 ; rdar://12396696
 
-@JT = global [4 x i32] [i32 sub (i32 ptrtoint (ptr blockaddress(@h, %bb16) to i32), i32 ptrtoint (ptr blockaddress(@h, %bb9) to i32)), i32 sub (i32 ptrtoint (ptr blockaddress(@h, %bb15) to i32), i32 ptrtoint (ptr blockaddress(@h, %bb9) to i32)), i32 sub (i32 ptrtoint (ptr blockaddress(@h, %bb20) to i32), i32 ptrtoint (ptr blockaddress(@h, %bb16) to i32)), i32 sub (i32 ptrtoint (ptr blockaddress(@h, %bb20) to i32), i32 ptrtoint (ptr blockaddress(@h, %bb15) to i32))]
+@JT = global [4 x i32] [i32 sub (i32 ptrtoint (ptr edgeaddress(@h, 1) to i32), i32 ptrtoint (ptr blockaddress(@h, %bb9) to i32)), i32 sub (i32 ptrtoint (ptr edgeaddress(@h, 0) to i32), i32 ptrtoint (ptr blockaddress(@h, %bb9) to i32)), i32 sub (i32 ptrtoint (ptr blockaddress(@h, %bb20) to i32), i32 ptrtoint (ptr edgeaddress(@h, 1) to i32)), i32 sub (i32 ptrtoint (ptr blockaddress(@h, %bb20) to i32), i32 ptrtoint (ptr edgeaddress(@h, 0) to i32))]
 @gGlobalLock = external global ptr
 @.str40 = external global [35 x i8]
 
@@ -32,7 +32,7 @@ bb9:                                              ; preds = %bb
   %i12 = load i32, ptr %i11, align 4
   %i13 = add i32 %i12, ptrtoint (ptr blockaddress(@h, %bb9) to i32)
   %i14 = inttoptr i32 %i13 to ptr
-  indirectbr ptr %i14, [label %bb15, label %bb16]
+  indirectswitch ptr %i14, [ ptr edgeaddress(@h, 0), label %bb15 ptr edgeaddress(@h, 1), label %bb16 ]
 
 bb15:                                             ; preds = %bb9
   tail call void (ptr, ...) @g(ptr @.str40)

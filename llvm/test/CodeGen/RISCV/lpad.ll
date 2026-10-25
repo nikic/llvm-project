@@ -7,7 +7,7 @@
 ; RUN: -riscv-landing-pad-label=1 < %s | FileCheck %s --check-prefixes=FIXED-ONE,FIXED-ONE-RV64
 
 ; Check indirectbr.
-@__const.indirctbr.addr = private unnamed_addr constant [2 x ptr] [ptr blockaddress(@indirctbr, %labelA), ptr blockaddress(@indirctbr, %labelB)], align 8
+@__const.indirctbr.addr = private unnamed_addr constant [2 x ptr] [ptr edgeaddress(@indirctbr, 0), ptr edgeaddress(@indirctbr, 1)], align 8
 define void @indirctbr(i32 %i, ptr %p) {
 ; RV32-LABEL: indirctbr:
 ; RV32:       # %bb.0: # %entry
@@ -107,7 +107,7 @@ define void @indirctbr(i32 %i, ptr %p) {
 entry:
   %arrayidx = getelementptr inbounds [2 x ptr], ptr @__const.indirctbr.addr, i64 0, i32 %i
   %0 = load ptr, ptr %arrayidx
-  indirectbr ptr %0, [label %labelA, label %labelB]
+  indirectswitch ptr %0, [ ptr edgeaddress(@indirctbr, 0), label %labelA ptr edgeaddress(@indirctbr, 1), label %labelB ]
 
 labelA:                                           ; preds = %entry
   store volatile i32 1, ptr %p

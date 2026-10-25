@@ -64,11 +64,11 @@ entry:
 
 define void @func_block_addr() nounwind {
 entry:
-  %call = tail call ptr @dummy(ptr blockaddress(@func_block_addr, %baz))
-  indirectbr ptr %call, [label %baz, label %foo]
+  %call = tail call ptr @dummy(ptr edgeaddress(@func_block_addr, 0))
+  indirectswitch ptr %call, [ ptr edgeaddress(@func_block_addr, 0), label %baz ptr edgeaddress(@func_block_addr, 1), label %foo ]
 
 foo:                                              ; preds = %foo, %entry
-  store ptr blockaddress(@func_block_addr, %foo), ptr @reg, align 4
+  store ptr edgeaddress(@func_block_addr, 1), ptr @reg, align 4
   br label %foo
 
 baz:                                              ; preds = %entry

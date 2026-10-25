@@ -238,17 +238,21 @@ define void @foo5() {
 ; CHECK-NEXT:    br label [[INNER2_INDIRECT_EXIT:%.*]]
 ; CHECK:       inner2_indirect_exit:
 ; CHECK-NEXT:    [[A:%.*]] = phi i32 [ [[B:%.*]], [[INNER2_LATCH:%.*]] ], [ undef, [[INNER1]] ]
-; CHECK-NEXT:    indirectbr ptr undef, [label [[INNER2_LATCH]], label [[INNER3:%.*]], label %outer_latch]
+; CHECK-NEXT:    indirectswitch ptr undef, [
+; CHECK-NEXT:      ptr edgeaddress(@foo5, 0), label [[INNER2_LATCH]]
+; CHECK-NEXT:      ptr edgeaddress(@foo5, 1), label [[INNER3_PREHEADER:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@foo5, 2), label [[OUTER_LATCH_LOOPEXIT1:%.*]]
+; CHECK-NEXT:    ]
+; CHECK:       inner3.preheader:
+; CHECK-NEXT:    [[A_LCSSA:%.*]] = phi i32 [ [[A]], [[INNER2_INDIRECT_EXIT]] ]
+; CHECK-NEXT:    br label [[INNER3:%.*]]
 ; CHECK:       inner2_latch:
 ; CHECK-NEXT:    [[B]] = load i32, ptr undef, align 8
 ; CHECK-NEXT:    br label [[INNER2_INDIRECT_EXIT]]
 ; CHECK:       inner3:
-; CHECK-NEXT:    [[A_LCSSA:%.*]] = phi i32 [ [[A_LCSSA]], [[INNER3]] ], [ [[A]], [[INNER2_INDIRECT_EXIT]] ]
-; CHECK-NEXT:    br i1 true, label [[OUTER_LATCH_LOOPEXIT:%.*]], label [[INNER3]]
-; CHECK:       outer_latch.loopexit:
-; CHECK-NEXT:    [[A_LCSSA_LCSSA2:%.*]] = phi i32 [ [[A_LCSSA]], [[INNER3]] ]
-; CHECK-NEXT:    [[A_LCSSA_LCSSA:%.*]] = phi i32 [ [[A_LCSSA]], [[INNER3]] ]
 ; CHECK-NEXT:    br label [[OUTER_LATCH:%.*]]
+; CHECK:       outer_latch.loopexit1:
+; CHECK-NEXT:    br label [[OUTER_LATCH]]
 ; CHECK:       outer_latch:
 ; CHECK-NEXT:    br label [[OUTER]]
 ;
@@ -266,7 +270,7 @@ inner2_indirect_exit.preheader:
 
 inner2_indirect_exit:
   %a = phi i32 [ %b, %inner2_latch ], [ undef, %inner2_indirect_exit.preheader ]
-  indirectbr ptr undef, [label %inner2_latch, label %inner3, label %outer_latch]
+  indirectswitch ptr undef, [ ptr edgeaddress(@foo5, 0), label %inner2_latch ptr edgeaddress(@foo5, 1), label %inner3 ptr edgeaddress(@foo5, 2), label %outer_latch ]
 
 inner2_latch:
   %b = load i32, ptr undef, align 8

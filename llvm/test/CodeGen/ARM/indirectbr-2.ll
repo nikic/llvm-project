@@ -2,7 +2,7 @@
 ; <rdar://problem/12529625>
 
 @foo = global i32 34879, align 4
-@DWJumpTable2808 = global [2 x i32] [i32 sub (i32 ptrtoint (ptr blockaddress(@func, %14) to i32), i32 ptrtoint (ptr blockaddress(@func, %4) to i32)), i32 sub (i32 ptrtoint (ptr blockaddress(@func, %13) to i32), i32 ptrtoint (ptr blockaddress(@func, %4) to i32))]
+@DWJumpTable2808 = global [2 x i32] [i32 sub (i32 ptrtoint (ptr edgeaddress(@func, 1) to i32), i32 ptrtoint (ptr blockaddress(@func, %4) to i32)), i32 sub (i32 ptrtoint (ptr edgeaddress(@func, 0) to i32), i32 ptrtoint (ptr blockaddress(@func, %4) to i32))]
 @0 = internal constant [45 x i8] c"func XXXXXXXXXXX :: bb xxxxxxxxxxxxxxxxxxxx\0A\00"
 
 ; The indirect branch has the two destinations as successors. The lone PHI
@@ -28,7 +28,7 @@ define i32 @func() nounwind ssp {
   %10 = add i32 %9, ptrtoint (ptr blockaddress(@func, %4) to i32)
   %11 = inttoptr i32 %10 to ptr
   %12 = call i32 (ptr, ...) @printf(ptr @0)
-  indirectbr ptr %11, [label %13, label %14]
+  indirectswitch ptr %11, [ ptr edgeaddress(@func, 0), label %13 ptr edgeaddress(@func, 1), label %14 ]
 
 ; <label>:13                                      ; preds = %4
   %tmp14 = phi i32 [ %7, %4 ]

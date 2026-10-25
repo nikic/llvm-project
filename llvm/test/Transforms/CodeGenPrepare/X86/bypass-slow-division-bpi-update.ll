@@ -21,7 +21,7 @@ header:
   ]
 
 dispatch:
-  indirectbr ptr null, [label %latch]
+  indirectswitch ptr null, [ ptr edgeaddress(@f, 0), label %latch ]
 
 exit:
   ret ptr null

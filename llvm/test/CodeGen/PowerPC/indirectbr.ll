@@ -3,7 +3,7 @@
 ; RUN: llc < %s -relocation-model=pic -mtriple=powerpc64-unknown-linux-gnu -ppc-asm-full-reg-names | FileCheck %s -check-prefix=PPC64
 
 @nextaddr = global ptr null                       ; <ptr> [#uses=2]
-@C.0.2070 = private constant [5 x ptr] [ptr blockaddress(@foo, %L1), ptr blockaddress(@foo, %L2), ptr blockaddress(@foo, %L3), ptr blockaddress(@foo, %L4), ptr blockaddress(@foo, %L5)] ; <ptr> [#uses=1]
+@C.0.2070 = private constant [5 x ptr] [ptr edgeaddress(@foo, 4), ptr edgeaddress(@foo, 3), ptr edgeaddress(@foo, 2), ptr edgeaddress(@foo, 1), ptr edgeaddress(@foo, 0)] ; <ptr> [#uses=1]
 
 define internal i32 @foo(i32 %i) nounwind {
 ; PIC-LABEL: foo:
@@ -46,7 +46,7 @@ bb2:                                              ; preds = %entry, %bb3
 ; PPC64: b .LBB
 ; PPC64: li
 ; PPC64: b .LBB
-  indirectbr ptr %gotovar.4.0, [label %L5, label %L4, label %L3, label %L2, label %L1]
+  indirectswitch ptr %gotovar.4.0, [ ptr edgeaddress(@foo, 0), label %L5 ptr edgeaddress(@foo, 1), label %L4 ptr edgeaddress(@foo, 2), label %L3 ptr edgeaddress(@foo, 3), label %L2 ptr edgeaddress(@foo, 4), label %L1 ]
 
 bb3:                                              ; preds = %entry
   %2 = getelementptr inbounds [5 x ptr], ptr @C.0.2070, i32 0, i32 %i ; <ptr> [#uses=1]
@@ -78,6 +78,6 @@ L1:                                               ; preds = %L2, %bb2
 ; STATIC-NEXT: lis r[[R1:[0-9]+]], nextaddr@ha
 ; STATIC-NEXT: addis r[[R0]], r[[R0]], .Ltmp0@ha
 ; STATIC-NEXT: stw r[[R0]], nextaddr@l(r[[R1]]
-  store ptr blockaddress(@foo, %L5), ptr @nextaddr, align 4
+  store ptr edgeaddress(@foo, 0), ptr @nextaddr, align 4
   ret i32 %res.3
 }

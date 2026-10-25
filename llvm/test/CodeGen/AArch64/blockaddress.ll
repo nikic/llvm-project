@@ -7,9 +7,9 @@
 
 define void @test_blockaddress() {
 ; CHECK-LABEL: test_blockaddress:
-  store volatile ptr blockaddress(@test_blockaddress, %block), ptr @addr
+  store volatile ptr edgeaddress(@test_blockaddress, 0), ptr @addr
   %val = load volatile ptr, ptr @addr
-  indirectbr ptr %val, [label %block]
+  indirectswitch ptr %val, [ ptr edgeaddress(@test_blockaddress, 0), label %block ]
 ; CHECK: adrp [[DEST_HI:x[0-9]+]], [[DEST_LBL:.Ltmp[0-9]+]]
 ; CHECK: add [[DEST:x[0-9]+]], [[DEST_HI]], {{#?}}:lo12:[[DEST_LBL]]
 ; CHECK: str [[DEST]],

@@ -33,7 +33,7 @@ while.body:                                       ; preds = %if.else1, %while.bo
   br label %while.body
 
 if.else1:                                         ; preds = %if.else1, %preheader
-  indirectbr ptr poison, [label %if.then, label %while.body, label %if.else, label %if.else1]
+  indirectswitch ptr poison, [ ptr edgeaddress(@test, 0), label %if.then ptr edgeaddress(@test, 1), label %while.body ptr edgeaddress(@test, 2), label %if.else ptr edgeaddress(@test, 3), label %if.else1 ]
 }
 
 !llvm.dbg.cu = !{!0}

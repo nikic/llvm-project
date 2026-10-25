@@ -34,10 +34,10 @@ define signext i32 @brind(i32 signext %0) {
 ; CHECK-NEXT:    adds.w.sx %s0, %s0, (0)1
 ; CHECK-NEXT:    b.l.t (, %s10)
   %2 = icmp eq i32 %0, 1
-  %3 = select i1 %2, ptr blockaddress(@brind, %6), ptr blockaddress(@brind, %8)
+  %3 = select i1 %2, ptr edgeaddress(@brind, 1), ptr edgeaddress(@brind, 0)
   %4 = icmp eq i32 %0, 0
-  %5 = select i1 %4, ptr %3, ptr blockaddress(@brind, %7)
-  indirectbr ptr %5, [label %8, label %6, label %7]
+  %5 = select i1 %4, ptr %3, ptr edgeaddress(@brind, 2)
+  indirectswitch ptr %5, [ ptr edgeaddress(@brind, 0), label %8 ptr edgeaddress(@brind, 1), label %6 ptr edgeaddress(@brind, 2), label %7 ]
 
 6:                                                ; preds = %1
   br label %8

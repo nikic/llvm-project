@@ -1,12 +1,12 @@
 ; RUN: llc -mtriple=msp430 < %s | FileCheck %s
-@C.0.2070 = private constant [5 x ptr] [ptr blockaddress(@foo, %L1), ptr blockaddress(@foo, %L2), ptr blockaddress(@foo, %L3), ptr blockaddress(@foo, %L4), ptr blockaddress(@foo, %L5)] ; <[5 x i8*]*> [#uses=1]
+@C.0.2070 = private constant [5 x ptr] [ptr edgeaddress(@foo, 4), ptr edgeaddress(@foo, 3), ptr edgeaddress(@foo, 2), ptr edgeaddress(@foo, 1), ptr edgeaddress(@foo, 0)] ; <[5 x i8*]*> [#uses=1]
 
 define internal i16 @foo(i16 %i) nounwind {
 entry:
   %tmp1 = getelementptr inbounds [5 x ptr], ptr @C.0.2070, i16 0, i16 %i ; <i8**> [#uses=1]
   %gotovar.4.0 = load ptr, ptr %tmp1, align 4        ; <i8*> [#uses=1]
 ; CHECK: br .LC.0.2070(r12)
-  indirectbr ptr %gotovar.4.0, [label %L5, label %L4, label %L3, label %L2, label %L1]
+  indirectswitch ptr %gotovar.4.0, [ ptr edgeaddress(@foo, 0), label %L5 ptr edgeaddress(@foo, 1), label %L4 ptr edgeaddress(@foo, 2), label %L3 ptr edgeaddress(@foo, 3), label %L2 ptr edgeaddress(@foo, 4), label %L1 ]
 
 L5:                                               ; preds = %bb2
   br label %L4

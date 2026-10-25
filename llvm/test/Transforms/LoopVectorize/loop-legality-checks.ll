@@ -19,37 +19,13 @@ for.end:
   ret i32 0
 }
 
-; D40973
-; Make sure LV legal bails out when the loop doesn't have a legal pre-header.
-; CHECK-LABEL: 'inc'
-; CHECK: LV: Not vectorizing: Loop doesn't have a legal pre-header.
-define void @inc(i32 %n, ptr %P) {
-  %1 = icmp sgt i32 %n, 0
-  br i1 %1, label %BB1, label %BB2
-
-BB1:
-  indirectbr ptr %P, [label %.lr.ph]
-
-BB2:
-  br label %.lr.ph
-
-.lr.ph:
-  %indvars.iv = phi i32 [ %indvars.iv.next, %.lr.ph ], [ 0, %BB1 ], [ 0, %BB2 ]
-  %indvars.iv.next = add i32 %indvars.iv, 1
-  %exitcond = icmp eq i32 %indvars.iv.next, %n
-  br i1 %exitcond, label %._crit_edge, label %.lr.ph
-
-._crit_edge:
-  ret void
-}
-
 ; Make sure LV legal bails out when the pre-header is terminated by an
-; indirectbr instead of an unconditional branch.
-; CHECK-LABEL: 'preheader_indirectbr'
+; indirectswitch instead of an unconditional branch.
+; CHECK-LABEL: 'preheader_indirectswitch'
 ; CHECK: LV: Not vectorizing: Loop doesn't have a legal pre-header.
-define void @preheader_indirectbr(ptr %dst, i64 %n) {
+define void @preheader_indirectswitch(ptr %dst, i64 %n) {
 entry:
-  indirectbr ptr blockaddress(@preheader_indirectbr, %loop), [label %loop]
+  indirectswitch ptr edgeaddress(@preheader_indirectswitch, 0), [ ptr edgeaddress(@preheader_indirectswitch, 0), label %loop ]
 
 loop:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %loop ]

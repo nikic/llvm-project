@@ -142,7 +142,7 @@ bb17:		; preds = %bb15
 ; PR9523 - Non-canonical loop.
 define void @test7(ptr %P, i1 %arg) nounwind {
 entry:
-  indirectbr ptr %P, [label %"3", label %"5"]
+  indirectswitch ptr %P, [ ptr edgeaddress(@test7, 0), label %"3" ptr edgeaddress(@test7, 1), label %"5" ]
 
 "3":                                              ; preds = %"4", %entry
   br i1 %arg, label %"5", label %"4"
@@ -163,7 +163,7 @@ for.cond:                                         ; preds = %for.inc, %entry
   br i1 %C, label %l_bad, label %for.body
 
 for.body:                                         ; preds = %for.cond
-  indirectbr ptr %P, [label %for.inc, label %l_bad]
+  indirectswitch ptr %P, [ ptr edgeaddress(@test8, 0), label %for.inc ptr edgeaddress(@test8, 1), label %l_bad ]
 
 for.inc:                                          ; preds = %for.body
   br label %for.cond

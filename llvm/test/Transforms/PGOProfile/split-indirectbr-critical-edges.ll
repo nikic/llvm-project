@@ -12,7 +12,7 @@ define i32 @foo(ptr nocapture readonly %p) #1 {
 entry:
   %targets = alloca [256 x ptr], align 16
   %arrayidx1 = getelementptr inbounds [256 x ptr], ptr %targets, i64 0, i64 93
-  store ptr blockaddress(@foo, %if.end), ptr %arrayidx1, align 8
+  store ptr edgeaddress(@foo, 1), ptr %arrayidx1, align 8
   br label %for.cond2
 
 for.cond2:                                        ; preds = %if.end, %for.cond2, %entry
@@ -34,24 +34,21 @@ if.end:                                           ; preds = %if.end.preheader, %
   %idxprom6 = zext i8 %1 to i64
   %arrayidx7 = getelementptr inbounds [256 x ptr], ptr %targets, i64 0, i64 %idxprom6
   %2 = load ptr, ptr %arrayidx7, align 8
-  indirectbr ptr %2, [label %for.cond2, label %if.end]
-; CHECK: indirectbr ptr %2, [label %for.cond2, label %if.end]
+  indirectswitch ptr %2, [ ptr edgeaddress(@foo, 0), label %for.cond2 ptr edgeaddress(@foo, 1), label %if.end ]
+; CHECK: indirectswitch ptr %2, [
 }
 
-;; If an indirectbr critical edge cannot be split, ignore it.
-;; The edge will not be profiled.
+;; Critical edges from an indirectswitch can be split, so both edges into
+;; %indirect are profiled.
 ; CHECK-LABEL: @cannot_split(
-; CHECK-NEXT:  entry:
-; CHECK-NEXT:    %targets = alloca <2 x ptr>, align 16
-; CHECK-NEXT:    call void @llvm.instrprof.increment
-; CHECK: indirect:
-; CHECK-NOT:     call void @llvm.instrprof.increment
-; CHECK: indirect2:
-; CHECK-NEXT:    call void @llvm.instrprof.increment
+; CHECK:       indirect:
+; CHECK-NEXT:    call void @llvm.instrprof.increment(ptr @__profn_cannot_split, i64 {{[0-9]+}}, i32 2, i32 0)
+; CHECK:       indirect.clone:
+; CHECK-NEXT:    call void @llvm.instrprof.increment(ptr @__profn_cannot_split, i64 {{[0-9]+}}, i32 2, i32 1)
 define i32 @cannot_split(ptr nocapture readonly %p) {
 entry:
   %targets = alloca <2 x ptr>, align 16
-  store <2 x ptr> <ptr blockaddress(@cannot_split, %indirect), ptr blockaddress(@cannot_split, %end)>, ptr %targets, align 16
+  store <2 x ptr> <ptr edgeaddress(@cannot_split, 0), ptr edgeaddress(@cannot_split, 1)>, ptr %targets, align 16
   %arrayidx2 = getelementptr inbounds i8, ptr %p, i64 1
   %0 = load i8, ptr %arrayidx2
   %idxprom = sext i8 %0 to i64
@@ -60,12 +57,7 @@ entry:
   br label %indirect
 
 indirect:                                         ; preds = %entry, %indirect
-  indirectbr ptr %1, [label %indirect, label %end, label %indirect2]
-
-indirect2:
-  ; For this test we do not want critical edges split. Adding a 2nd `indirectbr`
-  ; does the trick.
-  indirectbr ptr %1, [label %indirect, label %end]
+  indirectswitch ptr %1, [ ptr edgeaddress(@cannot_split, 0), label %indirect ptr edgeaddress(@cannot_split, 1), label %end ]
 
 end:                                              ; preds = %indirect
   ret i32 0

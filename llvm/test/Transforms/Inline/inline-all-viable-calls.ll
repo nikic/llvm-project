@@ -98,7 +98,7 @@ default:
   br label %end
 
 end:
-  indirectbr ptr %ptr, [label %target0, label %target1]
+  indirectswitch ptr %ptr, [ ptr edgeaddress(@has_indirectbr, 0), label %target0 ptr edgeaddress(@has_indirectbr, 1), label %target1 ]
   ret void
 }
 

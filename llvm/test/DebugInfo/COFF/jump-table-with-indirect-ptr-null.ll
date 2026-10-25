@@ -30,7 +30,7 @@ target triple = "x86_64-pc-windows-msvc19.34.0"
 
 define i32 @f() !dbg !5 {
 entry:
-  indirectbr ptr null, [label %BC_SUCCEED], !dbg !11
+  indirectswitch ptr null, [ ptr edgeaddress(@f, 0), label %BC_SUCCEED ], !dbg !11
 
 BC_SUCCEED:                                       ; preds = %entry
   %0 = lshr i64 0, 0

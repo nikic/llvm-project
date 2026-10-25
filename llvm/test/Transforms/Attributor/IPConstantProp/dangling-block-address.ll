@@ -7,14 +7,14 @@
 ; properly handle the dangling blockaddress constants.
 
 @code = global [5 x i32] [i32 0, i32 0, i32 0, i32 0, i32 1], align 4 ; <ptr> [#uses=0]
-@bar.l = internal constant [2 x ptr] [ptr blockaddress(@bar, %lab0), ptr blockaddress(@bar, %end)] ; <ptr> [#uses=1]
+@bar.l = internal constant [2 x ptr] [ptr edgeaddress(@bar, 0), ptr edgeaddress(@bar, 1)] ; <ptr> [#uses=1]
 
 ;.
 ; TUNIT: @code = global [5 x i32] [i32 0, i32 0, i32 0, i32 0, i32 1], align 4
 ; TUNIT: @bar.l = internal constant [2 x ptr] [ptr inttoptr (i32 1 to ptr), ptr inttoptr (i32 1 to ptr)]
 ;.
 ; CGSCC: @code = global [5 x i32] [i32 0, i32 0, i32 0, i32 0, i32 1], align 4
-; CGSCC: @bar.l = internal constant [2 x ptr] [ptr blockaddress(@bar, %lab0), ptr blockaddress(@bar, %end)]
+; CGSCC: @bar.l = internal constant [2 x ptr] [ptr edgeaddress(@bar, 0), ptr edgeaddress(@bar, 1)]
 ;.
 define internal void @foo(i32 %x) nounwind readnone {
 ; CGSCC: Function Attrs: nounwind memory(none)
@@ -48,7 +48,10 @@ define internal void @bar(ptr nocapture %pc) nounwind readonly {
 ; CGSCC-NEXT:    [[TMP1_PN:%.*]] = load i32, ptr [[PC_ADDR_0]], align 4
 ; CGSCC-NEXT:    [[INDIRECT_GOTO_DEST_IN:%.*]] = getelementptr inbounds [2 x ptr], ptr @bar.l, i32 0, i32 [[TMP1_PN]]
 ; CGSCC-NEXT:    [[INDIRECT_GOTO_DEST:%.*]] = load ptr, ptr [[INDIRECT_GOTO_DEST_IN]], align 8
-; CGSCC-NEXT:    indirectbr ptr [[INDIRECT_GOTO_DEST]], [label [[LAB0]], label %end]
+; CGSCC-NEXT:    indirectswitch ptr [[INDIRECT_GOTO_DEST]], [
+; CGSCC-NEXT:      ptr edgeaddress(@bar, 0), label [[LAB0]]
+; CGSCC-NEXT:      ptr edgeaddress(@bar, 1), label [[END:%.*]]
+; CGSCC-NEXT:    ]
 ;
 entry:
   br label %indirectgoto
@@ -66,7 +69,7 @@ indirectgoto:                                     ; preds = %lab0, %entry
   %tmp1.pn = load i32, ptr %pc.addr.0                 ; <i32> [#uses=1]
   %indirect.goto.dest.in = getelementptr inbounds [2 x ptr], ptr @bar.l, i32 0, i32 %tmp1.pn ; <ptr> [#uses=1]
   %indirect.goto.dest = load ptr, ptr %indirect.goto.dest.in ; <ptr> [#uses=1]
-  indirectbr ptr %indirect.goto.dest, [label %lab0, label %end]
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@bar, 0), label %lab0 ptr edgeaddress(@bar, 1), label %end ]
 }
 
 define i32 @main() nounwind readnone {

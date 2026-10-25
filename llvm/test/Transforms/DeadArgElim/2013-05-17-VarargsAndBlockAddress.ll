@@ -1,8 +1,8 @@
 ; RUN: opt %s -passes=deadargelim -S | FileCheck %s
 
 
-@block_addr = global ptr blockaddress(@varargs_func, %l1)
-; CHECK: @block_addr = global ptr blockaddress(@varargs_func, %l1)
+@block_addr = global ptr edgeaddress(@varargs_func, 0)
+; CHECK: @block_addr = global ptr edgeaddress(@varargs_func, 0)
 
 
 ; This function is referenced by a "blockaddress" constant but it is
@@ -10,7 +10,7 @@
 ; varargs.
 
 define internal i32 @varargs_func(ptr %addr, ...) {
-  indirectbr ptr %addr, [ label %l1, label %l2 ]
+  indirectswitch ptr %addr, [ ptr edgeaddress(@varargs_func, 0), label %l1 ptr edgeaddress(@varargs_func, 1), label %l2 ]
 l1:
   ret i32 1
 l2:

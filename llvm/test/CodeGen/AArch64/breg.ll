@@ -5,7 +5,7 @@
 define dso_local void @foo() {
 ; CHECK-LABEL: foo:
   %lab = load ptr, ptr @stored_label
-  indirectbr ptr %lab, [label  %otherlab, label %retlab]
+  indirectswitch ptr %lab, [ ptr edgeaddress(@foo, 0), label %otherlab ptr edgeaddress(@foo, 1), label %retlab ]
 ; CHECK: adrp {{x[0-9]+}}, stored_label
 ; CHECK: ldr {{x[0-9]+}}, [{{x[0-9]+}}, {{#?}}:lo12:stored_label]
 ; CHECK: br {{x[0-9]+}}

@@ -1,8 +1,8 @@
 ; RUN: opt -passes='require<profile-summary>,function(codegenprepare)' -S -mtriple=x86_64 < %s | FileCheck %s
 
-@exit_addr = constant ptr blockaddress(@gep_unmerging, %exit)
-@op1_addr = constant ptr blockaddress(@gep_unmerging, %op1)
-@op2_addr = constant ptr blockaddress(@gep_unmerging, %op2)
+@exit_addr = constant ptr edgeaddress(@gep_unmerging, 0)
+@op1_addr = constant ptr edgeaddress(@gep_unmerging, 1)
+@op2_addr = constant ptr edgeaddress(@gep_unmerging, 2)
 @op3_addr = constant ptr blockaddress(@gep_unmerging, %op3)
 @dummy = global i8 0
 
@@ -52,7 +52,7 @@ indirectbr:
   %p_zext = zext i8 %next_op to i64
   %slot = getelementptr [256 x ptr], ptr %table, i64 0, i64 %p_zext 
   %target = load ptr, ptr %slot
-  indirectbr ptr %target, [label %exit, label %op1, label %op2]
+  indirectswitch ptr %target, [ ptr edgeaddress(@gep_unmerging, 0), label %exit ptr edgeaddress(@gep_unmerging, 1), label %op1 ptr edgeaddress(@gep_unmerging, 2), label %op2 ]
 
 exit:
   ret void

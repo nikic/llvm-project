@@ -6,8 +6,9 @@
 define i32 @f() nounwind {
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    indirectbr ptr undef, []
+; CHECK-NEXT:    indirectswitch ptr undef, [
+; CHECK-NEXT:    ]
 ;
 entry:
-  indirectbr ptr undef, []
+  indirectswitch ptr undef, []
 }

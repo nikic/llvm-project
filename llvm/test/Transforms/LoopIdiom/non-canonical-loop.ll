@@ -13,7 +13,7 @@ if.then.i:                                        ; preds = %entry
   unreachable
 
 start.exit:                       ; preds = %entry
-  indirectbr ptr %arg2, [label %0, label %for.bodyprime]
+  indirectswitch ptr %arg2, [ ptr edgeaddress(@test, 0), label %0 ptr edgeaddress(@test, 1), label %for.bodyprime ]
 
 ; <label>:0                                       ; preds = %start.exit
   unreachable

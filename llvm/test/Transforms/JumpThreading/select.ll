@@ -21,7 +21,7 @@ declare void @quux()
 ; booleans where at least one operand is true/false/undef.
 
 ;.
-; CHECK: @[[ANCHOR:[a-zA-Z0-9_$"\\.-]+]] = constant [3 x ptr] [ptr blockaddress(@test_indirectbr, [[L1:%.*]]), ptr inttoptr (i32 1 to ptr), ptr blockaddress(@test_indirectbr, [[L3:%.*]])]
+; CHECK-BPI: @anchor = constant [3 x ptr] [ptr edgeaddress(@test_indirectbr, 0), ptr edgeaddress(@test_indirectbr, 1), ptr edgeaddress(@test_indirectbr, 2)]
 ;.
 define void @test_br(i1 %cond, i1 %value) nounwind {
 ; CHECK-LABEL: @test_br(
@@ -66,8 +66,8 @@ define void @test_switch(i1 %cond, i8 %value) nounwind {
 ; CHECK-NEXT:    call void @quux()
 ; CHECK-NEXT:    [[EXPR:%.*]] = select i1 [[COND]], i8 1, i8 [[VALUE:%.*]]
 ; CHECK-NEXT:    switch i8 [[EXPR]], label [[L3:%.*]] [
-; CHECK-NEXT:    i8 1, label [[L1]]
-; CHECK-NEXT:    i8 2, label [[L2:%.*]]
+; CHECK-NEXT:      i8 1, label [[L1]]
+; CHECK-NEXT:      i8 2, label [[L2:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       L1:
 ; CHECK-NEXT:    call void @foo()
@@ -102,9 +102,9 @@ L4:
 ; Make sure the blocks in the indirectbr test aren't trivially removable as
 ; successors by taking their addresses.
 @anchor = constant [3 x ptr] [
-  ptr blockaddress(@test_indirectbr, %L1),
-  ptr blockaddress(@test_indirectbr, %L2),
-  ptr blockaddress(@test_indirectbr, %L3)
+  ptr edgeaddress(@test_indirectbr, 0),
+  ptr edgeaddress(@test_indirectbr, 1),
+  ptr edgeaddress(@test_indirectbr, 2)
 ]
 
 
@@ -124,8 +124,8 @@ define void @test_indirectbr(i1 %cond, ptr %address) nounwind {
 entry:
   br i1 %cond, label %L0, label %L3
 L0:
-  %indirect.goto.dest = select i1 %cond, ptr blockaddress(@test_indirectbr, %L1), ptr %address
-  indirectbr ptr %indirect.goto.dest, [label %L1, label %L2, label %L3]
+  %indirect.goto.dest = select i1 %cond, ptr edgeaddress(@test_indirectbr, 0), ptr %address
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@test_indirectbr, 0), label %L1 ptr edgeaddress(@test_indirectbr, 1), label %L2 ptr edgeaddress(@test_indirectbr, 2), label %L3 ]
 
 L1:
   call void @foo()
@@ -160,11 +160,11 @@ define void @test_indirectbr_thresh(i1 %cond, ptr %address) nounwind {
 entry:
   br i1 %cond, label %L0, label %L3
 L0:
-  %indirect.goto.dest = select i1 %cond, ptr blockaddress(@test_indirectbr_thresh, %L1), ptr %address
+  %indirect.goto.dest = select i1 %cond, ptr edgeaddress(@test_indirectbr_thresh, 0), ptr %address
   call void @quux()
   call void @quux()
   call void @quux()
-  indirectbr ptr %indirect.goto.dest, [label %L1, label %L2, label %L3]
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@test_indirectbr_thresh, 0), label %L1 ptr edgeaddress(@test_indirectbr_thresh, 1), label %L2 ptr edgeaddress(@test_indirectbr_thresh, 2), label %L3 ]
 
 L1:
   call void @foo()
@@ -192,8 +192,8 @@ define void @test_switch_cmp(i1 %cond, i32 %val, i8 %value) nounwind {
 ; CHECK:       0:
 ; CHECK-NEXT:    [[TMP1:%.*]] = phi i8 [ [[VALUE:%.*]], [[L0]] ]
 ; CHECK-NEXT:    switch i8 [[TMP1]], label [[L3:%.*]] [
-; CHECK-NEXT:    i8 1, label [[L1]]
-; CHECK-NEXT:    i8 2, label [[L2:%.*]]
+; CHECK-NEXT:      i8 1, label [[L1]]
+; CHECK-NEXT:      i8 2, label [[L2:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       L1:
 ; CHECK-NEXT:    call void @foo()
@@ -237,8 +237,8 @@ define void @test_switch_default(ptr nocapture %status) nounwind {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[STATUS:%.*]], align 4
 ; CHECK-NEXT:    switch i32 [[TMP0]], label [[L2:%.*]] [
-; CHECK-NEXT:    i32 5061, label [[L2_THREAD:%.*]]
-; CHECK-NEXT:    i32 0, label [[L2]]
+; CHECK-NEXT:      i32 5061, label [[L2_THREAD:%.*]]
+; CHECK-NEXT:      i32 0, label [[L2]]
 ; CHECK-NEXT:    ]
 ; CHECK:       L2.thread:
 ; CHECK-NEXT:    store i32 10025, ptr [[STATUS]], align 4
@@ -560,10 +560,10 @@ define void @test_func(ptr nocapture readonly %a, ptr nocapture readonly %b, ptr
 ; CHECK:       if.end:
 ; CHECK-NEXT:    [[LOCAL_VAR_0:%.*]] = phi i32 [ [[TMP1]], [[FOR_BODY]] ]
 ; CHECK-NEXT:    switch i32 [[LOCAL_VAR_0]], label [[SW_DEFAULT]] [
-; CHECK-NEXT:    i32 2, label [[SW_BB]]
-; CHECK-NEXT:    i32 4, label [[SW_BB7]]
-; CHECK-NEXT:    i32 5, label [[SW_BB8:%.*]]
-; CHECK-NEXT:    i32 7, label [[SW_BB9:%.*]]
+; CHECK-NEXT:      i32 2, label [[SW_BB]]
+; CHECK-NEXT:      i32 4, label [[SW_BB7]]
+; CHECK-NEXT:      i32 5, label [[SW_BB8:%.*]]
+; CHECK-NEXT:      i32 7, label [[SW_BB9:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       sw.bb:
 ; CHECK-NEXT:    call void @foo()
@@ -669,8 +669,10 @@ if.end:
 !0 = !{!"branch_weights", i64 1073741824, i64 3221225472}
 !1 = !{!"function_entry_count", i64 1984}
 ;.
-; CHECK: attributes #[[ATTR0:[0-9]+]] = { nounwind }
+; CHECK-BPI: attributes #[[ATTR0:[0-9]+]] = { nounwind }
 ;.
-; CHECK: [[META0:![0-9]+]] = !{!"function_entry_count", i64 1984}
-; CHECK: [[PROF1]] = !{!"branch_weights", i64 1073741824, i64 3221225472}
+; CHECK-BPI: [[META0:![0-9]+]] = !{!"function_entry_count", i64 1984}
+; CHECK-BPI: [[PROF1]] = !{!"branch_weights", i64 1073741824, i64 3221225472}
 ;.
+;; NOTE: These prefixes are unused and the list is autogenerated. Do not add tests below this line:
+; CHECK-BPI: {{.*}}

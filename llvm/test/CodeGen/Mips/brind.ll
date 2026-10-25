@@ -1,6 +1,6 @@
 ; RUN: llc  -mtriple=mipsel -mattr=mips16 -relocation-model=pic -O3 < %s | FileCheck %s -check-prefix=16
 
-@main.L = internal unnamed_addr constant [5 x ptr] [ptr blockaddress(@main, %L1), ptr blockaddress(@main, %L2), ptr blockaddress(@main, %L3), ptr blockaddress(@main, %L4), ptr null], align 4
+@main.L = internal unnamed_addr constant [5 x ptr] [ptr edgeaddress(@main, 0), ptr edgeaddress(@main, 1), ptr edgeaddress(@main, 2), ptr edgeaddress(@main, 3), ptr null], align 4
 @str = private unnamed_addr constant [2 x i8] c"A\00"
 @str5 = private unnamed_addr constant [2 x i8] c"B\00"
 @str6 = private unnamed_addr constant [2 x i8] c"C\00"
@@ -28,7 +28,7 @@ L3:                                               ; preds = %L2, %L3
   %inc = add i32 %i.2, 1
   %arrayidx = getelementptr inbounds [5 x ptr], ptr @main.L, i32 0, i32 %i.2
   %0 = load ptr, ptr %arrayidx, align 4
-  indirectbr ptr %0, [label %L1, label %L2, label %L3, label %L4]
+  indirectswitch ptr %0, [ ptr edgeaddress(@main, 0), label %L1 ptr edgeaddress(@main, 1), label %L2 ptr edgeaddress(@main, 2), label %L3 ptr edgeaddress(@main, 3), label %L4 ]
 ; 16: 	jrc	 ${{[0-9]+}}
 L4:                                               ; preds = %L3
   %puts8 = tail call i32 @puts(ptr @str8)

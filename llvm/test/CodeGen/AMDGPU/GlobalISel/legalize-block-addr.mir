@@ -5,8 +5,8 @@
   @addr = global ptr null
 
   define void @test_blockaddress() {
-    store ptr blockaddress(@test_blockaddress, %block), ptr @addr
-    indirectbr ptr blockaddress(@test_blockaddress, %block), [label %block]
+    store ptr edgeaddress(@test_blockaddress, 0), ptr @addr
+    indirectswitch ptr edgeaddress(@test_blockaddress, 0), [ ptr edgeaddress(@test_blockaddress, 0), label %block ]
 
   block:
     ret void

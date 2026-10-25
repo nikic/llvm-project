@@ -8,27 +8,39 @@
 define void @outer_ph_indirectbr(ptr %A) {
 ; CHECK-LABEL: define void @outer_ph_indirectbr(
 ; CHECK-SAME: ptr [[A:%.*]]) {
-; CHECK-NEXT:  [[ENTRY:.*]]:
-; CHECK-NEXT:    indirectbr ptr blockaddress(@outer_ph_indirectbr, %[[OUTER_HEADER:.*]]), [label %[[OUTER_HEADER]]]
-; CHECK:       [[OUTER_HEADER]]:
-; CHECK-NEXT:    [[I:%.*]] = phi i64 [ 0, %[[ENTRY]] ], [ [[I_INC:%.*]], %[[OUTER_LATCH:.*]] ]
+; CHECK-NEXT:  [[ENTRY:.*:]]
+; CHECK-NEXT:    indirectswitch ptr edgeaddress(@outer_ph_indirectbr, 0), [
+; CHECK-NEXT:      ptr edgeaddress(@outer_ph_indirectbr, 0), label %[[INNER_PREHEADER:.*]]
+; CHECK-NEXT:    ]
+; CHECK:       [[OUTER_HEADER:.*]]:
 ; CHECK-NEXT:    br label %[[INNER:.*]]
 ; CHECK:       [[INNER]]:
-; CHECK-NEXT:    [[J:%.*]] = phi i64 [ 0, %[[OUTER_HEADER]] ], [ [[J_INC:%.*]], %[[INNER]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i64 [ [[I_INC:%.*]], %[[OUTER_LATCH:.*]] ], [ 0, %[[OUTER_HEADER]] ]
+; CHECK-NEXT:    br label %[[INNER_SPLIT1:.*]]
+; CHECK:       [[INNER_PREHEADER]]:
+; CHECK-NEXT:    br label %[[INNER1:.*]]
+; CHECK:       [[INNER1]]:
+; CHECK-NEXT:    [[J:%.*]] = phi i64 [ [[TMP0:%.*]], %[[INNER_SPLIT:.*]] ], [ 0, %[[INNER_PREHEADER]] ]
+; CHECK-NEXT:    br label %[[OUTER_HEADER]]
+; CHECK:       [[INNER_SPLIT1]]:
 ; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds [4 x i8], ptr [[A]], i64 [[J]], i64 [[I]]
 ; CHECK-NEXT:    store i8 0, ptr [[GEP]], align 1
-; CHECK-NEXT:    [[J_INC]] = add i64 [[J]], 1
+; CHECK-NEXT:    [[J_INC:%.*]] = add i64 [[J]], 1
 ; CHECK-NEXT:    [[EC_J:%.*]] = icmp eq i64 [[J_INC]], 4
-; CHECK-NEXT:    br i1 [[EC_J]], label %[[OUTER_LATCH]], label %[[INNER]]
+; CHECK-NEXT:    br label %[[OUTER_LATCH]]
+; CHECK:       [[INNER_SPLIT]]:
+; CHECK-NEXT:    [[TMP0]] = add i64 [[J]], 1
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i64 [[TMP0]], 4
+; CHECK-NEXT:    br i1 [[TMP1]], label %[[EXIT:.*]], label %[[INNER1]]
 ; CHECK:       [[OUTER_LATCH]]:
 ; CHECK-NEXT:    [[I_INC]] = add i64 [[I]], 1
 ; CHECK-NEXT:    [[EC_I:%.*]] = icmp eq i64 [[I_INC]], 4
-; CHECK-NEXT:    br i1 [[EC_I]], label %[[EXIT:.*]], label %[[OUTER_HEADER]]
+; CHECK-NEXT:    br i1 [[EC_I]], label %[[INNER_SPLIT]], label %[[INNER]]
 ; CHECK:       [[EXIT]]:
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  indirectbr ptr blockaddress(@outer_ph_indirectbr, %outer.header), [ label %outer.header ]
+  indirectswitch ptr edgeaddress(@outer_ph_indirectbr, 0), [ ptr edgeaddress(@outer_ph_indirectbr, 0), label %outer.header ]
 
 outer.header:
   %i = phi i64 [ 0, %entry ], [ %i.inc, %outer.latch ]
@@ -57,22 +69,34 @@ exit:
 define void @inner_ph_indirectbr(ptr %A) {
 ; CHECK-LABEL: define void @inner_ph_indirectbr(
 ; CHECK-SAME: ptr [[A:%.*]]) {
-; CHECK-NEXT:  [[ENTRY:.*]]:
+; CHECK-NEXT:  [[ENTRY:.*:]]
 ; CHECK-NEXT:    br label %[[OUTER_HEADER:.*]]
-; CHECK:       [[OUTER_HEADER]]:
-; CHECK-NEXT:    [[I:%.*]] = phi i64 [ 0, %[[ENTRY]] ], [ [[I_INC:%.*]], %[[OUTER_LATCH:.*]] ]
-; CHECK-NEXT:    indirectbr ptr blockaddress(@inner_ph_indirectbr, %[[INNER:.*]]), [label %[[INNER]]]
+; CHECK:       [[OUTER_HEADER_PREHEADER:.*]]:
+; CHECK-NEXT:    br label %[[INNER:.*]]
 ; CHECK:       [[INNER]]:
-; CHECK-NEXT:    [[J:%.*]] = phi i64 [ 0, %[[OUTER_HEADER]] ], [ [[J_INC:%.*]], %[[INNER]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i64 [ [[I_INC:%.*]], %[[OUTER_LATCH:.*]] ], [ 0, %[[OUTER_HEADER_PREHEADER]] ]
+; CHECK-NEXT:    indirectswitch ptr edgeaddress(@inner_ph_indirectbr, 0), [
+; CHECK-NEXT:      ptr edgeaddress(@inner_ph_indirectbr, 0), label %[[INNER_SPLIT1:.*]]
+; CHECK-NEXT:    ]
+; CHECK:       [[OUTER_HEADER]]:
+; CHECK-NEXT:    br label %[[INNER1:.*]]
+; CHECK:       [[INNER1]]:
+; CHECK-NEXT:    [[J:%.*]] = phi i64 [ [[TMP0:%.*]], %[[INNER_SPLIT:.*]] ], [ 0, %[[OUTER_HEADER]] ]
+; CHECK-NEXT:    br label %[[OUTER_HEADER_PREHEADER]]
+; CHECK:       [[INNER_SPLIT1]]:
 ; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds [4 x i8], ptr [[A]], i64 [[J]], i64 [[I]]
 ; CHECK-NEXT:    store i8 0, ptr [[GEP]], align 1
-; CHECK-NEXT:    [[J_INC]] = add i64 [[J]], 1
+; CHECK-NEXT:    [[J_INC:%.*]] = add i64 [[J]], 1
 ; CHECK-NEXT:    [[EC_J:%.*]] = icmp eq i64 [[J_INC]], 4
-; CHECK-NEXT:    br i1 [[EC_J]], label %[[OUTER_LATCH]], label %[[INNER]]
+; CHECK-NEXT:    br label %[[OUTER_LATCH]]
+; CHECK:       [[INNER_SPLIT]]:
+; CHECK-NEXT:    [[TMP0]] = add i64 [[J]], 1
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i64 [[TMP0]], 4
+; CHECK-NEXT:    br i1 [[TMP1]], label %[[EXIT:.*]], label %[[INNER1]]
 ; CHECK:       [[OUTER_LATCH]]:
 ; CHECK-NEXT:    [[I_INC]] = add i64 [[I]], 1
 ; CHECK-NEXT:    [[EC_I:%.*]] = icmp eq i64 [[I_INC]], 4
-; CHECK-NEXT:    br i1 [[EC_I]], label %[[EXIT:.*]], label %[[OUTER_HEADER]]
+; CHECK-NEXT:    br i1 [[EC_I]], label %[[INNER_SPLIT]], label %[[INNER]]
 ; CHECK:       [[EXIT]]:
 ; CHECK-NEXT:    ret void
 ;
@@ -81,7 +105,7 @@ entry:
 
 outer.header:
   %i = phi i64 [ 0, %entry ], [ %i.inc, %outer.latch ]
-  indirectbr ptr blockaddress(@inner_ph_indirectbr, %inner), [ label %inner ]
+  indirectswitch ptr edgeaddress(@inner_ph_indirectbr, 0), [ ptr edgeaddress(@inner_ph_indirectbr, 0), label %inner ]
 
 inner:
   %j = phi i64 [ 0, %outer.header ], [ %j.inc, %inner ]
@@ -115,22 +139,36 @@ define void @indirectbr_to_outer_header(i1 %c, i32 %x, i32 %y, ptr %A) {
 ; CHECK:       [[ENTRY_0]]:
 ; CHECK-NEXT:    br label %[[OUTER_HEADER:.*]]
 ; CHECK:       [[ENTRY_1]]:
-; CHECK-NEXT:    indirectbr ptr blockaddress(@indirectbr_to_outer_header, %[[OUTER_HEADER]]), [label %[[OUTER_HEADER]]]
+; CHECK-NEXT:    indirectswitch ptr edgeaddress(@indirectbr_to_outer_header, 0), [
+; CHECK-NEXT:      ptr edgeaddress(@indirectbr_to_outer_header, 0), label %[[OUTER_HEADER]]
+; CHECK-NEXT:    ]
 ; CHECK:       [[OUTER_HEADER]]:
-; CHECK-NEXT:    [[I:%.*]] = phi i64 [ 0, %[[ENTRY_0]] ], [ 0, %[[ENTRY_1]] ], [ [[I_NEXT:%.*]], %[[OUTER_LATCH:.*]] ]
-; CHECK-NEXT:    [[SEL:%.*]] = phi i32 [ [[X]], %[[ENTRY_0]] ], [ [[Y]], %[[ENTRY_1]] ], [ [[SEL]], %[[OUTER_LATCH]] ]
+; CHECK-NEXT:    [[SEL:%.*]] = phi i32 [ [[Y]], %[[ENTRY_1]] ], [ [[X]], %[[ENTRY_0]] ]
 ; CHECK-NEXT:    br label %[[INNER:.*]]
+; CHECK:       [[OUTER_HEADER_PREHEADER2:.*]]:
+; CHECK-NEXT:    br label %[[OUTER_HEADER1:.*]]
+; CHECK:       [[OUTER_HEADER1]]:
+; CHECK-NEXT:    [[I:%.*]] = phi i64 [ [[I_NEXT:%.*]], %[[OUTER_LATCH:.*]] ], [ 0, %[[OUTER_HEADER_PREHEADER2]] ]
+; CHECK-NEXT:    br label %[[INNER_SPLIT1:.*]]
 ; CHECK:       [[INNER]]:
-; CHECK-NEXT:    [[J:%.*]] = phi i64 [ 0, %[[OUTER_HEADER]] ], [ [[J_NEXT:%.*]], %[[INNER]] ]
+; CHECK-NEXT:    br label %[[INNER1:.*]]
+; CHECK:       [[INNER1]]:
+; CHECK-NEXT:    [[J:%.*]] = phi i64 [ [[TMP0:%.*]], %[[INNER_SPLIT:.*]] ], [ 0, %[[INNER]] ]
+; CHECK-NEXT:    br label %[[OUTER_HEADER_PREHEADER2]]
+; CHECK:       [[INNER_SPLIT1]]:
 ; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds [256 x i32], ptr [[A]], i64 [[J]], i64 [[I]]
 ; CHECK-NEXT:    store i32 [[SEL]], ptr [[GEP]], align 4
-; CHECK-NEXT:    [[J_NEXT]] = add i64 [[J]], 1
+; CHECK-NEXT:    [[J_NEXT:%.*]] = add i64 [[J]], 1
 ; CHECK-NEXT:    [[EC_J:%.*]] = icmp eq i64 [[J_NEXT]], 256
-; CHECK-NEXT:    br i1 [[EC_J]], label %[[OUTER_LATCH]], label %[[INNER]]
+; CHECK-NEXT:    br label %[[OUTER_LATCH]]
+; CHECK:       [[INNER_SPLIT]]:
+; CHECK-NEXT:    [[TMP0]] = add i64 [[J]], 1
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i64 [[TMP0]], 256
+; CHECK-NEXT:    br i1 [[TMP1]], label %[[EXIT:.*]], label %[[INNER1]]
 ; CHECK:       [[OUTER_LATCH]]:
 ; CHECK-NEXT:    [[I_NEXT]] = add i64 [[I]], 1
 ; CHECK-NEXT:    [[EC_I:%.*]] = icmp eq i64 [[I_NEXT]], 256
-; CHECK-NEXT:    br i1 [[EC_I]], label %[[EXIT:.*]], label %[[OUTER_HEADER]]
+; CHECK-NEXT:    br i1 [[EC_I]], label %[[INNER_SPLIT]], label %[[OUTER_HEADER1]]
 ; CHECK:       [[EXIT]]:
 ; CHECK-NEXT:    ret void
 ;
@@ -141,7 +179,7 @@ entry.0:
   br label %outer.header
 
 entry.1:
-  indirectbr ptr blockaddress(@indirectbr_to_outer_header, %outer.header), [ label %outer.header ]
+  indirectswitch ptr edgeaddress(@indirectbr_to_outer_header, 0), [ ptr edgeaddress(@indirectbr_to_outer_header, 0), label %outer.header ]
 
 outer.header:
   %i = phi i64 [ 0, %entry.0 ], [ 0, %entry.1 ], [ %i.next, %outer.latch ]

@@ -37,8 +37,8 @@ empty_block:                                     ; preds = %1
 ;; is not removed by -enable-gc-empty-basic-blocks.
 define void @bar(i1 zeroext %0) nounwind {
 entry:
-  %1 = select i1 %0, ptr blockaddress(@bar, %empty_block), ptr blockaddress(@bar, %bb2) ; <ptr> [#uses=1]
-  indirectbr ptr %1, [label %empty_block, label %bb2]
+  %1 = select i1 %0, ptr edgeaddress(@bar, 0), ptr edgeaddress(@bar, 1) ; <ptr> [#uses=1]
+  indirectswitch ptr %1, [ ptr edgeaddress(@bar, 0), label %empty_block ptr edgeaddress(@bar, 1), label %bb2 ]
 
 ; CHECK-LABEL: bar:
 

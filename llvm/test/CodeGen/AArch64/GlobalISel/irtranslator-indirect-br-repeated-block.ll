@@ -7,16 +7,24 @@
 define void @foo() {
   ; CHECK-LABEL: name: foo
   ; CHECK: bb.1 (%ir-block.0):
-  ; CHECK:   successors: %bb.2(0x2aaaaaaa), %bb.4(0x2aaaaaaa), %bb.3(0x2aaaaaaa)
-  ; CHECK:   [[DEF:%[0-9]+]]:_(p0) = G_IMPLICIT_DEF
-  ; CHECK:   G_BRINDIRECT [[DEF]](p0)
-  ; CHECK: bb.2 (%ir-block.1):
-  ; CHECK:   successors:
-  ; CHECK: bb.3 (%ir-block.2):
-  ; CHECK:   successors:
-  ; CHECK: bb.4 (%ir-block.3):
-  ; CHECK:   RET_ReallyLR
-  indirectbr ptr undef, [label %1, label %3, label %2, label %3, label %3]
+  ; CHECK-NEXT:   successors: %bb.2(0x2aaaaaaa), %bb.4(0x2aaaaaaa), %bb.3(0x2aaaaaaa)
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[DEF:%[0-9]+]]:_(p0) = G_IMPLICIT_DEF
+  ; CHECK-NEXT:   G_BRINDIRECT [[DEF]](p0)
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT: bb.2 (%ir-block.1):
+  ; CHECK-NEXT:   successors:
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   G_TRAP
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT: bb.3 (%ir-block.2):
+  ; CHECK-NEXT:   successors:
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   G_TRAP
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT: bb.4 (%ir-block.3):
+  ; CHECK-NEXT:   RET_ReallyLR
+  indirectswitch ptr undef, [ ptr edgeaddress(@foo, 0), label %1 ptr edgeaddress(@foo, 1), label %3 ptr edgeaddress(@foo, 2), label %2 ptr edgeaddress(@foo, 3), label %3 ptr edgeaddress(@foo, 4), label %3 ]
 1:
   unreachable
 2:

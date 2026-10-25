@@ -8,7 +8,9 @@ define ptr @testNegativeResultIndexNUW(ptr %memory, ptr %blockaddress) {
 ; CHECK-NEXT:  [[ENTRY:.*:]]
 ; CHECK-NEXT:    [[POINTER:%.*]] = load ptr, ptr [[MEMORY]], align 8
 ; CHECK-NEXT:    [[INITALGEP:%.*]] = getelementptr i8, ptr [[POINTER]], i64 8
-; CHECK-NEXT:    indirectbr ptr [[BLOCKADDRESS]], [label %[[EXIT:.*]]]
+; CHECK-NEXT:    indirectswitch ptr [[BLOCKADDRESS]], [
+; CHECK-NEXT:      ptr edgeaddress(@testNegativeResultIndexNUW, 0), label %[[EXIT:.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       [[EXIT]]:
 ; CHECK-NEXT:    [[UNMERGEDGEP:%.*]] = getelementptr i8, ptr [[INITALGEP]], i64 -1
 ; CHECK-NEXT:    [[USEOFFIRSTGEP:%.*]] = load i8, ptr [[INITALGEP]], align 1
@@ -17,7 +19,7 @@ define ptr @testNegativeResultIndexNUW(ptr %memory, ptr %blockaddress) {
 entry:
   %pointer = load ptr, ptr %memory, align 8
   %initalGEP = getelementptr i8, ptr %pointer, i64 8
-  indirectbr ptr %blockaddress, [label %exit]
+  indirectswitch ptr %blockaddress, [ ptr edgeaddress(@testNegativeResultIndexNUW, 0), label %exit ]
 
 exit:
   %unmergedGEP = getelementptr nuw i8, ptr %pointer, i64 7
@@ -31,7 +33,9 @@ define ptr @testResultFlagIntersection(ptr %memory, ptr %blockaddress) {
 ; CHECK-NEXT:  [[ENTRY:.*:]]
 ; CHECK-NEXT:    [[POINTER:%.*]] = load ptr, ptr [[MEMORY]], align 8
 ; CHECK-NEXT:    [[INITALGEP:%.*]] = getelementptr i8, ptr [[POINTER]], i64 -1
-; CHECK-NEXT:    indirectbr ptr [[BLOCKADDRESS]], [label %[[EXIT:.*]]]
+; CHECK-NEXT:    indirectswitch ptr [[BLOCKADDRESS]], [
+; CHECK-NEXT:      ptr edgeaddress(@testResultFlagIntersection, 0), label %[[EXIT:.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       [[EXIT]]:
 ; CHECK-NEXT:    [[UNMERGEDGEP1:%.*]] = getelementptr i8, ptr [[INITALGEP]], i64 2
 ; CHECK-NEXT:    [[UNMERGEDGEP2:%.*]] = getelementptr i8, ptr [[INITALGEP]], i64 3
@@ -41,7 +45,7 @@ define ptr @testResultFlagIntersection(ptr %memory, ptr %blockaddress) {
 entry:
   %pointer = load ptr, ptr %memory, align 8
   %initalGEP = getelementptr i8, ptr %pointer, i64 -1
-  indirectbr ptr %blockaddress, [label %exit]
+  indirectswitch ptr %blockaddress, [ ptr edgeaddress(@testResultFlagIntersection, 0), label %exit ]
 
 exit:
   %unmergedGEP1 = getelementptr nuw i8, ptr %pointer, i64 1

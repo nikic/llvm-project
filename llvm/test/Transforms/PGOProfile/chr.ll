@@ -2556,7 +2556,7 @@ bb3:
 }
 
 ; Test that chr will skip this function when addresses are taken on basic blocks.
-@gototable1 = weak_odr dso_local local_unnamed_addr constant [2 x ptr] [ptr blockaddress(@test_chr_with_bbs_address_taken1, %bb3), ptr blockaddress(@test_chr_with_bbs_address_taken1, %bb3)]
+@gototable1 = weak_odr dso_local local_unnamed_addr constant [2 x ptr] [ptr edgeaddress(@test_chr_with_bbs_address_taken1, 0), ptr edgeaddress(@test_chr_with_bbs_address_taken1, 0)]
 define void @test_chr_with_bbs_address_taken1(ptr %i) !prof !14 {
 ; CHECK-LABEL: @test_chr_with_bbs_address_taken1(
 ; CHECK-NEXT:  entry:
@@ -2594,7 +2594,7 @@ bb1:
 
 bb2:
   call void @foo()
-  indirectbr ptr %i, [label %bb3, label %bb3]
+  indirectswitch ptr %i, [ ptr edgeaddress(@test_chr_with_bbs_address_taken1, 0), label %bb3 ptr edgeaddress(@test_chr_with_bbs_address_taken1, 1), label %bb3 ]
 
 bb3:
   br label %bb4
@@ -2605,7 +2605,7 @@ bb4:
 
 ; Test that chr will still optimize the first 2 regions,
 ; but will skip the last one due to basic blocks have address taken.
-@gototable2 = weak_odr dso_local local_unnamed_addr constant [2 x ptr] [ptr blockaddress(@test_chr_with_bbs_address_taken2, %bb5), ptr blockaddress(@test_chr_with_bbs_address_taken2, %bb5)]
+@gototable2 = weak_odr dso_local local_unnamed_addr constant [2 x ptr] [ptr edgeaddress(@test_chr_with_bbs_address_taken2, 0), ptr edgeaddress(@test_chr_with_bbs_address_taken2, 0)]
 define void @test_chr_with_bbs_address_taken2(ptr %i) !prof !14 {
 ; CHECK-LABEL: @test_chr_with_bbs_address_taken2(
 ; CHECK-NEXT:  entry:
@@ -2631,7 +2631,9 @@ define void @test_chr_with_bbs_address_taken2(ptr %i) !prof !14 {
 ; CHECK:       bb2.nonchr:
 ; CHECK-NEXT:    call void @foo()
 ; CHECK-NEXT:    br label [[BB6]]
-; CHECK:       bb6:
+; CHECK:       bb3:
+; CHECK-NEXT:    [[TMP6:%.*]] = and i32 [[DOTFR1]], 2
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i32 [[TMP6]], 0
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -2659,7 +2661,7 @@ bb3:
   br i1 %6, label %bb6, label %bb4, !prof !15
 
 bb4:
-  indirectbr ptr %i, [label %bb5, label %bb5]
+  indirectswitch ptr %i, [ ptr edgeaddress(@test_chr_with_bbs_address_taken2, 0), label %bb5 ptr edgeaddress(@test_chr_with_bbs_address_taken2, 1), label %bb5 ]
 
 bb5:
   br label %bb6

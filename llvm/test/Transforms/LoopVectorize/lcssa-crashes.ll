@@ -63,14 +63,19 @@ for.end.i.i.i:
 define void @test2(ptr %x) {
 ; CHECK-LABEL: @test2(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    indirectbr ptr [[X:%.*]], [label [[L0:%.*]], label [[L1:%.*]]]
+; CHECK-NEXT:    indirectswitch ptr [[X:%.*]], [
+; CHECK-NEXT:      ptr edgeaddress(@test2, 0), label [[L0_PREHEADER:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test2, 1), label [[L1:%.*]]
+; CHECK-NEXT:    ]
+; CHECK:       L0.preheader:
+; CHECK-NEXT:    br label [[L0:%.*]]
 ; CHECK:       L0:
 ; CHECK-NEXT:    br label [[L0]]
 ; CHECK:       L1:
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  indirectbr ptr %x, [ label %L0, label %L1 ]
+  indirectswitch ptr %x, [ ptr edgeaddress(@test2, 0), label %L0 ptr edgeaddress(@test2, 1), label %L1 ]
 
 L0:
   br label %L0

@@ -23,7 +23,7 @@ define i32 @indirectbr(ptr %addr) {
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
 entry:
-  indirectbr ptr %addr, [label %L1, label %L2]
+  indirectswitch ptr %addr, [ ptr edgeaddress(@indirectbr, 0), label %L1 ptr edgeaddress(@indirectbr, 1), label %L2 ]
 
 L1:
   ret i32 0

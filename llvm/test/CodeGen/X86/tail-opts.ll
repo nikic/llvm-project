@@ -141,8 +141,8 @@ define dso_local void @tail_duplicate_me() nounwind {
 ; CHECK-NEXT:    jmpq *%rbx
 entry:
   %a = call i1 @qux()
-  %c = call ptr @choose(ptr blockaddress(@tail_duplicate_me, %return),
-                        ptr blockaddress(@tail_duplicate_me, %altret))
+  %c = call ptr @choose(ptr edgeaddress(@tail_duplicate_me, 0),
+                        ptr edgeaddress(@tail_duplicate_me, 1))
   br i1 %a, label %A, label %next
 next:
   %b = call i1 @qux()
@@ -164,7 +164,7 @@ C:
   br label %M
 
 M:
-  indirectbr ptr %c, [label %return, label %altret]
+  indirectswitch ptr %c, [ ptr edgeaddress(@tail_duplicate_me, 0), label %return ptr edgeaddress(@tail_duplicate_me, 1), label %altret ]
 
 return:
   call void @ear(i32 1000)

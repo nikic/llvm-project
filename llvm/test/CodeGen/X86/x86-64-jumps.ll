@@ -4,8 +4,8 @@ target triple = "x86_64-apple-darwin10.0"
 
 define i8 @test1() nounwind ssp {
 entry:
-  %0 = select i1 undef, ptr blockaddress(@test1, %bb), ptr blockaddress(@test1, %bb6) ; <ptr> [#uses=1]
-  indirectbr ptr %0, [label %bb, label %bb6]
+  %0 = select i1 undef, ptr edgeaddress(@test1, 0), ptr edgeaddress(@test1, 1) ; <ptr> [#uses=1]
+  indirectswitch ptr %0, [ ptr edgeaddress(@test1, 0), label %bb ptr edgeaddress(@test1, 1), label %bb6 ]
 
 bb:                                               ; preds = %entry
   ret i8 1
@@ -16,7 +16,7 @@ bb6:                                              ; preds = %entry
 
 
 ; PR5930 - Trunc of block address differences.
-@test.array = internal constant [3 x i32] [i32 trunc (i64 sub (i64 ptrtoint (ptr blockaddress(@test2, %foo) to i64), i64 ptrtoint (ptr blockaddress(@test2, %foo) to i64)) to i32), i32 trunc (i64 sub (i64 ptrtoint (ptr blockaddress(@test2, %bar) to i64), i64 ptrtoint (ptr blockaddress(@test2, %foo) to i64)) to i32), i32 trunc (i64 sub (i64 ptrtoint (ptr blockaddress(@test2, %hack) to i64), i64 ptrtoint (ptr blockaddress(@test2, %foo) to i64)) to i32)] ; <ptr> [#uses=1]
+@test.array = internal constant [3 x i32] [i32 trunc (i64 sub (i64 ptrtoint (ptr edgeaddress(@test2, 0) to i64), i64 ptrtoint (ptr edgeaddress(@test2, 0) to i64)) to i32), i32 trunc (i64 sub (i64 ptrtoint (ptr edgeaddress(@test2, 2) to i64), i64 ptrtoint (ptr edgeaddress(@test2, 0) to i64)) to i32), i32 trunc (i64 sub (i64 ptrtoint (ptr edgeaddress(@test2, 4) to i64), i64 ptrtoint (ptr edgeaddress(@test2, 0) to i64)) to i32)] ; <ptr> [#uses=1]
 
 define void @test2(i32 %i) nounwind ssp {
 entry:
@@ -27,7 +27,7 @@ entry:
   %arrayidx = getelementptr inbounds i32, ptr @test.array, i64 %idxprom ; <ptr> [#uses=1]
   %tmp1 = load i32, ptr %arrayidx                     ; <i32> [#uses=1]
   %idx.ext = sext i32 %tmp1 to i64                ; <i64> [#uses=1]
-  %add.ptr = getelementptr i8, ptr blockaddress(@test2, %foo), i64 %idx.ext ; <ptr> [#uses=1]
+  %add.ptr = getelementptr i8, ptr edgeaddress(@test2, 0), i64 %idx.ext ; <ptr> [#uses=1]
   br label %indirectgoto
 
 foo:                                              ; preds = %indirectgoto, %indirectgoto, %indirectgoto, %indirectgoto, %indirectgoto
@@ -41,5 +41,5 @@ hack:                                             ; preds = %bar, %indirectgoto
 
 indirectgoto:                                     ; preds = %entry
   %indirect.goto.dest = phi ptr [ %add.ptr, %entry ] ; <ptr> [#uses=1]
-  indirectbr ptr %indirect.goto.dest, [label %foo, label %foo, label %bar, label %foo, label %hack, label %foo, label %foo]
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@test2, 0), label %foo ptr edgeaddress(@test2, 1), label %foo ptr edgeaddress(@test2, 2), label %bar ptr edgeaddress(@test2, 3), label %foo ptr edgeaddress(@test2, 4), label %hack ptr edgeaddress(@test2, 5), label %foo ptr edgeaddress(@test2, 6), label %foo ]
 }

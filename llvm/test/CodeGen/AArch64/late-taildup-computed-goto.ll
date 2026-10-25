@@ -3,16 +3,17 @@
 
 target triple = "arm64-apple-macosx13.0.0"
 
-@opcode.targets = local_unnamed_addr constant [6 x ptr] [ptr blockaddress(@test_interp, %op1.bb), ptr blockaddress(@test_interp, %op6.bb), ptr blockaddress(@test_interp, %loop.header), ptr blockaddress(@test_interp, %op2.bb), ptr blockaddress(@test_interp, %op4.bb), ptr blockaddress(@test_interp, %op5.bb)]
+@opcode.targets = local_unnamed_addr constant [6 x ptr] [ptr edgeaddress(@test_interp, 0), ptr edgeaddress(@test_interp, 1), ptr edgeaddress(@test_interp, 2), ptr edgeaddress(@test_interp, 3), ptr edgeaddress(@test_interp, 4), ptr edgeaddress(@test_interp, 5)]
 
 define void @test_interp(ptr %frame, ptr %dst) {
 ; CHECK-LABEL: test_interp:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    stp x24, x23, [sp, #-64]! ; 16-byte Folded Spill
-; CHECK-NEXT:    stp x22, x21, [sp, #16] ; 16-byte Folded Spill
-; CHECK-NEXT:    stp x20, x19, [sp, #32] ; 16-byte Folded Spill
-; CHECK-NEXT:    stp x29, x30, [sp, #48] ; 16-byte Folded Spill
-; CHECK-NEXT:    .cfi_def_cfa_offset 64
+; CHECK-NEXT:    stp x26, x25, [sp, #-80]! ; 16-byte Folded Spill
+; CHECK-NEXT:    stp x24, x23, [sp, #16] ; 16-byte Folded Spill
+; CHECK-NEXT:    stp x22, x21, [sp, #32] ; 16-byte Folded Spill
+; CHECK-NEXT:    stp x20, x19, [sp, #48] ; 16-byte Folded Spill
+; CHECK-NEXT:    stp x29, x30, [sp, #64] ; 16-byte Folded Spill
+; CHECK-NEXT:    .cfi_def_cfa_offset 80
 ; CHECK-NEXT:    .cfi_offset w30, -8
 ; CHECK-NEXT:    .cfi_offset w29, -16
 ; CHECK-NEXT:    .cfi_offset w19, -24
@@ -21,63 +22,74 @@ define void @test_interp(ptr %frame, ptr %dst) {
 ; CHECK-NEXT:    .cfi_offset w22, -48
 ; CHECK-NEXT:    .cfi_offset w23, -56
 ; CHECK-NEXT:    .cfi_offset w24, -64
+; CHECK-NEXT:    .cfi_offset w25, -72
+; CHECK-NEXT:    .cfi_offset w26, -80
 ; CHECK-NEXT:  Lloh0:
-; CHECK-NEXT:    adrp x21, _opcode.targets@PAGE
+; CHECK-NEXT:    adrp x22, _opcode.targets@PAGE
 ; CHECK-NEXT:  Lloh1:
-; CHECK-NEXT:    add x21, x21, _opcode.targets@PAGEOFF
-; CHECK-NEXT:    mov x24, xzr
-; CHECK-NEXT:    add x8, x21, xzr, lsl #3
+; CHECK-NEXT:    add x22, x22, _opcode.targets@PAGEOFF
+; CHECK-NEXT:    mov x21, xzr
+; CHECK-NEXT:    add x25, x22, xzr, lsl #3
 ; CHECK-NEXT:    mov x19, x1
 ; CHECK-NEXT:    mov x20, x0
-; CHECK-NEXT:    mov x23, xzr
-; CHECK-NEXT:    mov w22, #1 ; =0x1
-; CHECK-NEXT:    add x24, x24, #1
-; CHECK-NEXT:    br x8
+; CHECK-NEXT:    mov x24, xzr
+; CHECK-NEXT:    mov w23, #1 ; =0x1
+; CHECK-NEXT:    add x21, x21, #1
+; CHECK-NEXT:    br x25
 ; CHECK-NEXT:  Ltmp0: ; Block address taken
-; CHECK-NEXT:  LBB0_1: ; %loop.header
+; CHECK-NEXT:  LBB0_1: ; %loop.header.outer.loopexit
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    add x8, x21, x24, lsl #3
+; CHECK-NEXT:    add x25, x22, x21, lsl #3
 ; CHECK-NEXT:    mov x20, xzr
-; CHECK-NEXT:    mov x23, xzr
-; CHECK-NEXT:    add x24, x24, #1
-; CHECK-NEXT:    br x8
+; CHECK-NEXT:    mov x24, xzr
+; CHECK-NEXT:    add x21, x21, #1
+; CHECK-NEXT:    br x25
 ; CHECK-NEXT:  Ltmp1: ; Block address taken
 ; CHECK-NEXT:  LBB0_2: ; %op1.bb
+; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    str xzr, [x19]
+; CHECK-NEXT:    ldr x0, [x20, #-8]!
+; CHECK-NEXT:    ldr x8, [x0, #8]
+; CHECK-NEXT:    str x23, [x0]
+; CHECK-NEXT:    ldr x8, [x8, #48]
+; CHECK-NEXT:    blr x8
+; CHECK-NEXT:    add x25, x25, #8
+; CHECK-NEXT:    add x21, x21, #1
+; CHECK-NEXT:    br x25
 ; CHECK-NEXT:  Ltmp2: ; Block address taken
 ; CHECK-NEXT:  LBB0_3: ; %op6.bb
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr x0, [x20, #-8]!
 ; CHECK-NEXT:    ldr x8, [x0, #8]
-; CHECK-NEXT:    str x22, [x0]
+; CHECK-NEXT:    str x23, [x0]
 ; CHECK-NEXT:    ldr x8, [x8, #48]
 ; CHECK-NEXT:    blr x8
-; CHECK-NEXT:    add x8, x21, x24, lsl #3
-; CHECK-NEXT:    add x24, x24, #1
-; CHECK-NEXT:    br x8
+; CHECK-NEXT:    add x25, x25, #8
+; CHECK-NEXT:    add x21, x21, #1
+; CHECK-NEXT:    br x25
 ; CHECK-NEXT:  Ltmp3: ; Block address taken
 ; CHECK-NEXT:  LBB0_4: ; %op2.bb
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    add x8, x21, x24, lsl #3
+; CHECK-NEXT:    add x25, x22, x21, lsl #3
 ; CHECK-NEXT:    mov x20, xzr
-; CHECK-NEXT:    str x23, [x19]
-; CHECK-NEXT:    mov x23, xzr
-; CHECK-NEXT:    add x24, x24, #1
-; CHECK-NEXT:    br x8
+; CHECK-NEXT:    str x24, [x19]
+; CHECK-NEXT:    mov x24, xzr
+; CHECK-NEXT:    add x21, x21, #1
+; CHECK-NEXT:    br x25
 ; CHECK-NEXT:  Ltmp4: ; Block address taken
 ; CHECK-NEXT:  LBB0_5: ; %op4.bb
 ; CHECK-NEXT:  Ltmp5: ; Block address taken
 ; CHECK-NEXT:  LBB0_6: ; %op5.bb
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    str x23, [x19]
-; CHECK-NEXT:    ldur x8, [x23, #12]
+; CHECK-NEXT:    str x24, [x19]
+; CHECK-NEXT:    ldur x8, [x24, #12]
+; CHECK-NEXT:    add x25, x22, x21, lsl #3
 ; CHECK-NEXT:    ldur x9, [x20, #-8]
-; CHECK-NEXT:    add x23, x23, #20
+; CHECK-NEXT:    add x24, x24, #20
+; CHECK-NEXT:    add x21, x21, #1
 ; CHECK-NEXT:    stp x8, x9, [x20, #-8]
-; CHECK-NEXT:    add x8, x21, x24, lsl #3
 ; CHECK-NEXT:    add x20, x20, #8
-; CHECK-NEXT:    add x24, x24, #1
-; CHECK-NEXT:    br x8
+; CHECK-NEXT:    br x25
 ; CHECK-NEXT:    .loh AdrpAdd Lloh0, Lloh1
 entry:
   br label %loop.header
@@ -88,7 +100,7 @@ loop.header:
   %next.instr = phi ptr [ null, %entry ], [ %next.instr, %op1.bb ], [ null, %op2.bb ], [ %next.instr.20, %op4.bb ], [ %next.instr.21, %op5.bb ], [ %next.instr, %op6.bb ], [ null, %loop.header ]
   %iv.next = add i64 %iv, 1
   %next_op = getelementptr [6 x ptr], ptr @opcode.targets, i64 0, i64 %iv
-  indirectbr ptr %next_op, [label %op1.bb, label %op6.bb, label %loop.header, label %op2.bb, label %op4.bb, label %op5.bb]
+  indirectswitch ptr %next_op, [ ptr edgeaddress(@test_interp, 0), label %op1.bb ptr edgeaddress(@test_interp, 1), label %op6.bb ptr edgeaddress(@test_interp, 2), label %loop.header ptr edgeaddress(@test_interp, 3), label %op2.bb ptr edgeaddress(@test_interp, 4), label %op4.bb ptr edgeaddress(@test_interp, 5), label %op5.bb ]
 
 op1.bb:
   store ptr null, ptr %dst, align 8

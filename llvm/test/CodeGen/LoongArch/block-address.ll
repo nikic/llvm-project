@@ -30,9 +30,9 @@ define void @test_blockaddress() nounwind {
 ; LA64-NEXT:  .Ltmp0: # Block address taken
 ; LA64-NEXT:  .LBB0_1: # %block
 ; LA64-NEXT:    ret
-  store volatile ptr blockaddress(@test_blockaddress, %block), ptr @addr
+  store volatile ptr edgeaddress(@test_blockaddress, 0), ptr @addr
   %val = load volatile ptr, ptr @addr
-  indirectbr ptr %val, [label %block]
+  indirectswitch ptr %val, [ ptr edgeaddress(@test_blockaddress, 0), label %block ]
 
 block:
   ret void

@@ -5,9 +5,9 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-@test1.targets = constant [4 x ptr] [ptr blockaddress(@test1, %bb0),
-  ptr blockaddress(@test1, %bb1),
-  ptr blockaddress(@test1, %bb2),
+@test1.targets = constant [4 x ptr] [ptr edgeaddress(@test1, 0),
+  ptr edgeaddress(@test1, 1),
+  ptr edgeaddress(@test1, 2),
   ptr blockaddress(@test1, %bb3)]
 
 ;.
@@ -25,13 +25,11 @@ define void @test1(ptr readonly %p, ptr %sink) #0 !prof !0 {
 ; CHECK-NEXT:    [[I0:%.*]] = load i64, ptr [[P]], align 8
 ; CHECK-NEXT:    [[TARGET_I0:%.*]] = getelementptr [4 x ptr], ptr @test1.targets, i64 0, i64 [[I0]]
 ; CHECK-NEXT:    [[TARGET0:%.*]] = load ptr, ptr [[TARGET_I0]], align 8
-; CHECK-NEXT:    [[TARGET0_SWITCH_CAST:%.*]] = ptrtoint ptr [[TARGET0]] to i64
 ; CHECK-NEXT:    br label %[[SWITCH_BB:.*]]
 ; CHECK:       [[BR2]]:
 ; CHECK-NEXT:    [[I_NEXT:%.*]] = load i64, ptr [[P]], align 8
 ; CHECK-NEXT:    [[TARGET_I_NEXT:%.*]] = getelementptr [4 x ptr], ptr @test1.targets, i64 0, i64 [[I_NEXT]]
 ; CHECK-NEXT:    [[TARGET_NEXT:%.*]] = load ptr, ptr [[TARGET_I_NEXT]], align 8
-; CHECK-NEXT:    [[TARGET_NEXT_SWITCH_CAST:%.*]] = ptrtoint ptr [[TARGET_NEXT]] to i64
 ; CHECK-NEXT:    br label %[[SWITCH_BB]]
 ; CHECK:       [[BB0:.*]]:
 ; CHECK-NEXT:    store volatile i64 0, ptr [[SINK]], align 8
@@ -48,7 +46,8 @@ define void @test1(ptr readonly %p, ptr %sink) #0 !prof !0 {
 ; CHECK:       [[EXIT]]:
 ; CHECK-NEXT:    ret void
 ; CHECK:       [[SWITCH_BB]]:
-; CHECK-NEXT:    [[SWITCH_VALUE_PHI:%.*]] = phi i64 [ [[TARGET0_SWITCH_CAST]], %[[BR1]] ], [ [[TARGET_NEXT_SWITCH_CAST]], %[[BR2]] ]
+; CHECK-NEXT:    [[DISPATCH_ADDR:%.*]] = phi ptr [ [[TARGET0]], %[[BR1]] ], [ [[TARGET_NEXT]], %[[BR2]] ]
+; CHECK-NEXT:    [[SWITCH_VALUE_PHI:%.*]] = ptrtoint ptr [[DISPATCH_ADDR]] to i64
 ; CHECK-NEXT:    switch i64 [[SWITCH_VALUE_PHI]], label %[[BB0]] [
 ; CHECK-NEXT:      i64 2, label %[[BB1]]
 ; CHECK-NEXT:      i64 3, label %[[BB2]]
@@ -64,14 +63,14 @@ br1:
   %target.i0 = getelementptr [4 x ptr], ptr @test1.targets, i64 0, i64 %i0
   %target0 = load ptr, ptr %target.i0
   ; Only a subset of blocks are viable successors here.
-  indirectbr ptr %target0, [label %bb0, label %bb1], !prof !2
+  br label %dispatch
 
 br2:
   %i.next = load i64, ptr %p
   %target.i.next = getelementptr [4 x ptr], ptr @test1.targets, i64 0, i64 %i.next
   %target.next = load ptr, ptr %target.i.next
   ; A different subset of blocks are viable successors here.
-  indirectbr ptr %target.next, [label %bb1, label %bb2], !prof !3
+  br label %dispatch
 
 bb0:
   store volatile i64 0, ptr %sink
@@ -91,10 +90,18 @@ bb3:
 
 exit:
   ret void
+
+dispatch:
+  %dispatch.addr = phi ptr [ %target0, %br1 ], [ %target.next, %br2 ]
+  indirectswitch ptr %dispatch.addr, [
+  ptr edgeaddress(@test1, 0), label %bb0
+  ptr edgeaddress(@test1, 1), label %bb1
+  ptr edgeaddress(@test1, 2), label %bb2
+  ]
 }
 
-@missing_branch_weights.targets = constant [2 x ptr] [ptr blockaddress(@missing_branch_weights, %bb0),
-  ptr blockaddress(@missing_branch_weights, %bb1)]
+@missing_branch_weights.targets = constant [2 x ptr] [ptr edgeaddress(@missing_branch_weights, 0),
+  ptr edgeaddress(@missing_branch_weights, 1)]
 
 define void @missing_branch_weights(ptr readonly %p, ptr %sink) #0 !prof !0 {
 ; CHECK-LABEL: define void @missing_branch_weights(
@@ -105,7 +112,7 @@ define void @missing_branch_weights(ptr readonly %p, ptr %sink) #0 !prof !0 {
 ; CHECK-NEXT:    [[TARGET0_SWITCH_CAST:%.*]] = ptrtoint ptr [[TARGET0]] to i64
 ; CHECK-NEXT:    switch i64 [[TARGET0_SWITCH_CAST]], label %[[BB0:.*]] [
 ; CHECK-NEXT:      i64 2, label %[[BB1:.*]]
-; CHECK-NEXT:    ], !prof [[PROF3:![0-9]+]]
+; CHECK-NEXT:    ], !prof [[PROF2]]
 ; CHECK:       [[BB0]]:
 ; CHECK-NEXT:    store volatile i64 0, ptr [[SINK]], align 8
 ; CHECK-NEXT:    br label %[[EXIT:.*]]
@@ -118,7 +125,7 @@ define void @missing_branch_weights(ptr readonly %p, ptr %sink) #0 !prof !0 {
   %i0 = load i64, ptr %p
   %target.i0 = getelementptr [4 x ptr], ptr @missing_branch_weights.targets, i64 0, i64 %i0
   %target0 = load ptr, ptr %target.i0
-  indirectbr ptr %target0, [label %bb0, label %bb1]
+  indirectswitch ptr %target0, [ ptr edgeaddress(@missing_branch_weights, 0), label %bb0 ptr edgeaddress(@missing_branch_weights, 1), label %bb1 ]
 
 bb0:
   store volatile i64 0, ptr %sink
@@ -143,6 +150,5 @@ attributes #0 = { "target-features"="+retpoline" }
 ;.
 ; CHECK: [[PROF0]] = !{!"function_entry_count", i32 10}
 ; CHECK: [[PROF1]] = !{!"branch_weights", i32 1, i32 2}
-; CHECK: [[PROF2]] = !{!"branch_weights", i32 162, i32 662, i32 616}
-; CHECK: [[PROF3]] = !{!"unknown", !"indirectbr-expand"}
+; CHECK: [[PROF2]] = !{!"unknown", !"indirectbr-expand"}
 ;.

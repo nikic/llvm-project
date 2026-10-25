@@ -7,11 +7,17 @@
 define void @test(ptr %tgt) {
 ; CHECK-LABEL: @test(
 ; CHECK-NEXT:  bb31:
-; CHECK-NEXT:    indirectbr ptr [[TGT:%.*]], [label [[EXIT:%.*]], label %bb33]
+; CHECK-NEXT:    indirectswitch ptr [[TGT:%.*]], [
+; CHECK-NEXT:      ptr edgeaddress(@test, 0), label [[EXIT:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test, 1), label [[BB31:%.*]]
+; CHECK-NEXT:    ]
+; CHECK:       bb33.preheader:
+; CHECK-NEXT:    br label [[BB33:%.*]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
 ; CHECK:       bb33:
-; CHECK-NEXT:    [[TMP34:%.*]] = phi i32 [ [[TMP50:%.*]], [[BB49:%.*]] ], [ 0, [[BB31:%.*]] ]
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i32 [ 1, [[BB31]] ], [ [[INDVARS_IV_NEXT:%.*]], [[BB49:%.*]] ]
+; CHECK-NEXT:    [[TMP34:%.*]] = phi i32 [ [[TMP50:%.*]], [[BB49]] ], [ 0, [[BB31]] ]
 ; CHECK-NEXT:    br i1 false, label [[BB40_PREHEADER:%.*]], label [[BB49]]
 ; CHECK:       bb40.preheader:
 ; CHECK-NEXT:    br label [[BB40:%.*]]
@@ -19,10 +25,11 @@ define void @test(ptr %tgt) {
 ; CHECK-NEXT:    br label [[BB40]]
 ; CHECK:       bb49:
 ; CHECK-NEXT:    [[TMP50]] = add i32 [[TMP34]], 1
-; CHECK-NEXT:    br label [[BB33:%.*]]
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add i32 [[INDVARS_IV]], 1
+; CHECK-NEXT:    br label [[BB33]]
 ;
 bb31:
-  indirectbr ptr %tgt, [label %exit, label %bb33]
+  indirectswitch ptr %tgt, [ ptr edgeaddress(@test, 0), label %exit ptr edgeaddress(@test, 1), label %bb33 ]
 
 exit:
   ret void

@@ -13,13 +13,13 @@ define i32 @test_indirectbr_blockaddress(i32 %idx) {
 entry:
   %targets = alloca [2 x ptr], align 8
   %ptr0 = getelementptr [2 x ptr], ptr %targets, i64 0, i64 0
-  store ptr blockaddress(@test_indirectbr_blockaddress, %target), ptr %ptr0, align 8
+  store ptr edgeaddress(@test_indirectbr_blockaddress, 0), ptr %ptr0, align 8
   %ptr1 = getelementptr [2 x ptr], ptr %targets, i64 0, i64 1
-  store ptr blockaddress(@test_indirectbr_blockaddress, %other), ptr %ptr1, align 8
+  store ptr edgeaddress(@test_indirectbr_blockaddress, 1), ptr %ptr1, align 8
   %idx64 = zext i32 %idx to i64
   %selected = getelementptr [2 x ptr], ptr %targets, i64 0, i64 %idx64
   %dest = load ptr, ptr %selected, align 8
-  indirectbr ptr %dest, [label %target, label %other]
+  indirectswitch ptr %dest, [ ptr edgeaddress(@test_indirectbr_blockaddress, 0), label %target ptr edgeaddress(@test_indirectbr_blockaddress, 1), label %other ]
 
 target:
   ret i32 42

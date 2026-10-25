@@ -53,7 +53,7 @@ if.else:                                          ; preds = %entry
 ; CHECK-NEXT: .Lfunc_end
 }
 
-@__const.indirect_branch.ptr = private unnamed_addr constant [2 x ptr] [ptr blockaddress(@indirect_branch, %return), ptr blockaddress(@indirect_branch, %l2)], align 8
+@__const.indirect_branch.ptr = private unnamed_addr constant [2 x ptr] [ptr edgeaddress(@indirect_branch, 0), ptr edgeaddress(@indirect_branch, 1)], align 8
 
 ; Function Attrs: norecurse nounwind readnone
 define dso_local i32 @indirect_branch(i32 %a, i32 %b, i32 %i) {
@@ -62,7 +62,7 @@ entry:
   %idxprom = sext i32 %i to i64
   %arrayidx = getelementptr inbounds [2 x ptr], ptr @__const.indirect_branch.ptr, i64 0, i64 %idxprom
   %0 = load ptr, ptr %arrayidx, align 8
-  indirectbr ptr %0, [label %return, label %l2]
+  indirectswitch ptr %0, [ ptr edgeaddress(@indirect_branch, 0), label %return ptr edgeaddress(@indirect_branch, 1), label %l2 ]
 ; ARM:       bx r0
 ; THUMB:     mov pc, r0
 ; ISBDSB-NEXT: dsb sy

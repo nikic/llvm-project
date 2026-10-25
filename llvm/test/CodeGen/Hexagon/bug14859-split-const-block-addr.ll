@@ -239,14 +239,14 @@ b31:                                              ; preds = %b32, %b30
   %v105 = phi ptr [ %v101, %b32 ], [ %v86, %b30 ]
   %v106 = phi ptr [ %v101, %b32 ], [ %v6, %b30 ]
   %v107 = phi ptr [ %v79, %b32 ], [ %v86, %b30 ]
-  %v108 = phi ptr [ blockaddress(@f2, %b30), %b32 ], [ blockaddress(@f2, %b23), %b30 ]
-  %v109 = phi ptr [ blockaddress(@f2, %b28), %b32 ], [ blockaddress(@f2, %b25), %b30 ]
+  %v108 = phi ptr [ edgeaddress(@f2, 3), %b32 ], [ edgeaddress(@f2, 2), %b30 ]
+  %v109 = phi ptr [ edgeaddress(@f2, 1), %b32 ], [ edgeaddress(@f2, 0), %b30 ]
   %v110 = load i8, ptr %v105, align 1, !tbaa !4
   %v111 = getelementptr inbounds i8, ptr %v99, i32 -1
   store i8 %v110, ptr %v111, align 1, !tbaa !4
   %v112 = icmp eq ptr %v106, %v107
   %v113 = select i1 %v112, ptr %v109, ptr %v108
-  indirectbr ptr %v113, [label %b25, label %b28, label %b23, label %b30]
+  indirectswitch ptr %v113, [ ptr edgeaddress(@f2, 0), label %b25 ptr edgeaddress(@f2, 1), label %b28 ptr edgeaddress(@f2, 2), label %b23 ptr edgeaddress(@f2, 3), label %b30 ]
 
 b32:                                              ; preds = %b30
   br label %b31

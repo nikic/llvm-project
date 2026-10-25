@@ -231,7 +231,9 @@ define void @sink_to_unreachable_indirectbr(ptr %Ptr)  {
 ; CHECK:       loop:
 ; CHECK-NEXT:    br i1 true, label [[LOOP]], label [[UNREACH:%.*]]
 ; CHECK:       unreach:
-; CHECK-NEXT:    indirectbr ptr poison, [label %loop]
+; CHECK-NEXT:    indirectswitch ptr poison, [
+; CHECK-NEXT:      ptr edgeaddress(@sink_to_unreachable_indirectbr, 0), label [[LOOP]]
+; CHECK-NEXT:    ]
 ;
 entry:
   br label %loop
@@ -241,7 +243,7 @@ loop:
   br i1 true, label %loop, label %unreach
 
 unreach:
-  indirectbr ptr %gep, [label %loop]
+  indirectswitch ptr %gep, [ ptr edgeaddress(@sink_to_unreachable_indirectbr, 0), label %loop ]
 }
 
 define void @sink_to_unreachable_invoke(ptr %Ptr) personality ptr @__CxxFrameHandler3 {
@@ -261,7 +263,7 @@ define void @sink_to_unreachable_invoke(ptr %Ptr) personality ptr @__CxxFrameHan
 ; CHECK-NEXT:    invoke void @__CxxFrameHandler3(ptr poison) [ "funclet"(token [[CLEAN]]) ]
 ; CHECK-NEXT:            to label [[DUMMY]] unwind label [[ICATCH_DISPATCH]]
 ; CHECK:       icatch.dispatch:
-; CHECK-NEXT:    [[TMP1:%.*]] = catchswitch within none [label %icatch] unwind to caller
+; CHECK-NEXT:    [[TMP1:%.*]] = catchswitch within none [label [[ICATCH:%.*]]] unwind to caller
 ; CHECK:       icatch:
 ; CHECK-NEXT:    [[TMP2:%.*]] = catchpad within [[TMP1]] [ptr null, i32 64, ptr null]
 ; CHECK-NEXT:    catchret from [[TMP2]] to label [[DUMMY2:%.*]]

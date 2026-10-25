@@ -3,7 +3,7 @@
 ; RUN: llc -verify-machineinstrs -csky-no-aliases < %s -mtriple=csky -relocation-model=pic -code-model=small -mattr=+2e3 | FileCheck %s --check-prefix=CHECK-PIC-SMALL
 ; RUN: llc -verify-machineinstrs -csky-no-aliases < %s -mtriple=csky -relocation-model=pic -code-model=large -mattr=+2e3 | FileCheck %s --check-prefix=CHECK-PIC-LARGE
 
-@f.a = private unnamed_addr constant [2 x ptr] [ptr blockaddress(@f, %return), ptr blockaddress(@f, %l2)], align 16
+@f.a = private unnamed_addr constant [2 x ptr] [ptr edgeaddress(@f, 0), ptr edgeaddress(@f, 1)], align 16
 
 define i32 @f(i32 %x) #0 {
 ; CHECK-LABEL: f:
@@ -90,7 +90,7 @@ entry:
   %idxprom = sext i32 %x to i64
   %arrayidx = getelementptr inbounds [2 x ptr], ptr @f.a, i64 0, i64 %idxprom
   %0 = load ptr, ptr %arrayidx, align 8
-  indirectbr ptr %0, [label %return, label %l2]
+  indirectswitch ptr %0, [ ptr edgeaddress(@f, 0), label %return ptr edgeaddress(@f, 1), label %l2 ]
 
 l2:                                               ; preds = %entry
   br label %return

@@ -39,8 +39,8 @@ entry:
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   ret void
 
-  %label = bitcast ptr blockaddress(@test_indirectbr, %L1) to ptr
-  indirectbr ptr %label, [label %L1, label %L2]
+  %label = bitcast ptr edgeaddress(@test_indirectbr, 0) to ptr
+  indirectswitch ptr %label, [ ptr edgeaddress(@test_indirectbr, 0), label %L1 ptr edgeaddress(@test_indirectbr, 1), label %L2 ]
 
 L1:                                               ; preds = %entry
   ret void

@@ -31,7 +31,7 @@ define i32 @br(ptr %addr) {
 ; ALL:           addiu $2, $zero, 1
 
 entry:
-  indirectbr ptr %addr, [label %L1, label %L2]
+  indirectswitch ptr %addr, [ ptr edgeaddress(@br, 0), label %L1 ptr edgeaddress(@br, 1), label %L2 ]
 
 L1:
   ret i32 0

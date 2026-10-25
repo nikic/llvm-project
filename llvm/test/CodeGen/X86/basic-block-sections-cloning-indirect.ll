@@ -16,9 +16,9 @@ b0:
 b1:                                              ; preds = %b0
   call void @effect(i32 1)
   %0 = select i1 %b,                           ; <ptr> [#uses=1]
-              ptr blockaddress(@bar, %b2),
-              ptr blockaddress(@bar, %b3)
-  indirectbr ptr %0, [label %b2, label %b3]
+              ptr edgeaddress(@bar, 0),
+              ptr edgeaddress(@bar, 1)
+  indirectswitch ptr %0, [ ptr edgeaddress(@bar, 0), label %b2 ptr edgeaddress(@bar, 1), label %b3 ]
 b2:                                              ; preds = %b0, %b1
   call void @effect(i32 2)
   ret void

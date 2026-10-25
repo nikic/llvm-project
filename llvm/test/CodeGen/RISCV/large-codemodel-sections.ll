@@ -59,7 +59,7 @@ block:
 define signext i32 @lower_blockaddress_displ(i32 signext %w) nounwind {
 entry:
   %x = alloca ptr, align 8
-  store ptr blockaddress(@lower_blockaddress_displ, %test_block), ptr %x, align 8
+  store ptr edgeaddress(@lower_blockaddress_displ, 0), ptr %x, align 8
   %cmp = icmp sgt i32 %w, 100
   br i1 %cmp, label %if.then, label %if.end
 
@@ -78,7 +78,7 @@ return:
   ret i32 %retval
 
 indirectgoto:
-  indirectbr ptr %addr, [ label %test_block ]
+  indirectswitch ptr %addr, [ ptr edgeaddress(@lower_blockaddress_displ, 0), label %test_block ]
 }
 
 ; Check lowering of constantpools

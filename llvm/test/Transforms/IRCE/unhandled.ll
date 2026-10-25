@@ -61,8 +61,8 @@ define void @multiple_latches(ptr %arr, ptr %a_len_ptr, i32 %n) {
 
  continue:
   %next2 = icmp slt i32 %idx.next, %n.add.1
-  %dest = select i1 %next2, ptr blockaddress(@multiple_latches, %loop), ptr blockaddress(@multiple_latches, %exit)
-  indirectbr ptr %dest, [ label %loop, label %exit]
+  %dest = select i1 %next2, ptr edgeaddress(@multiple_latches, 0), ptr edgeaddress(@multiple_latches, 1)
+  indirectswitch ptr %dest, [ ptr edgeaddress(@multiple_latches, 0), label %loop ptr edgeaddress(@multiple_latches, 1), label %exit ]
 
  out.of.bounds:
   ret void

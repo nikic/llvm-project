@@ -1,7 +1,7 @@
 ; RUN: llc -mtriple=msp430 < %s
 
 @nextaddr = global ptr null                       ; <i8**> [#uses=2]
-@C.0.2070 = private constant [5 x ptr] [ptr blockaddress(@foo, %L1), ptr blockaddress(@foo, %L2), ptr blockaddress(@foo, %L3), ptr blockaddress(@foo, %L4), ptr blockaddress(@foo, %L5)] ; <[5 x i8*]*> [#uses=1]
+@C.0.2070 = private constant [5 x ptr] [ptr edgeaddress(@foo, 4), ptr edgeaddress(@foo, 3), ptr edgeaddress(@foo, 2), ptr edgeaddress(@foo, 1), ptr edgeaddress(@foo, 0)] ; <[5 x i8*]*> [#uses=1]
 
 define internal i16 @foo(i16 %i) nounwind {
 entry:
@@ -11,7 +11,7 @@ entry:
 
 bb2:                                              ; preds = %bb3, %entry
   %gotovar.4.0 = phi ptr [ %gotovar.4.0.pre, %bb3 ], [ %0, %entry ] ; <i8*> [#uses=1]
-  indirectbr ptr %gotovar.4.0, [label %L5, label %L4, label %L3, label %L2, label %L1]
+  indirectswitch ptr %gotovar.4.0, [ ptr edgeaddress(@foo, 0), label %L5 ptr edgeaddress(@foo, 1), label %L4 ptr edgeaddress(@foo, 2), label %L3 ptr edgeaddress(@foo, 3), label %L2 ptr edgeaddress(@foo, 4), label %L1 ]
 
 bb3:                                              ; preds = %entry
   %2 = getelementptr inbounds [5 x ptr], ptr @C.0.2070, i16 0, i16 %i ; <i8**> [#uses=1]
@@ -36,6 +36,6 @@ L2:                                               ; preds = %L3, %bb2
 
 L1:                                               ; preds = %L2, %bb2
   %res.3 = phi i16 [ %phitmp, %L2 ], [ 2, %bb2 ]  ; <i16> [#uses=1]
-  store ptr blockaddress(@foo, %L5), ptr @nextaddr, align 4
+  store ptr edgeaddress(@foo, 0), ptr @nextaddr, align 4
   ret i16 %res.3
 }

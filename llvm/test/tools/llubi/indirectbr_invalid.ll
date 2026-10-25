@@ -3,7 +3,7 @@
 
 define void @main() {
 entry:
-  indirectbr ptr blockaddress(@main, %bb2), [label %exit]
+  indirectswitch ptr blockaddress(@main, %bb2), [ ptr edgeaddress(@main, 0), label %exit ]
 
 bb2:
   br label %exit
@@ -13,6 +13,8 @@ exit:
 }
 ; CHECK: Entering function: main
 ; CHECK-NEXT: Stacktrace:
-; CHECK-NEXT: #0   indirectbr ptr blockaddress(@main, %bb2), [label %exit] at @main <stdin>:6
-; CHECK-NEXT: Immediate UB detected: Indirect branch on unlisted target BB.
+; CHECK-NEXT: #0   indirectswitch ptr blockaddress(@main, %bb2), [
+; CHECK-NEXT:     ptr edgeaddress(@main, 0), label %exit
+; CHECK-NEXT:   ] at @main <stdin>:6
+; CHECK-NEXT: Immediate UB detected: Indirect switch on invalid edge address.
 ; CHECK-NEXT: error: Execution of function 'main' failed.

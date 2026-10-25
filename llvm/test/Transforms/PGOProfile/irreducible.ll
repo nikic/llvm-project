@@ -127,8 +127,13 @@ indirectgoto:                                     ; preds = %if.then18, %if.then
   %idxprom21 = zext i32 %0 to i64
   %arrayidx22 = getelementptr inbounds [256 x ptr], ptr @targets, i64 0, i64 %idxprom21
   %target = load ptr, ptr %arrayidx22, align 8
-  indirectbr ptr %target, [label %unknown_op, label %sw.bb, label %TARGET_1, label %TARGET_2]
-; USE: indirectbr ptr %target, [label %unknown_op, label %sw.bb, label %TARGET_1, label %TARGET_2], !prof !{{[0-9]+}},
+  indirectswitch ptr %target, [ ptr edgeaddress(@_Z11irreduciblePh, 0), label %unknown_op ptr edgeaddress(@_Z11irreduciblePh, 1), label %sw.bb ptr edgeaddress(@_Z11irreduciblePh, 2), label %TARGET_1 ptr edgeaddress(@_Z11irreduciblePh, 3), label %TARGET_2 ]
+; USE: indirectswitch ptr %target, [
+; USE-NEXT: ptr edgeaddress(@_Z11irreduciblePh, 0), label %unknown_op
+; USE-NEXT: ptr edgeaddress(@_Z11irreduciblePh, 1), label %sw.bb
+; USE-NEXT: ptr edgeaddress(@_Z11irreduciblePh, 2), label %TARGET_1
+; USE-NEXT: ptr edgeaddress(@_Z11irreduciblePh, 3), label %TARGET_2
+; USE-NEXT: ], !prof !{{[0-9]+}},
 ; USE-SAME: !irr_loop ![[INDIRECTGOTO_IRR_LOOP:[0-9]+]]
 }
 

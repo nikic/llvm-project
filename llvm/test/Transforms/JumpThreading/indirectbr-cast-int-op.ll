@@ -8,7 +8,10 @@ define void @cast_with_binop() {
 ; CHECK-NEXT:  bb:
 ; CHECK-NEXT:    [[OP:%.*]] = add i64 ptrtoint (ptr inttoptr (i32 1 to ptr) to i64), undef
 ; CHECK-NEXT:    [[CAST:%.*]] = inttoptr i64 [[OP]] to ptr
-; CHECK-NEXT:    indirectbr ptr [[CAST]], [label [[BB3:%.*]], label %bb2]
+; CHECK-NEXT:    indirectswitch ptr [[CAST]], [
+; CHECK-NEXT:      ptr edgeaddress(@cast_with_binop, 0), label [[BB3:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@cast_with_binop, 1), label [[BB2:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       bb2:
 ; CHECK-NEXT:    unreachable
 ; CHECK:       bb3:
@@ -17,7 +20,7 @@ define void @cast_with_binop() {
 bb:
   %op = add i64 ptrtoint (ptr inttoptr (i32 1 to ptr) to i64), undef
   %cast = inttoptr i64 %op to ptr
-  indirectbr ptr %cast, [label %bb3, label %bb2]
+  indirectswitch ptr %cast, [ ptr edgeaddress(@cast_with_binop, 0), label %bb3 ptr edgeaddress(@cast_with_binop, 1), label %bb2 ]
 bb2:
   unreachable
 bb3:
@@ -31,7 +34,10 @@ define void @cast_with_i1(i1 %x, i1 %y) {
 ; CHECK-NEXT:  bb:
 ; CHECK-NEXT:    [[OP:%.*]] = add i1 [[X:%.*]], [[Y:%.*]]
 ; CHECK-NEXT:    [[CAST:%.*]] = inttoptr i1 [[OP]] to ptr
-; CHECK-NEXT:    indirectbr ptr [[CAST]], [label [[BB3:%.*]], label %bb2]
+; CHECK-NEXT:    indirectswitch ptr [[CAST]], [
+; CHECK-NEXT:      ptr edgeaddress(@cast_with_i1, 0), label [[BB3:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@cast_with_i1, 1), label [[BB2:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       bb2:
 ; CHECK-NEXT:    unreachable
 ; CHECK:       bb3:
@@ -40,7 +46,7 @@ define void @cast_with_i1(i1 %x, i1 %y) {
 bb:
   %op = add i1 %x, %y
   %cast = inttoptr i1 %op to ptr
-  indirectbr ptr %cast, [label %bb3, label %bb2]
+  indirectswitch ptr %cast, [ ptr edgeaddress(@cast_with_i1, 0), label %bb3 ptr edgeaddress(@cast_with_i1, 1), label %bb2 ]
 bb2:
   unreachable
 bb3:
@@ -54,7 +60,10 @@ define void @cast_with_cmp(i1 %x, i1 %y) {
 ; CHECK-NEXT:  bb:
 ; CHECK-NEXT:    [[OP:%.*]] = icmp slt i1 [[X:%.*]], [[Y:%.*]]
 ; CHECK-NEXT:    [[CAST:%.*]] = inttoptr i1 [[OP]] to ptr
-; CHECK-NEXT:    indirectbr ptr [[CAST]], [label [[BB3:%.*]], label %bb2]
+; CHECK-NEXT:    indirectswitch ptr [[CAST]], [
+; CHECK-NEXT:      ptr edgeaddress(@cast_with_cmp, 0), label [[BB3:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@cast_with_cmp, 1), label [[BB2:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       bb2:
 ; CHECK-NEXT:    unreachable
 ; CHECK:       bb3:
@@ -63,7 +72,7 @@ define void @cast_with_cmp(i1 %x, i1 %y) {
 bb:
   %op = icmp slt i1 %x, %y
   %cast = inttoptr i1 %op to ptr
-  indirectbr ptr %cast, [label %bb3, label %bb2]
+  indirectswitch ptr %cast, [ ptr edgeaddress(@cast_with_cmp, 0), label %bb3 ptr edgeaddress(@cast_with_cmp, 1), label %bb2 ]
 bb2:
   unreachable
 bb3:

@@ -164,45 +164,28 @@ UnifiedReturnBlock:
 define hidden fastcc void @t3(ptr %retaddr, i1 %tst, ptr %p8) {
 ; CHECK-LABEL: t3:
 ; CHECK:       @ %bb.0: @ %bb
-; CHECK-NEXT:    ldr r1, LCPI2_0
+; CHECK-NEXT:    movw r1, :lower16:(_t3-(LPC2_0+4))
+; CHECK-NEXT:    movt r1, :upper16:(_t3-(LPC2_0+4))
 ; CHECK-NEXT:  LPC2_0:
 ; CHECK-NEXT:    add r1, pc
 ; CHECK-NEXT:    str r1, [r0]
-; CHECK-NEXT:  Ltmp2: @ Block address taken
-; CHECK-NEXT:  @ %bb.1: @ %common.ret
 ; CHECK-NEXT:    bx lr
-; CHECK-NEXT:    .p2align 2
-; CHECK-NEXT:  @ %bb.2:
-; CHECK-NEXT:    .data_region
-; CHECK-NEXT:  LCPI2_0:
-; CHECK-NEXT:    .long Ltmp2-(LPC2_0+4)
-; CHECK-NEXT:    .end_data_region
 ;
 ; CHECK-V8-LABEL: t3:
 ; CHECK-V8:       @ %bb.0: @ %bb
-; CHECK-V8-NEXT:    ldr r1, .LCPI2_0
+; CHECK-V8-NEXT:    movw r1, :lower16:t3
+; CHECK-V8-NEXT:    movt r1, :upper16:t3
 ; CHECK-V8-NEXT:    str r1, [r0]
-; CHECK-V8-NEXT:  .Ltmp2: @ Block address taken
-; CHECK-V8-NEXT:  @ %bb.1: @ %common.ret
 ; CHECK-V8-NEXT:    bx lr
-; CHECK-V8-NEXT:    .p2align 2
-; CHECK-V8-NEXT:  @ %bb.2:
-; CHECK-V8-NEXT:  .LCPI2_0:
-; CHECK-V8-NEXT:    .long .Ltmp2
 ;
 ; CHECK-RESTRICT-IT-LABEL: t3:
 ; CHECK-RESTRICT-IT:       @ %bb.0: @ %bb
-; CHECK-RESTRICT-IT-NEXT:    ldr r1, .LCPI2_0
+; CHECK-RESTRICT-IT-NEXT:    movw r1, :lower16:t3
+; CHECK-RESTRICT-IT-NEXT:    movt r1, :upper16:t3
 ; CHECK-RESTRICT-IT-NEXT:    str r1, [r0]
-; CHECK-RESTRICT-IT-NEXT:  .Ltmp2: @ Block address taken
-; CHECK-RESTRICT-IT-NEXT:  @ %bb.1: @ %common.ret
 ; CHECK-RESTRICT-IT-NEXT:    bx lr
-; CHECK-RESTRICT-IT-NEXT:    .p2align 2
-; CHECK-RESTRICT-IT-NEXT:  @ %bb.2:
-; CHECK-RESTRICT-IT-NEXT:  .LCPI2_0:
-; CHECK-RESTRICT-IT-NEXT:    .long .Ltmp2
 bb:
-  store ptr blockaddress(@t3, %KBBlockZero_return_1), ptr %retaddr
+  store ptr edgeaddress(@t3, 0), ptr %retaddr
   br i1 %tst, label %bb77, label %bb7.i
 
 bb7.i:                                            ; preds = %bb35
@@ -224,7 +207,7 @@ bb6.i350:                                         ; preds = %bb2.i
   br label %bb2.i
 
 KBBlockZero.exit:                                 ; preds = %bb2.i
-  indirectbr ptr %p8, [label %KBBlockZero_return_1, label %KBBlockZero_return_0]
+  indirectswitch ptr %p8, [ ptr edgeaddress(@t3, 0), label %KBBlockZero_return_1 ptr edgeaddress(@t3, 1), label %KBBlockZero_return_0 ]
 }
 
 @foo = global ptr null

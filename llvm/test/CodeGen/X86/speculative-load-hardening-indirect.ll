@@ -14,10 +14,10 @@
 @global_fnptr = external global ptr
 
 @global_blockaddrs = dso_local constant [4 x ptr] [
-  ptr blockaddress(@test_indirectbr_global, %bb0),
-  ptr blockaddress(@test_indirectbr_global, %bb1),
-  ptr blockaddress(@test_indirectbr_global, %bb2),
-  ptr blockaddress(@test_indirectbr_global, %bb3)
+  ptr edgeaddress(@test_indirectbr_global, 0),
+  ptr edgeaddress(@test_indirectbr_global, 1),
+  ptr edgeaddress(@test_indirectbr_global, 2),
+  ptr edgeaddress(@test_indirectbr_global, 3)
 ]
 
 define dso_local i32 @test_indirect_call(ptr %ptr) nounwind {
@@ -341,7 +341,7 @@ define dso_local i32 @test_indirectbr(ptr %ptr) nounwind {
 ; X64-RETPOLINE:       # %bb.0: # %entry
 entry:
   %a = load ptr, ptr %ptr
-  indirectbr ptr %a, [ label %bb0, label %bb1, label %bb2, label %bb3 ]
+  indirectswitch ptr %a, [ ptr edgeaddress(@test_indirectbr, 0), label %bb0 ptr edgeaddress(@test_indirectbr, 1), label %bb1 ptr edgeaddress(@test_indirectbr, 2), label %bb2 ptr edgeaddress(@test_indirectbr, 3), label %bb3 ]
 
 bb0:
   ret i32 2
@@ -488,14 +488,10 @@ define dso_local i32 @test_indirectbr_global(i32 %idx) nounwind {
 ; X64-RETPOLINE-NEXT:    movl $2, %eax
 ; X64-RETPOLINE-NEXT:    orq %rcx, %rsp
 ; X64-RETPOLINE-NEXT:    retq
-; X64-RETPOLINE-NEXT:  .Ltmp0: # Address of block that was removed by CodeGen
-; X64-RETPOLINE-NEXT:  .Ltmp1: # Address of block that was removed by CodeGen
-; X64-RETPOLINE-NEXT:  .Ltmp2: # Address of block that was removed by CodeGen
-; X64-RETPOLINE-NEXT:  .Ltmp3: # Address of block that was removed by CodeGen
 entry:
   %ptr = getelementptr [4 x ptr], ptr @global_blockaddrs, i32 0, i32 %idx
   %a = load ptr, ptr %ptr
-  indirectbr ptr %a, [ label %bb0, label %bb1, label %bb2, label %bb3 ]
+  indirectswitch ptr %a, [ ptr edgeaddress(@test_indirectbr_global, 0), label %bb0 ptr edgeaddress(@test_indirectbr_global, 1), label %bb1 ptr edgeaddress(@test_indirectbr_global, 2), label %bb2 ptr edgeaddress(@test_indirectbr_global, 3), label %bb3 ]
 
 bb0:
   ret i32 2

@@ -3,8 +3,8 @@
 ; RUN: opt -aa-pipeline=basic-aa -passes=attributor-cgscc -attributor-manifest-internal  -attributor-annotate-decl-cs -S < %s | FileCheck %s --check-prefixes=CHECK,CGSCC
 
 ; NOT_CGSCC___: @dead_with_blockaddress_users.l = constant [2 x ptr] [ptr inttoptr (i32 1 to ptr), ptr inttoptr (i32 1 to ptr)]
-; IS__CGSCC___: @dead_with_blockaddress_users.l = constant [2 x ptr] [ptr blockaddress(@dead_with_blockaddress_users, %lab0), ptr blockaddress(@dead_with_blockaddress_users, %end)]
-@dead_with_blockaddress_users.l = constant [2 x ptr] [ptr blockaddress(@dead_with_blockaddress_users, %lab0), ptr blockaddress(@dead_with_blockaddress_users, %end)]
+; IS__CGSCC___: @dead_with_blockaddress_users.l = constant [2 x ptr] [ptr edgeaddress(@dead_with_blockaddress_users, 0), ptr edgeaddress(@dead_with_blockaddress_users, 1)]
+@dead_with_blockaddress_users.l = constant [2 x ptr] [ptr edgeaddress(@dead_with_blockaddress_users, 0), ptr edgeaddress(@dead_with_blockaddress_users, 1)]
 
 declare void @no_return_call() nofree noreturn nounwind nosync
 
@@ -30,7 +30,7 @@ declare i32 @bar() nosync readnone
 ; TUNIT: @e = global ptr null
 ; TUNIT: @p = global i8 0
 ;.
-; CGSCC: @dead_with_blockaddress_users.l = constant [2 x ptr] [ptr blockaddress(@dead_with_blockaddress_users, %lab0), ptr blockaddress(@dead_with_blockaddress_users, %end)]
+; CGSCC: @dead_with_blockaddress_users.l = constant [2 x ptr] [ptr edgeaddress(@dead_with_blockaddress_users, 0), ptr edgeaddress(@dead_with_blockaddress_users, 1)]
 ; CGSCC: @a1 = common global i8 0, align 8
 ; CGSCC: @a2 = common global i8 0, align 16
 ; CGSCC: @e = global ptr null
@@ -2476,7 +2476,10 @@ define internal void @dead_with_blockaddress_users(ptr nocapture %pc) nounwind r
 ; CGSCC-NEXT:    [[TMP1_PN:%.*]] = load i32, ptr [[PC_ADDR_0]], align 4
 ; CGSCC-NEXT:    [[INDIRECT_GOTO_DEST_IN:%.*]] = getelementptr inbounds [2 x ptr], ptr @dead_with_blockaddress_users.l, i32 0, i32 [[TMP1_PN]]
 ; CGSCC-NEXT:    [[INDIRECT_GOTO_DEST:%.*]] = load ptr, ptr [[INDIRECT_GOTO_DEST_IN]], align 8
-; CGSCC-NEXT:    indirectbr ptr [[INDIRECT_GOTO_DEST]], [label [[LAB0]], label [[END:%.*]]]
+; CGSCC-NEXT:    indirectswitch ptr [[INDIRECT_GOTO_DEST]], [
+; CGSCC-NEXT:      ptr edgeaddress(@dead_with_blockaddress_users, 0), label [[LAB0]]
+; CGSCC-NEXT:      ptr edgeaddress(@dead_with_blockaddress_users, 1), label [[END:%.*]]
+; CGSCC-NEXT:    ]
 ;
 entry:
   br label %indirectgoto
@@ -2494,7 +2497,7 @@ indirectgoto:                                     ; preds = %lab0, %entry
   %tmp1.pn = load i32, ptr %pc.addr.0                 ; <i32> [#uses=1]
   %indirect.goto.dest.in = getelementptr inbounds [2 x ptr], ptr @dead_with_blockaddress_users.l, i32 0, i32 %tmp1.pn ; <ptr> [#uses=1]
   %indirect.goto.dest = load ptr, ptr %indirect.goto.dest.in ; <ptr> [#uses=1]
-  indirectbr ptr %indirect.goto.dest, [label %lab0, label %end]
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@dead_with_blockaddress_users, 0), label %lab0 ptr edgeaddress(@dead_with_blockaddress_users, 1), label %end ]
 }
 
 

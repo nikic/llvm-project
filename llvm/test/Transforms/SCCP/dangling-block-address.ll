@@ -7,11 +7,10 @@
 ; address taken, let other passes replace these "dead" blockaddresses with some
 ; other Constant.
 
-; CHECK: @bar.l = internal constant [2 x ptr] [ptr blockaddress(@bar, %lab0), ptr blockaddress(@bar, %end)]
 
 
 @code = global [5 x i32] [i32 0, i32 0, i32 0, i32 0, i32 1], align 4 ; <ptr> [#uses=0]
-@bar.l = internal constant [2 x ptr] [ptr blockaddress(@bar, %lab0), ptr blockaddress(@bar, %end)] ; <ptr> [#uses=1]
+@bar.l = internal constant [2 x ptr] [ptr edgeaddress(@bar, 0), ptr edgeaddress(@bar, 1)] ; <ptr> [#uses=1]
 
 define void @foo(i32 %x) nounwind readnone {
 ; CHECK-LABEL: @foo(
@@ -27,10 +26,6 @@ entry:
 define void @bar(ptr nocapture %pc) nounwind readonly {
 ; CHECK-LABEL: @bar(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    unreachable
-; CHECK:       lab0:
-; CHECK-NEXT:    unreachable
-; CHECK:       end:
 ; CHECK-NEXT:    unreachable
 ;
 entry:
@@ -49,7 +44,7 @@ indirectgoto:                                     ; preds = %lab0, %entry
   %tmp1.pn = load i32, ptr %pc.addr.0                 ; <i32> [#uses=1]
   %indirect.goto.dest.in = getelementptr inbounds [2 x ptr], ptr @bar.l, i32 0, i32 %tmp1.pn ; <ptr> [#uses=1]
   %indirect.goto.dest = load ptr, ptr %indirect.goto.dest.in ; <ptr> [#uses=1]
-  indirectbr ptr %indirect.goto.dest, [label %lab0, label %end]
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@bar, 0), label %lab0 ptr edgeaddress(@bar, 1), label %end ]
 }
 
 define i32 @main() nounwind readnone {

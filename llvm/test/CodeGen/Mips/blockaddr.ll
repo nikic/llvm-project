@@ -61,11 +61,11 @@ entry:
 
 define void @f() nounwind {
 entry:
-  %call = tail call ptr @dummy(ptr blockaddress(@f, %baz))
-  indirectbr ptr %call, [label %baz, label %foo]
+  %call = tail call ptr @dummy(ptr edgeaddress(@f, 0))
+  indirectswitch ptr %call, [ ptr edgeaddress(@f, 0), label %baz ptr edgeaddress(@f, 1), label %foo ]
 
 foo:                                              ; preds = %foo, %entry
-  store ptr blockaddress(@f, %foo), ptr @reg, align 4
+  store ptr edgeaddress(@f, 1), ptr @reg, align 4
   br label %foo
 
 baz:                                              ; preds = %entry

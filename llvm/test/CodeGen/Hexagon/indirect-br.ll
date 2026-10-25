@@ -4,7 +4,7 @@
 
 define i32 @check_indirect_br(ptr %target) nounwind {
 entry:
-  indirectbr ptr %target, [label %test_label]
+  indirectswitch ptr %target, [ ptr edgeaddress(@check_indirect_br, 0), label %test_label ]
 
 test_label:
   br label %ret

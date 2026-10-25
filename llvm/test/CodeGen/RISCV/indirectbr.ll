@@ -11,7 +11,7 @@ define i32 @indirectbr(ptr %target) nounwind {
 ; RV32I-NEXT:  .LBB0_1: # %test_label
 ; RV32I-NEXT:    li a0, 0
 ; RV32I-NEXT:    ret
-  indirectbr ptr %target, [label %test_label]
+  indirectswitch ptr %target, [ ptr edgeaddress(@indirectbr, 0), label %test_label ]
 test_label:
   br label %ret
 ret:
@@ -26,7 +26,7 @@ define i32 @indirectbr_with_offset(ptr %a) nounwind {
 ; RV32I-NEXT:    li a0, 0
 ; RV32I-NEXT:    ret
   %target = getelementptr inbounds i8, ptr %a, i32 1380
-  indirectbr ptr %target, [label %test_label]
+  indirectswitch ptr %target, [ ptr edgeaddress(@indirectbr_with_offset, 0), label %test_label ]
 test_label:
   br label %ret
 ret:

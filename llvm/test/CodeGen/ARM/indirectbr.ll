@@ -4,7 +4,7 @@
 ; RUN: llc < %s -relocation-model=static -mtriple=thumbv8-apple-darwin | FileCheck %s -check-prefix=THUMB2
 
 @nextaddr = global ptr null                       ; <ptr> [#uses=2]
-@C.0.2070 = private constant [5 x ptr] [ptr blockaddress(@foo, %L1), ptr blockaddress(@foo, %L2), ptr blockaddress(@foo, %L3), ptr blockaddress(@foo, %L4), ptr blockaddress(@foo, %L5)] ; <ptr> [#uses=1]
+@C.0.2070 = private constant [5 x ptr] [ptr edgeaddress(@foo, 4), ptr edgeaddress(@foo, 3), ptr edgeaddress(@foo, 2), ptr edgeaddress(@foo, 1), ptr edgeaddress(@foo, 0)] ; <ptr> [#uses=1]
 
 define internal i32 @foo(i32 %i) nounwind {
 ; ARM-LABEL: foo:
@@ -28,7 +28,7 @@ bb2:                                              ; preds = %entry, %bb3
   %gotovar.4.0 = phi ptr [ %gotovar.4.0.pre, %bb3 ], [ %0, %entry ] ; <ptr> [#uses=1]
 ; ARM: bx
 ; THUMB: mov pc,
-  indirectbr ptr %gotovar.4.0, [label %L5, label %L4, label %L3, label %L2, label %L1]
+  indirectswitch ptr %gotovar.4.0, [ ptr edgeaddress(@foo, 0), label %L5 ptr edgeaddress(@foo, 1), label %L4 ptr edgeaddress(@foo, 2), label %L3 ptr edgeaddress(@foo, 3), label %L2 ptr edgeaddress(@foo, 4), label %L1 ]
 
 bb3:                                              ; preds = %entry
   %2 = getelementptr inbounds [5 x ptr], ptr @C.0.2070, i32 0, i32 %i ; <ptr> [#uses=1]
@@ -73,7 +73,7 @@ L1:                                               ; preds = %L2, %bb2
 ; THUMB2-LABEL: %L1
 ; THUMB2: ldr [[R2:r[0-9]+]], LCPI
 ; THUMB2-NEXT: str{{(.w)?}} [[R2]]
-  store ptr blockaddress(@foo, %L5), ptr @nextaddr, align 4
+  store ptr edgeaddress(@foo, 0), ptr @nextaddr, align 4
   ret i32 %res.3
 }
 ; ARM: .long Ltmp0-(LPC{{.*}}+8)

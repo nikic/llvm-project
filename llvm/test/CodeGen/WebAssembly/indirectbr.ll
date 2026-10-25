@@ -6,9 +6,9 @@
 
 target triple = "wasm32"
 
-@test1.targets = constant [4 x ptr] [ptr blockaddress(@test1, %bb0),
-                                     ptr blockaddress(@test1, %bb1),
-                                     ptr blockaddress(@test1, %bb2),
+@test1.targets = constant [4 x ptr] [ptr edgeaddress(@test1, 0),
+                                     ptr edgeaddress(@test1, 1),
+                                     ptr edgeaddress(@test1, 2),
                                      ptr blockaddress(@test1, %bb3)]
 
 ; Just check the barest skeleton of the structure
@@ -41,7 +41,7 @@ entry:
   %target.i0 = getelementptr [4 x ptr], ptr @test1.targets, i32 0, i32 %i0
   %target0 = load ptr, ptr %target.i0
   ; Only a subset of blocks are viable successors here.
-  indirectbr ptr %target0, [label %bb0, label %bb1]
+  br label %dispatch
 
 
 bb0:
@@ -65,5 +65,13 @@ latch:
   %target.i.next = getelementptr [4 x ptr], ptr @test1.targets, i32 0, i32 %i.next
   %target.next = load ptr, ptr %target.i.next
   ; A different subset of blocks are viable successors here.
-  indirectbr ptr %target.next, [label %bb1, label %bb2]
+  br label %dispatch
+
+dispatch:
+  %dispatch.addr = phi ptr [ %target0, %entry ], [ %target.next, %latch ]
+  indirectswitch ptr %dispatch.addr, [
+    ptr edgeaddress(@test1, 0), label %bb0
+    ptr edgeaddress(@test1, 1), label %bb1
+    ptr edgeaddress(@test1, 2), label %bb2
+  ]
 }

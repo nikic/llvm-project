@@ -69,22 +69,22 @@ define i32 @test(i32 %a, i32 %a2, ptr %p, ptr %p2) "frame-pointer"="all" {
 ; CHECK-NEXT:    pop {r4, r5, r6, r7, pc}
 ; CHECK-NEXT:    .p2align 2
 entry:
-  %dst1 = call ptr @bar(i32 1, ptr blockaddress(@test, %bb1), ptr blockaddress(@test, %bb2))
-  %dst2 = call ptr @bar(i32 2, ptr blockaddress(@test, %bb1), ptr blockaddress(@test, %bb2))
-  %dst3 = call ptr @bar(i32 3, ptr blockaddress(@test, %bb1), ptr blockaddress(@test, %bb2))
+  %dst1 = call ptr @bar(i32 1, ptr edgeaddress(@test, 2), ptr edgeaddress(@test, 3))
+  %dst2 = call ptr @bar(i32 2, ptr edgeaddress(@test, 0), ptr edgeaddress(@test, 1))
+  %dst3 = call ptr @bar(i32 3, ptr edgeaddress(@test, 0), ptr edgeaddress(@test, 1))
   %cc1 = icmp eq i32 %a, 21
   br i1 %cc1, label %cc1t, label %cc1f
 
 cc1t:
   store i32 %a, ptr %p
-  indirectbr ptr %dst3, [label %bb1, label %bb2]
+  indirectswitch ptr %dst3, [ ptr edgeaddress(@test, 0), label %bb1 ptr edgeaddress(@test, 1), label %bb2 ]
 
 cc1f:
   %cc2 = icmp ne i32 %a2, 42
   br i1 %cc2, label %cc2t, label %bb1
 cc2t:
   store i32 %a, ptr %p2
-  indirectbr ptr %dst1, [label %bb1, label %bb2]
+  indirectswitch ptr %dst1, [ ptr edgeaddress(@test, 2), label %bb1 ptr edgeaddress(@test, 3), label %bb2 ]
 
 bb1:
   %ret_bb1 = call i32 @foo(i32 1234)

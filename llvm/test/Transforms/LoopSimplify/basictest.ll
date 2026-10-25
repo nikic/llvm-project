@@ -36,21 +36,21 @@ define void @test_multiple_exits_from_single_block(i8 %a, ptr %b.ptr) {
 ; CHECK-LABEL: @test_multiple_exits_from_single_block(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    switch i8 [[A:%.*]], label [[LOOP_PREHEADER:%.*]] [
-; CHECK-NEXT:    i8 0, label [[EXIT_A:%.*]]
-; CHECK-NEXT:    i8 1, label [[EXIT_B:%.*]]
+; CHECK-NEXT:      i8 0, label [[EXIT_A:%.*]]
+; CHECK-NEXT:      i8 1, label [[EXIT_B:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       loop.preheader:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[B:%.*]] = load volatile i8, ptr [[B_PTR:%.*]]
+; CHECK-NEXT:    [[B:%.*]] = load volatile i8, ptr [[B_PTR:%.*]], align 1
 ; CHECK-NEXT:    switch i8 [[B]], label [[LOOP_BACKEDGE:%.*]] [
-; CHECK-NEXT:    i8 0, label [[EXIT_A_LOOPEXIT:%.*]]
-; CHECK-NEXT:    i8 1, label [[EXIT_B_LOOPEXIT:%.*]]
-; CHECK-NEXT:    i8 2, label [[LOOP_BACKEDGE]]
-; CHECK-NEXT:    i8 3, label [[EXIT_A_LOOPEXIT]]
-; CHECK-NEXT:    i8 4, label [[LOOP_BACKEDGE]]
-; CHECK-NEXT:    i8 5, label [[EXIT_A_LOOPEXIT]]
-; CHECK-NEXT:    i8 6, label [[LOOP_BACKEDGE]]
+; CHECK-NEXT:      i8 0, label [[EXIT_A_LOOPEXIT:%.*]]
+; CHECK-NEXT:      i8 1, label [[EXIT_B_LOOPEXIT:%.*]]
+; CHECK-NEXT:      i8 2, label [[LOOP_BACKEDGE]]
+; CHECK-NEXT:      i8 3, label [[EXIT_A_LOOPEXIT]]
+; CHECK-NEXT:      i8 4, label [[LOOP_BACKEDGE]]
+; CHECK-NEXT:      i8 5, label [[EXIT_A_LOOPEXIT]]
+; CHECK-NEXT:      i8 6, label [[LOOP_BACKEDGE]]
 ; CHECK-NEXT:    ]
 ; CHECK:       loop.backedge:
 ; CHECK-NEXT:    br label [[LOOP]]
@@ -97,13 +97,13 @@ define void @test_pre_existing_dedicated_exits(i1 %a, ptr %ptr) {
 ; CHECK:       loop.ph:
 ; CHECK-NEXT:    br label [[LOOP_HEADER:%.*]]
 ; CHECK:       loop.header:
-; CHECK-NEXT:    [[C1:%.*]] = load volatile i1, ptr [[PTR:%.*]]
+; CHECK-NEXT:    [[C1:%.*]] = load volatile i1, ptr [[PTR:%.*]], align 1
 ; CHECK-NEXT:    br i1 [[C1]], label [[LOOP_BODY1:%.*]], label [[DEDICATED_EXIT1:%.*]]
 ; CHECK:       loop.body1:
-; CHECK-NEXT:    [[C2:%.*]] = load volatile i1, ptr [[PTR]]
+; CHECK-NEXT:    [[C2:%.*]] = load volatile i1, ptr [[PTR]], align 1
 ; CHECK-NEXT:    br i1 [[C2]], label [[LOOP_BODY2:%.*]], label [[NON_DEDICATED_EXIT_LOOPEXIT:%.*]]
 ; CHECK:       loop.body2:
-; CHECK-NEXT:    [[C3:%.*]] = load volatile i1, ptr [[PTR]]
+; CHECK-NEXT:    [[C3:%.*]] = load volatile i1, ptr [[PTR]], align 1
 ; CHECK-NEXT:    br i1 [[C3]], label [[LOOP_BACKEDGE:%.*]], label [[DEDICATED_EXIT2:%.*]]
 ; CHECK:       loop.backedge:
 ; CHECK-NEXT:    br label [[LOOP_HEADER]]
@@ -155,33 +155,43 @@ define void @test_form_some_dedicated_exits_despite_indirectbr(i8 %a, ptr %ptr, 
 ; CHECK-LABEL: @test_form_some_dedicated_exits_despite_indirectbr(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    switch i8 [[A:%.*]], label [[LOOP_PH:%.*]] [
-; CHECK-NEXT:    i8 0, label [[EXIT_A:%.*]]
-; CHECK-NEXT:    i8 1, label [[EXIT_B:%.*]]
-; CHECK-NEXT:    i8 2, label [[EXIT_C:%.*]]
+; CHECK-NEXT:      i8 0, label [[EXIT_A:%.*]]
+; CHECK-NEXT:      i8 1, label [[EXIT_B:%.*]]
+; CHECK-NEXT:      i8 2, label [[EXIT_C:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       loop.ph:
 ; CHECK-NEXT:    br label [[LOOP_HEADER:%.*]]
 ; CHECK:       loop.header:
-; CHECK-NEXT:    [[ADDR1:%.*]] = load volatile ptr, ptr [[ADDR_PTR:%.*]]
-; CHECK-NEXT:    indirectbr ptr [[ADDR1]], [label [[LOOP_BODY1:%.*]], label %exit.a]
+; CHECK-NEXT:    [[ADDR1:%.*]] = load volatile ptr, ptr [[ADDR_PTR:%.*]], align 8
+; CHECK-NEXT:    indirectswitch ptr [[ADDR1]], [
+; CHECK-NEXT:      ptr edgeaddress(@test_form_some_dedicated_exits_despite_indirectbr, 0), label [[LOOP_BODY1:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test_form_some_dedicated_exits_despite_indirectbr, 1), label [[EXIT_A_LOOPEXIT:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       loop.body1:
-; CHECK-NEXT:    [[B:%.*]] = load volatile i8, ptr [[PTR:%.*]]
+; CHECK-NEXT:    [[B:%.*]] = load volatile i8, ptr [[PTR:%.*]], align 1
 ; CHECK-NEXT:    switch i8 [[B]], label [[LOOP_BODY2:%.*]] [
-; CHECK-NEXT:    i8 0, label [[EXIT_A]]
-; CHECK-NEXT:    i8 1, label [[EXIT_B_LOOPEXIT:%.*]]
-; CHECK-NEXT:    i8 2, label [[EXIT_C]]
+; CHECK-NEXT:      i8 0, label [[EXIT_A_LOOPEXIT]]
+; CHECK-NEXT:      i8 1, label [[EXIT_B_LOOPEXIT:%.*]]
+; CHECK-NEXT:      i8 2, label [[EXIT_C_LOOPEXIT:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       loop.body2:
-; CHECK-NEXT:    [[ADDR2:%.*]] = load volatile ptr, ptr [[ADDR_PTR]]
-; CHECK-NEXT:    indirectbr ptr [[ADDR2]], [label [[LOOP_BACKEDGE:%.*]], label %exit.c]
+; CHECK-NEXT:    [[ADDR2:%.*]] = load volatile ptr, ptr [[ADDR_PTR]], align 8
+; CHECK-NEXT:    indirectswitch ptr [[ADDR2]], [
+; CHECK-NEXT:      ptr edgeaddress(@test_form_some_dedicated_exits_despite_indirectbr, 2), label [[LOOP_BACKEDGE:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test_form_some_dedicated_exits_despite_indirectbr, 3), label [[EXIT_C_LOOPEXIT]]
+; CHECK-NEXT:    ]
 ; CHECK:       loop.backedge:
 ; CHECK-NEXT:    br label [[LOOP_HEADER]]
+; CHECK:       exit.a.loopexit:
+; CHECK-NEXT:    br label [[EXIT_A]]
 ; CHECK:       exit.a:
 ; CHECK-NEXT:    ret void
 ; CHECK:       exit.b.loopexit:
 ; CHECK-NEXT:    br label [[EXIT_B]]
 ; CHECK:       exit.b:
 ; CHECK-NEXT:    ret void
+; CHECK:       exit.c.loopexit:
+; CHECK-NEXT:    br label [[EXIT_C]]
 ; CHECK:       exit.c:
 ; CHECK-NEXT:    ret void
 ;
@@ -197,7 +207,7 @@ loop.ph:
 
 loop.header:
   %addr1 = load volatile ptr, ptr %addr.ptr
-  indirectbr ptr %addr1, [label %loop.body1, label %exit.a]
+  indirectswitch ptr %addr1, [ ptr edgeaddress(@test_form_some_dedicated_exits_despite_indirectbr, 0), label %loop.body1 ptr edgeaddress(@test_form_some_dedicated_exits_despite_indirectbr, 1), label %exit.a ]
 
 loop.body1:
   %b = load volatile i8, ptr %ptr
@@ -209,7 +219,7 @@ loop.body1:
 
 loop.body2:
   %addr2 = load volatile ptr, ptr %addr.ptr
-  indirectbr ptr %addr2, [label %loop.backedge, label %exit.c]
+  indirectswitch ptr %addr2, [ ptr edgeaddress(@test_form_some_dedicated_exits_despite_indirectbr, 2), label %loop.backedge ptr edgeaddress(@test_form_some_dedicated_exits_despite_indirectbr, 3), label %exit.c ]
 
 loop.backedge:
   br label %loop.header

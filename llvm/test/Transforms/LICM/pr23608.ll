@@ -15,17 +15,14 @@ define void @fn1() {
 ; NO_ASSUME-NEXT:  entry:
 ; NO_ASSUME-NEXT:    br label [[INDIRECTGOTO:%.*]]
 ; NO_ASSUME:       while.cond:
-; NO_ASSUME-NEXT:    [[TMP:%.*]] = load ptr, ptr @a, align 8
 ; NO_ASSUME-NEXT:    br label [[BB2:%.*]]
 ; NO_ASSUME:       bb:
 ; NO_ASSUME-NEXT:    call void @__msan_warning_noreturn()
 ; NO_ASSUME-NEXT:    unreachable
 ; NO_ASSUME:       bb2:
-; NO_ASSUME-NEXT:    [[TMP4:%.*]] = ptrtoint ptr [[TMP]] to i64
-; NO_ASSUME-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[TMP4]], 0
-; NO_ASSUME-NEXT:    br i1 [[TOBOOL]], label [[BB13:%.*]], label [[BB15:%.*]]
+; NO_ASSUME-NEXT:    br i1 [[TOBOOL:%.*]], label [[BB13:%.*]], label [[BB15:%.*]]
 ; NO_ASSUME:       bb13:
-; NO_ASSUME-NEXT:    [[TMP4_LCSSA:%.*]] = phi i64 [ [[TMP4]], [[BB2]] ]
+; NO_ASSUME-NEXT:    [[TMP4_LCSSA:%.*]] = phi i64 [ [[TMP4:%.*]], [[BB2]] ]
 ; NO_ASSUME-NEXT:    [[TMP8_LE:%.*]] = inttoptr i64 [[TMP4_LCSSA]] to ptr
 ; NO_ASSUME-NEXT:    call void @__msan_warning_noreturn()
 ; NO_ASSUME-NEXT:    unreachable
@@ -34,24 +31,28 @@ define void @fn1() {
 ; NO_ASSUME:       while.end:
 ; NO_ASSUME-NEXT:    ret void
 ; NO_ASSUME:       indirectgoto:
-; NO_ASSUME-NEXT:    indirectbr ptr null, [label [[INDIRECTGOTO]], label %while.cond]
+; NO_ASSUME-NEXT:    indirectswitch ptr null, [
+; NO_ASSUME-NEXT:      ptr edgeaddress(@fn1, 0), label [[INDIRECTGOTO]]
+; NO_ASSUME-NEXT:      ptr edgeaddress(@fn1, 1), label [[WHILE_COND_PREHEADER:%.*]]
+; NO_ASSUME-NEXT:    ]
+; NO_ASSUME:       while.cond.preheader:
+; NO_ASSUME-NEXT:    [[TMP:%.*]] = load ptr, ptr @a, align 8
+; NO_ASSUME-NEXT:    [[TMP4]] = ptrtoint ptr [[TMP]] to i64
+; NO_ASSUME-NEXT:    [[TOBOOL]] = icmp eq i64 [[TMP4]], 0
+; NO_ASSUME-NEXT:    br label [[WHILE_COND]]
 ;
 ; USE_ASSUME-LABEL: @fn1(
 ; USE_ASSUME-NEXT:  entry:
 ; USE_ASSUME-NEXT:    br label [[INDIRECTGOTO:%.*]]
 ; USE_ASSUME:       while.cond:
-; USE_ASSUME-NEXT:    [[TMP:%.*]] = load ptr, ptr @a, align 8
 ; USE_ASSUME-NEXT:    br label [[BB2:%.*]]
 ; USE_ASSUME:       bb:
 ; USE_ASSUME-NEXT:    call void @__msan_warning_noreturn()
 ; USE_ASSUME-NEXT:    unreachable
 ; USE_ASSUME:       bb2:
-; USE_ASSUME-NEXT:    call void @llvm.assume(i1 true) [ "dereferenceable"(ptr [[TMP]], i64 4), "nonnull"(ptr [[TMP]]), "align"(ptr [[TMP]], i64 4) ]
-; USE_ASSUME-NEXT:    [[TMP4:%.*]] = ptrtoint ptr [[TMP]] to i64
-; USE_ASSUME-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[TMP4]], 0
-; USE_ASSUME-NEXT:    br i1 [[TOBOOL]], label [[BB13:%.*]], label [[BB15:%.*]]
+; USE_ASSUME-NEXT:    br i1 [[TOBOOL:%.*]], label [[BB13:%.*]], label [[BB15:%.*]]
 ; USE_ASSUME:       bb13:
-; USE_ASSUME-NEXT:    [[TMP4_LCSSA:%.*]] = phi i64 [ [[TMP4]], [[BB2]] ]
+; USE_ASSUME-NEXT:    [[TMP4_LCSSA:%.*]] = phi i64 [ [[TMP4:%.*]], [[BB2]] ]
 ; USE_ASSUME-NEXT:    [[TMP8_LE:%.*]] = inttoptr i64 [[TMP4_LCSSA]] to ptr
 ; USE_ASSUME-NEXT:    call void @__msan_warning_noreturn()
 ; USE_ASSUME-NEXT:    unreachable
@@ -60,7 +61,16 @@ define void @fn1() {
 ; USE_ASSUME:       while.end:
 ; USE_ASSUME-NEXT:    ret void
 ; USE_ASSUME:       indirectgoto:
-; USE_ASSUME-NEXT:    indirectbr ptr null, [label [[INDIRECTGOTO]], label %while.cond]
+; USE_ASSUME-NEXT:    indirectswitch ptr null, [
+; USE_ASSUME-NEXT:      ptr edgeaddress(@fn1, 0), label [[INDIRECTGOTO]]
+; USE_ASSUME-NEXT:      ptr edgeaddress(@fn1, 1), label [[WHILE_COND_PREHEADER:%.*]]
+; USE_ASSUME-NEXT:    ]
+; USE_ASSUME:       while.cond.preheader:
+; USE_ASSUME-NEXT:    [[TMP:%.*]] = load ptr, ptr @a, align 8
+; USE_ASSUME-NEXT:    call void @llvm.assume(i1 true) [ "dereferenceable"(ptr [[TMP]], i64 4), "nonnull"(ptr [[TMP]]), "align"(ptr [[TMP]], i64 4) ]
+; USE_ASSUME-NEXT:    [[TMP4]] = ptrtoint ptr [[TMP]] to i64
+; USE_ASSUME-NEXT:    [[TOBOOL]] = icmp eq i64 [[TMP4]], 0
+; USE_ASSUME-NEXT:    br label [[WHILE_COND]]
 ;
 entry:
   br label %indirectgoto
@@ -98,7 +108,7 @@ while.end:                                        ; preds = %bb15
   ret void
 
 indirectgoto:                                     ; preds = %indirectgoto, %entry
-  indirectbr ptr null, [label %indirectgoto, label %while.cond]
+  indirectswitch ptr null, [ ptr edgeaddress(@fn1, 0), label %indirectgoto ptr edgeaddress(@fn1, 1), label %while.cond ]
 }
 
 declare void @__msan_warning_noreturn()

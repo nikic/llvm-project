@@ -809,8 +809,6 @@ define i32 @phi_trans6(ptr noalias nocapture readonly %x, i1 %cond) {
 ; CHECK:       [[HEADER]]:
 ; CHECK-NEXT:    [[L1:%.*]] = phi i32 [ [[L0]], %[[ENTRY]] ], [ [[L1_PRE:%.*]], %[[LATCH_HEADER_CRIT_EDGE:.*]] ]
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, %[[ENTRY]] ], [ [[IV_NEXT:%.*]], %[[LATCH_HEADER_CRIT_EDGE]] ]
-; CHECK-NEXT:    indirectbr ptr blockaddress(@phi_trans6, %[[LATCH:.*]]), [label %latch]
-; CHECK:       [[LATCH]]:
 ; CHECK-NEXT:    [[IV_NEXT]] = add i32 [[IV]], 1
 ; CHECK-NEXT:    br i1 [[COND]], label %[[EXIT:.*]], label %[[LATCH_HEADER_CRIT_EDGE]]
 ; CHECK:       [[LATCH_HEADER_CRIT_EDGE]]:
@@ -827,7 +825,7 @@ entry:
 
 header:
   %iv = phi i32 [0, %entry], [ %iv.next, %latch]
-  indirectbr ptr blockaddress(@phi_trans6, %latch), [label %latch]
+  indirectswitch ptr edgeaddress(@phi_trans6, 0), [ ptr edgeaddress(@phi_trans6, 0), label %latch ]
 
 latch:
   %gep.1 = getelementptr i32, ptr %x, i32 %iv
@@ -850,8 +848,6 @@ define i32 @phi_trans7(ptr noalias nocapture readonly %x, i1 %cond) {
 ; CHECK:       [[HEADER]]:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 2, %[[ENTRY]] ], [ [[IV_NEXT:%.*]], %[[LATCH_HEADER_CRIT_EDGE:.*]] ]
 ; CHECK-NEXT:    [[OFFSET:%.*]] = add i32 [[IV]], -2
-; CHECK-NEXT:    indirectbr ptr blockaddress(@phi_trans7, %[[LATCH:.*]]), [label %latch]
-; CHECK:       [[LATCH]]:
 ; CHECK-NEXT:    [[GEP_1:%.*]] = getelementptr i32, ptr [[X]], i32 [[OFFSET]]
 ; CHECK-NEXT:    [[L1:%.*]] = load i32, ptr [[GEP_1]], align 4
 ; CHECK-NEXT:    [[IV_NEXT]] = add i32 [[IV]], 1
@@ -869,7 +865,7 @@ entry:
 header:
   %iv = phi i32 [2, %entry], [ %iv.next, %latch]
   %offset = add i32 %iv, -2
-  indirectbr ptr blockaddress(@phi_trans7, %latch), [label %latch]
+  indirectswitch ptr edgeaddress(@phi_trans7, 0), [ ptr edgeaddress(@phi_trans7, 0), label %latch ]
 
 latch:
   %gep.1 = getelementptr i32, ptr %x, i32 %offset
@@ -891,8 +887,6 @@ define i32 @phi_trans8(ptr noalias nocapture readonly %x, i1 %cond) {
 ; CHECK-NEXT:    br label %[[HEADER:.*]]
 ; CHECK:       [[HEADER]]:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 2, %[[ENTRY]] ], [ [[IV_NEXT:%.*]], %[[LATCH_HEADER_CRIT_EDGE:.*]] ]
-; CHECK-NEXT:    indirectbr ptr blockaddress(@phi_trans8, %[[LATCH:.*]]), [label %latch]
-; CHECK:       [[LATCH]]:
 ; CHECK-NEXT:    [[OFFSET:%.*]] = add i32 [[IV]], -2
 ; CHECK-NEXT:    [[GEP_1:%.*]] = getelementptr i32, ptr [[X]], i32 [[OFFSET]]
 ; CHECK-NEXT:    [[L1:%.*]] = load i32, ptr [[GEP_1]], align 4
@@ -910,7 +904,7 @@ entry:
 
 header:
   %iv = phi i32 [2, %entry], [ %iv.next, %latch]
-  indirectbr ptr blockaddress(@phi_trans8, %latch), [label %latch]
+  indirectswitch ptr edgeaddress(@phi_trans8, 0), [ ptr edgeaddress(@phi_trans8, 0), label %latch ]
 
 latch:
   %offset = add i32 %iv, -2

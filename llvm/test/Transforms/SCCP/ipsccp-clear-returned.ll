@@ -39,8 +39,11 @@ define internal i32 @blockaddr_user(i1 %c, i32 returned %d) {
 ; CHECK:       [[BB2]]:
 ; CHECK-NEXT:    br label %[[BRANCH_BLOCK]]
 ; CHECK:       [[BRANCH_BLOCK]]:
-; CHECK-NEXT:    [[ADDR:%.*]] = phi ptr [ blockaddress(@blockaddr_user, %[[TARGET1:.*]]), %[[BB1]] ], [ blockaddress(@blockaddr_user, %[[TARGET2:.*]]), %[[BB2]] ]
-; CHECK-NEXT:    indirectbr ptr [[ADDR]], [label %[[TARGET1]], label %target2]
+; CHECK-NEXT:    [[ADDR:%.*]] = phi ptr [ edgeaddress(@blockaddr_user, 0), %[[BB1]] ], [ edgeaddress(@blockaddr_user, 1), %[[BB2]] ]
+; CHECK-NEXT:    indirectswitch ptr [[ADDR]], [
+; CHECK-NEXT:      ptr edgeaddress(@blockaddr_user, 0), label %[[TARGET1:.*]]
+; CHECK-NEXT:      ptr edgeaddress(@blockaddr_user, 1), label %[[TARGET2:.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       [[TARGET1]]:
 ; CHECK-NEXT:    br label %[[TARGET2]]
 ; CHECK:       [[TARGET2]]:
@@ -56,8 +59,8 @@ bb2:
   br label %branch.block
 
 branch.block:
-  %addr = phi ptr [blockaddress(@blockaddr_user, %target1), %bb1], [blockaddress(@blockaddr_user, %target2), %bb2]
-  indirectbr ptr %addr, [label %target1, label %target2]
+  %addr = phi ptr [edgeaddress(@blockaddr_user, 0), %bb1], [edgeaddress(@blockaddr_user, 1), %bb2]
+  indirectswitch ptr %addr, [ ptr edgeaddress(@blockaddr_user, 0), label %target1 ptr edgeaddress(@blockaddr_user, 1), label %target2 ]
 
 target1:
   br label %target2

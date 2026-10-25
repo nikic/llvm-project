@@ -6,16 +6,40 @@
 ; module flag is set, regardless of whether Zicfilp extension is enabled.
 ; The NonX7 variants are selected based on cf-protection-branch, not Zicfilp.
 
-@brind.arr = internal unnamed_addr constant [2 x ptr] [ptr blockaddress(@brind, %5), ptr blockaddress(@brind, %8)], align 8
+@brind.arr = internal unnamed_addr constant [2 x ptr] [ptr edgeaddress(@brind, 0), ptr edgeaddress(@brind, 1)], align 8
 @x = dso_local global i32 0, align 4
 
 define void @brind(i32 noundef signext %0) {
   ; CHECK-LABEL: name: brind
-  ; CHECK:   PseudoBRIND [[VAR:%.*]], 0
+  ; CHECK: bb.0 (%ir-block.1):
+  ; CHECK-NEXT:   successors: %bb.1(0x40000000), %bb.2(0x40000000)
+  ; CHECK-NEXT:   liveins: $x10
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $x10
+  ; CHECK-NEXT:   [[SLLI:%[0-9]+]]:gpr = nsw SLLI [[COPY]], 3
+  ; CHECK-NEXT:   [[PseudoMovAddr:%[0-9]+]]:gpr = PseudoMovAddr target-flags(riscv-hi) @brind.arr, target-flags(riscv-lo) @brind.arr
+  ; CHECK-NEXT:   [[ADD:%[0-9]+]]:gpr = ADD [[PseudoMovAddr]], [[SLLI]]
+  ; CHECK-NEXT:   [[LD:%[0-9]+]]:gprjalrnonx7 = LD [[ADD]], 0 :: (invariant load (s64) from %ir.3)
+  ; CHECK-NEXT:   PseudoBRIND [[LD]], 0
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT: bb.1 (%ir-block.5, ir-block-address-taken %ir-block.5):
+  ; CHECK-NEXT:   successors: %bb.2(0x80000000)
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[LUI:%[0-9]+]]:gpr = LUI target-flags(riscv-hi) @x
+  ; CHECK-NEXT:   [[LW:%[0-9]+]]:gpr = LW [[LUI]], target-flags(riscv-lo) @x :: (dereferenceable load (s32) from @x)
+  ; CHECK-NEXT:   [[ADDIW:%[0-9]+]]:gpr = ADDIW [[LW]], 2
+  ; CHECK-NEXT:   SW [[ADDIW]], [[LUI]], target-flags(riscv-lo) @x :: (store (s32) into @x)
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT: bb.2 (%ir-block.8, ir-block-address-taken %ir-block.8):
+  ; CHECK-NEXT:   [[LUI1:%[0-9]+]]:gpr = LUI target-flags(riscv-hi) @x
+  ; CHECK-NEXT:   [[LW1:%[0-9]+]]:gpr = LW [[LUI1]], target-flags(riscv-lo) @x :: (dereferenceable load (s32) from @x)
+  ; CHECK-NEXT:   [[ADDIW1:%[0-9]+]]:gpr = ADDIW [[LW1]], 1
+  ; CHECK-NEXT:   SW [[ADDIW1]], [[LUI1]], target-flags(riscv-lo) @x :: (store (s32) into @x)
+  ; CHECK-NEXT:   PseudoRET
   %2 = sext i32 %0 to i64
   %3 = getelementptr inbounds [2 x ptr], ptr @brind.arr, i64 0, i64 %2
   %4 = load ptr, ptr %3, align 8
-  indirectbr ptr %4, [label %5, label %8]
+  indirectswitch ptr %4, [ ptr edgeaddress(@brind, 0), label %5 ptr edgeaddress(@brind, 1), label %8 ]
 
 5:                                                ; preds = %1
   %6 = load i32, ptr @x, align 4
@@ -32,7 +56,16 @@ define void @brind(i32 noundef signext %0) {
 
 define i32 @indirect_call(ptr %0) {
   ; CHECK-LABEL: name: indirect_call
-  ; CHECK: PseudoCALLIndirect
+  ; CHECK: bb.0 (%ir-block.1):
+  ; CHECK-NEXT:   liveins: $x10
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gprjalrnonx7 = COPY $x10
+  ; CHECK-NEXT:   ADJCALLSTACKDOWN 0, 0, implicit-def dead $x2, implicit $x2
+  ; CHECK-NEXT:   PseudoCALLIndirect [[COPY]], csr_ilp32_lp64, implicit-def dead $x1, implicit-def $x2
+  ; CHECK-NEXT:   ADJCALLSTACKUP 0, 0, implicit-def dead $x2, implicit $x2
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $x0
+  ; CHECK-NEXT:   $x10 = COPY [[COPY1]]
+  ; CHECK-NEXT:   PseudoRET implicit $x10
   call void %0()
   ret i32 0
 }
@@ -40,7 +73,11 @@ define i32 @indirect_call(ptr %0) {
 
 define void @indirect_tail(ptr %0) {
   ; CHECK-LABEL: name: indirect_tail
-  ; CHECK: PseudoTAILIndirect
+  ; CHECK: bb.0 (%ir-block.1):
+  ; CHECK-NEXT:   liveins: $x10
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gprtcnonx7 = COPY $x10
+  ; CHECK-NEXT:   PseudoTAILIndirect [[COPY]], csr_ilp32_lp64, implicit $x2
   tail call void %0()
   ret void
 }

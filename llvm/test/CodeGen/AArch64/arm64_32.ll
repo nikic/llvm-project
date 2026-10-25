@@ -458,12 +458,12 @@ dest:
 define ptr @test_indirectbr(ptr %dest) {
 ; CHECK-LABEL: test_indirectbr:
 ; CHECK: br x0
-  indirectbr ptr %dest, [label %true, label %false]
+  indirectswitch ptr %dest, [ ptr edgeaddress(@test_indirectbr, 0), label %true ptr edgeaddress(@test_indirectbr, 1), label %false ]
 
 true:
-  ret ptr blockaddress(@test_indirectbr, %true)
+  ret ptr edgeaddress(@test_indirectbr, 0)
 false:
-  ret ptr blockaddress(@test_indirectbr, %false)
+  ret ptr edgeaddress(@test_indirectbr, 1)
 }
 
 ; ISelDAGToDAG tries to fold an offset FI load (in this case var+4) into the

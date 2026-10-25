@@ -4,8 +4,8 @@
 define i32 @callee_indr_branch(i32 %v) {
 entry:
   %cmp = icmp sgt i32 %v, 2000
-  %addr = select i1 %cmp, ptr blockaddress(@callee_indr_branch, %if.then), ptr blockaddress(@callee_indr_branch, %if.end)
-  indirectbr ptr %addr, [ label %if.then, label %if.end]
+  %addr = select i1 %cmp, ptr edgeaddress(@callee_indr_branch, 0), ptr edgeaddress(@callee_indr_branch, 1)
+  indirectswitch ptr %addr, [ ptr edgeaddress(@callee_indr_branch, 0), label %if.then ptr edgeaddress(@callee_indr_branch, 1), label %if.end ]
 
 if.then:                                          ; preds = %entry
   %mul = mul nsw i32 %v, 10

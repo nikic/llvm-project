@@ -16,14 +16,14 @@ entry:
   %l = alloca ptr, align 8
   store i32 %i, ptr %i.addr, align 4
   store i32 0, ptr %ret, align 4
-  store ptr blockaddress(@_Z1fi, %val_0), ptr %l, align 8
+  store ptr edgeaddress(@_Z1fi, 0), ptr %l, align 8
   %0 = load i32, ptr %i.addr, align 4
   %and = and i32 %0, 256
   %cmp = icmp eq i32 %and, 0
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:
-  store ptr blockaddress(@_Z1fi, %val_1), ptr %l, align 8
+  store ptr edgeaddress(@_Z1fi, 1), ptr %l, align 8
   br label %if.end
 
 if.end:
@@ -45,7 +45,7 @@ end:
 
 indirectgoto:
   %indirect.goto.dest = phi ptr [ %1, %if.end ]
-  indirectbr ptr %indirect.goto.dest, [label %val_0, label %val_1]
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@_Z1fi, 0), label %val_0 ptr edgeaddress(@_Z1fi, 1), label %val_1 ]
 }
 
 define i32 @_Z1gi(i32 %i) #0 {
@@ -58,14 +58,14 @@ entry:
   %l = alloca ptr, align 8
   store i32 %i, ptr %i.addr, align 4
   store i32 0, ptr %ret, align 4
-  store ptr blockaddress(@_Z1gi, %val_0), ptr %l, align 8
+  store ptr edgeaddress(@_Z1gi, 0), ptr %l, align 8
   %0 = load i32, ptr %i.addr, align 4
   %and = and i32 %0, 256
   %cmp = icmp eq i32 %and, 0
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:
-  store ptr blockaddress(@_Z1gi, %val_1), ptr %l, align 8
+  store ptr edgeaddress(@_Z1gi, 1), ptr %l, align 8
   br label %if.end
 
 if.end:
@@ -86,6 +86,6 @@ end:
 
 indirectgoto:
   %indirect.goto.dest = phi ptr [ %1, %if.end ]
-  indirectbr ptr %indirect.goto.dest, [label %val_0, label %val_1]
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@_Z1gi, 0), label %val_0 ptr edgeaddress(@_Z1gi, 1), label %val_1 ]
 }
 

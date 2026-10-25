@@ -2,20 +2,20 @@
 ; RUN: llc -mtriple=xtensa -verify-machineinstrs < %s \
 ; RUN: | FileCheck -check-prefix=XTENSA %s
 
-define i32 @indirectbr(i8* %target) nounwind {
+define i32 @indirectbr(ptr %target) nounwind {
 ; XTENSA-LABEL: indirectbr:
 ; XTENSA:         jx a2
 ; XTENSA-NEXT:  .LBB0_1: # %test_label
 ; XTENSA-NEXT:    movi a2, 0
 ; XTENSA-NEXT:    ret
-  indirectbr i8* %target, [label %test_label]
+  indirectswitch ptr %target, [ ptr edgeaddress(@indirectbr, 0), label %test_label ]
 test_label:
   br label %ret
 ret:
   ret i32 0
 }
 
-define i32 @indirectbr_with_offset(i8* %a) nounwind {
+define i32 @indirectbr_with_offset(ptr %a) nounwind {
 ; XTENSA-LABEL: indirectbr_with_offset:
 ; XTENSA:         movi a8, 1380
 ; XTENSA-NEXT:    add a8, a2, a8
@@ -23,8 +23,8 @@ define i32 @indirectbr_with_offset(i8* %a) nounwind {
 ; XTENSA-NEXT:  .LBB1_1: # %test_label
 ; XTENSA-NEXT:    movi a2, 0
 ; XTENSA-NEXT:    ret
-  %target = getelementptr inbounds i8, i8* %a, i32 1380
-  indirectbr i8* %target, [label %test_label]
+  %target = getelementptr inbounds i8, ptr %a, i32 1380
+  indirectswitch ptr %target, [ ptr edgeaddress(@indirectbr_with_offset, 0), label %test_label ]
 test_label:
   br label %ret
 ret:

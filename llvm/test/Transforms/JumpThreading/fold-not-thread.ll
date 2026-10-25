@@ -214,7 +214,7 @@ X1:
   br i1 %cond, label %XX1, label %L3
 
 XX1:
-  indirectbr ptr blockaddress(@test_br_folding_not_threading_indirect_branch, %L0), [label %L0]
+  indirectswitch ptr edgeaddress(@test_br_folding_not_threading_indirect_branch, 0), [ ptr edgeaddress(@test_br_folding_not_threading_indirect_branch, 0), label %L0 ]
 
 L0:
   call i32 @f2()

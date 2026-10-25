@@ -86,7 +86,7 @@ entry:
 define internal i32 @inner5(ptr %addr) alwaysinline {
 ; CHECK-LABEL: @inner5(
 entry:
-  indirectbr ptr %addr, [ label %one, label %two ]
+  indirectswitch ptr %addr, [ ptr edgeaddress(@inner5, 0), label %one ptr edgeaddress(@inner5, 1), label %two ]
 
 one:
   ret i32 42
@@ -100,7 +100,7 @@ define i32 @outer5(i32 %x) {
 ; CHECK: ret
 
   %cmp = icmp slt i32 %x, 42
-  %addr = select i1 %cmp, ptr blockaddress(@inner5, %one), ptr blockaddress(@inner5, %two)
+  %addr = select i1 %cmp, ptr edgeaddress(@inner5, 0), ptr edgeaddress(@inner5, 1)
   %call = call i32 @inner5(ptr %addr)
   ret i32 %call
 }

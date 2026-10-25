@@ -12,7 +12,7 @@ L0:
   br label %L1
 
 L1:
-  indirectbr ptr %x, [ label %L0, label %L1 ]
+  indirectswitch ptr %x, [ ptr edgeaddress(@t1, 0), label %L0 ptr edgeaddress(@t1, 1), label %L1 ]
 ; ARM: bx r0
 ; THUMB: mov pc, r0
 }

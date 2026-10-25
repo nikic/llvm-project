@@ -17,7 +17,7 @@ entry:
   %tmp = ashr i32 %call, 31
   %0 = and i32 %tmp, 1396
   %index9 = add i32 %0, 2397
-  indirectbr ptr undef, [label %return, label %if.end]
+  indirectswitch ptr undef, [ ptr edgeaddress(@zarray, 0), label %return ptr edgeaddress(@zarray, 1), label %if.end ]
 
 if.end:                                           ; preds = %entry
   %size5 = getelementptr inbounds %struct.ref_s, ptr %op, i64 0, i32 2
@@ -25,7 +25,7 @@ if.end:                                           ; preds = %entry
   %tobool1 = icmp eq i16 %tmp6, 0
   %1 = select i1 %tobool1, i32 1396, i32 -1910
   %index10 = add i32 %index9, %1
-  indirectbr ptr undef, [label %return, label %while.body.lr.ph]
+  indirectswitch ptr undef, [ ptr edgeaddress(@zarray, 2), label %return ptr edgeaddress(@zarray, 3), label %while.body.lr.ph ]
 
 while.body.lr.ph:                                 ; preds = %if.end
   %tmp9 = load ptr, ptr %op, align 8
@@ -35,7 +35,7 @@ while.body.lr.ph:                                 ; preds = %if.end
   %3 = getelementptr [3891 x i64], ptr @table, i64 0, i64 %2
   %blockaddress14 = load i64, ptr %3, align 8
   %4 = inttoptr i64 %blockaddress14 to ptr
-  indirectbr ptr %4, [label %while.body]
+  indirectswitch ptr %4, [ ptr edgeaddress(@zarray, 4), label %while.body ]
 
 while.body:                                       ; preds = %while.body, %while.body.lr.ph
   %index7 = phi i32 [ %index15, %while.body ], [ %index13, %while.body.lr.ph ]
@@ -51,7 +51,7 @@ while.body:                                       ; preds = %while.body, %while.
   %6 = getelementptr [3891 x i64], ptr @table, i64 0, i64 %5
   %blockaddress16 = load i64, ptr %6, align 8
   %7 = inttoptr i64 %blockaddress16 to ptr
-  indirectbr ptr %7, [label %return, label %while.body]
+  indirectswitch ptr %7, [ ptr edgeaddress(@zarray, 5), label %return ptr edgeaddress(@zarray, 6), label %while.body ]
 
 return:                                           ; preds = %while.body, %if.end, %entry
   %retval.0 = phi i32 [ %call, %entry ], [ 0, %if.end ], [ 0, %while.body ]

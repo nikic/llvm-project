@@ -77,21 +77,13 @@ a:
   ret void
 }
 
-; Coexists with indirectbr in the same function.
-define i32 @both(ptr %p, ptr %q, i1 %c) #0 {
+define i32 @both(ptr %p) #0 {
 ; CHECK-LABEL: define i32 @both(
-; CHECK-SAME: ptr [[P:%.*]], ptr [[Q:%.*]], i1 [[C:%.*]]) #[[ATTR0]] {
+; CHECK-SAME: ptr [[P:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:  [[ENTRY:.*:]]
-; CHECK-NEXT:    br i1 [[C]], label %[[IB:.*]], label %[[IS:.*]]
-; CHECK:       [[IB]]:
-; CHECK-NEXT:    [[Q_SWITCH_CAST:%.*]] = ptrtoint ptr [[Q]] to i64
-; CHECK-NEXT:    switch i64 [[Q_SWITCH_CAST]], label %[[X:.*]] [
-; CHECK-NEXT:      i64 2, label %[[Y:.*]]
-; CHECK-NEXT:    ]
-; CHECK:       [[IS]]:
 ; CHECK-NEXT:    [[P_SWITCH_CAST:%.*]] = ptrtoint ptr [[P]] to i64
-; CHECK-NEXT:    switch i64 [[P_SWITCH_CAST]], label %[[X]] [
-; CHECK-NEXT:      i64 2, label %[[Y]]
+; CHECK-NEXT:    switch i64 [[P_SWITCH_CAST]], label %[[X:.*]] [
+; CHECK-NEXT:      i64 2, label %[[Y:.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       [[X]]:
 ; CHECK-NEXT:    ret i32 1
@@ -99,10 +91,6 @@ define i32 @both(ptr %p, ptr %q, i1 %c) #0 {
 ; CHECK-NEXT:    ret i32 2
 ;
 entry:
-  br i1 %c, label %ib, label %is
-ib:
-  indirectbr ptr %q, [label %x, label %y]
-is:
   indirectswitch ptr %p, [ ptr edgeaddress(@both, 0), label %x
   ptr edgeaddress(@both, 1), label %y ]
 x:
@@ -114,10 +102,8 @@ y:
 define ptr @uses() {
 ; CHECK-LABEL: define ptr @uses() {
 ; CHECK-NEXT:    call void @sink(ptr inttoptr (i64 1 to ptr), ptr inttoptr (i64 2 to ptr))
-; CHECK-NEXT:    call void @sink(ptr inttoptr (i64 1 to ptr), ptr inttoptr (i64 2 to ptr))
 ; CHECK-NEXT:    ret ptr inttoptr (i64 4 to ptr)
 ;
-  call void @sink(ptr blockaddress(@both, %x), ptr blockaddress(@both, %y))
   call void @sink(ptr edgeaddress(@both, 0), ptr edgeaddress(@both, 1))
   ret ptr edgeaddress(@f, 3)
 }

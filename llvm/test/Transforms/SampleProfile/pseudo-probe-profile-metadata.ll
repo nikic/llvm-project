@@ -1,7 +1,7 @@
 ; RUN: opt < %s -passes=pseudo-probe,sample-profile -sample-profile-file=%S/Inputs/pseudo-probe-profile-metadata.prof -sample-profile-use-profi=0 -S | FileCheck %s
 
 ; The test verifies the presence of prof metadata for BranchInst, SwitchInst,
-; and IndirectBrInst
+; and IndirectSwitchInst
 
 @yydebug = dso_local global i32 0, align 4
 
@@ -34,8 +34,12 @@ b3:
 indirectgoto:
   %indirect.goto.dest = alloca i8, align 4
   call void @llvm.pseudoprobe(i64 6699318081062747564, i64 5, i32 0, i64 -1)
-  indirectbr ptr %indirect.goto.dest, [label %b1, label %b3, label %b2]
-; CHECK: indirectbr ptr %indirect.goto.dest, [label %b1, label %b3, label %b2], !prof ![[GOTO_PROF:[0-9]+]]
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@foo, 0), label %b1 ptr edgeaddress(@foo, 1), label %b3 ptr edgeaddress(@foo, 2), label %b2 ]
+; CHECK: indirectswitch ptr %indirect.goto.dest, [
+; CHECK-NEXT: ptr edgeaddress(@foo, 0), label %b1
+; CHECK-NEXT: ptr edgeaddress(@foo, 1), label %b3
+; CHECK-NEXT: ptr edgeaddress(@foo, 2), label %b2
+; CHECK-NEXT: ], !prof ![[GOTO_PROF:[0-9]+]]
 
 exit:
   call void @llvm.pseudoprobe(i64 6699318081062747564, i64 6, i32 0, i64 -1)

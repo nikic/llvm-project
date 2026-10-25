@@ -9,7 +9,7 @@ define void @foo (ptr %arg)
     br i1 false, label %loop, label %return
 
   loop:
-    indirectbr ptr %arg, [label %preheader, label %stuff]
+    indirectswitch ptr %arg, [ ptr edgeaddress(@foo, 0), label %preheader ptr edgeaddress(@foo, 1), label %stuff ]
 
   stuff:
     %0 = load i8, ptr %arg, align 1

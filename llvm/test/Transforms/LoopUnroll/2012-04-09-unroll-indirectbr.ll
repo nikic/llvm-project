@@ -14,9 +14,9 @@ entry:
 
 for.body:                                         ; preds = ; %call2_termjoin, %call3_termjoin
   %indvars.iv = phi i64 [ 0, %entry ], [ %joinphi15.in.in, %call2_termjoin ]
-  %a6 = call coldcc ptr @funca(ptr blockaddress(@main, %for.body_code), ptr
-blockaddress(@main, %for.body_codeprime)) nounwind
-  indirectbr ptr %a6, [label %for.body_code, label %for.body_codeprime]
+  %a6 = call coldcc ptr @funca(ptr edgeaddress(@main, 0), ptr
+edgeaddress(@main, 1)) nounwind
+  indirectswitch ptr %a6, [ ptr edgeaddress(@main, 0), label %for.body_code ptr edgeaddress(@main, 1), label %for.body_codeprime ]
 
 for.body_code:                                    ; preds = %for.body
   call void @subtract()

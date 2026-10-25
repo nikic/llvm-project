@@ -7,7 +7,7 @@ target triple = "thumbv7-apple-darwin10"
 ; CHECK-NOT: pop
 ; CHECK: bx lr
 
-@codetable.2928 = internal constant [5 x ptr] [ptr blockaddress(@interpret_threaded, %RETURN), ptr blockaddress(@interpret_threaded, %INCREMENT), ptr blockaddress(@interpret_threaded, %DECREMENT), ptr blockaddress(@interpret_threaded, %DOUBLE), ptr blockaddress(@interpret_threaded, %SWAPWORD)] ; <ptr> [#uses=5]
+@codetable.2928 = internal constant [5 x ptr] [ptr edgeaddress(@interpret_threaded, 0), ptr edgeaddress(@interpret_threaded, 1), ptr edgeaddress(@interpret_threaded, 2), ptr edgeaddress(@interpret_threaded, 3), ptr edgeaddress(@interpret_threaded, 4)] ; <ptr> [#uses=5]
 @llvm.used = appending global [1 x ptr] [ptr @interpret_threaded], section "llvm.metadata" ; <ptr> [#uses=0]
 
 define i32 @interpret_threaded(ptr nocapture %opcodes) nounwind readonly optsize {
@@ -23,7 +23,7 @@ bb:                                               ; preds = %bb.backedge, %entry
   %result.0 = phi i32 [ %result.0.be, %bb.backedge ], [ 0, %entry ] ; <i32> [#uses=6]
   %opcodes_addr.0 = getelementptr i8, ptr %opcodes, i32 %indvar ; <ptr> [#uses=4]
   %gotovar.22.0 = load ptr, ptr %gotovar.22.0.in, align 4 ; <ptr> [#uses=1]
-  indirectbr ptr %gotovar.22.0, [label %RETURN, label %INCREMENT, label %DECREMENT, label %DOUBLE, label %SWAPWORD]
+  indirectswitch ptr %gotovar.22.0, [ ptr edgeaddress(@interpret_threaded, 0), label %RETURN ptr edgeaddress(@interpret_threaded, 1), label %INCREMENT ptr edgeaddress(@interpret_threaded, 2), label %DECREMENT ptr edgeaddress(@interpret_threaded, 3), label %DOUBLE ptr edgeaddress(@interpret_threaded, 4), label %SWAPWORD ]
 
 RETURN:                                           ; preds = %bb
   ret i32 %result.0

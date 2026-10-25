@@ -17,10 +17,13 @@ bb1:
 
 ; CHECK: bb2:
 ; CHECK-NEXT: select
-; CHECK-NEXT: indirectbr ptr %ba, [label %bb3, label %bb5]
+; CHECK-NEXT: indirectswitch ptr %ba, [
+; CHECK-NEXT: ptr edgeaddress(@jtbr, 0), label %bb3
+; CHECK-NEXT: ptr edgeaddress(@jtbr, 1), label %bb6
+; CHECK-NEXT: ]
 bb2:
-  %ba = select i1 %v3, ptr blockaddress(@jtbr, %bb3), ptr blockaddress(@jtbr, %bb4)
-  indirectbr ptr %ba, [label %bb3, label %bb4]
+  %ba = select i1 %v3, ptr edgeaddress(@jtbr, 0), ptr edgeaddress(@jtbr, 1)
+  indirectswitch ptr %ba, [ ptr edgeaddress(@jtbr, 0), label %bb3 ptr edgeaddress(@jtbr, 1), label %bb4 ]
 
 ; CHECK: bb3:
 bb3:
@@ -30,7 +33,8 @@ bb3:
 bb4:
   br label %bb5
 
-; CHECK: bb5:
+; Edges from indirectswitch can be threaded: %c is true in %bb2.
+; CHECK-NOT: bb5:
 bb5:
   br i1 %c, label %bb6, label %bb7
 

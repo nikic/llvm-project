@@ -1,19 +1,20 @@
 ; RUN: mkdir -p %t && cd %t
 ; RUN: opt < %s -passes=insert-gcov-profiling -S | FileCheck %s
 
-; CHECK:       @__llvm_gcov_ctr = internal global [1 x i64] zeroinitializer
+; CHECK:       @__llvm_gcov_ctr = internal global [2 x i64] zeroinitializer
 
-;; If an indirectbr critical edge cannot be split, ignore it.
-;; The edge will not be profiled.
+;; Critical edges from an indirectswitch can be split, so both edges into
+;; %indirect are profiled.
 ; CHECK-LABEL: @cannot_split(
-; CHECK:       indirect.preheader:
+; CHECK:       indirect:
 ; CHECK-NEXT:    load {{.*}} @__llvm_gcov_ctr
-; CHECK-NOT:     load {{.*}} @__llvm_gcov_ctr
+; CHECK:       indirect.clone:
+; CHECK-NEXT:    load {{.*}} getelementptr inbounds (i8, ptr @__llvm_gcov_ctr, i64 8)
 
 define dso_local i32 @cannot_split(ptr nocapture readonly %p) !dbg !7 {
 entry:
   %targets = alloca <2 x ptr>, align 16
-  store <2 x ptr> <ptr blockaddress(@cannot_split, %indirect), ptr blockaddress(@cannot_split, %end)>, ptr %targets, align 16, !dbg !9
+  store <2 x ptr> <ptr edgeaddress(@cannot_split, 0), ptr edgeaddress(@cannot_split, 1)>, ptr %targets, align 16, !dbg !9
   br label %for.cond, !dbg !14
 
 for.cond:                                         ; preds = %for.cond, %entry
@@ -31,12 +32,7 @@ indirect.preheader:                               ; preds = %for.cond
   br label %indirect
 
 indirect:                                         ; preds = %indirect.preheader, %indirect
-  indirectbr ptr %2, [label %indirect, label %end]
-
-indirect2:
-  ; For this test we do not want critical edges split. Adding a 2nd `indirectbr`
-  ; does the trick.
-  indirectbr ptr %2, [label %indirect, label %end]
+  indirectswitch ptr %2, [ ptr edgeaddress(@cannot_split, 0), label %indirect ptr edgeaddress(@cannot_split, 1), label %end ]
 
 end:                                              ; preds = %indirect
   ret i32 0, !dbg !22

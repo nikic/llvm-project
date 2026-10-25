@@ -3,7 +3,7 @@
 
 define i32 @foo(ptr) {
 entry:
-  indirectbr ptr %0, [label %A, label %B, label %entry]
+  indirectswitch ptr %0, [ ptr edgeaddress(@foo, 0), label %A ptr edgeaddress(@foo, 1), label %B ptr edgeaddress(@foo, 2), label %entry ]
 A:
   ret i32 1
 B:

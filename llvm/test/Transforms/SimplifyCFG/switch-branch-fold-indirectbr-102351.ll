@@ -6,10 +6,10 @@ define i32 @foo.1(i32 %arg, ptr %arg1) {
 ; CHECK-SAME: i32 [[ARG:%.*]], ptr [[ARG1:%.*]]) {
 ; CHECK-NEXT:  [[BB:.*]]:
 ; CHECK-NEXT:    [[ALLOCA:%.*]] = alloca [2 x ptr], align 16
-; CHECK-NEXT:    store ptr blockaddress(@foo.1, %[[BB2:.*]]), ptr [[ALLOCA]], align 16
+; CHECK-NEXT:    store ptr edgeaddress(@foo.1, 0), ptr [[ALLOCA]], align 16
 ; CHECK-NEXT:    [[GETELEMENTPTR:%.*]] = getelementptr inbounds [2 x ptr], ptr [[ALLOCA]], i64 0, i64 1
-; CHECK-NEXT:    store ptr blockaddress(@foo.1, %[[BB16:.*]]), ptr [[GETELEMENTPTR]], align 8
-; CHECK-NEXT:    br label %[[BB2]]
+; CHECK-NEXT:    store ptr edgeaddress(@foo.1, 1), ptr [[GETELEMENTPTR]], align 8
+; CHECK-NEXT:    br label %[[BB2:.*]]
 ; CHECK:       [[BB2]]:
 ; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ 0, %[[BB]] ], [ 2, %[[BB18:.*]] ]
 ; CHECK-NEXT:    [[PHI3:%.*]] = phi i32 [ 0, %[[BB]] ], [ [[ARG]], %[[BB18]] ]
@@ -23,18 +23,21 @@ define i32 @foo.1(i32 %arg, ptr %arg1) {
 ; CHECK-NEXT:    br label %[[BB18]]
 ; CHECK:       [[BB2_UNREACHABLEDEFAULT]]:
 ; CHECK-NEXT:    unreachable
-; CHECK:       [[BB16]]:
+; CHECK:       [[BB16:.*]]:
 ; CHECK-NEXT:    [[CALL17:%.*]] = call i32 @wombat(i32 noundef [[ARG]])
 ; CHECK-NEXT:    ret i32 0
 ; CHECK:       [[BB18]]:
 ; CHECK-NEXT:    [[LOAD:%.*]] = load ptr, ptr [[ARG1]], align 8
-; CHECK-NEXT:    indirectbr ptr [[LOAD]], [label %[[BB2]], label %bb16]
+; CHECK-NEXT:    indirectswitch ptr [[LOAD]], [
+; CHECK-NEXT:      ptr edgeaddress(@foo.1, 0), label %[[BB2]]
+; CHECK-NEXT:      ptr edgeaddress(@foo.1, 1), label %[[BB16]]
+; CHECK-NEXT:    ]
 ;
 bb:
   %alloca = alloca [2 x ptr], align 16
-  store ptr blockaddress(@foo.1, %bb8), ptr %alloca, align 16
+  store ptr edgeaddress(@foo.1, 0), ptr %alloca, align 16
   %getelementptr = getelementptr inbounds [2 x ptr], ptr %alloca, i64 0, i64 1
-  store ptr blockaddress(@foo.1, %bb16), ptr %getelementptr, align 8
+  store ptr edgeaddress(@foo.1, 1), ptr %getelementptr, align 8
   br label %bb2
 
 bb2:                                              ; preds = %bb13, %bb
@@ -69,7 +72,7 @@ bb16:                                             ; preds = %bb18
 
 bb18:                                             ; preds = %bb11, %bb5
   %load = load ptr, ptr %arg1, align 8
-  indirectbr ptr %load, [label %bb8, label %bb16]
+  indirectswitch ptr %load, [ ptr edgeaddress(@foo.1, 0), label %bb8 ptr edgeaddress(@foo.1, 1), label %bb16 ]
 }
 
 declare i32 @wombat(i32)

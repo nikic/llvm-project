@@ -8,9 +8,9 @@
 
   define void @test() {
   entry:
-    store volatile ptr blockaddress(@test, %block), ptr @addr
+    store volatile ptr edgeaddress(@test, 0), ptr @addr
     %val = load volatile ptr, ptr @addr
-    indirectbr ptr %val, [label %block]
+    indirectswitch ptr %val, [ ptr edgeaddress(@test, 0), label %block ]
 
   block:
     ret void
@@ -18,9 +18,9 @@
 
   define void @test2() {
   entry:
-    store volatile ptr blockaddress(@test2, %"quoted block"), ptr @addr
+    store volatile ptr edgeaddress(@test2, 0), ptr @addr
     %val = load volatile ptr, ptr @addr
-    indirectbr ptr %val, [label %"quoted block"]
+    indirectswitch ptr %val, [ ptr edgeaddress(@test2, 0), label %"quoted block" ]
 
   "quoted block":
     ret void
@@ -28,24 +28,24 @@
 
   define void @slot_in_other_function(ptr %addr) {
   entry:
-    store volatile ptr blockaddress(@test3, %0), ptr %addr
+    store volatile ptr edgeaddress(@test3, 0), ptr %addr
     ret void
   }
 
   define void @test3() {
   entry:
-    store volatile ptr blockaddress(@test3, %0), ptr @addr
+    store volatile ptr edgeaddress(@test3, 0), ptr @addr
     %val = load volatile ptr, ptr @addr
-    indirectbr ptr %val, [label %0]
+    indirectswitch ptr %val, [ ptr edgeaddress(@test3, 0), label %0 ]
 
     ret void
   }
 
   define void @test4() {
   entry:
-    store volatile ptr blockaddress(@test4, %block), ptr @addr
+    store volatile ptr edgeaddress(@test4, 0), ptr @addr
     %val = load volatile ptr, ptr @addr
-    indirectbr ptr %val, [label %block]
+    indirectswitch ptr %val, [ ptr edgeaddress(@test4, 0), label %block ]
 
   block:
     ret void

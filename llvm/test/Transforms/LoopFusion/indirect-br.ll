@@ -8,7 +8,7 @@ define i32 @foo(ptr nocapture readonly %p) {
 ; CHECK-SAME: ptr readonly captures(none) [[P:%.*]]) {
 ; CHECK-NEXT:  [[ENTRY:.*]]:
 ; CHECK-NEXT:    [[TBL:%.*]] = alloca <2 x ptr>, align 16
-; CHECK-NEXT:    store <2 x ptr> <ptr blockaddress(@foo, %[[INDIRECT:.*]]), ptr blockaddress(@foo, %[[EXIT:.*]])>, ptr [[TBL]], align 16
+; CHECK-NEXT:    store <2 x ptr> <ptr edgeaddress(@foo, 0), ptr edgeaddress(@foo, 1)>, ptr [[TBL]], align 16
 ; CHECK-NEXT:    br label %[[FOR_COND:.*]]
 ; CHECK:       [[FOR_COND]]:
 ; CHECK-NEXT:    [[CUR:%.*]] = phi ptr [ [[P]], %[[ENTRY]] ], [ [[NEXT:%.*]], %[[FOR_COND]] ]
@@ -21,17 +21,22 @@ define i32 @foo(ptr nocapture readonly %p) {
 ; CHECK-NEXT:    [[IDX:%.*]] = sext i8 [[RAW]] to i64
 ; CHECK-NEXT:    [[SLOT:%.*]] = getelementptr inbounds <2 x ptr>, ptr [[TBL]], i64 0, i64 [[IDX]]
 ; CHECK-NEXT:    [[DEST:%.*]] = load ptr, ptr [[SLOT]], align 8
-; CHECK-NEXT:    br label %[[INDIRECT]]
+; CHECK-NEXT:    br label %[[INDIRECT:.*]]
 ; CHECK:       [[INDIRECT]]:
-; CHECK-NEXT:    indirectbr ptr [[DEST]], [label %[[INDIRECT]], label %[[EXIT]]]
+; CHECK-NEXT:    br label %[[DISPATCH:.*]]
 ; CHECK:       [[INDIRECT2:.*:]]
-; CHECK-NEXT:    indirectbr ptr [[DEST]], [label %[[INDIRECT]], label %[[EXIT]]]
-; CHECK:       [[EXIT]]:
+; CHECK-NEXT:    unreachable
+; CHECK:       [[EXIT:.*]]:
 ; CHECK-NEXT:    ret i32 0
+; CHECK:       [[DISPATCH]]:
+; CHECK-NEXT:    indirectswitch ptr [[DEST]], [
+; CHECK-NEXT:      ptr edgeaddress(@foo, 0), label %[[INDIRECT]]
+; CHECK-NEXT:      ptr edgeaddress(@foo, 1), label %[[EXIT]]
+; CHECK-NEXT:    ]
 ;
 entry:
   %tbl = alloca <2 x ptr>, align 16
-  store <2 x ptr> <ptr blockaddress(@foo, %indirect), ptr blockaddress(@foo, %exit)>, ptr %tbl, align 16
+  store <2 x ptr> <ptr edgeaddress(@foo, 0), ptr edgeaddress(@foo, 1)>, ptr %tbl, align 16
   br label %for.cond
 
 for.cond:                                         ; preds = %for.cond, %entry
@@ -49,11 +54,17 @@ indirect.preheader:                               ; preds = %for.cond
   br label %indirect
 
 indirect:
-  indirectbr ptr %dest, [label %indirect, label %exit]
+  br label %dispatch
 
 indirect2:
-  indirectbr ptr %dest, [label %indirect, label %exit]
+  br label %dispatch
 
 exit:
   ret i32 0
+
+dispatch:
+  indirectswitch ptr %dest, [
+  ptr edgeaddress(@foo, 0), label %indirect
+  ptr edgeaddress(@foo, 1), label %exit
+  ]
 }

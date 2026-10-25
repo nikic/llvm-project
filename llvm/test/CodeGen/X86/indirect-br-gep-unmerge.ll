@@ -17,7 +17,10 @@ define ptr @testFunc(ptr readonly %array, i1 %skip) {
 ; CHECK-NEXT:    [[CURRENTARRAYELEMENT:%.*]] = phi ptr [ [[ARRAY]], [[ENTRY:%.*]] ], [ [[NEXTARRAYELEMENT:%.*]], [[LOOPFOOTER:%.*]] ]
 ; CHECK-NEXT:    [[ELEMENTVALUEPTR:%.*]] = getelementptr inbounds i8, ptr [[CURRENTARRAYELEMENT]], i64 1
 ; CHECK-NEXT:    [[ELEMENTVALUE:%.*]] = load i8, ptr [[ELEMENTVALUEPTR]], align 1
-; CHECK-NEXT:    indirectbr ptr @indirectBrPtr, [label [[LOOPFOOTER]], label %endBlock]
+; CHECK-NEXT:    indirectswitch ptr @indirectBrPtr, [
+; CHECK-NEXT:      ptr edgeaddress(@testFunc, 0), label [[LOOPFOOTER]]
+; CHECK-NEXT:      ptr edgeaddress(@testFunc, 1), label [[ENDBLOCK:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       loopFooter:
 ; CHECK-NEXT:    [[ISGOODVALUE:%.*]] = icmp eq i8 [[ELEMENTVALUE]], 0
 ; CHECK-NEXT:    [[NEXTARRAYELEMENT]] = getelementptr inbounds [[STRUCT_BLUB:%.*]], ptr [[CURRENTARRAYELEMENT]], i64 1
@@ -25,7 +28,7 @@ define ptr @testFunc(ptr readonly %array, i1 %skip) {
 ; CHECK:       endBlock:
 ; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
 ; CHECK:       .split:
-; CHECK-NEXT:    [[MERGE:%.*]] = phi ptr [ [[ELEMENTVALUEPTR]], [[ENDBLOCK:%.*]] ], [ [[RETVAL_CLONE:%.*]], [[ENDBLOCK_CLONE]] ]
+; CHECK-NEXT:    [[MERGE:%.*]] = phi ptr [ [[ELEMENTVALUEPTR]], [[ENDBLOCK]] ], [ [[RETVAL_CLONE:%.*]], [[ENDBLOCK_CLONE]] ]
 ; CHECK-NEXT:    ret ptr [[MERGE]]
 ; CHECK:       endBlock.clone:
 ; CHECK-NEXT:    [[RETVAL_CLONE]] = phi ptr [ [[ARRAY]], [[ENTRY]] ], [ [[ELEMENTVALUEPTR]], [[LOOPFOOTER]] ]
@@ -38,7 +41,7 @@ loopHeader:
   %currentArrayElement = phi ptr [ %array, %entry ], [ %nextArrayElement, %loopFooter ]
   %elementValuePtr = getelementptr inbounds i8, ptr %currentArrayElement, i64 1
   %elementValue = load i8, ptr %elementValuePtr, align 1
-  indirectbr ptr @indirectBrPtr, [label %loopFooter, label %endBlock]
+  indirectswitch ptr @indirectBrPtr, [ ptr edgeaddress(@testFunc, 0), label %loopFooter ptr edgeaddress(@testFunc, 1), label %endBlock ]
 
 loopFooter:
   %isGoodValue = icmp eq i8 %elementValue, 0

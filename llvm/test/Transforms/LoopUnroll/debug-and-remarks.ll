@@ -154,29 +154,6 @@ exit:
   ret i32 %add
 }
 
-; CHECK-LABEL:Loop Unroll: F[indirectbr_loop] Loop %for.body (depth=1)
-; CHECK-NEXT: Not unrolling loop which is not in loop-simplify form.
-; CHECK-NEXT:remark: <unknown>:0:0: unable to unroll loop: not in loop-simplify form
-
-define i32 @indirectbr_loop(ptr %A, ptr %target) {
-entry:
-  indirectbr ptr %target, [label %for.body, label %exit]
-
-for.body:
-  %i = phi i32 [ 0, %entry ], [ %inc, %for.body ]
-  %sum = phi i32 [ 0, %entry ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds i32, ptr %A, i32 %i
-  %load = load i32, ptr %arrayidx
-  %add = add i32 %sum, %load
-  %inc = add i32 %i, 1
-  %cmp = icmp ult i32 %inc, 10
-  br i1 %cmp, label %for.body, label %exit, !llvm.loop !1
-
-exit:
-  %result = phi i32 [ 0, %entry ], [ %add, %for.body ]
-  ret i32 %result
-}
-
 ; CHECK-LABEL:Loop Unroll: F[inline_prevents_unroll] Loop %for.body (depth=1)
 ; CHECK-NEXT:Loop Size = 8
 ; CHECK-NEXT: Not unrolling loop with inlinable calls.

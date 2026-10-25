@@ -3,13 +3,15 @@
 
 define void @main() {
 entry:
-  indirectbr ptr poison, [label %exit]
+  indirectswitch ptr poison, [ ptr edgeaddress(@main, 0), label %exit ]
 
 exit:
   ret void
 }
 ; CHECK: Entering function: main
 ; CHECK-NEXT: Stacktrace:
-; CHECK-NEXT: #0   indirectbr ptr poison, [label %exit] at @main <stdin>:6
-; CHECK-NEXT: Immediate UB detected: Indirect branch on poison.
+; CHECK-NEXT: #0   indirectswitch ptr poison, [
+; CHECK-NEXT:     ptr edgeaddress(@main, 0), label %exit
+; CHECK-NEXT:   ] at @main <stdin>:6
+; CHECK-NEXT: Immediate UB detected: Indirect switch on poison.
 ; CHECK-NEXT: error: Execution of function 'main' failed.

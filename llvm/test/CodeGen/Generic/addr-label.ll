@@ -30,7 +30,7 @@ ret:
 ; Issues with referring to a label that gets RAUW'd later.
 define i32 @test2a() nounwind {
 entry:
-        %target = bitcast ptr blockaddress(@test2b, %test_label) to ptr
+        %target = bitcast ptr edgeaddress(@test2b, 0) to ptr
 
         call i32 @test2b(ptr %target)
 
@@ -39,7 +39,7 @@ entry:
 
 define i32 @test2b(ptr %target) nounwind {
 entry:
-        indirectbr ptr %target, [label %test_label]
+        indirectswitch ptr %target, [ ptr edgeaddress(@test2b, 0), label %test_label ]
 
 test_label:
 ; assume some code here...
@@ -71,7 +71,7 @@ ret:
 ; PR6673
 
 define i64 @test4a() {
-	%target = bitcast ptr blockaddress(@test4b, %usermain) to ptr
+	%target = bitcast ptr edgeaddress(@test4b, 0) to ptr
 	%ret = call i64 @test4b(ptr %target)
 
 	ret i64 %ret
@@ -79,7 +79,7 @@ define i64 @test4a() {
 
 define i64 @test4b(ptr %Code) {
 entry:
-	indirectbr ptr %Code, [label %usermain]
+	indirectswitch ptr %Code, [ ptr edgeaddress(@test4b, 0), label %usermain ]
 usermain:
 	br label %label_line_0
 

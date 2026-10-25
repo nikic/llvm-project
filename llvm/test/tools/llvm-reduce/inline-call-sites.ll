@@ -4,8 +4,8 @@
 ; RESULT: @gv = global [2 x ptr] [ptr @only_gv_user, ptr @simple_callee]
 @gv = global [2 x ptr] [ptr @only_gv_user, ptr @simple_callee]
 
-; RESULT: @indirectbr.L = internal unnamed_addr constant [3 x ptr] [ptr blockaddress(@callee_with_indirectbr, %L1), ptr blockaddress(@callee_with_indirectbr, %L2), ptr null], align 8
-@indirectbr.L = internal unnamed_addr constant [3 x ptr] [ptr blockaddress(@callee_with_indirectbr, %L1), ptr blockaddress(@callee_with_indirectbr, %L2), ptr null], align 8
+; RESULT: @indirectbr.L = internal unnamed_addr constant [3 x ptr] [ptr edgeaddress(@callee_with_indirectbr, 0), ptr edgeaddress(@callee_with_indirectbr, 1), ptr null], align 8
+@indirectbr.L = internal unnamed_addr constant [3 x ptr] [ptr edgeaddress(@callee_with_indirectbr, 0), ptr edgeaddress(@callee_with_indirectbr, 1), ptr null], align 8
 
 
 ; CHECK-LABEL: define void @simple_callee(
@@ -182,7 +182,7 @@ L1:                                               ; preds = %entry, %L1
   %idxprom = zext i32 %i to i64
   %arrayidx = getelementptr inbounds [3 x ptr], ptr @indirectbr.L, i64 0, i64 %idxprom
   %brtarget = load ptr, ptr %arrayidx, align 8
-  indirectbr ptr %brtarget, [label %L1, label %L2]
+  indirectswitch ptr %brtarget, [ ptr edgeaddress(@callee_with_indirectbr, 0), label %L1 ptr edgeaddress(@callee_with_indirectbr, 1), label %L2 ]
 
 L2:                                               ; preds = %L1
   ret void
@@ -190,13 +190,9 @@ L2:                                               ; preds = %L1
 
 ; CHECK-LABEL: define void @calls_func_with_indirectbr(
 
-; RESULT: L1.i:
-; RESULT-NEXT: %i.i = phi i32 [ 0, %call ], [ %inc.i, %L1.i ]
-; RESULT-NEXT: %inc.i = add i32 %i.i, 1
-; RESULT-NEXT: %idxprom.i = zext i32 %i.i to i64
-; RESULT-NEXT: %arrayidx.i = getelementptr inbounds [3 x ptr], ptr @indirectbr.L, i64 0, i64 %idxprom.i
-; RESULT-NEXT: %brtarget.i = load ptr, ptr %arrayidx.i, align 8
-; RESULT-NEXT: indirectbr ptr %brtarget.i, [label %L1.i, label %callee_with_indirectbr.exit]
+; A callee with an indirectswitch cannot be inlined.
+; RESULT: call:
+; RESULT-NEXT: call void @callee_with_indirectbr()
 
 define void @calls_func_with_indirectbr(i1 %arg0) {
 entry:

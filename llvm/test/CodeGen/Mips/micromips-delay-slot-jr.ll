@@ -1,7 +1,7 @@
 ; RUN: llc -mtriple=mipsel -mcpu=mips32r2 -mattr=+micromips \
 ; RUN:   -relocation-model=static -O2 < %s | FileCheck %s
 
-@main.L = internal unnamed_addr constant [3 x ptr] [ptr blockaddress(@main, %L1), ptr blockaddress(@main, %L2), ptr null], align 4
+@main.L = internal unnamed_addr constant [3 x ptr] [ptr edgeaddress(@main, 0), ptr edgeaddress(@main, 1), ptr null], align 4
 @str = private unnamed_addr constant [2 x i8] c"A\00"
 @str2 = private unnamed_addr constant [2 x i8] c"B\00"
 
@@ -15,7 +15,7 @@ L1:                                               ; preds = %entry, %L1
   %inc = add i32 %i.0, 1
   %arrayidx = getelementptr inbounds [3 x ptr], ptr @main.L, i32 0, i32 %i.0
   %0 = load ptr, ptr %arrayidx, align 4, !tbaa !1
-  indirectbr ptr %0, [label %L1, label %L2]
+  indirectswitch ptr %0, [ ptr edgeaddress(@main, 0), label %L1 ptr edgeaddress(@main, 1), label %L2 ]
 
 L2:                                               ; preds = %L1
   %puts2 = tail call i32 @puts(ptr @str2)

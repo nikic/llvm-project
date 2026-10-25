@@ -89,35 +89,14 @@ define i32 @test_indirectbr() #0 {
 ; ELF-NEXT:    ldr x30, [sp], #16 // 8-byte Folded Reload
 ; ELF-NEXT:    ret
 entry:
-  %tmp0 = call ptr @dummy_choose(ptr blockaddress(@test_indirectbr, %bb1), ptr blockaddress(@test_indirectbr, %bb2))
-  indirectbr ptr %tmp0, [label %bb1, label %bb2]
+  %tmp0 = call ptr @dummy_choose(ptr edgeaddress(@test_indirectbr, 0), ptr edgeaddress(@test_indirectbr, 1))
+  indirectswitch ptr %tmp0, [ ptr edgeaddress(@test_indirectbr, 0), label %bb1 ptr edgeaddress(@test_indirectbr, 1), label %bb2 ]
 
 bb1:
   ret i32 1
 
 bb2:
   ret i32 2
-}
-
-define ptr @test_indirectbr_other_function() #0 {
-; MACHO-LABEL: test_indirectbr_other_function:
-; MACHO:       ; %bb.0:
-; MACHO-NEXT:    adrp x16, Ltmp0@PAGE
-; MACHO-NEXT:    add x16, x16, Ltmp0@PAGEOFF
-; MACHO-NEXT:    mov x17, #34947 ; =0x8883
-; MACHO-NEXT:    pacia x16, x17
-; MACHO-NEXT:    mov x0, x16
-; MACHO-NEXT:    ret
-;
-; ELF-LABEL: test_indirectbr_other_function:
-; ELF:       // %bb.0:
-; ELF-NEXT:    adrp x16, .Ltmp0
-; ELF-NEXT:    add x16, x16, :lo12:.Ltmp0
-; ELF-NEXT:    mov x17, #34947 // =0x8883
-; ELF-NEXT:    pacia x16, x17
-; ELF-NEXT:    mov x0, x16
-; ELF-NEXT:    ret
-  ret ptr blockaddress(@test_indirectbr, %bb1)
 }
 
 ;; Test another function to compare the discriminator.
@@ -141,12 +120,12 @@ define i32 @test_indirectbr_2() #0 {
 ; MACHO-NEXT:    mov x17, #40224 ; =0x9d20
 ; MACHO-NEXT:    braa x0, x17
 ; MACHO-NEXT:  Ltmp2: ; Block address taken
-; MACHO-NEXT:  LBB2_1: ; %bb1
+; MACHO-NEXT:  LBB1_1: ; %bb1
 ; MACHO-NEXT:    mov w0, #1 ; =0x1
 ; MACHO-NEXT:    ldp x29, x30, [sp], #16 ; 16-byte Folded Reload
 ; MACHO-NEXT:    ret
 ; MACHO-NEXT:  Ltmp3: ; Block address taken
-; MACHO-NEXT:  LBB2_2: ; %bb2
+; MACHO-NEXT:  LBB1_2: ; %bb2
 ; MACHO-NEXT:    mov w0, #2 ; =0x2
 ; MACHO-NEXT:    ldp x29, x30, [sp], #16 ; 16-byte Folded Reload
 ; MACHO-NEXT:    ret
@@ -168,18 +147,18 @@ define i32 @test_indirectbr_2() #0 {
 ; ELF-NEXT:    mov x17, #40224 // =0x9d20
 ; ELF-NEXT:    braa x0, x17
 ; ELF-NEXT:  .Ltmp2: // Block address taken
-; ELF-NEXT:  .LBB2_1: // %bb1
+; ELF-NEXT:  .LBB1_1: // %bb1
 ; ELF-NEXT:    mov w0, #1 // =0x1
 ; ELF-NEXT:    ldr x30, [sp], #16 // 8-byte Folded Reload
 ; ELF-NEXT:    ret
 ; ELF-NEXT:  .Ltmp3: // Block address taken
-; ELF-NEXT:  .LBB2_2: // %bb2
+; ELF-NEXT:  .LBB1_2: // %bb2
 ; ELF-NEXT:    mov w0, #2 // =0x2
 ; ELF-NEXT:    ldr x30, [sp], #16 // 8-byte Folded Reload
 ; ELF-NEXT:    ret
 entry:
-  %tmp0 = call ptr @dummy_choose(ptr blockaddress(@test_indirectbr_2, %bb1), ptr blockaddress(@test_indirectbr_2, %bb2))
-  indirectbr ptr %tmp0, [label %bb1, label %bb2]
+  %tmp0 = call ptr @dummy_choose(ptr edgeaddress(@test_indirectbr_2, 0), ptr edgeaddress(@test_indirectbr_2, 1))
+  indirectswitch ptr %tmp0, [ ptr edgeaddress(@test_indirectbr_2, 0), label %bb1 ptr edgeaddress(@test_indirectbr_2, 1), label %bb2 ]
 
 bb1:
   ret i32 1
@@ -191,17 +170,17 @@ bb2:
 ;; Check we don't interfere with jump-table BRIND lowering.
 
 ; MACHO-LABEL: test_jumptable:
-; MACHO:        adrp x9, LJTI3_0@PAGE
-; MACHO-NEXT:   add x9, x9, LJTI3_0@PAGEOFF
-; MACHO-NEXT:   adr x10, LBB3_2
+; MACHO:        adrp x9, LJTI2_0@PAGE
+; MACHO-NEXT:   add x9, x9, LJTI2_0@PAGEOFF
+; MACHO-NEXT:   adr x10, LBB2_2
 ; MACHO-NEXT:   ldrb w11, [x9, x8]
 ; MACHO-NEXT:   add x10, x10, x11, lsl #2
 ; MACHO-NEXT:   br x10
 
 ; ELF-LABEL: test_jumptable:
-; ELF:        adrp x9, .LJTI3_0
-; ELF-NEXT:   add x9, x9, :lo12:.LJTI3_0
-; ELF-NEXT:   adr x10, .LBB3_2
+; ELF:        adrp x9, .LJTI2_0
+; ELF-NEXT:   add x9, x9, :lo12:.LJTI2_0
+; ELF-NEXT:   adr x10, .LBB2_2
 ; ELF-NEXT:   ldrb w11, [x9, x8]
 ; ELF-NEXT:   add x10, x10, x11, lsl #2
 ; ELF-NEXT:   br x10
@@ -239,8 +218,8 @@ lbl2:
 ; ELF-NEXT:   .size test_indirectbr_array, 32
 
 @test_indirectbr_array = constant [4 x ptr] [
-  ptr blockaddress(@test_indirectbr, %bb1), ptr blockaddress(@test_indirectbr, %bb2),
-  ptr blockaddress(@test_indirectbr_2, %bb1), ptr blockaddress(@test_indirectbr_2, %bb2)
+  ptr edgeaddress(@test_indirectbr, 0), ptr edgeaddress(@test_indirectbr, 1),
+  ptr edgeaddress(@test_indirectbr_2, 0), ptr edgeaddress(@test_indirectbr_2, 1)
 ]
 
 declare ptr @dummy_choose(ptr, ptr)

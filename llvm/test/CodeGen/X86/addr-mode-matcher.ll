@@ -44,13 +44,13 @@ bb1692:
   %tmp1744 = getelementptr inbounds [256 x i32], ptr null, i32 0, i32 %tmp1711
   store i32 0, ptr %tmp1744, align 4
   %tmp1745 = add i32 %tmp1694, 1
-  indirectbr ptr undef, [label %bb1756, label %bb1692]
+  indirectswitch ptr undef, [ ptr edgeaddress(@foo, 0), label %bb1756 ptr edgeaddress(@foo, 1), label %bb1692 ]
 
 bb1756:
   br label %bb2705
 
 bb2705:
-  indirectbr ptr undef, [label %bb5721, label %bb5736]
+  indirectswitch ptr undef, [ ptr edgeaddress(@foo, 2), label %bb5721 ptr edgeaddress(@foo, 3), label %bb5736 ]
 
 bb5721:
   br label %bb2705

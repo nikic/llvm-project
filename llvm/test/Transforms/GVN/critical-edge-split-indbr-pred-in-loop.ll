@@ -12,7 +12,10 @@ define i32 @foo(ptr %p1, ptr %p2, ptr %p3) {
 ; CHECK-NEXT:    br label [[LOOP_HEADER:%.*]]
 ; CHECK:       loop.header:
 ; CHECK-NEXT:    store i32 0, ptr [[P3:%.*]], align 4
-; CHECK-NEXT:    indirectbr ptr [[P1:%.*]], [label [[LOOP_LATCH1:%.*]], label %loop.latch2]
+; CHECK-NEXT:    indirectswitch ptr [[P1:%.*]], [
+; CHECK-NEXT:      ptr edgeaddress(@foo, 0), label [[LOOP_LATCH1:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@foo, 1), label [[LOOP_LATCH2:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       loop.latch1:
 ; CHECK-NEXT:    [[C:%.*]] = call i1 @cond()
 ; CHECK-NEXT:    br i1 [[C]], label [[LOOP_HEADER]], label [[LOOP_LATCH1_EXIT_CRIT_EDGE:%.*]]
@@ -20,9 +23,14 @@ define i32 @foo(ptr %p1, ptr %p2, ptr %p3) {
 ; CHECK-NEXT:    [[X_PRE:%.*]] = load i32, ptr [[P3]], align 4
 ; CHECK-NEXT:    br label [[EXIT:%.*]]
 ; CHECK:       loop.latch2:
-; CHECK-NEXT:    indirectbr ptr [[P2:%.*]], [label [[LOOP_HEADER]], label %exit]
+; CHECK-NEXT:    indirectswitch ptr [[P2:%.*]], [
+; CHECK-NEXT:      ptr edgeaddress(@foo, 2), label [[LOOP_HEADER]]
+; CHECK-NEXT:      ptr edgeaddress(@foo, 3), label [[EXITSPLIT:%.*]]
+; CHECK-NEXT:    ]
+; CHECK:       exitsplit:
+; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
-; CHECK-NEXT:    [[X:%.*]] = phi i32 [ [[X_PRE]], [[LOOP_LATCH1_EXIT_CRIT_EDGE]] ], [ 0, [[LOOP_LATCH2:%.*]] ]
+; CHECK-NEXT:    [[X:%.*]] = phi i32 [ 0, [[EXITSPLIT]] ], [ [[X_PRE]], [[LOOP_LATCH1_EXIT_CRIT_EDGE]] ]
 ; CHECK-NEXT:    ret i32 [[X]]
 ;
 bb:
@@ -30,14 +38,14 @@ bb:
 
 loop.header:                                      ; preds = %loop.latch2, %loop.latch1, %bb
   store i32 0, ptr %p3, align 4
-  indirectbr ptr %p1, [label %loop.latch1, label %loop.latch2]
+  indirectswitch ptr %p1, [ ptr edgeaddress(@foo, 0), label %loop.latch1 ptr edgeaddress(@foo, 1), label %loop.latch2 ]
 
 loop.latch1:                                      ; preds = %loop.header
   %c = call i1 @cond()
   br i1 %c, label %loop.header, label %exit
 
 loop.latch2:                                      ; preds = %loop.header
-  indirectbr ptr %p2, [label %loop.header, label %exit]
+  indirectswitch ptr %p2, [ ptr edgeaddress(@foo, 2), label %loop.header ptr edgeaddress(@foo, 3), label %exit ]
 
 exit:                                             ; preds = %loop.latch2, %loop.latch1
   %x = load i32, ptr %p3, align 4

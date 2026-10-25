@@ -67,14 +67,17 @@ define linkonce i32 @inner3(ptr %addr) alwaysinline {
 ; CHECK-LABEL: define {{[^@]+}}@inner3
 ; CHECK-SAME: (ptr [[ADDR:%.*]]) #[[ATTR2]] {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    indirectbr ptr [[ADDR]], [label [[ONE:%.*]], label %two]
+; CHECK-NEXT:    indirectswitch ptr [[ADDR]], [
+; CHECK-NEXT:      ptr edgeaddress(@inner3, 0), label [[ONE:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@inner3, 1), label [[TWO:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       one:
 ; CHECK-NEXT:    ret i32 42
 ; CHECK:       two:
 ; CHECK-NEXT:    ret i32 44
 ;
 entry:
-  indirectbr ptr %addr, [ label %one, label %two ]
+  indirectswitch ptr %addr, [ ptr edgeaddress(@inner3, 0), label %one ptr edgeaddress(@inner3, 1), label %two ]
 
 one:
   ret i32 42
@@ -87,12 +90,12 @@ define i32 @outer3(i32 %x) {
 ; CHECK-LABEL: define {{[^@]+}}@outer3
 ; CHECK-SAME: (i32 [[X:%.*]]) {
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[X]], 42
-; CHECK-NEXT:    [[ADDR:%.*]] = select i1 [[CMP]], ptr blockaddress(@inner3, [[ONE:%.*]]), ptr blockaddress(@inner3, [[TWO:%.*]])
+; CHECK-NEXT:    [[ADDR:%.*]] = select i1 [[CMP]], ptr edgeaddress(@inner3, 0), ptr edgeaddress(@inner3, 1)
 ; CHECK-NEXT:    [[CALL:%.*]] = call i32 @inner3(ptr [[ADDR]])
 ; CHECK-NEXT:    ret i32 [[CALL]]
 ;
   %cmp = icmp slt i32 %x, 42
-  %addr = select i1 %cmp, ptr blockaddress(@inner3, %one), ptr blockaddress(@inner3, %two)
+  %addr = select i1 %cmp, ptr edgeaddress(@inner3, 0), ptr edgeaddress(@inner3, 1)
   %call = call i32 @inner3(ptr %addr)
   ret i32 %call
 }

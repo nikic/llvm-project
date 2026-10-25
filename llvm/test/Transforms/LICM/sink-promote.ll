@@ -44,7 +44,7 @@ lab21:
 lab22:
 ; CHECK: lab22:
 ; CHECK-NOT: store
-; CHECK-NEXT: indirectbr ptr %arg 
-  indirectbr ptr %arg, [label %lab5, label %lab6, label %lab7]
+; CHECK-NEXT: indirectswitch ptr %arg
+  indirectswitch ptr %arg, [ ptr edgeaddress(@test12, 0), label %lab5 ptr edgeaddress(@test12, 1), label %lab6 ptr edgeaddress(@test12, 2), label %lab7 ]
 }
 

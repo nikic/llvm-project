@@ -202,16 +202,16 @@ bb9:
 }
 
 
-@indirectbr_rewrite.targets = constant [10 x ptr] [ptr blockaddress(@indirectbr_rewrite, %bb0),
-                                                   ptr blockaddress(@indirectbr_rewrite, %bb1),
-                                                   ptr blockaddress(@indirectbr_rewrite, %bb2),
-                                                   ptr blockaddress(@indirectbr_rewrite, %bb3),
-                                                   ptr blockaddress(@indirectbr_rewrite, %bb4),
-                                                   ptr blockaddress(@indirectbr_rewrite, %bb5),
-                                                   ptr blockaddress(@indirectbr_rewrite, %bb6),
-                                                   ptr blockaddress(@indirectbr_rewrite, %bb7),
-                                                   ptr blockaddress(@indirectbr_rewrite, %bb8),
-                                                   ptr blockaddress(@indirectbr_rewrite, %bb9)]
+@indirectbr_rewrite.targets = constant [10 x ptr] [ptr edgeaddress(@indirectbr_rewrite, 2),
+                                                   ptr edgeaddress(@indirectbr_rewrite, 0),
+                                                   ptr edgeaddress(@indirectbr_rewrite, 3),
+                                                   ptr edgeaddress(@indirectbr_rewrite, 1),
+                                                   ptr edgeaddress(@indirectbr_rewrite, 4),
+                                                   ptr edgeaddress(@indirectbr_rewrite, 5),
+                                                   ptr edgeaddress(@indirectbr_rewrite, 6),
+                                                   ptr edgeaddress(@indirectbr_rewrite, 7),
+                                                   ptr edgeaddress(@indirectbr_rewrite, 8),
+                                                   ptr edgeaddress(@indirectbr_rewrite, 9)]
 
 ; Check that when thunks are enabled the indirectbr instruction gets
 ; rewritten to use switch, and that in turn doesn't get lowered as a jump
@@ -223,7 +223,7 @@ entry:
   %i0 = load i64, ptr %p
   %target.i0 = getelementptr [10 x ptr], ptr @indirectbr_rewrite.targets, i64 0, i64 %i0
   %target0 = load ptr, ptr %target.i0
-  indirectbr ptr %target0, [label %bb1, label %bb3]
+  br label %dispatch
 
 bb0:
   store volatile i64 0, ptr %sink
@@ -271,16 +271,22 @@ latch:
   %target.next = load ptr, ptr %target.i.next
   ; Potentially hit a full 10 successors here so that even if we rewrite as
   ; a switch it will try to be lowered with a jump table.
-  indirectbr ptr %target.next, [label %bb0,
-                                label %bb1,
-                                label %bb2,
-                                label %bb3,
-                                label %bb4,
-                                label %bb5,
-                                label %bb6,
-                                label %bb7,
-                                label %bb8,
-                                label %bb9]
+  br label %dispatch
+
+dispatch:
+  %dispatch.addr = phi ptr [ %target0, %entry ], [ %target.next, %latch ]
+  indirectswitch ptr %dispatch.addr, [
+    ptr edgeaddress(@indirectbr_rewrite, 0), label %bb1
+    ptr edgeaddress(@indirectbr_rewrite, 1), label %bb3
+    ptr edgeaddress(@indirectbr_rewrite, 2), label %bb0
+    ptr edgeaddress(@indirectbr_rewrite, 3), label %bb2
+    ptr edgeaddress(@indirectbr_rewrite, 4), label %bb4
+    ptr edgeaddress(@indirectbr_rewrite, 5), label %bb5
+    ptr edgeaddress(@indirectbr_rewrite, 6), label %bb6
+    ptr edgeaddress(@indirectbr_rewrite, 7), label %bb7
+    ptr edgeaddress(@indirectbr_rewrite, 8), label %bb8
+    ptr edgeaddress(@indirectbr_rewrite, 9), label %bb9
+  ]
 }
 
 ; Lastly check that the necessary thunks were emitted.

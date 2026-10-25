@@ -10,7 +10,7 @@ define void @outer_loop_preheader_indirectbr(i64 %n) {
 ; CHECK-LABEL: LV: Checking a loop in 'outer_loop_preheader_indirectbr'
 ; CHECK: LV: Not vectorizing: Loop doesn't have a legal pre-header.
 entry:
-  indirectbr ptr blockaddress(@outer_loop_preheader_indirectbr, %outer.header), [label %outer.header]
+  indirectswitch ptr edgeaddress(@outer_loop_preheader_indirectbr, 0), [ ptr edgeaddress(@outer_loop_preheader_indirectbr, 0), label %outer.header ]
 
 outer.header:
   %outer.iv = phi i64 [ 0, %entry ], [ %outer.iv.next, %outer.latch ]

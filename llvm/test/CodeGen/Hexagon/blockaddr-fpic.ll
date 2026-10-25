@@ -106,12 +106,12 @@ b6:                                               ; preds = %b5
   br i1 %v19, label %b2, label %b15
 
 b7:                                               ; preds = %b10, %b9, %b8, %b4
-  %v20 = phi ptr [ blockaddress(@f0, %b4), %b8 ], [ blockaddress(@f0, %b11), %b9 ], [ blockaddress(@f0, %b11), %b10 ], [ blockaddress(@f0, %b4), %b4 ]
+  %v20 = phi ptr [ edgeaddress(@f0, 0), %b8 ], [ edgeaddress(@f0, 1), %b9 ], [ edgeaddress(@f0, 1), %b10 ], [ edgeaddress(@f0, 0), %b4 ]
   %v21 = phi i32 [ 2, %b8 ], [ 1, %b9 ], [ 1, %b10 ], [ 1, %b4 ]
   %v22 = phi ptr [ @g40, %b8 ], [ @g40, %b9 ], [ @g45, %b10 ], [ @g40, %b4 ]
   %v23 = icmp eq i32 %v12, 0
-  %v24 = select i1 %v23, ptr %v20, ptr blockaddress(@f0, %b15)
-  indirectbr ptr %v24, [label %b4, label %b11, label %b15]
+  %v24 = select i1 %v23, ptr %v20, ptr edgeaddress(@f0, 2)
+  indirectswitch ptr %v24, [ ptr edgeaddress(@f0, 0), label %b4 ptr edgeaddress(@f0, 1), label %b11 ptr edgeaddress(@f0, 2), label %b15 ]
 
 b8:                                               ; preds = %b4
   br label %b7

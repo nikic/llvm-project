@@ -349,7 +349,7 @@ if.end12:                                         ; preds = %if.then, %lbl_51
 ; PR7356
 define i32 @test13(ptr %P, ptr %Ptr) {
 entry:
-  indirectbr ptr %Ptr, [label %BrBlock, label %B2]
+  indirectswitch ptr %Ptr, [ ptr edgeaddress(@test13, 0), label %BrBlock ptr edgeaddress(@test13, 1), label %B2 ]
 
 B2:
   store i32 4, ptr %P

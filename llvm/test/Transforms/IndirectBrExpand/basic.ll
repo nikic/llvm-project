@@ -6,9 +6,9 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-@test1.targets = constant [4 x ptr] [ptr blockaddress(@test1, %bb0),
-  ptr blockaddress(@test1, %bb1),
-  ptr blockaddress(@test1, %bb2),
+@test1.targets = constant [4 x ptr] [ptr edgeaddress(@test1, 0),
+  ptr edgeaddress(@test1, 1),
+  ptr edgeaddress(@test1, 2),
   ptr blockaddress(@test1, %bb3)]
 
 ;.
@@ -21,7 +21,6 @@ define void @test1(ptr readonly %p, ptr %sink) #0 {
 ; CHECK-NEXT:    [[I0:%.*]] = load i64, ptr [[P]], align 8
 ; CHECK-NEXT:    [[TARGET_I0:%.*]] = getelementptr [4 x ptr], ptr @test1.targets, i64 0, i64 [[I0]]
 ; CHECK-NEXT:    [[TARGET0:%.*]] = load ptr, ptr [[TARGET_I0]], align 8
-; CHECK-NEXT:    [[TARGET0_SWITCH_CAST:%.*]] = ptrtoint ptr [[TARGET0]] to i64
 ; CHECK-NEXT:    br label %[[SWITCH_BB:.*]]
 ; CHECK:       [[BB0:.*]]:
 ; CHECK-NEXT:    store volatile i64 0, ptr [[SINK]], align 8
@@ -39,10 +38,10 @@ define void @test1(ptr readonly %p, ptr %sink) #0 {
 ; CHECK-NEXT:    [[I_NEXT:%.*]] = load i64, ptr [[P]], align 8
 ; CHECK-NEXT:    [[TARGET_I_NEXT:%.*]] = getelementptr [4 x ptr], ptr @test1.targets, i64 0, i64 [[I_NEXT]]
 ; CHECK-NEXT:    [[TARGET_NEXT:%.*]] = load ptr, ptr [[TARGET_I_NEXT]], align 8
-; CHECK-NEXT:    [[TARGET_NEXT_SWITCH_CAST:%.*]] = ptrtoint ptr [[TARGET_NEXT]] to i64
 ; CHECK-NEXT:    br label %[[SWITCH_BB]]
 ; CHECK:       [[SWITCH_BB]]:
-; CHECK-NEXT:    [[SWITCH_VALUE_PHI:%.*]] = phi i64 [ [[TARGET0_SWITCH_CAST]], %[[ENTRY]] ], [ [[TARGET_NEXT_SWITCH_CAST]], %[[LATCH]] ]
+; CHECK-NEXT:    [[DISPATCH_ADDR:%.*]] = phi ptr [ [[TARGET0]], %[[ENTRY]] ], [ [[TARGET_NEXT]], %[[LATCH]] ]
+; CHECK-NEXT:    [[SWITCH_VALUE_PHI:%.*]] = ptrtoint ptr [[DISPATCH_ADDR]] to i64
 ; CHECK-NEXT:    switch i64 [[SWITCH_VALUE_PHI]], label %[[BB0]] [
 ; CHECK-NEXT:      i64 2, label %[[BB1]]
 ; CHECK-NEXT:      i64 3, label %[[BB2]]
@@ -53,7 +52,7 @@ entry:
   %target.i0 = getelementptr [4 x ptr], ptr @test1.targets, i64 0, i64 %i0
   %target0 = load ptr, ptr %target.i0
   ; Only a subset of blocks are viable successors here.
-  indirectbr ptr %target0, [label %bb0, label %bb1]
+  br label %dispatch
 
 bb0:
   store volatile i64 0, ptr %sink
@@ -76,7 +75,15 @@ latch:
   %target.i.next = getelementptr [4 x ptr], ptr @test1.targets, i64 0, i64 %i.next
   %target.next = load ptr, ptr %target.i.next
   ; A different subset of blocks are viable successors here.
-  indirectbr ptr %target.next, [label %bb1, label %bb2]
+  br label %dispatch
+
+dispatch:
+  %dispatch.addr = phi ptr [ %target0, %entry ], [ %target.next, %latch ]
+  indirectswitch ptr %dispatch.addr, [
+  ptr edgeaddress(@test1, 0), label %bb0
+  ptr edgeaddress(@test1, 1), label %bb1
+  ptr edgeaddress(@test1, 2), label %bb2
+  ]
 }
 
 attributes #0 = { "target-features"="+retpoline" }

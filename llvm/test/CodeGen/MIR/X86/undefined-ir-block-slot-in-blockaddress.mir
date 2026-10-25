@@ -6,9 +6,9 @@
 
   define void @test() {
   entry:
-    store volatile ptr blockaddress(@test, %0), ptr @addr
+    store volatile ptr edgeaddress(@test, 0), ptr @addr
     %val = load volatile ptr, ptr @addr
-    indirectbr ptr %val, [label %0]
+    indirectswitch ptr %val, [ ptr edgeaddress(@test, 0), label %0 ]
 
     ret void
   }

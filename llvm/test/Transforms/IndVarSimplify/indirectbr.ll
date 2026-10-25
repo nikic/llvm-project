@@ -3,7 +3,7 @@
 ; PR5758
 define zeroext i1 @foo() nounwind {
 entry:
-  indirectbr ptr undef, [label %"202", label %"133"]
+  indirectswitch ptr undef, [ ptr edgeaddress(@foo, 0), label %"202" ptr edgeaddress(@foo, 1), label %"133" ]
 
 "132":                                            ; preds = %"133"
   %0 = add i32 %1, 1                              ; <i32> [#uses=1]
@@ -24,7 +24,7 @@ entry:
 ; PR7333
 define void @__atomvec_module__put_vrml_bonds() nounwind {
 bb7.preheader:                                    ; preds = %entry
-  indirectbr ptr undef, [label %bb14, label %bb16]
+  indirectswitch ptr undef, [ ptr edgeaddress(@__atomvec_module__put_vrml_bonds, 0), label %bb14 ptr edgeaddress(@__atomvec_module__put_vrml_bonds, 1), label %bb16 ]
 
 bb14:                                             ; preds = %bb14, %bb7.preheader
   br label %bb16

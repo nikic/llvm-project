@@ -110,7 +110,7 @@ next4:
 
 next5:
   ; indirectbr
-  indirectbr ptr blockaddress(@main, %exit), [ label %exit ]
+  indirectswitch ptr edgeaddress(@main, 0), [ ptr edgeaddress(@main, 0), label %exit ]
 
 cleanup:
   landingpad {} cleanup
@@ -244,7 +244,9 @@ exit:
 ; CHECK-NEXT:           to label %next5 unwind label %cleanup => i32 1
 ; CHECK-NEXT:   %res = invoke i32 @get_n(i32 0)
 ; CHECK-NEXT:           to label %next5 unwind label %cleanup jump to %next5
-; CHECK-NEXT:   indirectbr ptr blockaddress(@main, %exit), [label %exit] jump to %exit
+; CHECK-NEXT:   indirectswitch ptr edgeaddress(@main, 0), [
+; CHECK-NEXT:     ptr edgeaddress(@main, 0), label %exit
+; CHECK-NEXT:   ] jump to %exit
 ; CHECK-NEXT: Entering function: fib
 ; CHECK-NEXT:   ptr %self = ptr 0x8 [@fib]
 ; CHECK-NEXT:   i32 %n = i32 5

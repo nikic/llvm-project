@@ -6,29 +6,32 @@ define i1 @test1(i32 %0) #0 {
 ; CHECK-NEXT:  PredPredBB1:
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ne i32 [[TMP0:%.*]], 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = add i32 32, [[TMP0]]
-; CHECK-NEXT:    [[INDIRECT_GOTO_DEST:%.*]] = select i1 [[CMP]], ptr blockaddress(@test1, [[PREDBB1:%.*]]), ptr blockaddress(@test1, [[PREDPREDBB2:%.*]])
-; CHECK-NEXT:    indirectbr ptr [[INDIRECT_GOTO_DEST]], [label [[PREDBB1]], label %PredPredBB2]
+; CHECK-NEXT:    [[INDIRECT_GOTO_DEST:%.*]] = select i1 [[CMP]], ptr edgeaddress(@test1, 0), ptr edgeaddress(@test1, 1)
+; CHECK-NEXT:    indirectswitch ptr [[INDIRECT_GOTO_DEST]], [
+; CHECK-NEXT:      ptr edgeaddress(@test1, 0), label [[PREDBB1_THREAD:%.*]]
+; CHECK-NEXT:      ptr edgeaddress(@test1, 1), label [[PREDPREDBB2:%.*]]
+; CHECK-NEXT:    ]
 ; CHECK:       PredPredBB2:
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp ne i32 [[TMP0]], 1
-; CHECK-NEXT:    br i1 [[CMP1]], label [[PREDBB1]], label [[BB2:%.*]]
+; CHECK-NEXT:    br i1 [[CMP1]], label [[PREDBB1:%.*]], label [[BB2:%.*]]
 ; CHECK:       PredBB1:
-; CHECK-NEXT:    [[NUM:%.*]] = phi i32 [ 0, [[PREDPREDBB1:%.*]] ], [ [[TMP1]], [[PREDPREDBB2]] ]
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp eq i32 [[TMP1]], 100
 ; CHECK-NEXT:    br i1 [[CMP2]], label [[BB1:%.*]], label [[BB2]]
-; CHECK:       BB1:
-; CHECK-NEXT:    [[CMP3:%.*]] = icmp eq i32 [[NUM]], 0
-; CHECK-NEXT:    br i1 [[CMP3]], label [[BB2]], label [[BB3:%.*]]
+; CHECK:       PredBB1.thread:
+; CHECK-NEXT:    [[CMP22:%.*]] = icmp eq i32 [[TMP1]], 100
+; CHECK-NEXT:    br i1 [[CMP22]], label [[BB2]], label [[BB2]]
 ; CHECK:       BB2:
 ; CHECK-NEXT:    [[TMP2:%.*]] = or i1 [[CMP]], true
 ; CHECK-NEXT:    ret i1 [[TMP2]]
 ; CHECK:       BB3:
+; CHECK-NEXT:    [[NUM3:%.*]] = phi i32 [ [[TMP1]], [[PREDBB1]] ]
 ; CHECK-NEXT:    ret i1 true
 ;
 PredPredBB1:
   %cmp = icmp ne i32 %0, 0
   %1 = add i32 32, %0
-  %indirect.goto.dest = select i1 %cmp, ptr blockaddress(@test1, %PredBB1), ptr blockaddress(@test1, %PredPredBB2)
-  indirectbr ptr %indirect.goto.dest, [label %PredBB1, label %PredPredBB2]
+  %indirect.goto.dest = select i1 %cmp, ptr edgeaddress(@test1, 0), ptr edgeaddress(@test1, 1)
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@test1, 0), label %PredBB1 ptr edgeaddress(@test1, 1), label %PredPredBB2 ]
 
 PredPredBB2:                                      ; preds = %PredPredBB1
   %cmp1 = icmp ne i32 %0, 1

@@ -167,7 +167,7 @@ b4:
 indirectgoto:
   %indirect.goto.dest = alloca i8, align 4
   call void @llvm.pseudoprobe(i64 7682762345278052905, i64 5, i32 0, i64 -1)
-  indirectbr ptr %indirect.goto.dest, [label %b2, label %indirectgoto, label %b4, label %b3], !prof !134
+  indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@foo1, 0), label %b2 ptr edgeaddress(@foo1, 1), label %indirectgoto ptr edgeaddress(@foo1, 2), label %b4 ptr edgeaddress(@foo1, 3), label %b3 ], !prof !134
 ; CHECK3: - indirectgoto: float = {{.*}}, int = {{.*}}, count = 17747
 
 }

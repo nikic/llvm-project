@@ -465,20 +465,23 @@ End:
   ret i32 %v
 }
 
+; Edges from indirectswitch can be split.
 ;CHECK-LABEL: @test_indirectbr_phi
-;CHECK-NOT: Header.split:
-;CHECK-NOT: TBB.split:
+;CHECK-LABEL: Header.split:
+;CHECK: %r2 = call i32 @callee(ptr %a, i32 %v, i32 1)
+;CHECK-LABEL: TBB.split:
+;CHECK: %r1 = call i32 @callee(ptr %a, i32 %v, i32 2)
 ;CHECK-LABEL: Tail:
-;CHECK: %r = call i32 @callee(ptr %a, i32 %v, i32 %p)
-;CHECK: ret i32 %r
+;CHECK: %phi.call = phi i32 [ %r1, %TBB.split ], [ %r2, %Header.split ]
+;CHECK: ret i32 %phi.call
 define i32 @test_indirectbr_phi(ptr %address, ptr %a, ptr %b, i32 %v) {
 Header:
-   %indirect.goto.dest = select i1 undef, ptr blockaddress(@test_indirectbr_phi, %End), ptr %address
-   indirectbr ptr %indirect.goto.dest, [label %TBB, label %Tail]
+   %indirect.goto.dest = select i1 undef, ptr edgeaddress(@test_indirectbr_phi, 3), ptr %address
+   indirectswitch ptr %indirect.goto.dest, [ ptr edgeaddress(@test_indirectbr_phi, 0), label %TBB ptr edgeaddress(@test_indirectbr_phi, 1), label %Tail ]
 
 TBB:
-  %indirect.goto.dest2 = select i1 undef, ptr blockaddress(@test_indirectbr_phi, %End), ptr %address
-  indirectbr ptr %indirect.goto.dest2, [label %Tail, label %End]
+  %indirect.goto.dest2 = select i1 undef, ptr edgeaddress(@test_indirectbr_phi, 3), ptr %address
+  indirectswitch ptr %indirect.goto.dest2, [ ptr edgeaddress(@test_indirectbr_phi, 2), label %Tail ptr edgeaddress(@test_indirectbr_phi, 3), label %End ]
 
 Tail:
   %p = phi i32[1,%Header], [2, %TBB]
