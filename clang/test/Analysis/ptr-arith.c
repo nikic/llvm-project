@@ -1,5 +1,5 @@
-// RUN: %clang_analyze_cc1 -analyzer-checker=alpha.core.PointerArithm,debug.ExprInspection -Wno-pointer-to-int-cast -verify -triple x86_64-apple-darwin9 -Wno-tautological-pointer-compare -analyzer-config eagerly-assume=false %s
-// RUN: %clang_analyze_cc1 -analyzer-checker=alpha.core.PointerArithm,debug.ExprInspection -Wno-pointer-to-int-cast -verify -triple i686-apple-darwin9 -Wno-tautological-pointer-compare -analyzer-config eagerly-assume=false %s
+// RUN: %clang_analyze_cc1 -analyzer-checker=alpha.core.PointerArithm,debug.ExprInspection -Wno-pointer-to-int-cast -Wno-label-address-without-indirect-goto -verify -triple x86_64-apple-darwin9 -Wno-tautological-pointer-compare -analyzer-config eagerly-assume=false %s
+// RUN: %clang_analyze_cc1 -analyzer-checker=alpha.core.PointerArithm,debug.ExprInspection -Wno-pointer-to-int-cast -Wno-label-address-without-indirect-goto -verify -triple i686-apple-darwin9 -Wno-tautological-pointer-compare -analyzer-config eagerly-assume=false %s
 
 #include "Inputs/system-header-simulator.h"
 

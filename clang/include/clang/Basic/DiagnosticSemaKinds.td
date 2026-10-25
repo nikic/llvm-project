@@ -7005,6 +7005,13 @@ def warn_cpp_compat_switch_into_protected_scope : Warning<
   InGroup<JumpBypassesInit>, DefaultIgnore;
 def err_indirect_goto_without_addrlabel : Error<
   "indirect goto in function with no address-of-label expressions">;
+def warn_addrlabel_without_indirect_goto : Warning<
+  "address of label %0 is not guaranteed to point to the label when the "
+  "function contains no indirect goto statement">,
+  InGroup<LabelAddressWithoutIndirectGoto>;
+def note_addrlabel_use_instruction_pointer : Note<
+  "use '__builtin_instruction_pointer()' to obtain the address of the current "
+  "code location">;
 def err_indirect_goto_in_protected_scope : Error<
   "cannot jump from this %select{indirect|asm}0 goto statement to one of its possible targets">;
 def warn_cxx98_compat_indirect_goto_in_protected_scope : Warning<

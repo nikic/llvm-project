@@ -827,6 +827,8 @@ def : DiagGroup<"init-self">;
 def : DiagGroup<"inline">;
 def : DiagGroup<"invalid-pch">;
 def GNULabelsAsValue : DiagGroup<"gnu-label-as-value">;
+def LabelAddressWithoutIndirectGoto :
+  DiagGroup<"label-address-without-indirect-goto">;
 def GNULineMarker : DiagGroup<"gnu-line-marker">;
 def LiteralRange : DiagGroup<"literal-range">;
 def LocalTypeTemplateArgs : DiagGroup<"local-type-template-args",

@@ -17453,6 +17453,8 @@ ExprResult Sema::ActOnBlockStmtExpr(SourceLocation CaretLoc,
       !PP.isCodeCompletionEnabled())
     DiagnoseInvalidJumps(cast<CompoundStmt>(Body));
 
+  DiagnoseAddrLabelsWithoutIndirectGoto(getCurFunction());
+
   BD->setBody(cast<CompoundStmt>(Body));
 
   if (Body && getCurFunction()->HasPotentialAvailabilityViolations)

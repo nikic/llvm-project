@@ -4587,7 +4587,9 @@ Using the address of a label that is not the target of a computed `goto` (as
 in the fallback above) is not a reliable way to obtain the current instruction
 pointer, because the compiler may move the label or replace its address with
 an arbitrary value if it is never jumped to. `__builtin_instruction_pointer`
-should be used instead.
+should be used instead. Clang diagnoses taking the address of a label in a
+function without an indirect `goto` with
+`-Wlabel-address-without-indirect-goto`.
 
 `__builtin_instruction_pointer` is not a constant expression.
 

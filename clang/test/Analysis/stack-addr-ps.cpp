@@ -9,6 +9,9 @@
 // unix.Malloc is necessary to model __builtin_alloca,
 // which could trigger an "unexpected region" bug in StackAddrEscapeChecker.
 
+// The label addresses below are just used as arbitrary non-heap pointers.
+#pragma clang diagnostic ignored "-Wlabel-address-without-indirect-goto"
+
 typedef __INTPTR_TYPE__ intptr_t;
 
 template <typename T>

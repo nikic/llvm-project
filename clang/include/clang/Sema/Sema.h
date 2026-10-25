@@ -3672,6 +3672,10 @@ public:
 
   void DiagnoseInvalidJumps(Stmt *Body);
 
+  /// Diagnose address-of-label expressions in a function (or block, lambda or
+  /// captured region) that contains no indirect goto statement.
+  void DiagnoseAddrLabelsWithoutIndirectGoto(sema::FunctionScopeInfo *FSI);
+
   /// The function definitions which were renamed as part of typo-correction
   /// to match their respective declarations. We want to keep track of them
   /// to ensure that we don't emit a "redefinition" error if we encounter a

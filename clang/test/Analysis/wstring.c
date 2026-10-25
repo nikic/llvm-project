@@ -14,6 +14,9 @@
 // RUN:   -analyzer-checker=debug.ExprInspection \
 // RUN:   -analyzer-config eagerly-assume=false
 
+// The label addresses below are just used as arbitrary non-heap pointers.
+#pragma clang diagnostic ignored "-Wlabel-address-without-indirect-goto"
+
 //===----------------------------------------------------------------------===
 // Declarations
 //===----------------------------------------------------------------------===

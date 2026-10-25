@@ -3403,6 +3403,36 @@ Sema::ActOnIndirectGotoStmt(SourceLocation GotoLoc, SourceLocation StarLoc,
   return new (Context) IndirectGotoStmt(GotoLoc, StarLoc, E);
 }
 
+void Sema::DiagnoseAddrLabelsWithoutIndirectGoto(FunctionScopeInfo *FSI) {
+  // Label addresses only have a meaningful value when they are used by an
+  // indirect goto in the same function.
+  if (FSI->AddrLabels.empty() || FSI->HasIndirectGoto)
+    return;
+
+  // Template instantiations were already diagnosed in the template
+  // definition. Also avoid spurious warnings if an indirect goto may have been
+  // dropped as part of error recovery.
+  if (inTemplateInstantiation() || FSI->hasUnrecoverableErrorOccurred())
+    return;
+
+  bool SuggestInstructionPointer =
+      Context.getTargetInfo().supportsInstructionPointer();
+  llvm::SmallPtrSet<const LabelDecl *, 4> Diagnosed;
+  for (const AddrLabelExpr *ALE : FSI->AddrLabels) {
+    // The label operands of asm goto are also represented as AddrLabelExprs,
+    // without a separate '&&' token. These are fine.
+    if (ALE->getAmpAmpLoc() == ALE->getLabelLoc())
+      continue;
+    // Only diagnose the first address-of-label expression for each label.
+    if (!Diagnosed.insert(ALE->getLabel()).second)
+      continue;
+    Diag(ALE->getBeginLoc(), diag::warn_addrlabel_without_indirect_goto)
+        << ALE->getLabel() << ALE->getSourceRange();
+    if (SuggestInstructionPointer)
+      Diag(ALE->getBeginLoc(), diag::note_addrlabel_use_instruction_pointer);
+  }
+}
+
 static void CheckJumpOutOfSEHFinallyOrDefer(Sema &S, SourceLocation Loc,
                                             const Scope &DestScope,
                                             unsigned DeferJumpKind) {
@@ -4982,6 +5012,10 @@ StmtResult Sema::ActOnCapturedRegionEnd(Stmt *S) {
   PopDeclContext();
   PoppedFunctionScopePtr ScopeRAII = PopFunctionScopeInfo();
   CapturedRegionScopeInfo *RSI = cast<CapturedRegionScopeInfo>(ScopeRAII.get());
+
+  // The captured region is emitted as a separate function, so its label
+  // addresses must be used by an indirect goto within the region.
+  DiagnoseAddrLabelsWithoutIndirectGoto(RSI);
 
   SmallVector<CapturedStmt::Capture, 4> Captures;
   SmallVector<Expr *, 4> CaptureInits;

@@ -760,6 +760,14 @@ documentation](CIR/index.md) for more information regarding ClangIR's status and
   `-Wunsafe-buffer-usage` to control warnings on `main`'s `argv` parameter,
   allowing users to suppress them with `-Wno-unsafe-buffer-usage-main-argv`.
 
+- Added `-Wlabel-address-without-indirect-goto`, enabled by default, which
+  warns when the address of a label (`&&label`) is taken in a function that
+  contains no indirect `goto *` statement. Such label addresses are only
+  meaningful as targets of an indirect `goto`; otherwise the compiler does not
+  guarantee any relation between the value and the location of the label. If
+  the intent is to obtain the current code address (as done e.g. by the Linux
+  kernel's `_THIS_IP_` macro), use `__builtin_instruction_pointer()` instead.
+
 ### Improvements to Clang's time-trace
 
 ### Improvements to Coverage Mapping

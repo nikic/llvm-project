@@ -1326,7 +1326,10 @@ namespace StmtExprs {
   static_assert(foo() == 76, "");
 
   namespace CrossFuncLabelDiff {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wlabel-address-without-indirect-goto"
     constexpr long a(bool x) { return x ? 0 : (intptr_t)&&lbl + (0 && ({lbl: 0;})); }
+#pragma clang diagnostic pop
   }
 
   /// FIXME: This should be accepted.

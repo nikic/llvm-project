@@ -31,7 +31,9 @@ void test9(const void *P) {
 
 void *test10(void) { 
 bar:
-  return &&bar;  // expected-warning {{returning address of label, which is local}}
+  return &&bar;  // expected-warning {{returning address of label, which is local}} \
+                 // expected-warning {{address of label 'bar' is not guaranteed to point to the label}} \
+                 // expected-note {{use '__builtin_instruction_pointer()'}}
 }
 
 // PR38569: Don't warn when returning a label from a statement expression.
@@ -39,7 +41,8 @@ void test10_logpc(void*);
 void test10a(void) {
   test10_logpc(({
     my_pc:
-      &&my_pc;
+      &&my_pc; // expected-warning {{address of label 'my_pc' is not guaranteed to point to the label}} \
+               // expected-note {{use '__builtin_instruction_pointer()'}}
   }));
 }
 

@@ -10,6 +10,9 @@
 // RUN: %clang_analyze_cc1 -verify %s -DVARIANT -DUSE_BUILTINS \
 // RUN:   -analyzer-checker=alpha.unix.cstring.BufferOverlap
 
+// The label addresses below are just used as arbitrary non-heap pointers.
+#pragma clang diagnostic ignored "-Wlabel-address-without-indirect-goto"
+
 // This provides us with four possible sprintf() definitions.
 
 #ifdef USE_BUILTINS

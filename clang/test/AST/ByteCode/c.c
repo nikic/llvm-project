@@ -288,7 +288,9 @@ _Static_assert(&dummyarray[0] < &dummyarray[1], ""); // pedantic-warning {{GNU e
 
 void addrlabelexpr(void) {
  a0: ;
-  static void *ps[] = { &&a0 }; // pedantic-warning {{use of GNU address-of-label extension}}
+  static void *ps[] = { &&a0 }; // pedantic-warning {{use of GNU address-of-label extension}} \
+                                // all-warning {{address of label 'a0' is not guaranteed to point to the label}} \
+                                // all-note {{use '__builtin_instruction_pointer()'}}
 }
 
 extern void cv2;

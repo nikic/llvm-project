@@ -1,4 +1,4 @@
-// RUN: %clang_analyze_cc1 -analyzer-checker=core,debug.ExprInspection -analyzer-output text -verify %s 
+// RUN: %clang_analyze_cc1 -analyzer-checker=core,debug.ExprInspection -analyzer-output text -verify %s -Wno-label-address-without-indirect-goto 
 
 void clang_analyzer_warnIfReached(void);
 

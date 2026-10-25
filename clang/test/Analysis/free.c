@@ -6,6 +6,10 @@
 // RUN:   -analyzer-checker=core \
 // RUN:   -analyzer-checker=unix.Malloc \
 // RUN:   -analyzer-config unix.DynamicMemoryModeling:Optimistic=true
+
+// The label addresses below are just used as arbitrary non-heap pointers.
+#pragma clang diagnostic ignored "-Wlabel-address-without-indirect-goto"
+
 typedef __typeof(sizeof(int)) size_t;
 void free(void *);
 void *alloca(size_t);
