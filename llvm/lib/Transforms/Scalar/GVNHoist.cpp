@@ -550,7 +550,7 @@ bool GVNHoist::hasEH(const BasicBlock *BB) {
   if (!Inserted)
     return It->second;
 
-  if (BB->isEHPad() || BB->hasAddressTaken()) {
+  if (BB->isEHPad()) {
     It->second = true;
     return true;
   }
