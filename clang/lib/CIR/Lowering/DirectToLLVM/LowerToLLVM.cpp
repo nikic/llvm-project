@@ -6354,13 +6354,13 @@ mlir::LogicalResult CIRToLLVMLabelOpLowering::matchAndRewrite(
     rewriter.setInsertionPointToEnd(block);
     mlir::LLVM::BrOp::create(rewriter, op.getLoc(), newBlock);
   }
-  auto tagAttr =
-      mlir::LLVM::BlockTagAttr::get(ctx, blockInfoAddr.getTagIndex());
+  mlir::LLVM::LLVMFuncOp func = op->getParentOfType<mlir::LLVM::LLVMFuncOp>();
+  auto tagAttr = mlir::LLVM::BlockTagAttr::get(
+      ctx, blockInfoAddr.getTagIndex(func.getSymNameAttr()));
   rewriter.setInsertionPoint(op);
 
   auto blockTagOp =
       mlir::LLVM::BlockTagOp::create(rewriter, op->getLoc(), tagAttr);
-  mlir::LLVM::LLVMFuncOp func = op->getParentOfType<mlir::LLVM::LLVMFuncOp>();
   auto blockInfoAttr =
       cir::BlockAddrInfoAttr::get(ctx, func.getSymName(), op.getLabel());
   blockInfoAddr.mapBlockTag(blockInfoAttr, blockTagOp);

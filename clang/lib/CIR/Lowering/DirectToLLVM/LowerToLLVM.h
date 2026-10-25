@@ -46,8 +46,12 @@ void createLLVMFuncOpIfNotExist(mlir::ConversionPatternRewriter &rewriter,
                                 mlir::ArrayAttr resAttrs = nullptr);
 
 struct LLVMBlockAddressInfo {
-  // Get the next tag index
-  uint32_t getTagIndex() { return blockTagOpIndex++; }
+  // Get the next tag index of the function. Tags are numbered per function,
+  // the tags of the blocks an indirect goto can jump to become the edge
+  // address IDs in LLVM IR.
+  uint32_t getTagIndex(mlir::StringAttr funcName) {
+    return blockTagOpIndex[funcName]++;
+  }
 
   void mapBlockTag(cir::BlockAddrInfoAttr info, mlir::LLVM::BlockTagOp tagOp) {
     [[maybe_unused]] auto result = blockInfoToTagOp.try_emplace(info, tagOp);
@@ -84,7 +88,7 @@ private:
   // name) pair so it can be patched later.
   llvm::DenseMap<mlir::LLVM::BlockAddressOp, cir::BlockAddrInfoAttr>
       unresolvedBlockAddressOp;
-  int32_t blockTagOpIndex = 0;
+  llvm::DenseMap<mlir::StringAttr, uint32_t> blockTagOpIndex;
 };
 
 mlir::LogicalResult lowerToConstrainedFPIntrinsic(
