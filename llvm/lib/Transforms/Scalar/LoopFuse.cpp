@@ -161,8 +161,9 @@ struct FusionCandidate {
       : Preheader(L->getLoopPreheader()), Header(L->getHeader()),
         ExitingBlock(L->getExitingBlock()), ExitBlock(L->getExitBlock()),
         Latch(L->getLoopLatch()), L(L), Valid(true),
-        GuardBranch(L->getLoopGuardBranch()), PP(PP), AbleToPeel(canPeel(L)),
-        Peeled(false), DT(DT), PDT(PDT), ORE(ORE) {
+        GuardBranch(L->getLoopGuardBranch()), PP(PP),
+        AbleToPeel(canPeel(L) && L->isSafeToClone()), Peeled(false), DT(DT),
+        PDT(PDT), ORE(ORE) {
 
     // Walk over all blocks in the loop and check for conditions that may
     // prevent fusion. For each block, walk over all instructions and collect

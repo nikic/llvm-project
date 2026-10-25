@@ -584,6 +584,12 @@ public:
         return false;
       }
 
+      if (!L->isSafeToClone()) {
+        LLVM_DEBUG(dbgs() << "Versioning is needed but the loop cannot be "
+                             "cloned\n");
+        return false;
+      }
+
       auto *HeaderBB = L->getHeader();
       if (llvm::shouldOptimizeForSize(HeaderBB, PSI, BFI,
                                       PGSOQueryType::IRPass)) {

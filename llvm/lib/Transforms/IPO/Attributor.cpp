@@ -2842,6 +2842,11 @@ bool Attributor::isInternalizable(Function &F) {
   if (F.isDeclaration() || F.hasLocalLinkage() ||
       GlobalValue::isInterposableLinkage(F.getLinkage()))
     return false;
+  // The internalized copy would have its own edge addresses, while the
+  // addresses passed to it (e.g. from a global table) refer to the original
+  // function.
+  if (F.hasIndirectSwitch())
+    return false;
   return true;
 }
 
@@ -3936,7 +3941,9 @@ static bool runAttributorOnFunctions(InformationCache &InfoCache,
       if (!F->isDeclaration() && !F->isDefinitionExact() && !F->use_empty() &&
           !GlobalValue::isInterposableLinkage(F->getLinkage())) {
         Function *NewF = Attributor::internalizeFunction(*F);
-        assert(NewF && "Could not internalize function.");
+        // Functions with an indirectswitch can't be internalized.
+        if (!NewF)
+          continue;
         Functions.insert(NewF);
 
         // Update call graph

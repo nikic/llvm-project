@@ -645,6 +645,9 @@ public:
                   "loop is not in loop-simplify form");
     if (!L->isRotatedForm())
       return fail("NotBottomTested", "loop is not bottom tested");
+    // Distribution clones the loop for each partition.
+    if (!L->isSafeToClone())
+      return fail("CantCloneLoop", "loop cannot be cloned");
 
     BasicBlock *PH = L->getLoopPreheader();
 

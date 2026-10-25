@@ -312,7 +312,7 @@ bool runImpl(LoopInfo *LI, LoopAccessInfoManager &LAIs, DominatorTree *DT,
   bool Changed = false;
   for (Loop *L : Worklist) {
     if (!L->isLoopSimplifyForm() || !L->isRotatedForm() ||
-        !L->getExitingBlock())
+        !L->getExitingBlock() || !L->isSafeToClone())
       continue;
     const LoopAccessInfo &LAI = LAIs.getInfo(*L);
     if (!LAI.hasConvergentOp() &&

@@ -3975,6 +3975,7 @@ bool llvm::canReplaceOperandWithVariable(const Instruction *I, unsigned OpIdx) {
     // Shufflevector masks are constant.
     return OpIdx != 2;
   case Instruction::Switch:
+  case Instruction::IndirectSwitch:
   case Instruction::ExtractValue:
     // All operands apart from the first are constant.
     return OpIdx == 0;

@@ -936,6 +936,9 @@ static bool FlattenLoopPair(FlattenInfo &FI, DominatorTree *DT, LoopInfo *LI,
     if (!FI.Opts.loop_flatten_version_loops) {
       LLVM_DEBUG(dbgs() << "Multiply might overflow, not flattening\n");
       return false;
+    } else if (!FI.OuterLoop->isSafeToClone()) {
+      LLVM_DEBUG(dbgs() << "Can't clone loop for versioning, not flattening\n");
+      return false;
     } else if (!DL.isLegalInteger(
                    FI.OuterTripCount->getType()->getScalarSizeInBits())) {
       // If the trip count type isn't legal then it won't be possible to check

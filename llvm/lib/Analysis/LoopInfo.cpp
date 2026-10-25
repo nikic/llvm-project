@@ -517,10 +517,11 @@ bool Loop::isLoopSimplifyForm() const {
 
 // Routines that reform the loop CFG and split edges often fail on indirectbr.
 bool Loop::isSafeToClone() const {
-  // Return false if any loop blocks contain indirectbrs, or there are any calls
-  // to noduplicate functions.
+  // Return false if any loop blocks contain indirectbrs or indirectswitches
+  // (which can't be duplicated), or there are any calls to noduplicate
+  // functions.
   for (BasicBlock *BB : this->blocks()) {
-    if (isa<IndirectBrInst>(BB->getTerminator()))
+    if (isa<IndirectBrInst, IndirectSwitchInst>(BB->getTerminator()))
       return false;
 
     for (Instruction &I : *BB)

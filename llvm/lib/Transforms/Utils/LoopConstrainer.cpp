@@ -145,6 +145,11 @@ LoopStructure::parseLoopStructure(SCEVExpander &Expander, Loop &L,
     return std::nullopt;
   }
 
+  if (!L.isSafeToClone()) {
+    FailureReason = "loop cannot be cloned";
+    return std::nullopt;
+  }
+
   if (!L.isLoopExiting(Latch)) {
     FailureReason = "no loop latch";
     return std::nullopt;

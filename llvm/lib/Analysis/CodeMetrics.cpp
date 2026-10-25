@@ -223,7 +223,11 @@ void CodeMetrics::analyzeBasicBlock(
   // if someone is using a blockaddress without an indirectbr, and that
   // reference somehow ends up in another function or global, we probably
   // don't want to inline this function.
-  notDuplicatable |= isa<IndirectBrInst>(BB->getTerminator());
+  //
+  // An indirectswitch can't be duplicated either, as each edgeaddress may be a
+  // case of only one indirectswitch.
+  notDuplicatable |=
+      isa<IndirectBrInst, IndirectSwitchInst>(BB->getTerminator());
 
   // Remember NumInsts for this BB.
   InstructionCost NumInstsThisBB = NumInsts - NumInstsBeforeThisBB;

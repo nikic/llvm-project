@@ -283,9 +283,15 @@ bool LoopVersioningLICM::legalLoopMemoryAccesses() {
 /// 1) Check all load store in loop body are non atomic & non volatile.
 /// 2) Check function call safety, by ensuring its not accessing memory.
 /// 3) Loop body shouldn't have any may throw instruction.
-/// 4) Loop body shouldn't have any convergent or noduplicate instructions.
+/// 4) Loop body shouldn't have any convergent or noduplicate instructions, or
+///    indirect branches.
 bool LoopVersioningLICM::instructionSafeForVersioning(Instruction *I) {
   assert(I != nullptr && "Null instruction found!");
+  // Indirect branches can't be duplicated.
+  if (isa<IndirectBrInst, IndirectSwitchInst>(I)) {
+    LLVM_DEBUG(dbgs() << "    Indirect branch found.\n");
+    return false;
+  }
   // Check function call safety
   if (auto *Call = dyn_cast<CallBase>(I)) {
     if (Call->isConvergent() || Call->cannotDuplicate()) {

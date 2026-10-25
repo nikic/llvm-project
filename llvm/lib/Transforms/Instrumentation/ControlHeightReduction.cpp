@@ -716,8 +716,9 @@ CHRScope * CHR::findScope(Region *R) {
       return nullptr;
   // If any of the basic blocks have address taken, we must skip this region
   // because we cannot clone basic blocks that have address taken.
+  // Likewise, an indirectswitch can't be cloned.
   for (BasicBlock *BB : R->blocks()) {
-    if (BB->hasAddressTaken())
+    if (BB->hasAddressTaken() || isa<IndirectSwitchInst>(BB->getTerminator()))
       return nullptr;
     // If we encounter llvm.coro.id, skip this region because if the basic block
     // is cloned, we end up inserting a token type PHI node to the block with
