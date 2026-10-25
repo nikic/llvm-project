@@ -29,6 +29,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
@@ -202,6 +203,24 @@ bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
 void AVRAsmPrinter::emitInstruction(const MachineInstr *MI) {
   AVR_MC::verifyInstructionPredicates(MI->getOpcode(),
                                       getSubtargetInfo().getFeatureBits());
+
+  if (MI->getOpcode() == TargetOpcode::INSTRUCTION_POINTER) {
+    // Emit "rcall .+0", which pushes the (word) address of the next
+    // instruction, and pop it into the destination register. The return
+    // address is pushed low byte first. On devices with a 22-bit PC, it has
+    // an extra high byte, which is discarded.
+    const AVRSubtarget &STI = MF->getSubtarget<AVRSubtarget>();
+    const TargetRegisterInfo &TRI = *STI.getRegisterInfo();
+    Register Reg = MI->getOperand(0).getReg();
+    Register Lo = TRI.getSubReg(Reg, AVR::sub_lo);
+    Register Hi = TRI.getSubReg(Reg, AVR::sub_hi);
+    EmitToStreamer(*OutStreamer, MCInstBuilder(AVR::RCALLk).addImm(0));
+    if (STI.hasEIJMPCALL())
+      EmitToStreamer(*OutStreamer, MCInstBuilder(AVR::POPRd).addReg(Lo));
+    EmitToStreamer(*OutStreamer, MCInstBuilder(AVR::POPRd).addReg(Hi));
+    EmitToStreamer(*OutStreamer, MCInstBuilder(AVR::POPRd).addReg(Lo));
+    return;
+  }
 
   AVRMCInstLower MCInstLowering(OutContext, *this);
 

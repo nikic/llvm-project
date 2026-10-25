@@ -485,6 +485,9 @@ unsigned AVRInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
   case TargetOpcode::KILL:
   case TargetOpcode::DBG_VALUE:
     return 0;
+  case TargetOpcode::INSTRUCTION_POINTER:
+    // rcall .+0, followed by two or three pops.
+    return STI.hasEIJMPCALL() ? 8 : 6;
   case TargetOpcode::INLINEASM:
   case TargetOpcode::INLINEASM_BR: {
     const MachineFunction &MF = *MI.getParent()->getParent();

@@ -53,6 +53,9 @@ AVRTargetLowering::AVRTargetLowering(const AVRTargetMachine &TM,
   setOperationAction(ISD::BlockAddress, MVT::i16, Custom);
   setOperationAction(ISD::FRAMEADDR, MVT::i16, Custom);
   setOperationAction(ISD::RETURNADDR, MVT::i16, Custom);
+  // INSTRUCTION_POINTER is lowered to "rcall .+0" followed by pops of the
+  // return address.
+  setOperationAction(ISD::INSTRUCTION_POINTER, MVT::i16, Legal);
 
   setOperationAction(ISD::STACKSAVE, MVT::Other, Expand);
   setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
