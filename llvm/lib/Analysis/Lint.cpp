@@ -112,6 +112,7 @@ class Lint : public InstVisitor<Lint> {
   void visitAllocaInst(AllocaInst &I);
   void visitVAArgInst(VAArgInst &I);
   void visitIndirectBrInst(IndirectBrInst &I);
+  void visitIndirectSwitchInst(IndirectSwitchInst &I);
   void visitExtractElementInst(ExtractElementInst &I);
   void visitInsertElementInst(InsertElementInst &I);
   void visitUnreachableInst(UnreachableInst &I);
@@ -613,6 +614,11 @@ void Lint::visitIndirectBrInst(IndirectBrInst &I) {
 
   Check(I.getNumDestinations() != 0,
         "Undefined behavior: indirectbr with no destinations", &I);
+}
+
+void Lint::visitIndirectSwitchInst(IndirectSwitchInst &I) {
+  Check(I.getNumCases() != 0,
+        "Undefined behavior: indirectswitch with no cases", &I);
 }
 
 void Lint::visitExtractElementInst(ExtractElementInst &I) {

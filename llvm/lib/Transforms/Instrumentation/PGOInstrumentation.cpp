@@ -1554,8 +1554,8 @@ void PGOUseFunc::setBranchWeights() {
     if (TI->getNumSuccessors() < 2)
       continue;
     if (!(isa<CondBrInst>(TI) || isa<SwitchInst>(TI) ||
-          isa<IndirectBrInst>(TI) || isa<InvokeInst>(TI) ||
-          isa<CallBrInst>(TI)))
+          isa<IndirectBrInst>(TI) || isa<IndirectSwitchInst>(TI) ||
+          isa<InvokeInst>(TI) || isa<CallBrInst>(TI)))
       continue;
 
     const PGOUseBBInfo &BBCountInfo = getBBInfo(&BB);
@@ -1604,7 +1604,7 @@ void PGOUseFunc::setBranchWeights() {
 
 static bool isIndirectBrTarget(BasicBlock *BB) {
   for (BasicBlock *Pred : predecessors(BB)) {
-    if (isa<IndirectBrInst>(Pred->getTerminator()))
+    if (isa<IndirectBrInst, IndirectSwitchInst>(Pred->getTerminator()))
       return true;
   }
   return false;

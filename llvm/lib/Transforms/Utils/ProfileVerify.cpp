@@ -58,7 +58,8 @@ public:
       return nullptr;
     auto *Term = BB.getTerminator();
     return (isa<CondBrInst>(Term) || isa<SwitchInst>(Term) ||
-            isa<IndirectBrInst>(Term) || isa<CallBrInst>(Term))
+            isa<IndirectBrInst>(Term) || isa<IndirectSwitchInst>(Term) ||
+            isa<CallBrInst>(Term))
                ? Term
                : nullptr;
   }

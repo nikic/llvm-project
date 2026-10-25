@@ -285,7 +285,8 @@ bool BPIConstruction::calcMetadataWeights(const BasicBlock *BB) {
   const Instruction *TI = BB->getTerminator();
   assert(TI->getNumSuccessors() > 1 && "expected more than one successor!");
   if (!(isa<CondBrInst>(TI) || isa<SwitchInst>(TI) || isa<IndirectBrInst>(TI) ||
-        isa<InvokeInst>(TI) || isa<CallBrInst>(TI)))
+        isa<IndirectSwitchInst>(TI) || isa<InvokeInst>(TI) ||
+        isa<CallBrInst>(TI)))
     return false;
 
   MDNode *WeightsNode = getValidBranchWeightMDNode(*TI);

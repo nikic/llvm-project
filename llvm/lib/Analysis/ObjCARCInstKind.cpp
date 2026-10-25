@@ -244,6 +244,7 @@ ARCInstKind llvm::objcarc::GetARCInstKind(const Value *V) {
     case Instruction::CondBr:
     case Instruction::Switch:
     case Instruction::IndirectBr:
+    case Instruction::IndirectSwitch:
     case Instruction::Alloca:
     case Instruction::VAArg:
     case Instruction::Add:
