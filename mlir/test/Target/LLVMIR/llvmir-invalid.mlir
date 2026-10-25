@@ -463,3 +463,20 @@ llvm.func @constant_resource_does_not_exist(%arg0: vector<4xi32>) {
   %1 = llvm.icmp "sgt" %arg0, %0 : vector<4xi32>
   llvm.return
 }
+
+// -----
+
+llvm.func @indirectbr_nested_region(%arg0: !llvm.ptr) {
+  // expected-error @below {{LLVM Translation failed for operation: omp.parallel}}
+  omp.parallel {
+    // expected-error @below {{llvm.indirectbr in a nested region is not supported}}
+    // expected-error @below {{LLVM Translation failed for operation: llvm.indirectbr}}
+    llvm.indirectbr %arg0 : !llvm.ptr, [
+    ^bb1
+    ]
+  ^bb1:
+    llvm.blocktag <id = 0>
+    omp.terminator
+  }
+  llvm.return
+}

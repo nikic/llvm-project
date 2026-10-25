@@ -36,6 +36,7 @@ class CallBase;
 class CanonicalLoopInfo;
 class Function;
 class IRBuilderBase;
+class IndirectSwitchInst;
 class Metadata;
 class OpenMPIRBuilder;
 class Value;
@@ -205,6 +206,20 @@ public:
   llvm::BasicBlock *lookupBlockAddress(BlockAddressAttr attr) const {
     return blockAddressToLLVMMapping.lookup(attr);
   }
+
+  /// Records the LLVM indirectswitch created (without cases) for an
+  /// llvm.indirectbr operation of the function being translated. The cases
+  /// are added once the whole function has been translated, see
+  /// `convertIndirectBranches`.
+  void mapIndirectBr(IndirectBrOp op, llvm::IndirectSwitchInst *inst) {
+    indirectBranches.emplace_back(op, inst);
+  }
+
+  /// Returns true if the block referenced by `op` is a successor of an
+  /// llvm.indirectbr operation in its function. Such block addresses are
+  /// translated to LLVM edge addresses with the ID of the block tag, all other
+  /// block addresses to LLVM block addresses.
+  bool isIndirectBrTarget(BlockAddressOp op);
 
   /// Removes the mapping for blocks contained in the region and values defined
   /// in these blocks.
@@ -426,6 +441,17 @@ private:
 
   LogicalResult convertUnresolvedBlockAddress();
 
+  /// Adds the cases to the indirectswitch instructions recorded for the
+  /// llvm.indirectbr operations of `func` and connects the PHI nodes of their
+  /// successors. If there is more than one llvm.indirectbr, they are merged
+  /// into a single dispatch block, as LLVM does not allow an edge address to be
+  /// a case of more than one indirectswitch.
+  void convertIndirectBranches(LLVMFuncOp func);
+
+  /// Returns the tagged blocks of `func` that are successors of an
+  /// llvm.indirectbr, keyed by tag ID. Computed lazily and cached.
+  const DenseMap<uint32_t, Block *> &getIndirectBrTargets(LLVMFuncOp func);
+
   /// Handle conversion for both globals and global aliases.
   ///
   /// - Create named global variables that correspond to llvm.mlir.global
@@ -565,6 +591,14 @@ private:
   /// Mapping from a BlockAddressAttr attribute to it's matching LLVM basic
   /// block.
   DenseMap<BlockAddressAttr, llvm::BasicBlock *> blockAddressToLLVMMapping;
+
+  /// The llvm.indirectbr operations of the function being translated and their
+  /// corresponding LLVM indirectswitch instructions.
+  SmallVector<std::pair<IndirectBrOp, llvm::IndirectSwitchInst *>>
+      indirectBranches;
+
+  /// Cache for `getIndirectBrTargets`.
+  DenseMap<Operation *, DenseMap<uint32_t, Block *>> indirectBrTargets;
 
   /// Stack of user-specified state elements, useful when translating operations
   /// with regions.

@@ -878,14 +878,6 @@ static Value getPHISourceValue(Block *current, Block *pred,
         return switchOp.getCaseOperands(i.index())[index];
   }
 
-  if (auto indBrOp = dyn_cast<LLVM::IndirectBrOp>(terminator)) {
-    // For indirect branches we take operands for each successor.
-    for (const auto &i : llvm::enumerate(indBrOp->getSuccessors())) {
-      if (indBrOp->getSuccessor(i.index()) == current)
-        return indBrOp.getSuccessorOperands(i.index())[index];
-    }
-  }
-
   if (auto invokeOp = dyn_cast<LLVM::InvokeOp>(terminator)) {
     return invokeOp.getNormalDest() == current
                ? invokeOp.getNormalDestOperands()[index]
@@ -914,6 +906,10 @@ void mlir::LLVM::detail::connectPHINodes(Region &region,
         // necessarily the same as state.lookupBlock(pred), some operations
         // (in particular, OpenMP operations using OpenMPIRBuilder) may have
         // split the blocks.
+        // The incoming values for llvm.indirectbr edges are added by
+        // `ModuleTranslation::convertIndirectBranches`.
+        if (isa<LLVM::IndirectBrOp>(pred->getTerminator()))
+          continue;
         llvm::Instruction *terminator =
             state.lookupBranch(pred->getTerminator());
         assert(terminator && "missing the mapping for a terminator");
@@ -1687,6 +1683,7 @@ LogicalResult ModuleTranslation::convertOneFunction(LLVMFuncOp func) {
   blockMapping.clear();
   valueMapping.clear();
   branchMapping.clear();
+  indirectBranches.clear();
   llvm::Function *llvmFunc = lookupFunction(func.getName());
   llvm::LLVMContext &llvmContext = llvmFunc->getContext();
 
@@ -1788,6 +1785,7 @@ LogicalResult ModuleTranslation::convertOneFunction(LLVMFuncOp func) {
   // After all blocks have been traversed and values mapped, connect the PHI
   // nodes to the results of preceding blocks.
   detail::connectPHINodes(func.getBody(), *this);
+  convertIndirectBranches(func);
 
   // Finally, convert dialect attributes attached to the function.
   return convertDialectAttributes(func, {});
@@ -2294,6 +2292,126 @@ LogicalResult ModuleTranslation::convertComdats() {
     }
   }
   return success();
+}
+
+const DenseMap<uint32_t, Block *> &
+ModuleTranslation::getIndirectBrTargets(LLVMFuncOp func) {
+  auto [it, inserted] = indirectBrTargets.try_emplace(func);
+  if (!inserted)
+    return it->second;
+
+  SmallPtrSet<Block *, 16> successors;
+  SmallVector<BlockTagOp> blockTags;
+  func.walk([&](Operation *op) {
+    if (auto indBrOp = dyn_cast<IndirectBrOp>(op))
+      successors.insert_range(indBrOp->getSuccessors());
+    else if (auto blockTagOp = dyn_cast<BlockTagOp>(op))
+      blockTags.push_back(blockTagOp);
+  });
+  DenseMap<uint32_t, Block *> &targets = it->second;
+  for (BlockTagOp blockTagOp : blockTags)
+    if (successors.contains(blockTagOp->getBlock()))
+      targets[blockTagOp.getTag().getId()] = blockTagOp->getBlock();
+  return targets;
+}
+
+bool ModuleTranslation::isIndirectBrTarget(BlockAddressOp op) {
+  LLVMFuncOp func = op.getFunction(symbolTable());
+  return func && getIndirectBrTargets(func).contains(
+                     op.getBlockAddr().getTag().getId());
+}
+
+void ModuleTranslation::convertIndirectBranches(LLVMFuncOp func) {
+  if (indirectBranches.empty())
+    return;
+
+  llvm::Function *llvmFunc = lookupFunction(func.getName());
+
+  // Collect the indirectswitch cases: one per tag in a successor block of an
+  // llvm.indirectbr, ordered by tag ID. The edge address IDs are the tag IDs.
+  SmallVector<std::pair<uint32_t, Block *>> cases =
+      llvm::to_vector_of<std::pair<uint32_t, Block *>>(
+          getIndirectBrTargets(func));
+  llvm::sort(cases, llvm::less_first());
+  SmallPtrSet<Block *, 16> caseBlocks;
+  for (Block *block : llvm::make_second_range(cases))
+    caseBlocks.insert(block);
+
+  // With a single llvm.indirectbr, its indirectswitch is the dispatch. With
+  // several, they branch to a new dispatch block that contains the only
+  // indirectswitch of the function, with PHI nodes merging the address and
+  // the successor operands of the individual llvm.indirectbr operations.
+  llvm::IndirectSwitchInst *dispatch = indirectBranches.front().second;
+  // Maps successor blocks with arguments to the values the dispatch block
+  // passes to them.
+  DenseMap<Block *, SmallVector<llvm::Value *>> dispatchOperands;
+  if (indirectBranches.size() == 1) {
+    IndirectBrOp indBrOp = indirectBranches.front().first;
+    for (auto [index, succ] : llvm::enumerate(indBrOp->getSuccessors()))
+      if (succ->getNumArguments() != 0 && caseBlocks.contains(succ))
+        dispatchOperands[succ] = lookupValues(
+            indBrOp.getSuccessorOperands(index).getForwardedOperands());
+  } else {
+    llvm::BasicBlock *dispatchBlock =
+        llvm::BasicBlock::Create(getLLVMContext(), "", llvmFunc);
+    llvm::IRBuilder<> builder(dispatchBlock);
+    unsigned numPreds = indirectBranches.size();
+    llvm::PHINode *addr =
+        builder.CreatePHI(dispatch->getAddress()->getType(), numPreds);
+    dispatch = builder.CreateIndirectSwitch(addr, cases.size());
+
+    // Create PHI nodes for the arguments of the successors.
+    for (auto [indBrOp, indSwitch] : indirectBranches) {
+      for (Block *succ : indBrOp->getSuccessors()) {
+        if (succ->getNumArguments() == 0 || !caseBlocks.contains(succ) ||
+            dispatchOperands.contains(succ))
+          continue;
+        SmallVector<llvm::Value *> &phis = dispatchOperands[succ];
+        builder.SetInsertPoint(dispatch);
+        for (BlockArgument arg : succ->getArguments())
+          phis.push_back(
+              builder.CreatePHI(convertType(arg.getType()), numPreds));
+      }
+    }
+
+    // Replace each indirectswitch by a branch to the dispatch block.
+    for (auto [indBrOp, indSwitch] : indirectBranches) {
+      llvm::BasicBlock *pred = indSwitch->getParent();
+      addr->addIncoming(indSwitch->getAddress(), pred);
+      for (auto &[succ, phis] : dispatchOperands) {
+        // The operands passed from an llvm.indirectbr that does not list the
+        // successor do not matter: jumping to it from there is undefined.
+        auto it = llvm::find(indBrOp->getSuccessors(), succ);
+        bool listed = it != indBrOp->getSuccessors().end();
+        SmallVector<llvm::Value *> operands;
+        if (listed)
+          operands = lookupValues(indBrOp
+                                      .getSuccessorOperands(std::distance(
+                                          indBrOp->getSuccessors().begin(), it))
+                                      .getForwardedOperands());
+        for (auto [i, phi] : llvm::enumerate(phis))
+          cast<llvm::PHINode>(phi)->addIncoming(
+              listed ? operands[i] : llvm::PoisonValue::get(phi->getType()),
+              pred);
+      }
+      auto *br =
+          llvm::UncondBrInst::Create(dispatchBlock, indSwitch->getIterator());
+      br->setDebugLoc(indSwitch->getDebugLoc());
+      branchMapping[indBrOp] = br;
+      indSwitch->eraseFromParent();
+    }
+  }
+
+  // Add the cases and connect the PHI nodes of their destinations.
+  for (auto [id, block] : cases) {
+    llvm::BasicBlock *dest = lookupBlock(block);
+    dispatch->addCase(llvm::EdgeAddress::get(llvmFunc, id), dest);
+    if (block->getNumArguments() == 0)
+      continue;
+    ArrayRef<llvm::Value *> operands = dispatchOperands.find(block)->second;
+    for (auto [phi, value] : llvm::zip_equal(dest->phis(), operands))
+      phi.addIncoming(value, dispatch->getParent());
+  }
 }
 
 LogicalResult ModuleTranslation::convertUnresolvedBlockAddress() {

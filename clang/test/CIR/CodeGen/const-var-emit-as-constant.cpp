@@ -183,8 +183,12 @@ l2:
 // CIR:         cir.cast integral %[[DIFF]] : !s64i -> !u64i
 
 // LLVM-OGCG-LABEL: define {{.*}}ptr @_Z16const_label_addri(
-// LLVM:              store ptr inttoptr (i64 sub (i64 ptrtoint (ptr blockaddress(@_Z16const_label_addri, %[[L2:.*]]) to i64), i64 ptrtoint (ptr blockaddress(@_Z16const_label_addri, %[[L1:.*]]) to i64)) to ptr), ptr %{{.*}}
-// LLVM:              phi ptr [ blockaddress(@_Z16const_label_addri, %[[L1]]), %{{.*}} ]
+// LLVM:              store ptr inttoptr (i64 sub (i64 ptrtoint (ptr edgeaddress(@_Z16const_label_addri, [[L2:[0-9]+]]) to i64), i64 ptrtoint (ptr edgeaddress(@_Z16const_label_addri, [[L1:[0-9]+]]) to i64)) to ptr), ptr %{{.*}}
+// LLVM:              phi ptr [ edgeaddress(@_Z16const_label_addri, [[L1]]), %{{.*}} ]
+// LLVM-NEXT:         indirectswitch ptr %{{.*}}, [
+// LLVM-NEXT:           ptr edgeaddress(@_Z16const_label_addri, 0), label %{{[0-9]+}}
+// LLVM-NEXT:           ptr edgeaddress(@_Z16const_label_addri, 1), label %{{[0-9]+}}
+// LLVM-NEXT:         ]
 // OGCG:              store ptr inttoptr (i64 sub (i64 ptrtoint (ptr edgeaddress(@_Z16const_label_addri, 1) to i64), i64 ptrtoint (ptr edgeaddress(@_Z16const_label_addri, 0) to i64)) to ptr), ptr %{{.*}}
 // OGCG:              phi ptr [ edgeaddress(@_Z16const_label_addri, 0), %{{.*}} ]
 // OGCG-NEXT:         indirectswitch ptr %{{.*}}, [

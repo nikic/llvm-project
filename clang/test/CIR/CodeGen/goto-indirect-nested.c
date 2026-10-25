@@ -26,12 +26,11 @@ done:
 // CIR:   cir.label "done"
 
 // LLVM-LABEL: define dso_local i32 @nested_goto
-// LLVMCIR:   store ptr blockaddress(@nested_goto, %[[DONE:.*]]), ptr %{{.*}}, align 8
-// LLVMCIR:   indirectbr ptr %{{.*}}, [label %[[DONE]]]
-// OGCG:      store ptr edgeaddress(@nested_goto, 0), ptr %{{.*}}, align 8
-// OGCG:      indirectswitch ptr %{{.*}}, [
-// OGCG-NEXT:   ptr edgeaddress(@nested_goto, 0), label %done
-// OGCG-NEXT: ]
+// LLVM:         store ptr edgeaddress(@nested_goto, 0), ptr %{{.*}}, align 8
+// LLVM:         indirectswitch ptr %{{.*}}, [
+// LLVMCIR-NEXT:   ptr edgeaddress(@nested_goto, 0), label %{{[0-9]+}}
+// OGCG-NEXT:      ptr edgeaddress(@nested_goto, 0), label %done
+// LLVM-NEXT:    ]
 
 // A top-level `goto *p` whose target label sits inside a nested scope.
 int nested_label(int x) {
@@ -54,12 +53,14 @@ int nested_label(int x) {
 // CIR:   %[[T:.*]] = cir.load align(8)
 // CIR:   cir.indirect_goto %[[T]] : !cir.ptr<!void>
 
-// CIR emits the store block first, then branches to the indirectbr block.
+// CIR emits the store block first, then branches to the indirectswitch block.
 // LLVMCIR-LABEL: define dso_local i32 @nested_label
-// LLVMCIR:   store ptr blockaddress(@nested_label, %[[INNER:.*]]), ptr %{{.*}}, align 8
+// LLVMCIR:   store ptr edgeaddress(@nested_label, 0), ptr %{{.*}}, align 8
 // LLVMCIR:   br label %[[IBR:.*]]
 // LLVMCIR: [[IBR]]:
-// LLVMCIR:   indirectbr ptr %{{.*}}, [label %[[INNER]]]
+// LLVMCIR:   indirectswitch ptr %{{.*}}, [
+// LLVMCIR-NEXT: ptr edgeaddress(@nested_label, 0), label %{{[0-9]+}}
+// LLVMCIR-NEXT: ]
 
 // OGCG emits the indirectswitch block first; the store block branches back up to it.
 // OGCG-LABEL: define dso_local i32 @nested_label
@@ -90,12 +91,11 @@ out:
 // CIR:   cir.label "out"
 
 // LLVM-LABEL: define dso_local i32 @goto_in_loop
-// LLVMCIR:   store ptr blockaddress(@goto_in_loop, %[[OUT:.*]]), ptr %{{.*}}, align 8
-// LLVMCIR:   indirectbr ptr %{{.*}}, [label %[[OUT]]]
-// OGCG:      store ptr edgeaddress(@goto_in_loop, 0), ptr %{{.*}}, align 8
-// OGCG:      indirectswitch ptr %{{.*}}, [
-// OGCG-NEXT:   ptr edgeaddress(@goto_in_loop, 0), label %out
-// OGCG-NEXT: ]
+// LLVM:         store ptr edgeaddress(@goto_in_loop, 0), ptr %{{.*}}, align 8
+// LLVM:         indirectswitch ptr %{{.*}}, [
+// LLVMCIR-NEXT:   ptr edgeaddress(@goto_in_loop, 0), label %{{[0-9]+}}
+// OGCG-NEXT:      ptr edgeaddress(@goto_in_loop, 0), label %out
+// LLVM-NEXT:    ]
 
 // An address-taken label as the first statement of the function.
 int leading_label(int x) {
@@ -116,9 +116,7 @@ first:;
 // LLVM-LABEL: define dso_local i32 @leading_label
 // LLVM:   br label %[[FIRST:.*]]
 // LLVM: [[FIRST]]:
-// LLVMCIR:   store ptr blockaddress(@leading_label, %[[FIRST]]), ptr %{{.*}}, align 8
-// LLVMCIR:   indirectbr ptr %{{.*}}, [label %[[FIRST]]]
-// OGCG:      store ptr edgeaddress(@leading_label, 0), ptr %{{.*}}, align 8
-// OGCG:      indirectswitch ptr %{{.*}}, [
-// OGCG-NEXT:   ptr edgeaddress(@leading_label, 0), label %[[FIRST]]
-// OGCG-NEXT: ]
+// LLVM:      store ptr edgeaddress(@leading_label, 0), ptr %{{.*}}, align 8
+// LLVM:      indirectswitch ptr %{{.*}}, [
+// LLVM-NEXT:   ptr edgeaddress(@leading_label, 0), label %[[FIRST]]
+// LLVM-NEXT: ]

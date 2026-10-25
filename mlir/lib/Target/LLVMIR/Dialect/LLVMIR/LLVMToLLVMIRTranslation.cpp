@@ -804,12 +804,18 @@ convertOperationImpl(Operation &opInst, llvm::IRBuilderBase &builder,
     return success();
   }
   if (auto indBrOp = dyn_cast<LLVM::IndirectBrOp>(opInst)) {
-    llvm::IndirectBrInst *indBr = builder.CreateIndirectBr(
-        moduleTranslation.lookupValue(indBrOp.getAddr()),
-        indBrOp->getNumSuccessors());
-    for (auto *succ : indBrOp.getSuccessors())
-      indBr->addDestination(moduleTranslation.lookupBlock(succ));
-    moduleTranslation.mapBranch(&opInst, indBr);
+    // llvm.indirectbr is translated to an indirectswitch. Its cases (the edge
+    // addresses of the tagged successors) are added after the whole function
+    // has been translated, as all llvm.indirectbr operations of a function may
+    // have to be merged into a single dispatch block.
+    auto funcOp = indBrOp->getParentOfType<LLVMFuncOp>();
+    if (!funcOp || indBrOp->getParentRegion() != &funcOp.getBody())
+      return indBrOp.emitError(
+          "llvm.indirectbr in a nested region is not supported");
+    llvm::IndirectSwitchInst *indSwitch = builder.CreateIndirectSwitch(
+        moduleTranslation.lookupValue(indBrOp.getAddr()));
+    moduleTranslation.mapBranch(&opInst, indSwitch);
+    moduleTranslation.mapIndirectBr(indBrOp, indSwitch);
     return success();
   }
 
@@ -871,11 +877,21 @@ convertOperationImpl(Operation &opInst, llvm::IRBuilderBase &builder,
   // operation and then create a LLVM block address for it.
   if (auto blockAddressOp = dyn_cast<LLVM::BlockAddressOp>(opInst)) {
     BlockAddressAttr blockAddressAttr = blockAddressOp.getBlockAddr();
+    StringRef fnName = blockAddressAttr.getFunction().getValue();
+
+    // The address of a block that can be reached by an llvm.indirectbr is
+    // translated to an edge address. The tag ID is used as edge address ID.
+    if (moduleTranslation.isIndirectBrTarget(blockAddressOp)) {
+      moduleTranslation.mapValue(
+          blockAddressOp.getResult(),
+          llvm::EdgeAddress::get(moduleTranslation.lookupFunction(fnName),
+                                 blockAddressAttr.getTag().getId()));
+      return success();
+    }
+
     llvm::BasicBlock *llvmBlock =
         moduleTranslation.lookupBlockAddress(blockAddressAttr);
-
     llvm::Value *llvmValue = nullptr;
-    StringRef fnName = blockAddressAttr.getFunction().getValue();
     if (llvmBlock) {
       llvm::Function *llvmFn = moduleTranslation.lookupFunction(fnName);
       llvmValue = llvm::BlockAddress::get(llvmFn, llvmBlock);

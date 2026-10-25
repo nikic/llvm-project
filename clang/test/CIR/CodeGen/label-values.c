@@ -22,14 +22,16 @@ LABEL_A:
 
 // LLVM: define dso_local void @A()
 // LLVM:   [[PTR:%.*]] = alloca ptr, align 8
-// LLVM:   store ptr blockaddress(@A, %[[LABEL_A:.*]]), ptr [[PTR]], align 8
+// LLVM:   store ptr edgeaddress(@A, [[ID:[0-9]+]]), ptr [[PTR]], align 8
 // LLVM:   [[BLOCKADD:%.*]] = load ptr, ptr [[PTR]], align 8
 // LLVM:   br label %[[indirectgoto:.*]]
-// LLVM: [[LABEL_A]]:                                                ; preds = %[[indirectgoto]]
+// LLVM: [[LABEL_A:[0-9]+]]:                                                ; preds = %[[indirectgoto]]
 // LLVM:   ret void
 // LLVM: [[indirectgoto]]:                                                ; preds = %[[ENTRY:.*]]
 // LLVM:   [[PHI:%.*]] = phi ptr [ [[BLOCKADD]], %[[ENTRY]] ]
-// LLVM:   indirectbr ptr [[PHI]], [label %[[LABEL_A]]]
+// LLVM:   indirectswitch ptr [[PHI]], [
+// LLVM-NEXT: ptr edgeaddress(@A, [[ID]]), label %[[LABEL_A]]
+// LLVM-NEXT: ]
 
 // OGCG: define dso_local void @A()
 // OGCG:   [[PTR:%.*]] = alloca ptr, align 8
@@ -64,12 +66,14 @@ LABEL_B:
 // LLVM:   %[[PTR:.*]] = alloca ptr, align 8
 // LLVM:   br label %[[LABEL_B:.*]]
 // LLVM: [[LABEL_B]]:
-// LLVM:   store ptr blockaddress(@B, %[[LABEL_B]]), ptr %[[PTR]], align 8
+// LLVM:   store ptr edgeaddress(@B, [[ID:[0-9]+]]), ptr %[[PTR]], align 8
 // LLVM:   [[BLOCKADD:%.*]] = load ptr, ptr %[[PTR]], align 8
 // LLVM:   br label %[[indirectgoto:.*]]
 // LLVM: [[indirectgoto]]:
 // LLVM:   [[PHI:%.*]] = phi ptr [ [[BLOCKADD]], %[[LABEL_B]] ]
-// LLVM:   indirectbr ptr [[PHI]], [label %[[LABEL_B]]]
+// LLVM:   indirectswitch ptr [[PHI]], [
+// LLVM-NEXT: ptr edgeaddress(@B, [[ID]]), label %[[LABEL_B]]
+// LLVM-NEXT: ]
 
 // OGCG: define dso_local void @B
 // OGCG:   [[PTR:%.*]] = alloca ptr, align 8
@@ -106,17 +110,20 @@ LABEL_B:
 // CIR:    cir.return
 
 // LLVM: define dso_local void @C
-// LLVM:   [[COND:%.*]] = select i1 [[CMP:%.*]], ptr blockaddress(@C, %[[LABEL_A:.*]]), ptr blockaddress(@C, %[[LABEL_B:.*]])
+// LLVM:   [[COND:%.*]] = select i1 [[CMP:%.*]], ptr edgeaddress(@C, [[ID_A:[0-9]+]]), ptr edgeaddress(@C, [[ID_B:[0-9]+]])
 // LLVM:   store ptr [[COND]], ptr [[PTR:%.*]], align 8
 // LLVM:   [[BLOCKADD:%.*]] = load ptr, ptr [[PTR]], align 8
 // LLVM:   br label %[[INDIRECT_GOTO:.*]]
-// LLVM: [[LABEL_A]]:
+// LLVM: [[LABEL_A:[0-9]+]]:
 // LLVM:   ret void
-// LLVM: [[LABEL_B]]:
+// LLVM: [[LABEL_B:[0-9]+]]:
 // LLVM:   ret void
 // LLVM: [[INDIRECT_GOTO]]:
 // LLVM:   [[PHI:%.*]] = phi ptr [ [[BLOCKADD]], %[[ENTRY:.*]] ]
-// LLVM:   indirectbr ptr [[PHI]], [label %[[LABEL_A]], label %[[LABEL_B]]]
+// LLVM:   indirectswitch ptr [[PHI]], [
+// LLVM-NEXT: ptr edgeaddress(@C, [[ID_A]]), label %[[LABEL_A]]
+// LLVM-NEXT: ptr edgeaddress(@C, [[ID_B]]), label %[[LABEL_B]]
+// LLVM-NEXT: ]
 
 // OGCG: define dso_local void @C
 // OGCG:   [[COND:%.*]] = select i1 [[CMP:%.*]], ptr edgeaddress(@C, 0), ptr edgeaddress(@C, 1)
@@ -164,16 +171,18 @@ LABEL_A:
 // LLVM:   %[[PTR:.*]] = alloca ptr, align 8
 // LLVM:   %[[PTR2:.*]] = alloca ptr, align 8
 // LLVM:   %[[PTR3:.*]] = alloca ptr, align 8
-// LLVM:   store ptr blockaddress(@D, %[[LABEL_A:.*]]), ptr %[[PTR]], align 8
-// LLVM:   store ptr blockaddress(@D, %[[LABEL_A]]), ptr %[[PTR2]], align 8
+// LLVM:   store ptr edgeaddress(@D, [[ID:[0-9]+]]), ptr %[[PTR]], align 8
+// LLVM:   store ptr edgeaddress(@D, [[ID]]), ptr %[[PTR2]], align 8
 // LLVM:   %[[BLOCKADD:.*]] = load ptr, ptr %[[PTR2]], align 8
 // LLVM:   br label %[[indirectgoto:.*]]
-// LLVM: [[LABEL_A]]:
-// LLVM:   store ptr blockaddress(@D, %[[LABEL_A]]), ptr %[[PTR3]], align 8
+// LLVM: [[LABEL_A:[0-9]+]]:
+// LLVM:   store ptr edgeaddress(@D, [[ID]]), ptr %[[PTR3]], align 8
 // LLVM:   ret void
 // LLVM: [[indirectgoto]]:
 // LLVM:   [[PHI:%.*]] = phi ptr [ %[[BLOCKADD]], %[[ENTRY:.*]] ]
-// LLVM:   indirectbr ptr [[PHI]], [label %[[LABEL_A]]]
+// LLVM:   indirectswitch ptr [[PHI]], [
+// LLVM-NEXT: ptr edgeaddress(@D, [[ID]]), label %[[LABEL_A]]
+// LLVM-NEXT: ]
 
 // OGCG: define dso_local void @D
 // OGCG:   %[[PTR:.*]] = alloca ptr, align 8
@@ -209,8 +218,12 @@ LABEL_D:
 // CIR-LABEL: cir.func {{.*}} @E()
 // CIR-NOT:   cir.indirect_goto
 
+// Without an indirect goto, the label addresses stay (data-only) block
+// addresses, while classic codegen emits edge addresses without an
+// indirectswitch (whose value is unspecified).
 // LLVM-LABEL: define dso_local void @E()
-// LLVM-NOT:   indirectbr
+// LLVM:   store ptr blockaddress(@E, %{{[0-9]+}}), ptr %{{.*}}, align 8
+// LLVM-NOT:   indirectswitch
 
 // OGCG: define dso_local void @E() #0 {
 // OGCG:   store ptr edgeaddress(@E, 0), ptr %ptr, align 8

@@ -1919,6 +1919,12 @@ def LLVM_BlockAddressOp : LLVM_Op<"blockaddress",
       llvm.return
     }
     ```
+
+    When translated to LLVM IR, the address of a block that is a successor of
+    an `llvm.indirectbr` operation in its function becomes an LLVM
+    `edgeaddress` whose ID is the block tag ID (and a case of the function's
+    `indirectswitch`). The addresses of all other blocks become LLVM
+    `blockaddress` constants.
   }];
 
   let assemblyFormat = [{
@@ -2002,6 +2008,12 @@ def LLVM_IndirectBrOp : LLVM_TerminatorOp<"indirectbr",
     ^tail(%r1 : i32, %r2 : i32):
       ...
     ```
+
+    Only the tagged successors can be reached. When translated to LLVM IR, the
+    `llvm.indirectbr` operations of a function are merged into a single
+    `indirectswitch` instruction (in a new dispatch block if there is more than
+    one) with a case for each tag in a successor block, using the
+    `edgeaddress` constants corresponding to the tags.
   }];
   let arguments = (ins LLVM_AnyPointer:$addr,
     VariadicOfVariadic<AnyType, "indbr_operand_segments">:$succOperands,
