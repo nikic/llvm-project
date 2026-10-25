@@ -126,7 +126,7 @@ define void @0() nounwind {
 
 ; CHECK: Undefined behavior: Branch to non-blockaddress
 define void @use_indbr() {
-  indirectbr ptr @foo, [label %block]
+  indirectswitch ptr @foo, [ ptr edgeaddress(@use_indbr, 0), label %block ]
 block:
   unreachable
 }
@@ -184,8 +184,9 @@ define void @struct_caller() nounwind {
 entry:
   call %struct @foo()
 
-  ; CHECK: Undefined behavior: indirectbr with no destinations
-  indirectbr ptr null, []
+  ; CHECK: Undefined behavior: Null pointer dereference
+  ; CHECK: Undefined behavior: indirectswitch with no cases
+  indirectswitch ptr null, []
 }
 
 define i32 @memcpy_inline_same_address() noreturn {

@@ -437,7 +437,7 @@ void Lint::visitMemoryReference(Instruction &I, const MemoryLocation &Loc,
   }
   if (Flags & MemRef::Branchee) {
     Check(!isa<Constant>(UnderlyingObject) ||
-              isa<BlockAddress>(UnderlyingObject),
+              (isa<BlockAddress, EdgeAddress>(UnderlyingObject)),
           "Undefined behavior: Branch to non-blockaddress", &I);
   }
 
@@ -617,6 +617,9 @@ void Lint::visitIndirectBrInst(IndirectBrInst &I) {
 }
 
 void Lint::visitIndirectSwitchInst(IndirectSwitchInst &I) {
+  visitMemoryReference(I, MemoryLocation::getAfter(I.getAddress()),
+                       std::nullopt, nullptr, MemRef::Branchee);
+
   Check(I.getNumCases() != 0,
         "Undefined behavior: indirectswitch with no cases", &I);
 }
