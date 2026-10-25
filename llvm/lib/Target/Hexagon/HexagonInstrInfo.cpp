@@ -1085,6 +1085,13 @@ bool HexagonInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   };
 
   switch (Opc) {
+    case TargetOpcode::INSTRUCTION_POINTER:
+      // "Rd = add(pc,#0)" produces the address of the current packet. Expand
+      // this before packetization, so that it can be packetized normally.
+      BuildMI(MBB, MI, DL, get(Hexagon::C4_addipc), MI.getOperand(0).getReg())
+          .addImm(0);
+      MBB.erase(MI);
+      return true;
     case Hexagon::PS_call_instrprof_custom: {
       auto Op0 = MI.getOperand(0);
       assert(Op0.isGlobal() &&

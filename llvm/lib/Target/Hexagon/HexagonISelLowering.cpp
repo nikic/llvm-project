@@ -1577,6 +1577,9 @@ HexagonTargetLowering::HexagonTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::PREFETCH,             MVT::Other, Custom);
   setOperationAction(ISD::READCYCLECOUNTER, MVT::i64, Legal);
   setOperationAction(ISD::READSTEADYCOUNTER, MVT::i64, Legal);
+  // INSTRUCTION_POINTER is expanded to "Rd = add(pc,#0)" after register
+  // allocation.
+  setOperationAction(ISD::INSTRUCTION_POINTER, MVT::i32, Legal);
   setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::Other, Custom);
   setOperationAction(ISD::INTRINSIC_VOID,       MVT::Other, Custom);
   setOperationAction(ISD::EH_RETURN,            MVT::Other, Custom);
