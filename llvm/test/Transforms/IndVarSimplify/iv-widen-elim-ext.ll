@@ -206,7 +206,14 @@ for.end:                                          ; preds = %for.cond.for.end_cr
 
 declare i32 @dummy(ptr, ptr)
 
+<<<<<<< ours
 ; A case where zext should not be eliminated when its operands could only be extended by sext.
+=======
+; %i.02 starts at 0 and increments with nsw.
+; There's the guard M >s 0, so %add3 = %i.02 + %M (nsw)
+; is non-negative on every iteration and so
+; zext(%add3) == sext(%add3) == wide add.
+>>>>>>> theirs
 define i32 @foo3(i32 %M) {
 ; CHECK-LABEL: @foo3(
 ; CHECK-NEXT:  entry:
@@ -224,9 +231,7 @@ define i32 @foo3(i32 %M) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[ARRAYIDX2]], align 4
 ; CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP1]], [[TMP2]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw i64 [[INDVARS_IV]], [[TMP0]]
-; CHECK-NEXT:    [[TMP4:%.*]] = trunc nsw i64 [[TMP3]] to i32
-; CHECK-NEXT:    [[IDXPROM4:%.*]] = zext i32 [[TMP4]] to i64
-; CHECK-NEXT:    [[ARRAYIDX5:%.*]] = getelementptr inbounds [100 x i32], ptr @a, i64 0, i64 [[IDXPROM4]]
+; CHECK-NEXT:    [[ARRAYIDX5:%.*]] = getelementptr inbounds [100 x i32], ptr @a, i64 0, i64 [[TMP3]]
 ; CHECK-NEXT:    store i32 [[ADD]], ptr [[ARRAYIDX5]], align 4
 ; CHECK-NEXT:    br label [[FOR_INC]]
 ; CHECK:       for.inc:
@@ -545,3 +550,375 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %cmp = icmp slt i32 %add2, %n
   br i1 %cmp, label %for.body, label %for.cond.cleanup.loopexit
 }
+<<<<<<< ours
+=======
+
+declare void @use(i64)
+declare void @llvm.assume(i1)
+
+; If the IV starts at a non-negative value and increments with nsw, it is
+; non-negative on every iteration, and zext and sext of it are equal.
+
+; TODO: remove trunc and zext of %iv - 32. It is non-negative, so the zext
+; equals the wide add.
+; %start >=s 32, %iv steps by one with nsw, so %iv - 32 >=s 0 on every iteration.
+define void @offset_sge_guard(i32 %start, i32 %n) {
+; CHECK-LABEL: @offset_sge_guard(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[C:%.*]] = icmp sge i32 [[START:%.*]], 32
+; CHECK-NEXT:    br i1 [[C]], label [[LOOP_PREHEADER:%.*]], label [[EXIT:%.*]]
+; CHECK:       loop.preheader:
+; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[START]] to i64
+; CHECK-NEXT:    br label [[LOOP:%.*]]
+; CHECK:       loop:
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[TMP0]], [[LOOP_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = add nsw i64 [[INDVARS_IV]], -32
+; CHECK-NEXT:    [[IDX:%.*]] = trunc nsw i64 [[TMP1]] to i32
+; CHECK-NEXT:    [[IDX_EXT:%.*]] = zext i32 [[IDX]] to i64
+; CHECK-NEXT:    call void @use(i64 [[IDX_EXT]])
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = trunc nuw i64 [[INDVARS_IV_NEXT]] to i32
+; CHECK-NEXT:    [[DONE:%.*]] = icmp sge i32 [[TMP2]], [[N:%.*]]
+; CHECK-NEXT:    br i1 [[DONE]], label [[EXIT_LOOPEXIT:%.*]], label [[LOOP]]
+; CHECK:       exit.loopexit:
+; CHECK-NEXT:    br label [[EXIT]]
+; CHECK:       exit:
+; CHECK-NEXT:    ret void
+;
+entry:
+  %c = icmp sge i32 %start, 32
+  br i1 %c, label %loop, label %exit
+loop:
+  %iv = phi i32 [ %start, %entry ], [ %iv.next, %loop ]
+  %idx = add nsw i32 %iv, -32
+  %idx.ext = zext i32 %idx to i64
+  call void @use(i64 %idx.ext)
+  %iv.next = add nuw nsw i32 %iv, 1
+  %done = icmp sge i32 %iv.next, %n
+  br i1 %done, label %exit, label %loop
+exit:
+  ret void
+}
+
+; TODO: remove trunc and zext of %iv - 32. It is non-negative, so the zext
+; equals the wide add.
+; TODO: The exit is rewritten with smax(%start, 9999), and the constant max
+; backedge-taken count may worsen because of this.
+; %start >=s 32, %iv steps by one with nsw, and the loop exits after %iv
+; reaches 9999, so %iv - 32 >=s 0 on every iteration.
+define void @offset_sge_guard_const_exit(i32 %start) {
+; CHECK-LABEL: @offset_sge_guard_const_exit(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[C:%.*]] = icmp sge i32 [[START:%.*]], 32
+; CHECK-NEXT:    br i1 [[C]], label [[LOOP_PREHEADER:%.*]], label [[EXIT:%.*]]
+; CHECK:       loop.preheader:
+; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[START]] to i64
+; CHECK-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[START]], i32 9999)
+; CHECK-NEXT:    [[TMP1:%.*]] = add nuw i32 [[SMAX]], 1
+; CHECK-NEXT:    br label [[LOOP:%.*]]
+; CHECK:       loop:
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[TMP0]], [[LOOP_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[TMP2:%.*]] = add nsw i64 [[INDVARS_IV]], -32
+; CHECK-NEXT:    [[IDX:%.*]] = trunc nsw i64 [[TMP2]] to i32
+; CHECK-NEXT:    [[IDX_EXT:%.*]] = zext i32 [[IDX]] to i64
+; CHECK-NEXT:    call void @use(i64 [[IDX_EXT]])
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[LFTR_WIDEIV:%.*]] = trunc i64 [[INDVARS_IV_NEXT]] to i32
+; CHECK-NEXT:    [[DONE:%.*]] = icmp eq i32 [[LFTR_WIDEIV]], [[TMP1]]
+; CHECK-NEXT:    br i1 [[DONE]], label [[EXIT_LOOPEXIT:%.*]], label [[LOOP]]
+; CHECK:       exit.loopexit:
+; CHECK-NEXT:    br label [[EXIT]]
+; CHECK:       exit:
+; CHECK-NEXT:    ret void
+;
+entry:
+  %c = icmp sge i32 %start, 32
+  br i1 %c, label %loop, label %exit
+loop:
+  %iv = phi i32 [ %start, %entry ], [ %iv.next, %loop ]
+  %idx = add nsw i32 %iv, -32
+  %idx.ext = zext i32 %idx to i64
+  call void @use(i64 %idx.ext)
+  %iv.next = add nuw nsw i32 %iv, 1
+  %done = icmp sgt i32 %iv, 9998
+  br i1 %done, label %exit, label %loop
+exit:
+  ret void
+}
+
+; %start <u %len and %len >=s 0, so %start >=s 0 and so %iv >=s 0.
+; %iv - 32 may be negative, but then the zext nneg is poison.
+define void @offset_ult_guard_nonneg_len(i32 %start, i32 %n, ptr %p) {
+; CHECK-LABEL: @offset_ult_guard_nonneg_len(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4, !range [[RNG0:![0-9]+]]
+; CHECK-NEXT:    [[C:%.*]] = icmp ult i32 [[START:%.*]], [[LEN]]
+; CHECK-NEXT:    br i1 [[C]], label [[LOOP_PREHEADER:%.*]], label [[EXIT:%.*]]
+; CHECK:       loop.preheader:
+; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[START]] to i64
+; CHECK-NEXT:    br label [[LOOP:%.*]]
+; CHECK:       loop:
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[TMP0]], [[LOOP_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[IDX_EXT:%.*]] = add nsw i64 [[INDVARS_IV]], -32
+; CHECK-NEXT:    call void @use(i64 [[IDX_EXT]])
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = trunc nuw i64 [[INDVARS_IV_NEXT]] to i32
+; CHECK-NEXT:    [[DONE:%.*]] = icmp sge i32 [[TMP2]], [[N:%.*]]
+; CHECK-NEXT:    br i1 [[DONE]], label [[EXIT_LOOPEXIT:%.*]], label [[LOOP]]
+; CHECK:       exit.loopexit:
+; CHECK-NEXT:    br label [[EXIT]]
+; CHECK:       exit:
+; CHECK-NEXT:    ret void
+;
+entry:
+  %len = load i32, ptr %p, !range !0
+  %c = icmp ult i32 %start, %len
+  br i1 %c, label %loop, label %exit
+loop:
+  %iv = phi i32 [ %start, %entry ], [ %iv.next, %loop ]
+  %idx = add nsw i32 %iv, -32
+  %idx.ext = zext nneg i32 %idx to i64
+  call void @use(i64 %idx.ext)
+  %iv.next = add nuw nsw i32 %iv, 1
+  %done = icmp sge i32 %iv.next, %n
+  br i1 %done, label %exit, label %loop
+exit:
+  ret void
+}
+
+; %start may be negative, so %iv >=s 0 is not known.
+; %iv - 32 must stay in i32.
+define void @offset_unknown_start(i32 %start, i32 %n) {
+; CHECK-LABEL: @offset_unknown_start(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[START:%.*]] to i64
+; CHECK-NEXT:    br label [[LOOP:%.*]]
+; CHECK:       loop:
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LOOP]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nuw i64 [[INDVARS_IV]] to i32
+; CHECK-NEXT:    [[IDX:%.*]] = add nsw i32 [[TMP1]], -32
+; CHECK-NEXT:    [[IDX_EXT:%.*]] = zext nneg i32 [[IDX]] to i64
+; CHECK-NEXT:    call void @use(i64 [[IDX_EXT]])
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = trunc nuw i64 [[INDVARS_IV_NEXT]] to i32
+; CHECK-NEXT:    [[DONE:%.*]] = icmp sge i32 [[TMP2]], [[N:%.*]]
+; CHECK-NEXT:    br i1 [[DONE]], label [[EXIT:%.*]], label [[LOOP]]
+; CHECK:       exit:
+; CHECK-NEXT:    ret void
+;
+entry:
+  br label %loop
+loop:
+  %iv = phi i32 [ %start, %entry ], [ %iv.next, %loop ]
+  %idx = add nsw i32 %iv, -32
+  %idx.ext = zext nneg i32 %idx to i64
+  call void @use(i64 %idx.ext)
+  %iv.next = add nuw nsw i32 %iv, 1
+  %done = icmp sge i32 %iv.next, %n
+  br i1 %done, label %exit, label %loop
+exit:
+  ret void
+}
+
+; %start <u %len and %len >=s 0, so %start >=s 0, and %iv >=s 0 on every
+; iteration. So zext(%iv) equals sext(%iv), i.e. the wide IV.
+define void @ext_ult_guard_nonneg_len(i32 %start, i32 %n, ptr %p) {
+; CHECK-LABEL: @ext_ult_guard_nonneg_len(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4, !range [[RNG0]]
+; CHECK-NEXT:    [[GUARD:%.*]] = icmp ult i32 [[START:%.*]], [[LEN]]
+; CHECK-NEXT:    br i1 [[GUARD]], label [[LOOP_PREHEADER:%.*]], label [[EXIT:%.*]]
+; CHECK:       loop.preheader:
+; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[START]] to i64
+; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[N:%.*]] to i64
+; CHECK-NEXT:    br label [[LOOP:%.*]]
+; CHECK:       loop:
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[TMP0]], [[LOOP_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    call void @use(i64 [[INDVARS_IV]])
+; CHECK-NEXT:    call void @use(i64 [[INDVARS_IV]])
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nsw i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[DONE:%.*]] = icmp sge i64 [[INDVARS_IV_NEXT]], [[TMP1]]
+; CHECK-NEXT:    br i1 [[DONE]], label [[EXIT_LOOPEXIT:%.*]], label [[LOOP]]
+; CHECK:       exit.loopexit:
+; CHECK-NEXT:    br label [[EXIT]]
+; CHECK:       exit:
+; CHECK-NEXT:    ret void
+;
+entry:
+  %len = load i32, ptr %p, !range !0
+  %guard = icmp ult i32 %start, %len
+  br i1 %guard, label %loop, label %exit
+loop:
+  %iv = phi i32 [ %start, %entry ], [ %iv.next, %loop ]
+  %iv.sext = sext i32 %iv to i64
+  call void @use(i64 %iv.sext)
+  %iv.zext = zext i32 %iv to i64
+  call void @use(i64 %iv.zext)
+  %iv.next = add nsw i32 %iv, 1
+  %done = icmp sge i32 %iv.next, %n
+  br i1 %done, label %exit, label %loop
+exit:
+  ret void
+}
+
+; %start may be negative, so zext(%iv) must stay.
+define void @ext_unknown_start(i32 %start, i32 %n) {
+; CHECK-LABEL: @ext_unknown_start(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[START:%.*]] to i64
+; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[N:%.*]] to i64
+; CHECK-NEXT:    br label [[LOOP:%.*]]
+; CHECK:       loop:
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LOOP]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    call void @use(i64 [[INDVARS_IV]])
+; CHECK-NEXT:    [[TMP2:%.*]] = trunc nsw i64 [[INDVARS_IV]] to i32
+; CHECK-NEXT:    [[IV_ZEXT:%.*]] = zext i32 [[TMP2]] to i64
+; CHECK-NEXT:    call void @use(i64 [[IV_ZEXT]])
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nsw i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[DONE:%.*]] = icmp sge i64 [[INDVARS_IV_NEXT]], [[TMP1]]
+; CHECK-NEXT:    br i1 [[DONE]], label [[EXIT:%.*]], label [[LOOP]]
+; CHECK:       exit:
+; CHECK-NEXT:    ret void
+;
+entry:
+  br label %loop
+loop:
+  %iv = phi i32 [ %start, %entry ], [ %iv.next, %loop ]
+  %iv.sext = sext i32 %iv to i64
+  call void @use(i64 %iv.sext)
+  %iv.zext = zext i32 %iv to i64
+  call void @use(i64 %iv.zext)
+  %iv.next = add nsw i32 %iv, 1
+  %done = icmp sge i32 %iv.next, %n
+  br i1 %done, label %exit, label %loop
+exit:
+  ret void
+}
+
+; %start is in [0, INT_MAX) from !range, so %iv >=s 0 on every iteration.
+; So zext(%iv) can be replaced with the wide IV, and %iv - 32 can be computed
+; in i64: it may be negative, but then the zext nneg is poison.
+define void @offset_ext_range_start(ptr %p, i32 %n) {
+; CHECK-LABEL: @offset_ext_range_start(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[START:%.*]] = load i32, ptr [[P:%.*]], align 4, !range [[RNG0]]
+; CHECK-NEXT:    [[TMP0:%.*]] = zext nneg i32 [[START]] to i64
+; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[N:%.*]] to i64
+; CHECK-NEXT:    br label [[LOOP:%.*]]
+; CHECK:       loop:
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LOOP]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[TMP2:%.*]] = add nsw i64 [[INDVARS_IV]], -32
+; CHECK-NEXT:    call void @use(i64 [[TMP2]])
+; CHECK-NEXT:    call void @use(i64 [[INDVARS_IV]])
+; CHECK-NEXT:    call void @use(i64 [[INDVARS_IV]])
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[DONE:%.*]] = icmp sge i64 [[INDVARS_IV_NEXT]], [[TMP1]]
+; CHECK-NEXT:    br i1 [[DONE]], label [[EXIT:%.*]], label [[LOOP]]
+; CHECK:       exit:
+; CHECK-NEXT:    ret void
+;
+entry:
+  %start = load i32, ptr %p, !range !0
+  br label %loop
+loop:
+  %iv = phi i32 [ %start, %entry ], [ %iv.next, %loop ]
+  %idx = add nsw i32 %iv, -32
+  %idx.ext = zext nneg i32 %idx to i64
+  call void @use(i64 %idx.ext)
+  %iv.sext = sext i32 %iv to i64
+  call void @use(i64 %iv.sext)
+  %iv.zext = zext i32 %iv to i64
+  call void @use(i64 %iv.zext)
+  %iv.next = add nuw nsw i32 %iv, 1
+  %done = icmp sge i32 %iv.next, %n
+  br i1 %done, label %exit, label %loop
+exit:
+  ret void
+}
+
+; %start >=s 0 from the assume, and %iv steps by one with nsw, so %iv >=s 0 on
+; every iteration.
+define void @ext_assume(i32 %start, i32 %n) {
+; CHECK-LABEL: @ext_assume(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[START_NONNEG:%.*]] = icmp sge i32 [[START:%.*]], 0
+; CHECK-NEXT:    call void @llvm.assume(i1 [[START_NONNEG]])
+; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[START]] to i64
+; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[N:%.*]] to i64
+; CHECK-NEXT:    br label [[LOOP:%.*]]
+; CHECK:       loop:
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LOOP]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    call void @use(i64 [[INDVARS_IV]])
+; CHECK-NEXT:    call void @use(i64 [[INDVARS_IV]])
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[DONE:%.*]] = icmp sge i64 [[INDVARS_IV_NEXT]], [[TMP1]]
+; CHECK-NEXT:    br i1 [[DONE]], label [[EXIT:%.*]], label [[LOOP]]
+; CHECK:       exit:
+; CHECK-NEXT:    ret void
+;
+entry:
+  %start.nonneg = icmp sge i32 %start, 0
+  call void @llvm.assume(i1 %start.nonneg)
+  br label %loop
+loop:
+  %iv = phi i32 [ %start, %entry ], [ %iv.next, %loop ]
+  %iv.sext = sext i32 %iv to i64
+  call void @use(i64 %iv.sext)
+  %iv.zext = zext i32 %iv to i64
+  call void @use(i64 %iv.zext)
+  %iv.next = add nsw i32 %iv, 1
+  %done = icmp sge i32 %iv.next, %n
+  br i1 %done, label %exit, label %loop
+exit:
+  ret void
+}
+
+; TODO: zext(%iv) can be replaced with the wide IV.
+; %iv >=s 0 only holds under a check inside the loop.
+define i32 @ext_in_loop_check(i32 %start, i32 %n) {
+; CHECK-LABEL: @ext_in_loop_check(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[START:%.*]] to i64
+; CHECK-NEXT:    br label [[LOOP:%.*]]
+; CHECK:       loop:
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LATCH:%.*]] ], [ [[TMP0]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    call void @use(i64 [[INDVARS_IV]])
+; CHECK-NEXT:    [[IV_NONNEG:%.*]] = icmp sgt i64 [[INDVARS_IV]], 0
+; CHECK-NEXT:    br i1 [[IV_NONNEG]], label [[BODY:%.*]], label [[EXIT:%.*]]
+; CHECK:       body:
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nsw i64 [[INDVARS_IV]] to i32
+; CHECK-NEXT:    [[IV_ZEXT:%.*]] = zext i32 [[TMP1]] to i64
+; CHECK-NEXT:    call void @use(i64 [[IV_ZEXT]])
+; CHECK-NEXT:    br label [[LATCH]]
+; CHECK:       latch:
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nsw i64 [[INDVARS_IV]], -1
+; CHECK-NEXT:    [[TMP2:%.*]] = trunc nsw i64 [[INDVARS_IV_NEXT]] to i32
+; CHECK-NEXT:    [[DONE:%.*]] = icmp eq i32 [[TMP2]], [[N:%.*]]
+; CHECK-NEXT:    br i1 [[DONE]], label [[EXIT]], label [[LOOP]]
+; CHECK:       exit:
+; CHECK-NEXT:    ret i32 0
+;
+entry:
+  br label %loop
+loop:
+  %iv = phi i32 [ %start, %entry ], [ %iv.next, %latch ]
+  %iv.sext = sext i32 %iv to i64
+  call void @use(i64 %iv.sext)
+  %iv.nonneg = icmp sgt i32 %iv, 0
+  br i1 %iv.nonneg, label %body, label %exit
+body:
+  %iv.zext = zext i32 %iv to i64
+  call void @use(i64 %iv.zext)
+  br label %latch
+latch:
+  %iv.next = add nsw i32 %iv, -1
+  %done = icmp eq i32 %iv.next, %n
+  br i1 %done, label %exit, label %loop
+exit:
+  ret i32 0
+}
+
+
+; [0, INT_MAX)
+!0 = !{i32 0, i32 2147483647}
+>>>>>>> theirs
