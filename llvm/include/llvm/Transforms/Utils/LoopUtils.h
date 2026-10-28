@@ -46,6 +46,7 @@ class LPPassManager;
 class Instruction;
 struct RuntimeCheckingPtrGroup;
 class ConditionalInductionDescriptor;
+class EarliestEscapeAnalysis;
 
 typedef std::pair<const RuntimeCheckingPtrGroup *,
                   const RuntimeCheckingPtrGroup *>
@@ -159,18 +160,19 @@ protected:
 LLVM_ABI bool sinkRegion(DomTreeNode *, AAResults *, LoopInfo *,
                          DominatorTree *, TargetLibraryInfo *,
                          TargetTransformInfo *, Loop *CurLoop,
-                         MemorySSAUpdater &, ICFLoopSafetyInfo *,
-                         SinkAndHoistLICMFlags &, OptimizationRemarkEmitter *,
+                         MemorySSAUpdater &, EarliestEscapeAnalysis *,
+                         ICFLoopSafetyInfo *, SinkAndHoistLICMFlags &,
+                         OptimizationRemarkEmitter *,
                          Loop *OutermostLoop = nullptr);
 
 /// Call sinkRegion on loops contained within the specified loop
 /// in order from innermost to outermost.
-LLVM_ABI bool sinkRegionForLoopNest(DomTreeNode *, AAResults *, LoopInfo *,
-                                    DominatorTree *, TargetLibraryInfo *,
-                                    TargetTransformInfo *, Loop *,
-                                    MemorySSAUpdater &, ICFLoopSafetyInfo *,
-                                    SinkAndHoistLICMFlags &,
-                                    OptimizationRemarkEmitter *);
+LLVM_ABI bool
+sinkRegionForLoopNest(DomTreeNode *, AAResults *, LoopInfo *, DominatorTree *,
+                      TargetLibraryInfo *, TargetTransformInfo *, Loop *,
+                      MemorySSAUpdater &, EarliestEscapeAnalysis *,
+                      ICFLoopSafetyInfo *, SinkAndHoistLICMFlags &,
+                      OptimizationRemarkEmitter *);
 
 /// Walk the specified region of the CFG (defined by all blocks
 /// dominated by the specified block, and that are in the current loop) in depth
@@ -185,9 +187,10 @@ LLVM_ABI bool sinkRegionForLoopNest(DomTreeNode *, AAResults *, LoopInfo *,
 LLVM_ABI bool hoistRegion(DomTreeNode *, AAResults *, LoopInfo *,
                           DominatorTree *, AssumptionCache *,
                           TargetLibraryInfo *, Loop *, MemorySSAUpdater &,
-                          ScalarEvolution *, ICFLoopSafetyInfo *,
-                          SinkAndHoistLICMFlags &, OptimizationRemarkEmitter *,
-                          bool, bool AllowSpeculation);
+                          EarliestEscapeAnalysis *, ScalarEvolution *,
+                          ICFLoopSafetyInfo *, SinkAndHoistLICMFlags &,
+                          OptimizationRemarkEmitter *, bool,
+                          bool AllowSpeculation);
 
 /// Return true if the induction variable \p IV in a Loop whose latch is
 /// \p LatchBlock would become dead if the exit test \p Cond were removed.
@@ -229,8 +232,9 @@ LLVM_ABI bool promoteLoopAccessesToScalars(
     SmallVectorImpl<BasicBlock::iterator> &, SmallVectorImpl<MemoryAccess *> &,
     PredIteratorCache &, LoopInfo *, DominatorTree *, AssumptionCache *AC,
     const TargetLibraryInfo *, TargetTransformInfo *, Loop *,
-    MemorySSAUpdater &, ICFLoopSafetyInfo *, OptimizationRemarkEmitter *,
-    bool AllowSpeculation, bool HasReadsOutsideSet);
+    MemorySSAUpdater &, EarliestEscapeAnalysis *, ICFLoopSafetyInfo *,
+    OptimizationRemarkEmitter *, bool AllowSpeculation,
+    bool HasReadsOutsideSet);
 
 /// Does a BFS from a given node to all of its children inside a given loop.
 /// The returned vector of basic blocks includes the starting point.
@@ -465,6 +469,7 @@ LLVM_ABI void getLoopAnalysisUsage(AnalysisUsage &AU);
 LLVM_ABI bool canSinkOrHoistInst(Instruction &I, AAResults *AA,
                                  DominatorTree *DT, Loop *CurLoop,
                                  MemorySSAUpdater &MSSAU,
+                                 EarliestEscapeAnalysis *EEA,
                                  bool TargetExecutesOncePerLoop,
                                  SinkAndHoistLICMFlags &LICMFlags,
                                  OptimizationRemarkEmitter *ORE = nullptr);
@@ -472,11 +477,12 @@ LLVM_ABI bool canSinkOrHoistInst(Instruction &I, AAResults *AA,
 /// Returns true if it is legal to hoist \p LI out of \p CurLoop. This is the
 /// load-specific subset of \c canSinkOrHoistInst: it rejects volatile or
 /// ordered loads, allows constant-memory / invariant.load / invariant.start-
-/// dominated loads unconditionally, and otherwise queries \p MSSA for an
-/// in-loop clobber. \p TargetExecutesOncePerLoop has the same meaning as in
-/// \c canSinkOrHoistInst (set to true when hoisting to the preheader).
+/// dominated loads unconditionally, and otherwise queries \p MSSA and \p EEA
+/// for an in-loop clobber. \p TargetExecutesOncePerLoop has the same meaning as
+/// in \c canSinkOrHoistInst (set to true when hoisting to the preheader).
 LLVM_ABI bool canHoistLoad(LoadInst &LI, AAResults *AA, DominatorTree *DT,
                            Loop *CurLoop, MemorySSA &MSSA,
+                           EarliestEscapeAnalysis *EEA,
                            bool TargetExecutesOncePerLoop,
                            SinkAndHoistLICMFlags &LICMFlags,
                            OptimizationRemarkEmitter *ORE = nullptr);

@@ -139,7 +139,8 @@ static void hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
                   OptimizationRemarkEmitter *ORE);
 static bool sink(Instruction &I, LoopInfo *LI, DominatorTree *DT,
                  const Loop *CurLoop, ICFLoopSafetyInfo *SafetyInfo,
-                 MemorySSAUpdater &MSSAU, OptimizationRemarkEmitter *ORE);
+                 MemorySSAUpdater &MSSAU, EarliestEscapeAnalysis *EEA,
+                 OptimizationRemarkEmitter *ORE);
 static bool isSafeToExecuteUnconditionally(
     Instruction &Inst, const DominatorTree *DT, const TargetLibraryInfo *TLI,
     const Loop *CurLoop, const LoopSafetyInfo *SafetyInfo,
@@ -148,7 +149,8 @@ static bool isSafeToExecuteUnconditionally(
 static bool noConflictingReadWrites(Instruction *I, MemorySSA *MSSA,
                                     AAResults *AA, Loop *CurLoop,
                                     SinkAndHoistLICMFlags &Flags);
-static bool pointerInvalidatedByLoop(MemorySSA *MSSA, MemoryUse *MU,
+static bool pointerInvalidatedByLoop(MemorySSA *MSSA,
+                                     EarliestEscapeAnalysis *EEA, MemoryUse *MU,
                                      Loop *CurLoop, Instruction &I,
                                      SinkAndHoistLICMFlags &Flags,
                                      bool InvariantGroup);
@@ -157,7 +159,8 @@ static bool pointerInvalidatedByBlock(BasicBlock &BB, MemorySSA &MSSA,
 /// Aggregates various functions for hoisting computations out of loop.
 static bool hoistArithmetics(const ScalarOptions &Opts, Instruction &I, Loop &L,
                              ICFLoopSafetyInfo &SafetyInfo,
-                             MemorySSAUpdater &MSSAU, AssumptionCache *AC,
+                             MemorySSAUpdater &MSSAU,
+                             EarliestEscapeAnalysis *EEA, AssumptionCache *AC,
                              DominatorTree *DT);
 static bool hoistInsertPastInsert(InsertElementInst *Ins, Loop *CurLoop,
                                   DominatorTree *DT, BasicBlock *HoistDest,
@@ -169,7 +172,8 @@ static Instruction *cloneInstructionInExitBlock(
     const LoopSafetyInfo *SafetyInfo, MemorySSAUpdater &MSSAU);
 
 static void eraseInstruction(Instruction &I, ICFLoopSafetyInfo &SafetyInfo,
-                             MemorySSAUpdater &MSSAU);
+                             MemorySSAUpdater &MSSAU,
+                             EarliestEscapeAnalysis *EEA);
 
 static void moveInstructionBefore(Instruction &I, BasicBlock::iterator Dest,
                                   ICFLoopSafetyInfo &SafetyInfo,
@@ -189,7 +193,8 @@ struct LoopInvariantCodeMotion {
   bool runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI, DominatorTree *DT,
                  AssumptionCache *AC, TargetLibraryInfo *TLI,
                  TargetTransformInfo *TTI, ScalarEvolution *SE, MemorySSA *MSSA,
-                 OptimizationRemarkEmitter *ORE, bool LoopNestMode = false);
+                 EarliestEscapeAnalysis *EEA, OptimizationRemarkEmitter *ORE,
+                 bool LoopNestMode = false);
 
   LoopInvariantCodeMotion(const ScalarOptions &Opts, const LICMOptions &LO)
       : Opts(Opts),
@@ -222,6 +227,7 @@ struct LegacyLICMPass : public LoopPass {
 
     auto *SE = getAnalysisIfAvailable<ScalarEvolutionWrapperPass>();
     MemorySSA *MSSA = &getAnalysis<MemorySSAWrapperPass>().getMSSA();
+    EarliestEscapeAnalysis EEA(MSSA->getDomTree());
     // For the old PM, we can't use OptimizationRemarkEmitter as an analysis
     // pass. Function analyses need to be preserved across loop transformations
     // but ORE cannot be preserved (see comment before the pass definition).
@@ -235,7 +241,7 @@ struct LegacyLICMPass : public LoopPass {
         &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F),
         &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(*F),
         &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(*F),
-        SE ? &SE->getSE() : nullptr, MSSA, &ORE);
+        SE ? &SE->getSE() : nullptr, MSSA, &EEA, &ORE);
   }
 
   /// This transformation requires natural loop information & requires that
@@ -262,6 +268,7 @@ PreservedAnalyses LICMPass::run(Loop &L, LoopAnalysisManager &AM,
   if (!AR.MSSA)
     reportFatalUsageError("LICM requires MemorySSA (loop-mssa)");
 
+  EarliestEscapeAnalysis EEA(AR.DT);
   // For the new PM, we also can't use OptimizationRemarkEmitter as an analysis
   // pass.  Function analyses need to be preserved across loop transformations
   // but ORE cannot be preserved (see comment before the pass definition).
@@ -269,7 +276,7 @@ PreservedAnalyses LICMPass::run(Loop &L, LoopAnalysisManager &AM,
 
   LoopInvariantCodeMotion LICM(getScalarOptions(L), Opts);
   if (!LICM.runOnLoop(&L, &AR.AA, &AR.LI, &AR.DT, &AR.AC, &AR.TLI, &AR.TTI,
-                      &AR.SE, AR.MSSA, &ORE))
+                      &AR.SE, AR.MSSA, &EEA, &ORE))
     return PreservedAnalyses::all();
 
   auto PA = getLoopPassPreservedAnalyses();
@@ -294,6 +301,8 @@ PreservedAnalyses LNICMPass::run(LoopNest &LN, LoopAnalysisManager &AM,
   if (!AR.MSSA)
     reportFatalUsageError("LNICM requires MemorySSA (loop-mssa)");
 
+  EarliestEscapeAnalysis EEA(AR.DT);
+
   // For the new PM, we also can't use OptimizationRemarkEmitter as an analysis
   // pass.  Function analyses need to be preserved across loop transformations
   // but ORE cannot be preserved (see comment before the pass definition).
@@ -302,8 +311,9 @@ PreservedAnalyses LNICMPass::run(LoopNest &LN, LoopAnalysisManager &AM,
   Loop &OutermostLoop = LN.getOutermostLoop();
   LoopInvariantCodeMotion LICM(getScalarOptions(OutermostLoop), Opts);
 
-  bool Changed = LICM.runOnLoop(&OutermostLoop, &AR.AA, &AR.LI, &AR.DT, &AR.AC,
-                                &AR.TLI, &AR.TTI, &AR.SE, AR.MSSA, &ORE, true);
+  bool Changed =
+      LICM.runOnLoop(&OutermostLoop, &AR.AA, &AR.LI, &AR.DT, &AR.AC, &AR.TLI,
+                     &AR.TTI, &AR.SE, AR.MSSA, &EEA, &ORE, true);
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -368,13 +378,11 @@ llvm::SinkAndHoistLICMFlags::SinkAndHoistLICMFlags(
 /// Hoist expressions out of the specified loop. Note, alias info for inner
 /// loop is not preserved so it is not a good idea to run LICM multiple
 /// times on one loop.
-bool LoopInvariantCodeMotion::runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI,
-                                        DominatorTree *DT, AssumptionCache *AC,
-                                        TargetLibraryInfo *TLI,
-                                        TargetTransformInfo *TTI,
-                                        ScalarEvolution *SE, MemorySSA *MSSA,
-                                        OptimizationRemarkEmitter *ORE,
-                                        bool LoopNestMode) {
+bool LoopInvariantCodeMotion::runOnLoop(
+    Loop *L, AAResults *AA, LoopInfo *LI, DominatorTree *DT,
+    AssumptionCache *AC, TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
+    ScalarEvolution *SE, MemorySSA *MSSA, EarliestEscapeAnalysis *EEA,
+    OptimizationRemarkEmitter *ORE, bool LoopNestMode) {
   bool Changed = false;
 
   assert(L->isLCSSAForm(*DT) && "Loop is not in LCSSA form.");
@@ -431,17 +439,17 @@ bool LoopInvariantCodeMotion::runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI,
   // us to sink instructions in one pass, without iteration.  After sinking
   // instructions, we perform another pass to hoist them out of the loop.
   if (L->hasDedicatedExits())
-    Changed |=
-        LoopNestMode
-            ? sinkRegionForLoopNest(DT->getNode(L->getHeader()), AA, LI, DT,
-                                    TLI, TTI, L, MSSAU, &SafetyInfo, Flags, ORE)
-            : sinkRegion(DT->getNode(L->getHeader()), AA, LI, DT, TLI, TTI, L,
-                         MSSAU, &SafetyInfo, Flags, ORE);
+    Changed |= LoopNestMode
+                   ? sinkRegionForLoopNest(DT->getNode(L->getHeader()), AA, LI,
+                                           DT, TLI, TTI, L, MSSAU, EEA,
+                                           &SafetyInfo, Flags, ORE)
+                   : sinkRegion(DT->getNode(L->getHeader()), AA, LI, DT, TLI,
+                                TTI, L, MSSAU, EEA, &SafetyInfo, Flags, ORE);
   Flags.setIsSink(false);
   if (Preheader)
     Changed |= hoistRegion(DT->getNode(L->getHeader()), AA, LI, DT, AC, TLI, L,
-                           MSSAU, SE, &SafetyInfo, Flags, ORE, LoopNestMode,
-                           LicmAllowSpeculation);
+                           MSSAU, EEA, SE, &SafetyInfo, Flags, ORE,
+                           LoopNestMode, LicmAllowSpeculation);
 
   // Now that all loop invariants have been removed from the loop, promote any
   // memory references to scalars that we can.
@@ -490,7 +498,7 @@ bool LoopInvariantCodeMotion::runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI,
                                         LoopLocalAliasScopes, L)) {
           LocalPromoted |= promoteLoopAccessesToScalars(
               PointerMustAliases, ExitBlocks, InsertPts, MSSAInsertPts, PIC, LI,
-              DT, AC, TLI, TTI, L, MSSAU, &SafetyInfo, ORE,
+              DT, AC, TLI, TTI, L, MSSAU, EEA, &SafetyInfo, ORE,
               LicmAllowSpeculation, HasReadsOutsideSet);
         }
         Promoted |= LocalPromoted;
@@ -532,7 +540,8 @@ bool LoopInvariantCodeMotion::runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI,
 bool llvm::sinkRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
                       DominatorTree *DT, TargetLibraryInfo *TLI,
                       TargetTransformInfo *TTI, Loop *CurLoop,
-                      MemorySSAUpdater &MSSAU, ICFLoopSafetyInfo *SafetyInfo,
+                      MemorySSAUpdater &MSSAU, EarliestEscapeAnalysis *EEA,
+                      ICFLoopSafetyInfo *SafetyInfo,
                       SinkAndHoistLICMFlags &Flags,
                       OptimizationRemarkEmitter *ORE, Loop *OutermostLoop) {
 
@@ -563,7 +572,7 @@ bool llvm::sinkRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
         salvageKnowledge(&I);
         salvageDebugInfo(I);
         ++II;
-        eraseInstruction(I, *SafetyInfo, MSSAU);
+        eraseInstruction(I, *SafetyInfo, MSSAU, EEA);
         Changed = true;
         continue;
       }
@@ -579,12 +588,13 @@ bool llvm::sinkRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
           isNotUsedOrFoldableInLoop(I, LoopNestMode ? OutermostLoop : CurLoop,
                                     SafetyInfo, TTI, FoldableInLoop,
                                     LoopNestMode) &&
-          canSinkOrHoistInst(I, AA, DT, CurLoop, MSSAU, true, Flags, ORE)) {
-        if (sink(I, LI, DT, CurLoop, SafetyInfo, MSSAU, ORE)) {
+          canSinkOrHoistInst(I, AA, DT, CurLoop, MSSAU, EEA, true, Flags,
+                             ORE)) {
+        if (sink(I, LI, DT, CurLoop, SafetyInfo, MSSAU, EEA, ORE)) {
           if (!FoldableInLoop) {
             ++II;
             salvageDebugInfo(I);
-            eraseInstruction(I, *SafetyInfo, MSSAU);
+            eraseInstruction(I, *SafetyInfo, MSSAU, EEA);
           }
           Changed = true;
         }
@@ -600,6 +610,7 @@ bool llvm::sinkRegionForLoopNest(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
                                  DominatorTree *DT, TargetLibraryInfo *TLI,
                                  TargetTransformInfo *TTI, Loop *CurLoop,
                                  MemorySSAUpdater &MSSAU,
+                                 EarliestEscapeAnalysis *EEA,
                                  ICFLoopSafetyInfo *SafetyInfo,
                                  SinkAndHoistLICMFlags &Flags,
                                  OptimizationRemarkEmitter *ORE) {
@@ -611,7 +622,7 @@ bool llvm::sinkRegionForLoopNest(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
   while (!Worklist.empty()) {
     Loop *L = Worklist.pop_back_val();
     Changed |= sinkRegion(DT->getNode(L->getHeader()), AA, LI, DT, TLI, TTI, L,
-                          MSSAU, SafetyInfo, Flags, ORE, CurLoop);
+                          MSSAU, EEA, SafetyInfo, Flags, ORE, CurLoop);
   }
   return Changed;
 }
@@ -624,8 +635,8 @@ bool llvm::sinkRegionForLoopNest(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
 bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
                        DominatorTree *DT, AssumptionCache *AC,
                        TargetLibraryInfo *TLI, Loop *CurLoop,
-                       MemorySSAUpdater &MSSAU, ScalarEvolution *SE,
-                       ICFLoopSafetyInfo *SafetyInfo,
+                       MemorySSAUpdater &MSSAU, EarliestEscapeAnalysis *EEA,
+                       ScalarEvolution *SE, ICFLoopSafetyInfo *SafetyInfo,
                        SinkAndHoistLICMFlags &Flags,
                        OptimizationRemarkEmitter *ORE, bool LoopNestMode,
                        bool AllowSpeculation) {
@@ -650,7 +661,8 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
       // this if all of the operands of the instruction are loop invariant and
       // if it is safe to hoist the instruction.
       if (CurLoop->hasLoopInvariantOperands(&I) &&
-          canSinkOrHoistInst(I, AA, DT, CurLoop, MSSAU, true, Flags, ORE) &&
+          canSinkOrHoistInst(I, AA, DT, CurLoop, MSSAU, EEA, true, Flags,
+                             ORE) &&
           isSafeToExecuteUnconditionally(I, DT, TLI, CurLoop, SafetyInfo, ORE,
                                          Preheader->getTerminator(), AC,
                                          AllowSpeculation)) {
@@ -685,7 +697,7 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
         Product->insertAfter(I.getIterator());
         Product->setDebugLoc(I.getDebugLoc());
         I.replaceAllUsesWith(Product);
-        eraseInstruction(I, *SafetyInfo, MSSAU);
+        eraseInstruction(I, *SafetyInfo, MSSAU, EEA);
 
         hoist(*ReciprocalDivisor, DT, CurLoop, Preheader, SafetyInfo, MSSAU, SE,
               ORE);
@@ -712,7 +724,8 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
 
       // Try to reassociate instructions so that part of computations can be
       // done out of loop.
-      if (hoistArithmetics(Opts, I, *CurLoop, *SafetyInfo, MSSAU, AC, DT)) {
+      if (hoistArithmetics(Opts, I, *CurLoop, *SafetyInfo, MSSAU, EEA, AC,
+                           DT)) {
         Changed = true;
         continue;
       }
@@ -912,6 +925,7 @@ static MemoryAccess *getClobberingMemoryAccess(MemorySSA &MSSA,
 
 bool llvm::canHoistLoad(LoadInst &LI, AAResults *AA, DominatorTree *DT,
                         Loop *CurLoop, MemorySSA &MSSA,
+                        EarliestEscapeAnalysis *EEA,
                         bool TargetExecutesOncePerLoop,
                         SinkAndHoistLICMFlags &Flags,
                         OptimizationRemarkEmitter *ORE) {
@@ -936,8 +950,8 @@ bool llvm::canHoistLoad(LoadInst &LI, AAResults *AA, DominatorTree *DT,
 
   bool InvariantGroup = LI.hasMetadata(LLVMContext::MD_invariant_group);
 
-  bool Invalidated =
-      pointerInvalidatedByLoop(&MSSA, MU, CurLoop, LI, Flags, InvariantGroup);
+  bool Invalidated = pointerInvalidatedByLoop(&MSSA, EEA, MU, CurLoop, LI,
+                                              Flags, InvariantGroup);
   // Check loop-invariant address because this may also be a sinkable load
   // whose address is not necessarily loop-invariant.
   if (ORE && Invalidated && CurLoop->isLoopInvariant(LI.getPointerOperand()))
@@ -953,6 +967,7 @@ bool llvm::canHoistLoad(LoadInst &LI, AAResults *AA, DominatorTree *DT,
 
 bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
                               Loop *CurLoop, MemorySSAUpdater &MSSAU,
+                              EarliestEscapeAnalysis *EEA,
                               bool TargetExecutesOncePerLoop,
                               SinkAndHoistLICMFlags &Flags,
                               OptimizationRemarkEmitter *ORE) {
@@ -963,8 +978,8 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
   MemorySSA *MSSA = MSSAU.getMemorySSA();
   // Loads have extra constraints we have to verify before we can hoist them.
   if (LoadInst *LI = dyn_cast<LoadInst>(&I)) {
-    return canHoistLoad(*LI, AA, DT, CurLoop, *MSSA, TargetExecutesOncePerLoop,
-                        Flags, ORE);
+    return canHoistLoad(*LI, AA, DT, CurLoop, *MSSA, EEA,
+                        TargetExecutesOncePerLoop, Flags, ORE);
   } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
     // Don't sink calls which can throw.
     if (CI->mayThrow())
@@ -1004,8 +1019,8 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
 
       // If we can prove there are no writes to the memory read by the call, we
       // can hoist or sink.
-      return !pointerInvalidatedByLoop(
-          MSSA, MU, CurLoop, I, Flags, /*InvariantGroup=*/false);
+      return !pointerInvalidatedByLoop(MSSA, EEA, MU, CurLoop, I, Flags,
+                                       /*InvariantGroup=*/false);
     }
 
     if (Behavior.onlyWritesMemory()) {
@@ -1205,8 +1220,10 @@ static Instruction *cloneInstructionInExitBlock(
 }
 
 static void eraseInstruction(Instruction &I, ICFLoopSafetyInfo &SafetyInfo,
-                             MemorySSAUpdater &MSSAU) {
+                             MemorySSAUpdater &MSSAU,
+                             EarliestEscapeAnalysis *EEA) {
   MSSAU.removeMemoryAccess(&I);
+  EEA->removeInstruction(&I);
   SafetyInfo.removeInstruction(&I);
   I.eraseFromParent();
 }
@@ -1333,7 +1350,8 @@ static void splitPredecessorsOfLoopExit(PHINode *PN, DominatorTree *DT,
 ///
 static bool sink(Instruction &I, LoopInfo *LI, DominatorTree *DT,
                  const Loop *CurLoop, ICFLoopSafetyInfo *SafetyInfo,
-                 MemorySSAUpdater &MSSAU, OptimizationRemarkEmitter *ORE) {
+                 MemorySSAUpdater &MSSAU, EarliestEscapeAnalysis *EEA,
+                 OptimizationRemarkEmitter *ORE) {
   bool Changed = false;
   LLVM_DEBUG(dbgs() << "LICM sinking instruction: " << I << "\n");
 
@@ -1412,7 +1430,7 @@ static bool sink(Instruction &I, LoopInfo *LI, DominatorTree *DT,
   // the instruction.
   // First check if I is worth sinking for all uses. Sink only when it is worth
   // across all uses.
-  SmallSetVector<User*, 8> Users(I.user_begin(), I.user_end());
+  SmallSetVector<User *, 8> Users(I.user_begin(), I.user_end());
   for (auto *UI : Users) {
     auto *User = cast<Instruction>(UI);
 
@@ -1429,7 +1447,7 @@ static bool sink(Instruction &I, LoopInfo *LI, DominatorTree *DT,
     // As we sink the instruction out of the BB, drop its debug location.
     New->dropLocation();
     PN->replaceAllUsesWith(New);
-    eraseInstruction(*PN, *SafetyInfo, MSSAU);
+    eraseInstruction(*PN, *SafetyInfo, MSSAU, EEA);
     Changed = true;
   }
   return Changed;
@@ -1677,9 +1695,9 @@ bool llvm::promoteLoopAccessesToScalars(
     SmallVectorImpl<MemoryAccess *> &MSSAInsertPts, PredIteratorCache &PIC,
     LoopInfo *LI, DominatorTree *DT, AssumptionCache *AC,
     const TargetLibraryInfo *TLI, TargetTransformInfo *TTI, Loop *CurLoop,
-    MemorySSAUpdater &MSSAU, ICFLoopSafetyInfo *SafetyInfo,
-    OptimizationRemarkEmitter *ORE, bool AllowSpeculation,
-    bool HasReadsOutsideSet) {
+    MemorySSAUpdater &MSSAU, EarliestEscapeAnalysis *EEA,
+    ICFLoopSafetyInfo *SafetyInfo, OptimizationRemarkEmitter *ORE,
+    bool AllowSpeculation, bool HasReadsOutsideSet) {
   // Verify inputs.
   assert(LI != nullptr && DT != nullptr && CurLoop != nullptr &&
          SafetyInfo != nullptr &&
@@ -1984,7 +2002,7 @@ bool llvm::promoteLoopAccessesToScalars(
     MSSAU.getMemorySSA()->verifyMemorySSA();
   // If the SSAUpdater didn't use the load in the preheader, just zap it now.
   if (PreheaderLoad && PreheaderLoad->use_empty())
-    eraseInstruction(*PreheaderLoad, *SafetyInfo, MSSAU);
+    eraseInstruction(*PreheaderLoad, *SafetyInfo, MSSAU, EEA);
 
   return true;
 }
@@ -2191,7 +2209,8 @@ static bool noConflictingReadWrites(Instruction *I, MemorySSA *MSSA,
   return true;
 }
 
-static bool pointerInvalidatedByLoop(MemorySSA *MSSA, MemoryUse *MU,
+static bool pointerInvalidatedByLoop(MemorySSA *MSSA,
+                                     EarliestEscapeAnalysis *EEA, MemoryUse *MU,
                                      Loop *CurLoop, Instruction &I,
                                      SinkAndHoistLICMFlags &Flags,
                                      bool InvariantGroup) {
@@ -2206,7 +2225,10 @@ static bool pointerInvalidatedByLoop(MemorySSA *MSSA, MemoryUse *MU,
     // 2) the earliest access is at the loop header,
     // if the memory loaded is the phi node
 
-    BatchAAResults BAA(MSSA->getAA());
+    // Use flow-sensitive capture information: an object captured only after
+    // the loop or on an unwind path cannot be accessed through pointers
+    // obtained inside the loop.
+    BatchAAResults BAA(MSSA->getAA(), EEA);
     MemoryAccess *Source = getClobberingMemoryAccess(*MSSA, BAA, Flags, MU);
     return !MSSA->isLiveOnEntryDef(Source) &&
            CurLoop->contains(Source->getBlock()) &&
@@ -2255,7 +2277,7 @@ bool pointerInvalidatedByBlock(BasicBlock &BB, MemorySSA &MSSA, MemoryUse &MU) {
 /// min(INV_1, INV_2)), if INV_1 and INV_2 are both loop invariants and their
 /// minimun can be computed outside of loop, and X is not a loop-invariant.
 static bool hoistMinMax(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
-                        MemorySSAUpdater &MSSAU) {
+                        MemorySSAUpdater &MSSAU, EarliestEscapeAnalysis *EEA) {
   bool Inverse = false;
   using namespace PatternMatch;
   Value *Cond1, *Cond2;
@@ -2323,21 +2345,21 @@ static bool hoistMinMax(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
   Value *NewCond = Builder.CreateICmp(P, LHS1, NewRHS);
   NewCond->takeName(&I);
   I.replaceAllUsesWith(NewCond);
-  eraseInstruction(I, SafetyInfo, MSSAU);
+  eraseInstruction(I, SafetyInfo, MSSAU, EEA);
   Instruction &CondI1 = *cast<Instruction>(Cond1);
   Instruction &CondI2 = *cast<Instruction>(Cond2);
   salvageDebugInfo(CondI1);
   salvageDebugInfo(CondI2);
-  eraseInstruction(CondI1, SafetyInfo, MSSAU);
-  eraseInstruction(CondI2, SafetyInfo, MSSAU);
+  eraseInstruction(CondI1, SafetyInfo, MSSAU, EEA);
+  eraseInstruction(CondI2, SafetyInfo, MSSAU, EEA);
   return true;
 }
 
 /// Reassociate gep (gep ptr, idx1), idx2 to gep (gep ptr, idx2), idx1 if
 /// this allows hoisting the inner GEP.
 static bool hoistGEP(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
-                     MemorySSAUpdater &MSSAU, AssumptionCache *AC,
-                     DominatorTree *DT) {
+                     MemorySSAUpdater &MSSAU, EarliestEscapeAnalysis *EEA,
+                     AssumptionCache *AC, DominatorTree *DT) {
   auto *GEP = dyn_cast<GetElementPtrInst>(&I);
   if (!GEP)
     return false;
@@ -2385,9 +2407,9 @@ static bool hoistGEP(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
                                     SmallVector<Value *>(Src->indices()), "gep",
                                     IsInBounds);
   GEP->replaceAllUsesWith(NewGEP);
-  eraseInstruction(*GEP, SafetyInfo, MSSAU);
+  eraseInstruction(*GEP, SafetyInfo, MSSAU, EEA);
   salvageDebugInfo(*Src);
-  eraseInstruction(*Src, SafetyInfo, MSSAU);
+  eraseInstruction(*Src, SafetyInfo, MSSAU, EEA);
   return true;
 }
 
@@ -2396,7 +2418,8 @@ static bool hoistGEP(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
 static bool hoistAdd(ICmpInst::Predicate Pred, Value *VariantLHS,
                      Value *InvariantRHS, ICmpInst &ICmp, Loop &L,
                      ICFLoopSafetyInfo &SafetyInfo, MemorySSAUpdater &MSSAU,
-                     AssumptionCache *AC, DominatorTree *DT) {
+                     EarliestEscapeAnalysis *EEA, AssumptionCache *AC,
+                     DominatorTree *DT) {
   assert(!L.isLoopInvariant(VariantLHS) && "Precondition.");
   assert(L.isLoopInvariant(InvariantRHS) && "Precondition.");
 
@@ -2447,7 +2470,7 @@ static bool hoistAdd(ICmpInst::Predicate Pred, Value *VariantLHS,
 
   Instruction &DeadI = cast<Instruction>(*VariantLHS);
   salvageDebugInfo(DeadI);
-  eraseInstruction(DeadI, SafetyInfo, MSSAU);
+  eraseInstruction(DeadI, SafetyInfo, MSSAU, EEA);
   return true;
 }
 
@@ -2457,7 +2480,8 @@ static bool hoistAdd(ICmpInst::Predicate Pred, Value *VariantLHS,
 static bool hoistSub(ICmpInst::Predicate Pred, Value *VariantLHS,
                      Value *InvariantRHS, ICmpInst &ICmp, Loop &L,
                      ICFLoopSafetyInfo &SafetyInfo, MemorySSAUpdater &MSSAU,
-                     AssumptionCache *AC, DominatorTree *DT) {
+                     EarliestEscapeAnalysis *EEA, AssumptionCache *AC,
+                     DominatorTree *DT) {
   assert(!L.isLoopInvariant(VariantLHS) && "Precondition.");
   assert(L.isLoopInvariant(InvariantRHS) && "Precondition.");
 
@@ -2531,14 +2555,14 @@ static bool hoistSub(ICmpInst::Predicate Pred, Value *VariantLHS,
 
   Instruction &DeadI = cast<Instruction>(*VariantLHS);
   salvageDebugInfo(DeadI);
-  eraseInstruction(DeadI, SafetyInfo, MSSAU);
+  eraseInstruction(DeadI, SafetyInfo, MSSAU, EEA);
   return true;
 }
 
 /// Reassociate and hoist add/sub expressions.
 static bool hoistAddSub(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
-                        MemorySSAUpdater &MSSAU, AssumptionCache *AC,
-                        DominatorTree *DT) {
+                        MemorySSAUpdater &MSSAU, EarliestEscapeAnalysis *EEA,
+                        AssumptionCache *AC, DominatorTree *DT) {
   using namespace PatternMatch;
   CmpPredicate Pred;
   Value *LHS, *RHS;
@@ -2557,10 +2581,12 @@ static bool hoistAddSub(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
 
   // TODO: We could go with smarter context, taking common dominator of all I's
   // users instead of I itself.
-  if (hoistAdd(Pred, LHS, RHS, cast<ICmpInst>(I), L, SafetyInfo, MSSAU, AC, DT))
+  if (hoistAdd(Pred, LHS, RHS, cast<ICmpInst>(I), L, SafetyInfo, MSSAU, EEA, AC,
+               DT))
     return true;
 
-  if (hoistSub(Pred, LHS, RHS, cast<ICmpInst>(I), L, SafetyInfo, MSSAU, AC, DT))
+  if (hoistSub(Pred, LHS, RHS, cast<ICmpInst>(I), L, SafetyInfo, MSSAU, EEA, AC,
+               DT))
     return true;
 
   return false;
@@ -2583,8 +2609,9 @@ static bool isReassociableOp(Instruction *I, unsigned IntOpcode,
 /// actually occurred.
 static bool hoistMulAddAssociation(const ScalarOptions &Opts, Instruction &I,
                                    Loop &L, ICFLoopSafetyInfo &SafetyInfo,
-                                   MemorySSAUpdater &MSSAU, AssumptionCache *AC,
-                                   DominatorTree *DT) {
+                                   MemorySSAUpdater &MSSAU,
+                                   EarliestEscapeAnalysis *EEA,
+                                   AssumptionCache *AC, DominatorTree *DT) {
   if (!isReassociableOp(&I, Instruction::Mul, Instruction::FMul))
     return false;
   Value *VariantOp = I.getOperand(0);
@@ -2666,11 +2693,11 @@ static bool hoistMulAddAssociation(const ScalarOptions &Opts, Instruction &I,
     if (VariantOp == Ins)
       VariantOp = NewBO;
     Ins->replaceAllUsesWith(NewBO);
-    eraseInstruction(*Ins, SafetyInfo, MSSAU);
+    eraseInstruction(*Ins, SafetyInfo, MSSAU, EEA);
   }
 
   I.replaceAllUsesWith(VariantOp);
-  eraseInstruction(I, SafetyInfo, MSSAU);
+  eraseInstruction(I, SafetyInfo, MSSAU, EEA);
   return true;
 }
 
@@ -2686,7 +2713,8 @@ static bool hoistMulAddAssociation(const ScalarOptions &Opts, Instruction &I,
 /// commutativity.
 static bool hoistBOAssociation(Instruction &I, Loop &L,
                                ICFLoopSafetyInfo &SafetyInfo,
-                               MemorySSAUpdater &MSSAU, AssumptionCache *AC,
+                               MemorySSAUpdater &MSSAU,
+                               EarliestEscapeAnalysis *EEA, AssumptionCache *AC,
                                DominatorTree *DT) {
   auto *BO = dyn_cast<BinaryOperator>(&I);
   if (!BO || !BO->isAssociative())
@@ -2752,13 +2780,13 @@ static bool hoistBOAssociation(Instruction &I, Loop &L,
   }
 
   BO->replaceAllUsesWith(NewBO);
-  eraseInstruction(*BO, SafetyInfo, MSSAU);
+  eraseInstruction(*BO, SafetyInfo, MSSAU, EEA);
 
   // (LV op C1) might not be erased if it has more uses than the one we just
   // replaced.
   if (BO0->use_empty()) {
     salvageDebugInfo(*BO0);
-    eraseInstruction(*BO0, SafetyInfo, MSSAU);
+    eraseInstruction(*BO0, SafetyInfo, MSSAU, EEA);
   }
 
   return true;
@@ -2775,8 +2803,9 @@ static bool hoistBOAssociation(Instruction &I, Loop &L,
 /// invariant computations out of the loop.
 static bool hoistSubAddAssociation(Instruction &I, Loop &L,
                                    ICFLoopSafetyInfo &SafetyInfo,
-                                   MemorySSAUpdater &MSSAU, AssumptionCache *AC,
-                                   DominatorTree *DT) {
+                                   MemorySSAUpdater &MSSAU,
+                                   EarliestEscapeAnalysis *EEA,
+                                   AssumptionCache *AC, DominatorTree *DT) {
   using namespace PatternMatch;
 
   Instruction *BO;
@@ -2842,43 +2871,44 @@ static bool hoistSubAddAssociation(Instruction &I, Loop &L,
   // involving sub does not preserve nsw/nuw in general.
 
   I.replaceAllUsesWith(NewBO);
-  eraseInstruction(I, SafetyInfo, MSSAU);
+  eraseInstruction(I, SafetyInfo, MSSAU, EEA);
 
   salvageDebugInfo(*BO);
-  eraseInstruction(*BO, SafetyInfo, MSSAU);
+  eraseInstruction(*BO, SafetyInfo, MSSAU, EEA);
 
   return true;
 }
 
 static bool hoistArithmetics(const ScalarOptions &Opts, Instruction &I, Loop &L,
                              ICFLoopSafetyInfo &SafetyInfo,
-                             MemorySSAUpdater &MSSAU, AssumptionCache *AC,
+                             MemorySSAUpdater &MSSAU,
+                             EarliestEscapeAnalysis *EEA, AssumptionCache *AC,
                              DominatorTree *DT) {
   // Optimize complex patterns, such as (x < INV1 && x < INV2), turning them
   // into (x < min(INV1, INV2)), and hoisting the invariant part of this
   // expression out of the loop.
-  if (hoistMinMax(I, L, SafetyInfo, MSSAU)) {
+  if (hoistMinMax(I, L, SafetyInfo, MSSAU, EEA)) {
     ++NumHoisted;
     ++NumMinMaxHoisted;
     return true;
   }
 
   // Try to hoist GEPs by reassociation.
-  if (hoistGEP(I, L, SafetyInfo, MSSAU, AC, DT)) {
+  if (hoistGEP(I, L, SafetyInfo, MSSAU, EEA, AC, DT)) {
     ++NumHoisted;
     ++NumGEPsHoisted;
     return true;
   }
 
   // Try to hoist add/sub's by reassociation.
-  if (hoistAddSub(I, L, SafetyInfo, MSSAU, AC, DT)) {
+  if (hoistAddSub(I, L, SafetyInfo, MSSAU, EEA, AC, DT)) {
     ++NumHoisted;
     ++NumAddSubHoisted;
     return true;
   }
 
   bool IsInt = I.getType()->isIntOrIntVectorTy();
-  if (hoistMulAddAssociation(Opts, I, L, SafetyInfo, MSSAU, AC, DT)) {
+  if (hoistMulAddAssociation(Opts, I, L, SafetyInfo, MSSAU, EEA, AC, DT)) {
     ++NumHoisted;
     if (IsInt)
       ++NumIntAssociationsHoisted;
@@ -2887,13 +2917,13 @@ static bool hoistArithmetics(const ScalarOptions &Opts, Instruction &I, Loop &L,
     return true;
   }
 
-  if (hoistBOAssociation(I, L, SafetyInfo, MSSAU, AC, DT)) {
+  if (hoistBOAssociation(I, L, SafetyInfo, MSSAU, EEA, AC, DT)) {
     ++NumHoisted;
     ++NumBOAssociationsHoisted;
     return true;
   }
 
-  if (hoistSubAddAssociation(I, L, SafetyInfo, MSSAU, AC, DT)) {
+  if (hoistSubAddAssociation(I, L, SafetyInfo, MSSAU, EEA, AC, DT)) {
     ++NumHoisted;
     ++NumBOAssociationsHoisted;
     return true;

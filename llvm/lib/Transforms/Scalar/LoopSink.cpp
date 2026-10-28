@@ -294,6 +294,7 @@ static bool sinkLoopInvariantInstructions(Loop &L, AAResults &AA, LoopInfo &LI,
                                           DominatorTree &DT,
                                           BlockFrequencyInfo &BFI,
                                           MemorySSA &MSSA,
+                                          EarliestEscapeAnalysis *EEA,
                                           ScalarEvolution *SE) {
   const ScalarOptions &Opts = getScalarOptions(L);
   BasicBlock *Preheader = L.getLoopPreheader();
@@ -338,7 +339,7 @@ static bool sinkLoopInvariantInstructions(Loop &L, AAResults &AA, LoopInfo &LI,
     // No need to check for instruction's operands are loop invariant.
     assert(L.hasLoopInvariantOperands(&I) &&
            "Insts in a loop's preheader should have loop invariant operands!");
-    if (!canSinkOrHoistInst(I, &AA, &DT, &L, MSSAU, false, LICMFlags))
+    if (!canSinkOrHoistInst(I, &AA, &DT, &L, MSSAU, EEA, false, LICMFlags))
       continue;
     if (sinkInstruction(Opts, L, I, ColdLoopBBs, LoopBlockNumber, LI, DT, BFI,
                         &MSSAU)) {
@@ -366,6 +367,7 @@ PreservedAnalyses LoopSinkPass::run(Function &F, FunctionAnalysisManager &FAM) {
   DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
   BlockFrequencyInfo &BFI = FAM.getResult<BlockFrequencyAnalysis>(F);
   MemorySSA &MSSA = FAM.getResult<MemorySSAAnalysis>(F).getMSSA();
+  EarliestEscapeAnalysis EEA(DT);
 
   // We want to do a postorder walk over the loops. Since loops are a tree this
   // is equivalent to a reversed preorder walk and preorder is easy to compute
@@ -385,7 +387,7 @@ PreservedAnalyses LoopSinkPass::run(Function &F, FunctionAnalysisManager &FAM) {
     // Note that we don't pass SCEV here because it is only used to invalidate
     // loops in SCEV and we don't preserve (or request) SCEV at all making that
     // unnecessary.
-    Changed |= sinkLoopInvariantInstructions(L, AA, LI, DT, BFI, MSSA,
+    Changed |= sinkLoopInvariantInstructions(L, AA, LI, DT, BFI, MSSA, &EEA,
                                              /*ScalarEvolution*/ nullptr);
   } while (!PreorderLoops.empty());
 
