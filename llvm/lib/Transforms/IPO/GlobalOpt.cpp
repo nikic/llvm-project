@@ -1965,6 +1965,35 @@ OptimizeFunctions(Module &M,
         Changed = true;
         ChangedCFGCallback(F);
       }
+
+      if (!F.isInterposable()) {
+        AttributeList Attrs = F.getAttributes();
+        SmallVector<unsigned, 8> IntArgWithoutExtAttr;
+        for (unsigned ArgNo = 0; ArgNo < F.arg_size(); ++ArgNo) {
+          if (!F.getArg(ArgNo)->getType()->isIntegerTy())
+            continue;
+          AttributeSet ArgAttrs = Attrs.getParamAttrs(ArgNo);
+          if (ArgAttrs.hasAttribute(Attribute::ZExt) ||
+              ArgAttrs.hasAttribute(Attribute::SExt) ||
+              ArgAttrs.hasAttribute(Attribute::NoExt))
+            continue;
+
+          IntArgWithoutExtAttr.push_back(ArgNo);
+        }
+
+        if (!IntArgWithoutExtAttr.empty()) {
+          for (Use &U : F.uses()) {
+            auto *CB = dyn_cast<CallBase>(U.getUser());
+            if (CB && CB->isCallee(&U) &&
+                CB->getFunctionType() == F.getFunctionType()) {
+              for (unsigned ArgNo : IntArgWithoutExtAttr) {
+                CB->removeParamAttr(ArgNo, Attribute::ZExt);
+                CB->removeParamAttr(ArgNo, Attribute::SExt);
+              }
+            }
+          }
+        }
+      }
     }
 
     Changed |= processGlobal(F, GetTTI, GetTLI, LookupDomTree);
