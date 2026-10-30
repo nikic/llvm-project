@@ -1966,7 +1966,7 @@ OptimizeFunctions(Module &M,
         ChangedCFGCallback(F);
       }
 
-      if (!F.isInterposable()) {
+      if (F.isDefinitionExact()) {
         AttributeList Attrs = F.getAttributes();
         SmallVector<unsigned, 8> IntArgWithoutExtAttr;
         for (unsigned ArgNo = 0; ArgNo < F.arg_size(); ++ArgNo) {
