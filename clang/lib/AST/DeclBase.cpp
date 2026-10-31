@@ -783,6 +783,13 @@ AvailabilityResult Decl::getAvailability(std::string *Message,
     return FTD->getTemplatedDecl()->getAvailability(Message, EnclosingVersion,
                                                     RealizedPlatform);
 
+  // Fast path for the common case of a declaration without attributes.
+  if (!hasAttrs()) {
+    if (Message)
+      Message->clear();
+    return AR_Available;
+  }
+
   AvailabilityResult Result = AR_Available;
   std::string ResultMessage;
 
