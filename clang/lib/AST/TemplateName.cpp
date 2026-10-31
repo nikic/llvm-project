@@ -288,17 +288,28 @@ TemplateName::NameKind TemplateName::getKind() const {
 
 TemplateDecl *TemplateName::getAsTemplateDecl(bool IgnoreDeduced) const {
   TemplateName Name = *this;
-  while (std::optional<TemplateName> UnderlyingOrNone =
-             Name.desugar(IgnoreDeduced))
+  while (true) {
+    // Fast path for the common case of a plain template declaration.
+    if (Decl *D = dyn_cast_if_present<Decl *>(Name.Storage)) {
+      if (auto *USD = dyn_cast<UsingShadowDecl>(D)) {
+        Name = TemplateName(USD->getTargetDecl());
+        continue;
+      }
+      return cast<TemplateDecl>(D);
+    }
+
+    std::optional<TemplateName> UnderlyingOrNone = Name.desugar(IgnoreDeduced);
+    if (!UnderlyingOrNone)
+      break;
     Name = *UnderlyingOrNone;
+  }
 
   if (!IgnoreDeduced)
     assert(Name.getAsDeducedTemplateName() == nullptr &&
            "Unexpected canonical DeducedTemplateName; Did you mean to use "
            "getTemplateDeclAndDefaultArgs instead?");
 
-  return cast_if_present<TemplateDecl>(
-      dyn_cast_if_present<Decl *>(Name.Storage));
+  return nullptr;
 }
 
 TemplateTemplateParmDecl *TemplateName::getAsTemplateTemplateParmDecl() const {
