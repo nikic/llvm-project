@@ -1657,6 +1657,7 @@ ExternalASTSource::SetNoExternalVisibleDeclsForName(const DeclContext *DC,
   if (DC->hasNeedToReconcileExternalVisibleStorage())
     DC->reconcileExternalVisibleStorage();
 
+  Map->noteInsertion(Name);
   (*Map)[Name].removeExternalDecls();
 
   return DeclContext::lookup_result();
@@ -1673,6 +1674,7 @@ ExternalASTSource::SetExternalVisibleDeclsForName(const DeclContext *DC,
   if (DC->hasNeedToReconcileExternalVisibleStorage())
     DC->reconcileExternalVisibleStorage();
 
+  Map->noteInsertion(Name);
   StoredDeclsList &List = (*Map)[Name];
   List.replaceExternalDecls(Decls);
   return List.getLookupResult();
@@ -1948,6 +1950,7 @@ DeclContext::lookupImpl(DeclarationName Name,
       Map = CreateStoredDeclsMap(getParentASTContext());
 
     // If we have a lookup result with no external decls, we are done.
+    Map->noteInsertion(Name);
     std::pair<StoredDeclsMap::iterator, bool> R = Map->try_emplace(Name);
     if (!R.second && !R.first->second.hasExternalDecls())
       return R.first->second.getLookupResult();
@@ -1970,6 +1973,10 @@ DeclContext::lookupImpl(DeclarationName Name,
     Map = const_cast<DeclContext*>(this)->buildLookup();
 
   if (!Map)
+    return {};
+
+  if (Name.getNameKind() == DeclarationName::CXXUsingDirective &&
+      !Map->MayHaveUsingDirectives)
     return {};
 
   StoredDeclsMap::iterator I = Map->find(Name);
@@ -2197,6 +2204,7 @@ void DeclContext::makeDeclVisibleInContextImpl(NamedDecl *D, bool Internal) {
                                                D->getDeclContext());
 
   // Insert this declaration into the map.
+  Map->noteInsertion(D->getDeclName());
   StoredDeclsList &DeclNameEntries = (*Map)[D->getDeclName()];
 
   if (Internal) {

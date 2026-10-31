@@ -307,7 +307,19 @@ class StoredDeclsMap
   friend class DeclContext;
 
   llvm::PointerIntPair<StoredDeclsMap*, 1> Previous;
+
+  /// Whether an entry for the using-directive name may have been added to
+  /// this map. Allows DeclContext::using_directives() to skip the hash lookup
+  /// for the (very common) case of contexts without using-directives.
+  bool MayHaveUsingDirectives = false;
+
 public:
+  /// Must be called before inserting an entry for \p Name.
+  void noteInsertion(DeclarationName Name) {
+    if (Name.getNameKind() == DeclarationName::CXXUsingDirective)
+      MayHaveUsingDirectives = true;
+  }
+
   static void DestroyAll(StoredDeclsMap *Map, bool Dependent);
 };
 
