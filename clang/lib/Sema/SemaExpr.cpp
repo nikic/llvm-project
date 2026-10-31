@@ -18668,6 +18668,9 @@ const DeclRefExpr *CheckPossibleDeref(Sema &S, const Expr *PossibleDeref) {
 } // namespace
 
 void Sema::WarnOnPendingNoDerefs(ExpressionEvaluationContextRecord &Rec) {
+  if (Rec.PossibleDerefs.empty())
+    return;
+
   for (const Expr *E : Rec.PossibleDerefs) {
     const DeclRefExpr *DeclRef = CheckPossibleDeref(*this, E);
     if (DeclRef) {
@@ -19120,7 +19123,9 @@ void Sema::PopExpressionEvaluationContext() {
                              ExprCleanupObjects.end());
     Cleanup = Rec.ParentCleanup;
     CleanupVarDeclMarking();
-    std::swap(MaybeODRUseExprs, Rec.SavedMaybeODRUseExprs);
+    // MaybeODRUseExprs is empty now, restore the saved state.
+    if (!Rec.SavedMaybeODRUseExprs.empty())
+      std::swap(MaybeODRUseExprs, Rec.SavedMaybeODRUseExprs);
   // Otherwise, merge the contexts together.
   } else {
     Cleanup.mergeFrom(Rec.ParentCleanup);
@@ -20956,6 +20961,9 @@ ExprResult Sema::ActOnConstantExpression(ExprResult Res) {
 }
 
 void Sema::CleanupVarDeclMarking() {
+  if (MaybeODRUseExprs.empty())
+    return;
+
   // Iterate through a local copy in case MarkVarDeclODRUsed makes a recursive
   // call.
   MaybeODRUseExprSet LocalMaybeODRUseExprs;
