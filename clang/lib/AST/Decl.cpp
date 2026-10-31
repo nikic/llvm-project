@@ -2256,7 +2256,10 @@ VarDecl::isThisDeclarationADefinition(ASTContext &C) const {
   // FIXME: How do you declare (but not define) a partial specialization of
   // a static data member template outside the containing class?
   if (isStaticDataMember()) {
-    if (isOutOfLine() &&
+    // isOutOfLine() may require (repeated) lookups in the ASTContext's
+    // TemplateOrInstantiation map, compute it only once.
+    bool OutOfLine = isOutOfLine();
+    if (OutOfLine &&
         !(getCanonicalDecl()->isInline() && getCanonicalDecl()->isConstexpr() &&
           !getCanonicalDecl()->isOutOfLine()) &&
         (hasInit() ||
@@ -2269,7 +2272,7 @@ VarDecl::isThisDeclarationADefinition(ASTContext &C) const {
                     TSK_ExplicitSpecialization) ||
          isa<VarTemplatePartialSpecializationDecl>(this)))
       return Definition;
-    if (!isOutOfLine() && (isInline() || hasDefiningAttr()))
+    if (!OutOfLine && (isInline() || hasDefiningAttr()))
       return Definition;
     return DeclarationOnly;
   }
