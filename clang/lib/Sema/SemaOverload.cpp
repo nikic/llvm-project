@@ -7345,14 +7345,11 @@ static bool IsAcceptableNonMemberOperatorCandidate(ASTContext &Context,
 }
 
 static bool isNonViableMultiVersionOverload(FunctionDecl *FD) {
-  if (FD->isTargetMultiVersionDefault())
+  if (!FD->isMultiVersion() || FD->isTargetMultiVersionDefault())
     return false;
 
   if (!FD->getASTContext().getTargetInfo().getTriple().isAArch64())
     return FD->isTargetMultiVersion();
-
-  if (!FD->isMultiVersion())
-    return false;
 
   // Among multiple target versions consider either the default,
   // or the first non-default in the absence of default version.
