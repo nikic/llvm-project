@@ -2256,7 +2256,7 @@ VarDecl::isThisDeclarationADefinition(ASTContext &C) const {
   // FIXME: How do you declare (but not define) a partial specialization of
   // a static data member template outside the containing class?
   if (isStaticDataMember()) {
-    bool IsOutOfLine = isOutOfLine();
+    bool IsOutOfLine = !isa<CXXRecordDecl>(getLexicalDeclContext());
     if (IsOutOfLine &&
         !(getCanonicalDecl()->isInline() && getCanonicalDecl()->isConstexpr() &&
           !getCanonicalDecl()->isOutOfLine()) &&
