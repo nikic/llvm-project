@@ -195,9 +195,9 @@ define void @first_order_recurrence_i64_scaled_load_and_store(ptr noalias %src, 
 ; CHECK-NEXT:    [[VECTOR_RECUR:%.*]] = phi <2 x i64> [ [[VECTOR_RECUR_INIT]], %[[VECTOR_PH]] ], [ [[WIDE_LOAD3:%.*]], %[[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = add nuw i64 1, [[INDEX]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i64, ptr [[SRC]], i64 [[TMP0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i64, ptr [[TMP1]], i64 2
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[TMP1]], i64 4
-; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i64, ptr [[TMP1]], i64 6
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i8, ptr [[TMP1]], i64 16
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i8, ptr [[TMP1]], i64 32
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i8, ptr [[TMP1]], i64 48
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i64>, ptr [[TMP1]], align 8
 ; CHECK-NEXT:    [[WIDE_LOAD1:%.*]] = load <2 x i64>, ptr [[TMP2]], align 8
 ; CHECK-NEXT:    [[WIDE_LOAD2:%.*]] = load <2 x i64>, ptr [[TMP3]], align 8
@@ -211,9 +211,9 @@ define void @first_order_recurrence_i64_scaled_load_and_store(ptr noalias %src, 
 ; CHECK-NEXT:    [[TMP11:%.*]] = add <2 x i64> [[TMP7]], [[WIDE_LOAD2]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = add <2 x i64> [[TMP8]], [[WIDE_LOAD3]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = getelementptr inbounds i64, ptr [[DST]], i64 [[TMP0]]
-; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr inbounds i64, ptr [[TMP13]], i64 2
-; CHECK-NEXT:    [[TMP15:%.*]] = getelementptr inbounds i64, ptr [[TMP13]], i64 4
-; CHECK-NEXT:    [[TMP16:%.*]] = getelementptr inbounds i64, ptr [[TMP13]], i64 6
+; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr inbounds i8, ptr [[TMP13]], i64 16
+; CHECK-NEXT:    [[TMP15:%.*]] = getelementptr inbounds i8, ptr [[TMP13]], i64 32
+; CHECK-NEXT:    [[TMP16:%.*]] = getelementptr inbounds i8, ptr [[TMP13]], i64 48
 ; CHECK-NEXT:    store <2 x i64> [[TMP9]], ptr [[TMP13]], align 8
 ; CHECK-NEXT:    store <2 x i64> [[TMP10]], ptr [[TMP14]], align 8
 ; CHECK-NEXT:    store <2 x i64> [[TMP11]], ptr [[TMP15]], align 8
@@ -390,9 +390,9 @@ define void @extending_load(ptr noalias %dst, ptr %src, i64 %n) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds nuw i32, ptr [[SRC]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = shl nuw nsw i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = mul nuw nsw i64 [[TMP2]], 3
-; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds nuw i32, ptr [[TMP3]], i64 [[TMP2]]
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds nuw i32, ptr [[TMP3]], i64 [[TMP4]]
-; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds nuw i32, ptr [[TMP3]], i64 [[TMP5]]
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds nuw [4 x i8], ptr [[TMP3]], i64 [[TMP2]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds nuw [4 x i8], ptr [[TMP3]], i64 [[TMP4]]
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds nuw [4 x i8], ptr [[TMP3]], i64 [[TMP5]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <vscale x 4 x i32>, ptr [[TMP3]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD2:%.*]] = load <vscale x 4 x i32>, ptr [[TMP6]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD3:%.*]] = load <vscale x 4 x i32>, ptr [[TMP7]], align 4
@@ -462,24 +462,24 @@ define void @reverse_stride(ptr noalias %c, ptr noalias  %a, ptr noalias %b, i64
 ; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds nuw i32, ptr [[A]], i64 [[TMP6]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = sub nuw nsw i64 [[TMP4]], 1
 ; CHECK-NEXT:    [[TMP9:%.*]] = sub i64 0, [[TMP8]]
-; CHECK-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i32, ptr [[TMP7]], i64 [[TMP9]]
+; CHECK-NEXT:    [[TMP10:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP7]], i64 [[TMP9]]
 ; CHECK-NEXT:    [[TMP27:%.*]] = sub i64 [[TMP9]], [[TMP4]]
-; CHECK-NEXT:    [[TMP28:%.*]] = getelementptr inbounds i32, ptr [[TMP7]], i64 [[TMP27]]
+; CHECK-NEXT:    [[TMP28:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP7]], i64 [[TMP27]]
 ; CHECK-NEXT:    [[TMP29:%.*]] = mul i64 -2, [[TMP4]]
 ; CHECK-NEXT:    [[TMP33:%.*]] = sub i64 [[TMP29]], [[TMP8]]
-; CHECK-NEXT:    [[TMP34:%.*]] = getelementptr inbounds i32, ptr [[TMP7]], i64 [[TMP33]]
+; CHECK-NEXT:    [[TMP34:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP7]], i64 [[TMP33]]
 ; CHECK-NEXT:    [[TMP35:%.*]] = mul i64 -3, [[TMP4]]
 ; CHECK-NEXT:    [[TMP36:%.*]] = sub i64 [[TMP35]], [[TMP8]]
-; CHECK-NEXT:    [[TMP37:%.*]] = getelementptr inbounds i32, ptr [[TMP7]], i64 [[TMP36]]
+; CHECK-NEXT:    [[TMP37:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP7]], i64 [[TMP36]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = load <vscale x 4 x i32>, ptr [[TMP10]], align 4
 ; CHECK-NEXT:    [[TMP12:%.*]] = load <vscale x 4 x i32>, ptr [[TMP28]], align 4
 ; CHECK-NEXT:    [[TMP13:%.*]] = load <vscale x 4 x i32>, ptr [[TMP34]], align 4
 ; CHECK-NEXT:    [[TMP14:%.*]] = load <vscale x 4 x i32>, ptr [[TMP37]], align 4
 ; CHECK-NEXT:    [[TMP15:%.*]] = getelementptr inbounds nuw i32, ptr [[B]], i64 [[TMP6]]
-; CHECK-NEXT:    [[TMP16:%.*]] = getelementptr inbounds i32, ptr [[TMP15]], i64 [[TMP9]]
-; CHECK-NEXT:    [[TMP38:%.*]] = getelementptr inbounds i32, ptr [[TMP15]], i64 [[TMP27]]
-; CHECK-NEXT:    [[TMP39:%.*]] = getelementptr inbounds i32, ptr [[TMP15]], i64 [[TMP33]]
-; CHECK-NEXT:    [[TMP40:%.*]] = getelementptr inbounds i32, ptr [[TMP15]], i64 [[TMP36]]
+; CHECK-NEXT:    [[TMP16:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP15]], i64 [[TMP9]]
+; CHECK-NEXT:    [[TMP38:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP15]], i64 [[TMP27]]
+; CHECK-NEXT:    [[TMP39:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP15]], i64 [[TMP33]]
+; CHECK-NEXT:    [[TMP40:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP15]], i64 [[TMP36]]
 ; CHECK-NEXT:    [[TMP17:%.*]] = load <vscale x 4 x i32>, ptr [[TMP16]], align 4
 ; CHECK-NEXT:    [[TMP18:%.*]] = load <vscale x 4 x i32>, ptr [[TMP38]], align 4
 ; CHECK-NEXT:    [[TMP19:%.*]] = load <vscale x 4 x i32>, ptr [[TMP39]], align 4
@@ -489,10 +489,10 @@ define void @reverse_stride(ptr noalias %c, ptr noalias  %a, ptr noalias %b, i64
 ; CHECK-NEXT:    [[TMP23:%.*]] = add nsw <vscale x 4 x i32> [[TMP19]], [[TMP13]]
 ; CHECK-NEXT:    [[TMP24:%.*]] = add nsw <vscale x 4 x i32> [[TMP20]], [[TMP14]]
 ; CHECK-NEXT:    [[TMP25:%.*]] = getelementptr inbounds nuw i32, ptr [[C]], i64 [[TMP6]]
-; CHECK-NEXT:    [[TMP26:%.*]] = getelementptr inbounds i32, ptr [[TMP25]], i64 [[TMP9]]
-; CHECK-NEXT:    [[TMP30:%.*]] = getelementptr inbounds i32, ptr [[TMP25]], i64 [[TMP27]]
-; CHECK-NEXT:    [[TMP41:%.*]] = getelementptr inbounds i32, ptr [[TMP25]], i64 [[TMP33]]
-; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr inbounds i32, ptr [[TMP25]], i64 [[TMP36]]
+; CHECK-NEXT:    [[TMP26:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP25]], i64 [[TMP9]]
+; CHECK-NEXT:    [[TMP30:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP25]], i64 [[TMP27]]
+; CHECK-NEXT:    [[TMP41:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP25]], i64 [[TMP33]]
+; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP25]], i64 [[TMP36]]
 ; CHECK-NEXT:    store <vscale x 4 x i32> [[TMP21]], ptr [[TMP26]], align 4
 ; CHECK-NEXT:    store <vscale x 4 x i32> [[TMP22]], ptr [[TMP30]], align 4
 ; CHECK-NEXT:    store <vscale x 4 x i32> [[TMP23]], ptr [[TMP41]], align 4
@@ -623,11 +623,11 @@ define void @store_address(ptr noalias %x, ptr noalias %y, i64 %n) {
 ; CHECK-NEXT:    [[STEP_ADD:%.*]] = add nuw <vscale x 2 x i64> [[VEC_IND]], [[BROADCAST_SPLAT]], !dbg [[DBG31]]
 ; CHECK-NEXT:    [[STEP_ADD_2:%.*]] = add nuw <vscale x 2 x i64> [[STEP_ADD]], [[BROADCAST_SPLAT]], !dbg [[DBG31]]
 ; CHECK-NEXT:    [[STEP_ADD_3:%.*]] = add nuw <vscale x 2 x i64> [[STEP_ADD_2]], [[BROADCAST_SPLAT]], !dbg [[DBG31]]
-; CHECK-NEXT:    [[WIDE_GEP:%.*]] = getelementptr inbounds i64, ptr [[X]], <vscale x 2 x i64> [[VEC_IND]], !dbg [[DBG35:![0-9]+]]
+; CHECK-NEXT:    [[WIDE_GEP:%.*]] = getelementptr inbounds [8 x i8], ptr [[X]], <vscale x 2 x i64> [[VEC_IND]], !dbg [[DBG35:![0-9]+]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = extractelement <vscale x 2 x ptr> [[WIDE_GEP]], i64 0
-; CHECK-NEXT:    [[WIDE_GEP1:%.*]] = getelementptr inbounds i64, ptr [[X]], <vscale x 2 x i64> [[STEP_ADD]], !dbg [[DBG35]]
-; CHECK-NEXT:    [[WIDE_GEP2:%.*]] = getelementptr inbounds i64, ptr [[X]], <vscale x 2 x i64> [[STEP_ADD_2]], !dbg [[DBG35]]
-; CHECK-NEXT:    [[WIDE_GEP3:%.*]] = getelementptr inbounds i64, ptr [[X]], <vscale x 2 x i64> [[STEP_ADD_3]], !dbg [[DBG35]]
+; CHECK-NEXT:    [[WIDE_GEP1:%.*]] = getelementptr inbounds [8 x i8], ptr [[X]], <vscale x 2 x i64> [[STEP_ADD]], !dbg [[DBG35]]
+; CHECK-NEXT:    [[WIDE_GEP2:%.*]] = getelementptr inbounds [8 x i8], ptr [[X]], <vscale x 2 x i64> [[STEP_ADD_2]], !dbg [[DBG35]]
+; CHECK-NEXT:    [[WIDE_GEP3:%.*]] = getelementptr inbounds [8 x i8], ptr [[X]], <vscale x 2 x i64> [[STEP_ADD_3]], !dbg [[DBG35]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = call <vscale x 8 x ptr> @llvm.vector.insert.nxv8p0.nxv2p0(<vscale x 8 x ptr> poison, <vscale x 2 x ptr> [[WIDE_GEP]], i64 0), !dbg [[DBG36:![0-9]+]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = call <vscale x 8 x ptr> @llvm.vector.insert.nxv8p0.nxv2p0(<vscale x 8 x ptr> [[TMP6]], <vscale x 2 x ptr> [[WIDE_GEP1]], i64 2), !dbg [[DBG36]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = call <vscale x 8 x ptr> @llvm.vector.insert.nxv8p0.nxv2p0(<vscale x 8 x ptr> [[TMP7]], <vscale x 2 x ptr> [[WIDE_GEP2]], i64 4), !dbg [[DBG36]]

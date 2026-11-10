@@ -304,10 +304,10 @@ define void @main_vector_loop_fixed_single_vector_iteration_with_runtime_checks(
 ; CHECK-TF-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; CHECK-TF-NEXT:    [[ACTIVE_LANE_MASK:%.*]] = phi <vscale x 8 x i1> [ [[ACTIVE_LANE_MASK_ENTRY]], %[[VECTOR_PH]] ], [ [[ACTIVE_LANE_MASK_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; CHECK-TF-NEXT:    [[VEC_IND:%.*]] = phi <vscale x 8 x i64> [ [[TMP3]], %[[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; CHECK-TF-NEXT:    [[WIDE_GEP:%.*]] = getelementptr i64, ptr [[J]], <vscale x 8 x i64> [[VEC_IND]]
+; CHECK-TF-NEXT:    [[WIDE_GEP:%.*]] = getelementptr [8 x i8], ptr [[J]], <vscale x 8 x i64> [[VEC_IND]]
 ; CHECK-TF-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <vscale x 8 x i64> @llvm.masked.gather.nxv8i64.nxv8p0(<vscale x 8 x ptr> align 8 [[WIDE_GEP]], <vscale x 8 x i1> [[ACTIVE_LANE_MASK]], <vscale x 8 x i64> poison)
 ; CHECK-TF-NEXT:    [[TMP5:%.*]] = trunc <vscale x 8 x i64> [[WIDE_MASKED_GATHER]] to <vscale x 8 x i16>
-; CHECK-TF-NEXT:    [[WIDE_GEP1:%.*]] = getelementptr i16, ptr [[K]], <vscale x 8 x i64> [[VEC_IND]]
+; CHECK-TF-NEXT:    [[WIDE_GEP1:%.*]] = getelementptr [2 x i8], ptr [[K]], <vscale x 8 x i64> [[VEC_IND]]
 ; CHECK-TF-NEXT:    call void @llvm.masked.scatter.nxv8i16.nxv8p0(<vscale x 8 x i16> [[TMP5]], <vscale x 8 x ptr> align 2 [[WIDE_GEP1]], <vscale x 8 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-TF-NEXT:    store i64 0, ptr [[A]], align 8
 ; CHECK-TF-NEXT:    store i64 0, ptr [[B]], align 8
@@ -1003,16 +1003,16 @@ define i32 @load_factor_4_with_gap_reverse(i64 %n, ptr noalias %a) {
 ; CHECK-NOTF-NEXT:    [[TMP7:%.*]] = getelementptr inbounds nuw [16 x i8], ptr [[A]], i64 [[TMP6]]
 ; CHECK-NOTF-NEXT:    [[TMP8:%.*]] = sub nuw nsw i64 [[TMP3]], 1
 ; CHECK-NOTF-NEXT:    [[TMP9:%.*]] = mul i64 [[TMP8]], -4
-; CHECK-NOTF-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i32, ptr [[TMP7]], i64 [[TMP9]]
+; CHECK-NOTF-NEXT:    [[TMP10:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP7]], i64 [[TMP9]]
 ; CHECK-NOTF-NEXT:    [[TMP11:%.*]] = mul i64 -4, [[TMP3]]
 ; CHECK-NOTF-NEXT:    [[TMP12:%.*]] = add i64 [[TMP9]], [[TMP11]]
-; CHECK-NOTF-NEXT:    [[TMP13:%.*]] = getelementptr inbounds i32, ptr [[TMP7]], i64 [[TMP12]]
+; CHECK-NOTF-NEXT:    [[TMP13:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP7]], i64 [[TMP12]]
 ; CHECK-NOTF-NEXT:    [[TMP32:%.*]] = mul i64 -8, [[TMP3]]
 ; CHECK-NOTF-NEXT:    [[TMP33:%.*]] = add i64 [[TMP9]], [[TMP32]]
-; CHECK-NOTF-NEXT:    [[TMP36:%.*]] = getelementptr inbounds i32, ptr [[TMP7]], i64 [[TMP33]]
+; CHECK-NOTF-NEXT:    [[TMP36:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP7]], i64 [[TMP33]]
 ; CHECK-NOTF-NEXT:    [[TMP37:%.*]] = mul i64 -12, [[TMP3]]
 ; CHECK-NOTF-NEXT:    [[TMP40:%.*]] = add i64 [[TMP9]], [[TMP37]]
-; CHECK-NOTF-NEXT:    [[TMP41:%.*]] = getelementptr inbounds i32, ptr [[TMP7]], i64 [[TMP40]]
+; CHECK-NOTF-NEXT:    [[TMP41:%.*]] = getelementptr inbounds [4 x i8], ptr [[TMP7]], i64 [[TMP40]]
 ; CHECK-NOTF-NEXT:    [[WIDE_VEC:%.*]] = load <vscale x 16 x i32>, ptr [[TMP10]], align 4
 ; CHECK-NOTF-NEXT:    [[STRIDED_VEC:%.*]] = call { <vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i32> } @llvm.vector.deinterleave4.nxv16i32(<vscale x 16 x i32> [[WIDE_VEC]])
 ; CHECK-NOTF-NEXT:    [[TMP14:%.*]] = extractvalue { <vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i32> } [[STRIDED_VEC]], 0
@@ -1083,7 +1083,7 @@ define i32 @load_factor_4_with_gap_reverse(i64 %n, ptr noalias %a) {
 ; CHECK-NOTF-NEXT:    [[VEC_PHI27:%.*]] = phi <4 x i32> [ [[TMP48]], %[[SCALAR_PH]] ], [ [[TMP53:%.*]], %[[LOOP]] ]
 ; CHECK-NOTF-NEXT:    [[IV:%.*]] = sub i64 [[N]], [[INDEX26]]
 ; CHECK-NOTF-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds nuw [16 x i8], ptr [[A]], i64 [[IV]]
-; CHECK-NOTF-NEXT:    [[TMP50:%.*]] = getelementptr inbounds i32, ptr [[ARRAYIDX]], i64 -12
+; CHECK-NOTF-NEXT:    [[TMP50:%.*]] = getelementptr inbounds i8, ptr [[ARRAYIDX]], i64 -48
 ; CHECK-NOTF-NEXT:    [[WIDE_VEC28:%.*]] = load <16 x i32>, ptr [[TMP50]], align 4
 ; CHECK-NOTF-NEXT:    [[STRIDED_VEC29:%.*]] = shufflevector <16 x i32> [[WIDE_VEC28]], <16 x i32> poison, <4 x i32> <i32 0, i32 4, i32 8, i32 12>
 ; CHECK-NOTF-NEXT:    [[REVERSE30:%.*]] = shufflevector <4 x i32> [[STRIDED_VEC29]], <4 x i32> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
@@ -1102,12 +1102,12 @@ define i32 @load_factor_4_with_gap_reverse(i64 %n, ptr noalias %a) {
 ; CHECK-NOTF-NEXT:    [[CMP_N36:%.*]] = icmp eq i64 [[TMP0]], [[N_VEC25]]
 ; CHECK-NOTF-NEXT:    br i1 [[CMP_N36]], label %[[EXIT_LOOPEXIT]], label %[[VEC_EPILOG_SCALAR_PH]]
 ; CHECK-NOTF:       [[VEC_EPILOG_SCALAR_PH]]:
-; CHECK-NOTF-NEXT:    [[BC_RESUME_VAL36:%.*]] = phi i64 [ [[TMP46]], %[[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[TMP5]], %[[VEC_EPILOG_ITER_CHECK]] ], [ [[N]], %[[LOOP_PREHEADER]] ]
-; CHECK-NOTF-NEXT:    [[BC_MERGE_RDX37:%.*]] = phi i32 [ [[TMP55]], %[[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[TMP45]], %[[VEC_EPILOG_ITER_CHECK]] ], [ 0, %[[LOOP_PREHEADER]] ]
+; CHECK-NOTF-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[TMP46]], %[[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[TMP5]], %[[VEC_EPILOG_ITER_CHECK]] ], [ [[N]], %[[LOOP_PREHEADER]] ]
+; CHECK-NOTF-NEXT:    [[BC_MERGE_RDX36:%.*]] = phi i32 [ [[TMP55]], %[[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[TMP45]], %[[VEC_EPILOG_ITER_CHECK]] ], [ 0, %[[LOOP_PREHEADER]] ]
 ; CHECK-NOTF-NEXT:    br label %[[LOOP1:.*]]
 ; CHECK-NOTF:       [[LOOP1]]:
-; CHECK-NOTF-NEXT:    [[IV1:%.*]] = phi i64 [ [[IV_NEXT:%.*]], %[[LOOP1]] ], [ [[BC_RESUME_VAL36]], %[[VEC_EPILOG_SCALAR_PH]] ]
-; CHECK-NOTF-NEXT:    [[RDX:%.*]] = phi i32 [ [[RDX_NEXT:%.*]], %[[LOOP1]] ], [ [[BC_MERGE_RDX37]], %[[VEC_EPILOG_SCALAR_PH]] ]
+; CHECK-NOTF-NEXT:    [[IV1:%.*]] = phi i64 [ [[IV_NEXT:%.*]], %[[LOOP1]] ], [ [[BC_RESUME_VAL]], %[[VEC_EPILOG_SCALAR_PH]] ]
+; CHECK-NOTF-NEXT:    [[RDX:%.*]] = phi i32 [ [[RDX_NEXT:%.*]], %[[LOOP1]] ], [ [[BC_MERGE_RDX36]], %[[VEC_EPILOG_SCALAR_PH]] ]
 ; CHECK-NOTF-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds nuw [16 x i8], ptr [[A]], i64 [[IV1]]
 ; CHECK-NOTF-NEXT:    [[LD1:%.*]] = load i32, ptr [[ARRAYIDX1]], align 4
 ; CHECK-NOTF-NEXT:    [[ADD:%.*]] = add nsw i32 [[LD1]], [[RDX]]
