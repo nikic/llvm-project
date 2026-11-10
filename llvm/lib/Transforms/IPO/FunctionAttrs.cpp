@@ -97,7 +97,7 @@ STATISTIC(NumThinLinkNoUnwind,
           "Number of functions marked as nounwind during thinlink");
 
 static cl::opt<bool> DisableThinLTOPropagation(
-    "disable-thinlto-funcattrs", cl::init(true), cl::Hidden,
+    "disable-thinlto-funcattrs", cl::init(false), cl::Hidden,
     cl::desc("Don't propagate function-attrs in thinLTO"));
 
 static void addCapturesStat(CaptureInfo CI) {
