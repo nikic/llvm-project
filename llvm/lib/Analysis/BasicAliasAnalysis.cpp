@@ -531,7 +531,7 @@ static LinearExpression GetLinearExpression(
         unsigned ShAmt = RHS.getLimitedValue();
         E = GetLinearExpression(Val.withValue(BOp->getOperand(0), NSW), DL,
                                 Depth + 1, AC, DT)
-                .mul(APInt(BitWidth, 1).shl(ShAmt), NUW,
+                .mul(APInt::getOneBitSet(BitWidth, ShAmt), NUW,
                      NSW && ShAmt < BitWidth - 1);
         break;
       }
