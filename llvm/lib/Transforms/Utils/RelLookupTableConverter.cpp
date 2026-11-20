@@ -123,7 +123,9 @@ static bool shouldConvertToRelLookupTable(LookupTableInfo &Info, Module &M,
     // Non-implicit dso_local is excluded because we currently do not convey to
     // the linker that the symbol is non-preemptible, which may result in a
     // relocation error.
-    if (GlobalVarOp->isWeakForLinker() || !GlobalVarOp->isImplicitDSOLocal())
+    if ((GlobalVarOp->isWeakForLinker() &&
+         !GlobalValue::isLinkOnceODRLinkage(GlobalVarOp->getLinkage())) ||
+        !GlobalVarOp->isImplicitDSOLocal())
       return false;
 
     // On AArch64 small code model, the text-to-data span can be up to 4GB,
