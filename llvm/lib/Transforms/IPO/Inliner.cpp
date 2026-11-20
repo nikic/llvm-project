@@ -380,7 +380,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       bool CalleeWasDeleted = false;
       if (Callee.isDiscardableIfUnused() && Callee.hasZeroLiveUses() &&
           !CG.isLibFunction(Callee)) {
-        if (Callee.hasLocalLinkage() || !Callee.hasComdat()) {
+        if (Callee.hasLocalLinkage() || !Callee.hasComdat() ||
+            Callee.getComdat()->getUsers().size() == 1) {
           Calls.erase(std::remove_if(Calls.begin() + I + 1, Calls.end(),
                                      [&](const CallBase *CB) {
                                        return CB->getCaller() == &Callee;
