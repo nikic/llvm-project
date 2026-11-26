@@ -1804,6 +1804,8 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
     return MPM;
   }
 
+  MPM.addPass(RelLookupTableConverterPass());
+
   // Run partial inlining pass to partially inline functions that have
   // large bodies.
   // FIXME: It isn't clear whether this is really the right place to run this
